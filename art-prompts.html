@@ -1,0 +1,570 @@
+<title>布衣三国美术提示词</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;600;900&display=swap">
+<style>
+/* Layout: one reading column of numbered steps, then a checklist of prompt slips grouped by asset folder. Matches the game's ink-and-paper look. */
+:root {
+  --bg: #1d1a14;        /* 墨色底 */
+  --panel: #27231a;
+  --slip: #ebe0c5;      /* 纸条 */
+  --slip-ink: #2a2116;
+  --text: #efe6d0;
+  --muted: #a69779;
+  --line: rgba(235, 224, 197, .16);
+  --seal: #b5372a;      /* 朱砂 */
+  --gold: #cfa34a;
+  --done: #5f8f6a;
+  --display: 'Ma Shan Zheng', 'STXingkai', 'KaiTi', serif;
+  --body: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+  --mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #efe7d4; --panel: #e5dbc2; --slip: #fbf6ea; --slip-ink: #2a2116; --text: #2a2116; --muted: #6f6247;
+    --line: rgba(42, 33, 22, .16); --seal: #a8322a; --gold: #8f6a1f; --done: #3f7a4f; color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #efe7d4; --panel: #e5dbc2; --slip: #fbf6ea; --slip-ink: #2a2116; --text: #2a2116; --muted: #6f6247;
+  --line: rgba(42, 33, 22, .16); --seal: #a8322a; --gold: #8f6a1f; --done: #3f7a4f; color-scheme: light;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--body); font-size: 15px; line-height: 1.75; }
+.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 80px; display: flex; flex-direction: column; gap: 36px; }
+header { display: flex; flex-direction: column; gap: 10px; }
+h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(40px, 8vw, 64px); line-height: 1.05; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--seal); }
+.lede { margin: 0; color: var(--muted); max-width: 40em; }
+.progress { display: flex; align-items: center; gap: 12px; font-size: 14px; color: var(--muted); }
+.bar { flex: 1; max-width: 320px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--done); transition: width .2s; }
+#count { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }
+h2 { margin: 0 0 4px; font-size: 22px; font-weight: 900; text-wrap: balance; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+h2 .folder { font-family: var(--mono); font-size: 13px; font-weight: 400; color: var(--gold); }
+.section-note { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+ol.steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 8px; }
+ol.steps li::marker { color: var(--seal); font-weight: 900; }
+code { font-family: var(--mono); font-size: .9em; background: var(--panel); padding: 1px 6px; border-radius: 3px; }
+.tips { margin: 0; padding: 14px 16px; background: var(--panel); border-left: 3px solid var(--gold); font-size: 14px; display: flex; flex-direction: column; gap: 6px; }
+.tips b { color: var(--gold); }
+.anchor { background: var(--panel); border: 1px solid var(--line); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.anchor h3 { margin: 0; font-size: 15px; }
+.anchor p { margin: 0; font-size: 14px; color: var(--muted); }
+.list { display: flex; flex-direction: column; gap: 10px; }
+.slip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 14px; align-items: start; background: var(--slip); color: var(--slip-ink); padding: 12px 14px; border-radius: 2px; box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+.slip.done { opacity: .55; }
+.slip input { width: 18px; height: 18px; margin-top: 4px; accent-color: var(--done); cursor: pointer; }
+.slip .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.slip .nm { font-weight: 900; font-size: 17px; }
+.slip .file { font-family: var(--mono); font-size: 13px; color: #8a3a2a; }
+.slip .subj { grid-column: 2; font-size: 14px; line-height: 1.7; }
+.copy { font-family: var(--body); font-size: 13px; font-weight: 600; padding: 6px 12px; border: 1px solid var(--seal); background: transparent; color: var(--seal); border-radius: 2px; cursor: pointer; white-space: nowrap; }
+.copy:hover { background: var(--seal); color: #fbf6ea; }
+.copy.ok { background: var(--done); border-color: var(--done); color: #fbf6ea; }
+.anchor .copy { align-self: flex-start; border-color: var(--gold); color: var(--gold); }
+.anchor .copy.primary { background: var(--gold); color: #fbf6ea; }
+.anchor .copy:hover { background: var(--gold); color: var(--bg); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+@media (max-width: 560px) {
+  .slip { grid-template-columns: auto minmax(0, 1fr); }
+  .slip .copy { grid-column: 2; justify-self: start; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>布衣三国 · <em>美术提示词</em></h1>
+    <p class="lede">一共 124 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），以及第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵）。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
+    <div class="progress"><span>已完成 <span id="count">0 / 45</span></span><div class="bar"><i id="bar"></i></div></div>
+  </header>
+
+  <section>
+    <h2>怎么画</h2>
+    <ol class="steps">
+      <li>在 ChatGPT 里<b>新开一个对话</b>，这套图都在这个对话里画，风格才会统一。</li>
+      <li>先画<b>关羽</b>定画风：复制他的提示词发过去。不满意就直接说哪里要改，比如“眼睛再大一点”“更帅气一些”“阴影再柔和一些”“人物再威严一些”。</li>
+      <li>满意后对它说：<b>“后面所有立绘都保持这张的画风、线条和上色方式。”</b>然后依次画其他武将和出身。</li>
+      <li>画图标前，先画第一个图标并调到满意，再说：<b>“后面所有图标都保持这个画风和底板样式。”</b></li>
+      <li>每张图下载后按右侧的<b>文件名</b>保存，放进 G 盘对应的子文件夹：立绘放 <code>G:\布衣三国\assets\portraits</code>，出身放 <code>G:\布衣三国\assets\origins</code>，图标放 <code>G:\布衣三国\assets\icons</code>，战场小人放 <code>G:\布衣三国\assets\sprites</code>。双击 <code>G:\布衣三国\index.html</code> 玩，就会用上这些图。</li>
+      <li>刷新游戏就能看到新图。勾选左边的方框记录进度，进度只保存在这个浏览器里。</li>
+    </ol>
+  </section>
+
+  <div class="tips">
+    <div><b>背景不透明？</b>对它说“请把背景改成透明 PNG”。如果还是不行，先放进来也能用，之后再处理。</div>
+    <div><b>图太大？</b>不用管，全部放进来后让 Claude 帮你批量缩小，游戏里看不出区别。</div>
+    <div><b>图里出现了字？</b>让它“去掉画面里所有文字”。名字游戏里会自己写上。</div>
+    <div><b>美型还是粗犷？</b>二次元风格下，张飞、典韦这类大胡子猛将可以保留络腮胡显得豪迈，也可以说“画得更年轻俊朗一些”。选定一种后，所有角色保持一致。</div>
+    <div><b>画风跑偏？</b>二次元画风很容易越画越不一样。每画几张就把关羽那张重新发给它，说“按这张的画风画”。</div>
+    <div><b>像别家游戏？</b>不要在提示词里加“像三国杀”“像原神”“像某某画师”这类描述。准备商用的话，先看一下所用工具对生成图片的使用条款。</div>
+  </div>
+
+  <section>
+    <h2>画风设定</h2>
+    <p class="section-note">已经包含在下面每条提示词里，不用单独发送。想整体换画风，只要改这两段，再让 Claude 更新这个页面。</p>
+    <div class="list" id="anchors"></div>
+  </section>
+
+  <section>
+    <h2>图标合并复制<span class="folder">G:\布衣三国\assets\icons</span></h2>
+    <p class="section-note">35 个图标（武器 13、技能 8、物品 14）一次复制。两种方式选一种。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>方式一：逐张画</h3>
+        <p>复制一次发给 GPT，它按顺序一个一个画。每画完一张，你下载保存，然后回复“继续”。画得慢一些，但每个图标细节最好。</p>
+        <button class="copy" id="copy-seq">复制全部 35 个（逐张画）</button>
+      </div>
+      <div class="anchor">
+        <h3>方式二：拼成图集</h3>
+        <p>每类图标画在同一张网格大图里，一共 3 张，风格最统一。画好后把图集放进 <code>G:\布衣三国\assets</code>，让 Claude 帮你切成单个图标并按文件名保存。</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="copy" data-sheet="2">复制武器图集（13 个）</button>
+          <button class="copy" data-sheet="3">复制技能图集（8 个）</button>
+          <button class="copy" data-sheet="4">复制物品图集（14 个）</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>战场小人<span class="folder">G:\布衣三国\assets\sprites</span></h2>
+    <p class="section-note">打仗时在地图上跑来跑去的 Q 版角色，一共 14 个：你的 3 个出身、7 位武将、4 种小兵。游戏会给它们加上走路颠动、转身和受击闪白，所以每个角色只要一张朝右的站姿全身图。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>画法要点</h3>
+        <p>画武将和出身时，把对应的立绘图片一起发给 GPT，并说“按这张立绘的造型画成 Q 版小人”，服装和兵器会更一致。画好后不用自己裁边，放进 sprites 文件夹后让 Claude 处理成游戏用的尺寸。</p>
+        <button class="copy" id="copy-sprites">复制全部 14 个（逐张画）</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>第二批新增<span class="folder">精英 · 随从 · 据点 · 道具</span></h2>
+    <p class="section-note">精英立绘 4、精英与随从小人 7、据点建筑 6、铁蒺藜 1，共 18 张。可以在下面逐条复制，也可以一次复制全部，让 GPT 按顺序一张张画。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>一次复制全部 18 个</h3>
+        <p>每张都写明了文件名和要放的文件夹。画好后全部放进 <code>G:\布衣三国\assets</code> 对应的子文件夹，或者直接打包发给 Claude，由 Claude 裁边、缩放并放好。</p>
+        <button class="copy" id="copy-batch2">复制第二批 18 个（逐张画）</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>第三批新增<span class="folder">大招特写 · 吕布骑赤兔</span></h2>
+    <p class="section-note">武将放大招时弹出的 7 张横幅特写，加上吕布骑赤兔的小人，共 8 张。画特写时，把对应武将的立绘一起发给 GPT，说“按这张立绘的长相画眼部特写”，长相会更一致。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>一次复制全部 8 个</h3>
+        <p>特写是 3:1 的宽图，要有深色背景（不要透明）。画好后放进 <code>G:\布衣三国\assets\cutins</code>，或者直接打包发给 Claude。</p>
+        <button class="copy" id="copy-batch3">复制第三批 8 个（逐张画）</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>第四批新增<span class="folder">黄巾之乱 · 官渡 · 赤壁</span></h2>
+    <p class="section-note">游戏改成按历史顺序开局（黄巾之乱 → 讨董 → 群雄逐鹿 → 赤壁），新增 6 位武将：程远志、张宝、张角、颜良、文丑、周瑜。这一批有 6 张立绘、6 个武将小人、3 种黄巾兵小人、6 张大招特写、18 个新图标，共 39 张。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>一次复制全部 39 个</h3>
+        <p>建议先画 6 张立绘，再把立绘一起发给 GPT 画小人和特写，长相会更一致。画好后直接打包发给 Claude，由 Claude 裁边、缩放并放进 <code>G:\布衣三国\assets</code> 对应的文件夹。</p>
+        <button class="copy" id="copy-batch4">复制第四批 39 个（逐张画）</button>
+      </div>
+      <div class="anchor">
+        <h3>省图模式：只画 5 张</h3>
+        <p>把同类的图拼在一张大图里，GPT 一次画好几个，画好后由 Claude 切开。立绘 2 张（每张 3 人）、小人 1 张（9 个）、图标 2 张（每张 9 个）。大招特写可以先不画，游戏会自动用立绘放大到眼部代替。每张大图建议开一个新对话画，不用带上之前的聊天记录，更省额度。</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="copy primary" id="copy-lite-all">一次复制全部 5 张</button>
+          <button class="copy" data-lite="0">① 立绘：黄巾三人</button>
+          <button class="copy" data-lite="1">② 立绘：颜良 文丑 周瑜</button>
+          <button class="copy" data-lite="2">③ 小人图集（9 个）</button>
+          <button class="copy" data-lite="3">④ 图标图集：兵器 + 宝物</button>
+          <button class="copy" data-lite="4">⑤ 图标图集：技能 + 宝物</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="groups"></div>
+</div>
+
+<script>
+const PORTRAIT_STYLE = '游戏角色立绘。画风：二次元动画风格，手游角色立绘的质感；线条干净利落，赛璐璐上色配柔和的渐变阴影，眼睛有神、带高光，五官精致，身材比例略修长。服饰和兵器保留三国时代的汉服、铠甲样式，细节丰富，以暗金和朱红作点缀色。构图：半身像（头顶到腰部），人物居中，正面略侧，姿势有动感，头顶留少量空白。背景完全透明（PNG）。不要边框，不要任何文字、题字、印章或签名。竖版，比例 2:3。';
+const ORIGIN_EXTRA = '人物是乱世中的普通百姓，衣着朴素，色彩比武将更素淡，但画风与武将立绘完全一致。';
+const ICON_STYLE = '游戏道具图标。画风：二次元手游风格，与角色立绘同一画风；线条干净，赛璐璐上色加明亮高光，色彩鲜明但不刺眼。构图：主体居中，斜向约 45 度摆放，约占画面 75%。底板：深色圆角方形，边缘一圈细的暗金描边，所有图标的底板完全一致。光源统一来自左上方。正方形，比例 1:1。不要任何文字、印章或签名。';
+const SKILL_EXTRA = '这是技能图标，用画面表现招式的效果和气势，可以比道具图标更抽象。';
+const CUTIN_STYLE = '游戏大招演出用的特写横幅，像二次元手游里角色放大招时弹出的那种画面。画风：与角色立绘同一套二次元画风，但更有冲击力：强烈的明暗对比，角色专属色的边缘光，带速度感的线条和光效。构图：横向超宽画面，比例 3:1（例如 1536×512）；画面是角色的面部特写，只截取眼睛到鼻梁一带，额头上部和下巴可以被画面裁掉；双眼位于画面正中，眼神凌厉、有压迫感，直视镜头。背景是深色的抽象能量与速度线，要有完整背景，不要透明。不要任何文字。';
+const BUILDING_STYLE ='游戏地图建筑。画风：与角色立绘同一套二次元画风的 Q 版建筑，线条干净，赛璐璐上色，色彩鲜明，缩小到 120 像素宽也能一眼认出是什么。视角：斜俯视（约 45 度的等距视角），建筑正面朝向画面下方。构图：建筑完整不要裁切，居中，底部贴近画面下缘，四周留少量空白。背景完全透明（PNG），不要地面、不要投影、不要人物、不要任何文字和牌匾上的字。正方形，比例 1:1。';
+const PROP_STYLE = '游戏地面道具贴图。画风：与角色立绘同一套二次元画风，线条干净，赛璐璐上色，金属有明显高光。视角：从正上方往下看。构图：单个物体居中，占画面约 80%。背景完全透明（PNG），不要投影、不要地面、不要任何文字。正方形，比例 1:1。';
+const SPRITE_STYLE ='游戏战场角色小人（俯视角动作游戏里在地图上跑动的角色）。画风：与角色立绘同一套二次元画风的 Q 版二头身，头大身小，线条干净，赛璐璐上色，轮廓清晰、配色鲜明，缩小到 40 像素高也能一眼认出是谁。姿势：全身站姿，身体朝向画面右侧（四分之三侧面），双脚着地，手持标志性兵器。构图：完整全身不要裁切，角色居中，四周留少量空白。背景完全透明（PNG），不要投影、不要地面、不要特效、不要任何文字。正方形，比例 1:1。';
+
+const GROUPS = [
+  {
+    title: '武将立绘', folder: 'assets/portraits/', style: PORTRAIT_STYLE,
+    note: '建议从关羽开始画，用他来定画风。',
+    items: [
+      ['guanyu', '关羽', '关羽。红脸，丹凤眼，卧蚕眉，乌黑顺滑的长髯垂到胸前；头戴绿色头巾，身穿绿色战袍，内衬金色甲片；身后斜立青龙偃月刀，刀身有青龙纹，挂绿色流苏；神情威严沉静。'],
+      ['huaxiong', '华雄', '华雄，董卓麾下的西凉悍将，三十多岁。方阔脸，短硬胡须，脸颊有一道旧伤疤，眼神凶狠；戴铜色铁盔，盔顶黑色缨子；褐色鳞甲配皮护肩，胸前圆形护心镜；肩后斜扛一柄厚背大刀。'],
+      ['lubu', '吕布', '吕布，英俊冷傲的青年猛将。丹凤眼，面白无须；头戴三叉束发紫金冠，冠上两根长长的雉鸡翎向后上方扬起；身穿红色兽面吞头连环铠，披红色战袍；身后斜立方天画戟，戟头两侧有对称的月牙刃；神情睥睨天下。'],
+      ['zhangfei', '张飞', '张飞。豹头环眼，燕颔虎须，脸色黝黑，满脸钢针般的胡须，怒目圆睁、张口大喝；黑色铁盔带红缨，黑色铠甲；身后斜立丈八蛇矛，矛刃弯曲如蛇。'],
+      ['zhaoyun', '赵云', '赵云，年轻英武的白袍将军。面容俊朗，眉目清秀而坚毅；银白色头盔带红缨，白银鳞甲，白色披风；身后斜立龙胆亮银枪，枪头下系红缨。'],
+      ['dianwei', '典韦', '典韦，魁梧凶猛的壮汉。皮肤黝黑，浓眉圆眼，短须杂乱，头发蓬乱，额头缠红色布巾；上臂肌肉虬结，穿粗布短褐和皮护腕；背后交叉背着两柄短铁戟。'],
+      ['zhugeliang', '诸葛亮', '诸葛亮，儒雅睿智的中年谋士。面容清瘦，细长的眼睛含着笑意，八字胡和一缕山羊须；头戴黑色纶巾，身穿白色鹤氅，领口深色镶边；手持白色羽扇放在胸前；气质从容。'],
+    ],
+  },
+  {
+    title: '出身立绘', folder: 'assets/origins/', style: PORTRAIT_STYLE + ORIGIN_EXTRA,
+    note: '开局选择出身时展示，也会裁成头像显示在战场上的玩家身上。',
+    items: [
+      ['farmer', '农夫', '农夫，三十来岁的庄稼汉。皮肤晒得黝黑，神情憨厚坚毅，下巴有短胡茬；头戴宽檐竹编斗笠，系带垂到下巴；穿打着补丁的灰褐色粗麻短衣，脖子上搭一条旧白布汗巾；肩上扛着一把木柄铁锄头。不要盔甲。'],
+      ['hunter', '猎户', '猎户，二十多岁的山中猎人。身形精干，眼神锐利；头发束成发髻，额前系深绿色布带，发髻上插一根鹰羽；穿带兽皮领子的皮背心和深色短衣；背后斜挎长弓，肩上背着装满箭的箭囊。不要盔甲。'],
+      ['scholar', '书生', '书生，二十岁左右的清秀年轻人。面容白净，神情沉静又带一丝倔强；头戴黑色软方巾，两条巾带垂在脑后；身穿素白长衫，深蓝色衣缘和腰带；怀里抱着一捆用绳子扎好的竹简。不要盔甲。'],
+    ],
+  },
+  {
+    title: '武器图标', folder: 'assets/icons/', style: ICON_STYLE,
+    note: '前 6 个是升级时能选的普通武器，后 7 个是击败武将获得的兵器，可以画得更华丽、带一点光芒。',
+    items: [
+      ['hoe', '锄头', '一把农家铁锄头，长木柄有磨损痕迹，铁锄刃略带锈迹和泥土。'],
+      ['bow', '猎弓', '一张朴素的木质猎弓，弓身缠着麻绳，旁边斜放一支羽箭。'],
+      ['scroll', '竹简', '一卷半展开的竹简，竹片泛黄，上面有模糊不可辨认的墨迹，周围飘着淡青色的气。'],
+      ['stones', '飞蝗石', '一小堆圆润的鹅卵石，其中一颗正在飞出，带着残影。'],
+      ['torch', '火把', '一支燃烧的火把，木柄缠着布条，橙红色的火焰。'],
+      ['caltrops', '铁蒺藜', '几枚四角带尖刺的铁蒺藜散落在一起。'],
+      ['dadao', '华雄大刀', '一柄厚背宽刃大刀，刀身有缺口和血槽，刀柄缠黑布，铜质护手。'],
+      ['halberd', '方天画戟', '方天画戟的戟头：中间是长枪尖，两侧是对称的月牙刃，戟杆系红缨，带金色装饰，散发淡淡红光。'],
+      ['qinglong', '青龙偃月刀', '青龙偃月刀：宽大的弯月形刀身，刀背有龙头吞口，刀身刻青龙纹，挂绿色流苏，散发淡青色光芒。'],
+      ['shemao', '丈八蛇矛', '丈八蛇矛的矛头：矛刃弯曲如游蛇，黑色矛杆，矛头下系黑色缨子。'],
+      ['longdan', '龙胆亮银枪', '龙胆亮银枪的枪头：银白发亮，枪头下系红缨，枪杆刻龙纹。'],
+      ['shuangji', '双铁戟', '两柄交叉放置的短铁戟，黑铁质感，刃口发亮。'],
+      ['yushan', '羽扇', '一把白色鹤羽扇，乌木扇柄，羽毛边缘带着淡淡的火光。'],
+    ],
+  },
+  {
+    title: '技能图标', folder: 'assets/icons/', style: ICON_STYLE + SKILL_EXTRA,
+    note: '技能全部来自武将，图标表现招式效果。',
+    items: [
+      ['xiaoyong', '骁勇', '一圈向外炸开的金色冲击气浪，中心是一柄插在地上的大刀。'],
+      ['wushuang', '无双', '血红色的环形戟气向四周扩散，中间是方天画戟的剪影，周围暗红色气焰翻腾。'],
+      ['chitu', '赤兔', '赤兔马昂首嘶鸣的头部特写，火红色的鬃毛像火焰一样飘动。'],
+      ['wusheng', '武圣', '数道青绿色的月牙形刀气向四面八方飞斩，中心是青龙偃月刀的剪影。'],
+      ['paoxiao', '咆哮', '一座木桥的桥面，上方一圈圈白色声浪向外震荡，桥板被震得裂开、木屑飞溅。'],
+      ['qijin', '七进七出', '一道银白色的枪影带着马蹄残影，穿过层层倒下的敌军旗帜，速度线强烈。'],
+      ['elai', '古之恶来', '一面布满刀痕的厚重铁盾，被击中的地方迸发出反震的火星。'],
+      ['bazhen', '八阵图', '俯视的石阵：八块巨石围成八边形，中间是太极图案，淡金色的线条连接发光。'],
+    ],
+  },
+  {
+    title: '物品图标', folder: 'assets/icons/', style: ICON_STYLE,
+    note: '前 8 个是升级时能选的普通物品，后 6 个是武将的专属宝物，可以画得更精致。',
+    items: [
+      ['sandals', '草鞋', '一双草编草鞋。'],
+      ['leather', '皮甲', '一件皮制护胸甲，边缘有铆钉。'],
+      ['manual', '兵书', '一本线装古书，封面空白无字，书角卷起。'],
+      ['wine', '烈酒', '一只陶制酒坛和一只粗瓷酒碗，碗里酒液荡漾。'],
+      ['banner', '军旗', '一面插在地上的红色军旗，旗面空白无字，随风飘扬。'],
+      ['rations', '干粮', '几块干饼和一个系好的布包。'],
+      ['purse', '钱袋', '一个鼓鼓的布钱袋，袋口露出几枚方孔铜钱。'],
+      ['vigor', '强身', '一对古代练力气用的石锁。'],
+      ['xiliang', '西凉铠', '一套西凉风格的厚重褐色鳞甲，肩上带兽毛披肩。'],
+      ['chunqiu', '《春秋》', '一卷古旧的竹简，旁边一盏油灯，暖黄色的灯光。竹简上不要出现可辨认的文字。'],
+      ['jiutan', '张飞酒坛', '一个巨大的黑陶酒坛，封口盖着红布，坛身有裂纹。'],
+      ['qinggang', '青釭剑', '一柄寒光闪闪的长剑，剑身泛青色，剑格古朴。'],
+      ['tiejia', '恶来铁甲', '一副黑铁重甲，甲片厚重，布满刀痕。'],
+      ['dongfeng', '借东风', '一面被大风吹得猎猎作响的令旗，周围画出明显的风的线条，旗面空白无字。'],
+    ],
+  },
+  {
+    title: '战场小人', folder: 'assets/sprites/', style: SPRITE_STYLE,
+    note: '画武将和出身时，把对应的立绘一起发给 GPT 当参考。小兵会成群出现，造型简单、好辨认就行。',
+    items: [
+      ['farmer', '农夫', '农夫：宽檐竹编斗笠，打补丁的灰褐色粗麻短衣，脖子上搭一条白布汗巾，肩扛木柄铁锄头。'],
+      ['hunter', '猎户', '猎户：额前系深绿色布带，发髻上插一根鹰羽，穿兽皮领子的皮背心，背着箭囊，手持长弓。'],
+      ['scholar', '书生', '书生：黑色软方巾，素白长衫配深蓝色衣缘和腰带，怀里抱着一捆竹简。'],
+      ['guanyu', '关羽', '关羽：红脸，乌黑长髯垂到胸前，绿色头巾和绿色战袍，金色甲片，手持青龙偃月刀。'],
+      ['huaxiong', '华雄', '华雄：铜色铁盔，短硬胡须，脸上有疤，褐色鳞甲，手持厚背大刀。'],
+      ['lubu', '吕布', '吕布：紫金冠上插两根长长的雉鸡翎，红色铠甲和战袍，手持方天画戟。'],
+      ['zhangfei', '张飞', '张飞：黝黑的脸，满脸钢针般的胡须，怒目圆睁，黑盔红缨配黑甲，手持丈八蛇矛。'],
+      ['zhaoyun', '赵云', '赵云：银白头盔带红缨，白银铠甲配白色披风，手持龙胆亮银枪。'],
+      ['dianwei', '典韦', '典韦：魁梧壮汉，额头缠红布巾，头发蓬乱，粗布短褐露出结实的手臂，双手各持一柄短铁戟。'],
+      ['zhugeliang', '诸葛亮', '诸葛亮：黑色纶巾，白色鹤氅，手持白色羽扇。'],
+      ['foot', '步卒', '步卒：董卓军的普通步兵，红色头巾，褐色短甲，手持长枪。表情普通，是成群出现的小兵。'],
+      ['shield', '盾兵', '盾兵：灰铁头盔和铁甲，手持一面大圆木盾和一支短枪，体型敦实。'],
+      ['archer', '弓手', '弓手：绿色布帽，绿色短衣，背着箭囊，手持长弓。'],
+      ['cavalry', '铁骑', '铁骑：西凉骑兵骑在一匹褐色战马上，红色战袍配铁甲，手持长枪。人和马都朝向画面右侧，马要画完整。'],
+    ],
+  },
+  {
+    title: '精英立绘', folder: 'assets/elites/', style: PORTRAIT_STYLE + '这是精英敌将，身份介于小兵和名将之间，服饰比小兵精良但不如名将华丽。',
+    note: '精英出现时顶部会弹出它的头像，图鉴里也会用到。画法和武将立绘一样。',
+    items: [
+      ['captain', '西凉校尉', '西凉校尉，董卓军的骑兵头领，三十岁上下，脸型硬朗，短须，神情倨傲；褐色铁盔插红缨，暗红色鳞甲配皮护肩，身后斜立长枪。'],
+      ['brute', '虎贲力士', '虎贲力士，身材极其魁梧的壮汉，头发蓬乱、额头缠红布带，脸上有伤疤，浓眉怒目；赤着粗壮的手臂，穿粗布短褐和皮护腕，肩扛一柄巨大的铁锤。'],
+      ['crossbow', '强弩手', '强弩手，精干冷静的射手，眼神锐利；灰绿色铁盔，橄榄绿短甲，背着箭囊，双手端着一架上好弦的强弩。'],
+      ['sorcerer', '黄巾术士', '黄巾术士，神秘的道人，细长眼睛，一缕山羊须；头裹黄色头巾，穿土黄色道袍，衣上有符纹，手持挂着铃铛的九节杖，周围飘着淡黄色符纸。'],
+    ],
+  },
+  {
+    title: '精英与随从小人', folder: 'assets/sprites/', style: SPRITE_STYLE,
+    note: '精英画得比普通小兵更有气势；随从是你这一方的兵，统一用蓝色系服装，好和敌人区分。',
+    items: [
+      ['captain', '西凉校尉', '西凉校尉：骑在一匹深褐色战马上，褐色铁盔插红缨，暗红色鳞甲，手持长枪。人和马都朝向画面右侧，马要画完整。'],
+      ['brute', '虎贲力士', '虎贲力士：特别魁梧的壮汉，额头缠红布带，赤着粗壮手臂，双手抡着一柄巨大的铁锤。'],
+      ['crossbow', '强弩手', '强弩手：灰绿色铁盔，橄榄绿短甲，端着一架强弩瞄准前方。'],
+      ['sorcerer', '黄巾术士', '黄巾术士：黄色头巾，土黄色道袍，手持挂铃铛的九节杖，身边飘着一两张符纸。'],
+      ['ally_spear', '随从枪兵', '随从枪兵：我方的普通士兵，蓝色布帽，蓝色短衣，手持长枪，表情坚定。'],
+      ['ally_archer', '随从弓手', '随从弓手：我方弓手，青绿色布帽，青绿色短衣，背着箭囊，手持长弓。'],
+      ['ally_cavalry', '随从骑兵', '随从骑兵：我方骑兵，骑在一匹白马上，银灰头盔插蓝缨，蓝色战袍配铁甲，手持长枪。人和马都朝向画面右侧，马要画完整。'],
+    ],
+  },
+  {
+    title: '据点建筑', folder: 'assets/buildings/', style: BUILDING_STYLE,
+    note: '地图上可以攻打的敌方据点。画成斜俯视的 Q 版小建筑，底部贴近画面下缘，正面朝向画面下方。',
+    items: [
+      ['camp', '敌军营寨', '敌军营寨：一圈削尖的木栅栏围着两三顶军帐，其中一顶是红色主帐，插着一面黑色军旗。'],
+      ['tower', '箭楼', '箭楼：木结构的高瞭望塔，四根粗木柱支撑，顶上有带箭窗的木屋和瓦顶，插一面红旗。'],
+      ['granary', '粮仓', '粮仓：圆形的土墙粮仓，盖着金黄色的茅草尖顶，门口堆着几袋粮食。'],
+      ['stable', '马厩', '马厩：长条形的木屋，一排马栏，门口有草料堆和水槽，屋檐下拴着一匹马。'],
+      ['forge', '铁匠铺', '铁匠铺：石木结构的小屋，有冒烟的烟囱，门口是通红的炉火和一个铁砧，墙上挂着几件兵器。'],
+      ['shrine', '神祠', '神祠：石台基上的红墙小庙，两层青瓦飞檐，门前一座香炉，飘着淡淡的香烟。'],
+    ],
+  },
+  {
+    title: '道具', folder: 'assets/props/', style: PROP_STYLE,
+    note: '铁蒺藜：游戏会把同一张图随机旋转、撒成一片，所以只要画一个。',
+    items: [
+      ['caltrop', '铁蒺藜', '一个铁蒺藜：四根尖刺向不同方向伸出的铁制暗器，深灰色铁质，刺尖锋利发亮，带一点锈迹。从正上方往下看。'],
+    ],
+  },
+  {
+    title: '大招特写', folder: 'assets/cutins/', style: CUTIN_STYLE,
+    note: '武将放大招时弹出的横幅特写。画面要有压迫感，眼睛在正中。这一组不要透明背景。',
+    items: [
+      ['lubu', '吕布', '吕布：丹凤眼，眼神睥睨狂傲；紫金冠的一角和红色雉鸡翎从画面上方掠过；背景是翻涌的血红色火焰与能量，边缘光为红色。'],
+      ['guanyu', '关羽', '关羽：红脸，丹凤眼微眯，卧蚕眉，绿色头巾的边缘；眼神威严冷峻；背景是青绿色的能量与龙鳞般的光纹，边缘光为青绿色。'],
+      ['zhangfei', '张飞', '张飞：豹眼圆睁怒视，钢针般的胡须，黑盔红缨的边缘；背景是金黄色的雷光与冲击波，边缘光为金黄色。'],
+      ['zhaoyun', '赵云', '赵云：清秀坚毅的眼神，银白头盔的边缘；背景是冰蓝色的枪芒与流光，边缘光为冰蓝色。'],
+      ['huaxiong', '华雄', '华雄：凶狠的眼神，脸颊伤疤，铜色头盔边缘；背景是橙金色的火光与刀光，边缘光为橙金色。'],
+      ['dianwei', '典韦', '典韦：怒目，额头红布巾与蓬乱的头发，脸上伤疤；背景是橙红色的火星与烟尘，边缘光为橙红色。'],
+      ['zhugeliang', '诸葛亮', '诸葛亮：细长的眼睛似笑非笑、深不可测，纶巾边缘，羽扇的一角挡在脸旁；背景是橙色火光与翻卷的东风云纹，边缘光为橙色。'],
+    ],
+  },
+  {
+    title: '吕布骑赤兔', folder: 'assets/sprites/', style: SPRITE_STYLE,
+    note: '吕布放「赤兔奔袭」时换成这张骑马的小人。',
+    items: [
+      ['lubu_mounted', '吕布骑赤兔', '吕布骑在赤兔马上冲锋：赤兔通体火红，鬃毛与马尾像火焰一样飘动；吕布戴紫金冠、插两根长长的雉鸡翎，红色铠甲和战袍，手持方天画戟向前。人和马都朝向画面右侧，马要画完整，姿态是全速前冲。'],
+    ],
+  },
+
+  // —— 第四批：按历史开局（黄巾之乱）后新增的武将 ——
+  {
+    title: '第四批 · 武将立绘', folder: 'assets/portraits/', style: PORTRAIT_STYLE,
+    note: '黄巾之乱的程远志、张宝、张角，官渡之战的颜良、文丑，赤壁的周瑜。画法和第一批武将立绘完全一样。',
+    items: [
+      ['chengyuanzhi', '程远志', '程远志，黄巾军渠帅，四十岁左右的粗犷莽汉。方脸，络腮短须，浓眉圆眼，脸上有刀疤，神情凶悍；额头紧扎一条醒目的黄色头巾，巾尾在脑后飘动；穿土黄色粗布战袍，外罩缀铁片的旧皮甲；肩上扛着一柄宽刃开山大斧。'],
+      ['zhangbao', '张宝', '张宝，自称“地公将军”的黄巾首领之一，张角之弟，中年道人。面容瘦削，眼神阴鸷诡秘，留一缕山羊须；头戴土黄色道冠，裹黄色头巾；身穿绣有符纹的黄色道袍，腰挂葫芦；一手掐诀，一手持九节法杖，身边飘着几张黄色符纸和淡绿色的妖气。'],
+      ['zhangjiao', '张角', '张角，黄巾起义的领袖，自称“天公将军”“大贤良师”，仙风道骨的老者。白发白须，长须垂胸，眼神深邃而狂热；头戴黄色道巾兜帽；身穿金黄色宽袖道袍，衣缘暗红，袍上有太极与符纹；手持顶端带金环的九节杖，杖头缠绕细小的电光，身后隐约有雷云。'],
+      ['yanliang', '颜良', '颜良，河北名将，袁绍麾下先锋，三十多岁的魁梧猛将。豹眼虎须，满脸络腮胡，神情骄横；头戴深蓝铁盔，盔顶红缨；身穿深蓝色鱼鳞铠，肩甲宽大，披暗蓝战袍；肩后斜立一柄长柄大刀。'],
+      ['wenchou', '文丑', '文丑，河北名将，颜良的结义兄弟，相貌凶恶的悍将。面容狰狞，额角有伤疤，短须，眼神狠厉、带着复仇的怒火；头戴深色铁盔，盔顶白缨；身穿深蓝铁甲配黑色披风；手持长枪，背后背着一架连弩。'],
+      ['zhouyu', '周瑜', '周瑜，东吴大都督，江东美周郎，二十多岁的英俊青年统帅。面如冠玉，丹凤眼，眉目俊朗、意气风发；头戴银白色将盔，盔顶白缨；身穿红色战袍配金色铠甲，白色披风；腰佩长剑，身旁放着一张古琴，背景隐约有江面火光。'],
+    ],
+  },
+  {
+    title: '第四批 · 武将小人', folder: 'assets/sprites/', style: SPRITE_STYLE,
+    note: '画的时候把对应的立绘一起发给 GPT，说“按这张立绘画成 Q 版小人”。',
+    items: [
+      ['chengyuanzhi', '程远志', '程远志：络腮短须的莽汉，额头扎醒目的黄色头巾，土黄色粗布战袍外罩旧皮甲，双手握着一柄宽刃开山大斧。'],
+      ['zhangbao', '张宝', '张宝：瘦削的中年道人，黄色道冠和黄头巾，绣符纹的黄色道袍，手持九节法杖，身边飘着一张黄符。'],
+      ['zhangjiao', '张角', '张角：白发白须的老道人，黄色道巾兜帽，金黄色宽袖道袍，手持顶端带金环的九节杖，杖头有细小电光。'],
+      ['yanliang', '颜良', '颜良：魁梧的络腮胡猛将，深蓝铁盔带红缨，深蓝鱼鳞铠配暗蓝战袍，手持长柄大刀。'],
+      ['wenchou', '文丑', '文丑：凶悍的将领，深色铁盔带白缨，深蓝铁甲配黑色披风，手持长枪。'],
+      ['zhouyu', '周瑜', '周瑜：英俊的青年统帅，银白将盔带白缨，红色战袍配金色铠甲，白色披风，手持长剑。'],
+    ],
+  },
+  {
+    title: '第四批 · 黄巾兵小人', folder: 'assets/sprites/', style: SPRITE_STYLE,
+    note: '第一章「黄巾之乱」的小兵，会成群出现。都是衣衫褴褛的农民军，头上一律裹着醒目的黄色头巾，好和别的兵区分。',
+    items: [
+      ['yt_foot', '黄巾兵', '黄巾兵：衣衫褴褛的农民起义军，额头裹着醒目的黄色头巾，穿打补丁的土褐色粗布衣，光脚或穿草鞋，手持一根削尖的竹枪。表情狂热，是成群出现的小兵。'],
+      ['yt_brute', '黄巾力士', '黄巾力士：体格壮硕的黄巾军壮汉，额头裹黄色头巾，赤着粗壮的上臂，穿破旧的粗布短褐，双手抡着一根粗大的木棒（或石锤）。'],
+      ['yt_archer', '黄巾弓手', '黄巾弓手：瘦小精干的黄巾军射手，额头裹黄色头巾，穿土黄色短衣，背着简陋的箭囊，手持一张粗糙的木弓。'],
+    ],
+  },
+  {
+    title: '第四批 · 大招特写', folder: 'assets/cutins/', style: CUTIN_STYLE,
+    note: '和第三批一样：3:1 的宽图，深色背景，不要透明。画的时候把对应的立绘一起发过去。',
+    items: [
+      ['chengyuanzhi', '程远志', '程远志：凶悍圆睁的眼睛，浓眉，额头的黄色头巾占据画面上缘；背景是金黄色的尘土与冲击波，边缘光为金黄色。'],
+      ['zhangbao', '张宝', '张宝：阴鸷细长的眼睛，眼中泛着诡异的绿光，黄色道冠的边缘；背景是翻飞的黄色符纸和黄绿色的妖气，边缘光为黄绿色。'],
+      ['zhangjiao', '张角', '张角：深邃狂热的眼睛，白色长眉，眼中映着闪电；黄色道巾的边缘；背景是翻滚的雷云和金色、白蓝色的闪电，边缘光为金黄色。'],
+      ['yanliang', '颜良', '颜良：骄横的豹眼，浓密的虎须，深蓝铁盔的边缘与红缨；背景是深蓝色的刀光与奔马的烟尘，边缘光为蓝色。'],
+      ['wenchou', '文丑', '文丑：狠厉充血的眼睛，额角伤疤，深色铁盔的边缘与白缨；背景是紫色的杀气与箭雨般的速度线，边缘光为紫色。'],
+      ['zhouyu', '周瑜', '周瑜：俊朗而冷冽的丹凤眼，眼中映着火光，银白将盔的边缘；背景是熊熊燃烧的江面火海和古琴的琴弦光线，边缘光为橙红色。'],
+    ],
+  },
+  {
+    title: '第四批 · 新图标', folder: 'assets/icons/', style: ICON_STYLE,
+    note: '新武将的兵器 6 个、技能 6 个、宝物 6 个，底板和之前的图标完全一样。技能图标可以更抽象地表现招式效果。',
+    items: [
+      ['kaishan', '开山斧', '一柄宽刃开山大斧，斧刃厚重呈半月形，木柄缠着黄布条，斧刃上有震裂的痕迹。'],
+      ['yaofu', '地公符', '一张飘在空中的黄色符纸，符纸上是红色的抽象符纹（不能是可辨认的文字），下方悬着一块被符力托起的巨石。'],
+      ['jiujie', '九节杖', '一根九节竹节状的法杖，杖头是金色圆环，环上挂着小铃铛，杖头缠绕着蓝白色的电光。'],
+      ['hebeidao', '河北大刀', '一柄长柄大刀，深蓝色刀杆，宽刃刀身，周围是一圈旋转的蓝色刀光。'],
+      ['lianmao', '文丑连弩', '一架精致的连弩，弩匣里装着一排弩箭，正射出三支带残影的弩箭。'],
+      ['zhouqin', '周郎琴', '一张古琴，琴弦上泛起一圈圈淡金色的音波涟漪。'],
+      ['haoling', '黄巾号令（技能）', '一只高举的拳头握着一面黄色令旗，背后是一排举着竹枪的黄巾兵剪影。旗面空白无字。'],
+      ['sadou', '撒豆成兵（技能）', '一只手撒出一把金色豆子，豆子落地化成一个个发光的金色小兵。'],
+      ['tianlei', '天雷（技能）', '从乌云中劈下的一道粗大的金白色闪电，击中地面迸出电光。'],
+      ['chongzhen', '冲阵（技能）', '一骑白马带着蓝色残影冲破敌阵，前方的敌军旗帜被撞得四散。'],
+      ['xuezhan', '血战（技能）', '一柄沾血的长枪斜插在地上，周围是燃烧的暗红色战意火焰。'],
+      ['huogong', '火烧赤壁（技能）', '江面上燃烧的战船，熊熊大火映红江水，火星冲天。'],
+      ['huangjin', '黄巾抹额（宝物）', '一条醒目的黄色布头巾，扎成结，边缘有些破旧。'],
+      ['digong', '地公旗（宝物）', '一面黄色的法旗，旗面有红色抽象符纹（不能是可辨认的文字），旗杆挂着铃铛。'],
+      ['taiping', '《太平要术》（宝物）', '一卷发出金光的古旧天书，封面空白无字，书页间飘出淡淡的雷光。'],
+      ['zhanpao', '河北战袍（宝物）', '一件深蓝色的将军战袍，领口镶金边，展开悬挂。'],
+      ['liangma', '河北良驹（宝物）', '一匹矫健的黑色骏马的头部侧面特写，鬃毛飘扬，配着金色马具。'],
+      ['guqu', '曲有误（宝物）', '一张古琴的一角和一根断开的琴弦，旁边飘落一片红色枫叶。'],
+    ],
+  },
+];
+
+const KEY = 'buyi-art-done';
+let done = {};
+try { done = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { done = {}; }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) { /* 进度保存不了时忽略 */ } };
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+function copyText(text, btn) {
+  const ok = () => { const t = btn.textContent; btn.textContent = '已复制'; btn.classList.add('ok'); setTimeout(() => { btn.textContent = t; btn.classList.remove('ok'); }, 1400); };
+  const fallback = () => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); ok(); } catch (e) { btn.textContent = '请手动选择复制'; }
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fallback);
+  else fallback();
+}
+
+function updateProgress() {
+  const total = GROUPS.reduce((n, g) => n + g.items.length, 0);
+  const n = GROUPS.reduce((c, g) => c + g.items.filter(([id]) => done[g.folder + id]).length, 0);
+  document.getElementById('count').textContent = `${n} / ${total}`;
+  document.getElementById('bar').style.width = (n / total * 100) + '%';
+}
+
+document.getElementById('anchors').innerHTML = [
+  ['立绘画风', PORTRAIT_STYLE],
+  ['图标画风', ICON_STYLE],
+].map(([t, s], i) => `<div class="anchor"><h3>${t}</h3><p>${esc(s)}</p><button class="copy" data-anchor="${i}">复制这段</button></div>`).join('');
+document.querySelectorAll('[data-anchor]').forEach(b => b.addEventListener('click', () => copyText(b.dataset.anchor === '0' ? PORTRAIT_STYLE : ICON_STYLE, b)));
+
+document.getElementById('groups').innerHTML = GROUPS.map((g, gi) => `
+  <section>
+    <h2>${g.title}<span class="folder">${'G:\\布衣三国\\' + g.folder.split('/').join('\\')}</span></h2>
+    <p class="section-note">${g.note}</p>
+    <div class="list">${g.items.map(([id, name, subj], ii) => {
+      const k = g.folder + id;
+      return `<div class="slip${done[k] ? ' done' : ''}">
+        <input type="checkbox" id="chk-${gi}-${ii}" data-k="${k}" ${done[k] ? 'checked' : ''} aria-label="${name} 已完成">
+        <label class="head" for="chk-${gi}-${ii}"><span class="nm">${name}</span><span class="file">${id}.png</span></label>
+        <button class="copy" data-g="${gi}" data-i="${ii}">复制提示词</button>
+        <div class="subj">${esc(subj)}</div>
+      </div>`;
+    }).join('')}</div>
+  </section>`).join('');
+
+document.querySelectorAll('.slip .copy').forEach(b => b.addEventListener('click', () => {
+  const g = GROUPS[+b.dataset.g], it = g.items[+b.dataset.i];
+  copyText(`${g.style}\n\n画面内容：${it[2]}`, b);
+}));
+// 图标合并：逐张画（35 个一段）或按类别拼成网格图集
+const ICON_GROUPS = [2, 3, 4];
+const kindLabel = gi => GROUPS[gi].title.replace('图标', '');
+function sequentialPrompt() {
+  let n = 0;
+  const lines = ICON_GROUPS.flatMap(gi => GROUPS[gi].items.map(([id, name, subj]) =>
+    `${++n}. ${name}（${kindLabel(gi)}，文件名 ${id}.png）：${subj}${gi === 3 ? '（技能图标，用画面表现招式效果，可以更抽象）' : ''}`));
+  return `我要为一款游戏画一整套图标，共 ${n} 个。所有图标统一使用下面的画风：\n${ICON_STYLE}\n\n` +
+    `请按顺序逐个生成，每次只画一个图标，每张都是单独的正方形图片。画完一张后告诉我它的序号和文件名，等我回复“继续”再画下一个。所有图标必须保持完全相同的画风、底板和光源。\n\n图标清单：\n` + lines.join('\n');
+}
+function sheetPrompt(gi) {
+  const g = GROUPS[gi], n = g.items.length, cols = n > 9 ? 4 : 3, rows = Math.ceil(n / cols);
+  const lines = g.items.map(([id, name, subj], i) => `${i + 1}. ${name}（${id}）：${subj}`);
+  return `我要为一款游戏画一张${g.title}图集。统一画风：\n${ICON_STYLE}${gi === 3 ? SKILL_EXTRA : ''}\n\n` +
+    `请把下面 ${n} 个图标画在同一张图里，排成 ${cols} 列 × ${rows} 行的整齐网格，每格大小完全相同、间距一致，每个图标都带同样的底板。按序号从左到右、从上到下排列，多出的格子留空。图集背景透明，画面里不要任何文字或序号。\n\n` +
+    lines.join('\n');
+}
+document.getElementById('copy-seq').addEventListener('click', e => copyText(sequentialPrompt(), e.currentTarget));
+document.getElementById('copy-batch2').addEventListener('click', e => {
+  let n = 0;
+  const parts = [6, 7, 8, 9].map(gi => {
+    const g = GROUPS[gi];
+    return `【${g.title}】统一画风：${g.style}\n` + g.items.map(([id, name, subj]) => `${++n}. ${name}（存到 ${g.folder}${id}.png）：${subj}`).join('\n');
+  });
+  copyText(`我要为一款游戏画一批新素材，共 ${n} 张，分成几类，每类有自己的画风要求。请按序号逐个生成，每次只画一张，每张都是单独的正方形图片。画完一张后告诉我序号和文件名，等我回复“继续”再画下一张。同一类的图必须保持完全相同的画风；所有图都和之前画的武将立绘是同一套美术风格。\n\n` + parts.join('\n\n'), e.currentTarget);
+});
+document.getElementById('copy-batch3').addEventListener('click', e => {
+  let n = 0;
+  const parts = [10, 11].map(gi => {
+    const g = GROUPS[gi];
+    return `【${g.title}】统一画风：${g.style}\n` + g.items.map(([id, name, subj]) => `${++n}. ${name}（存到 ${g.folder}${id}.png）：${subj}`).join('\n');
+  });
+  copyText(`我要为一款游戏画第三批素材，共 ${n} 张。请按序号逐个生成，每次只画一张。画完一张后告诉我序号和文件名，等我回复“继续”再画下一张。如果我发了某个武将的立绘，就按立绘的长相来画。所有图都和之前画的武将立绘是同一套美术风格。\n\n` + parts.join('\n\n'), e.currentTarget);
+});
+document.getElementById('copy-batch4').addEventListener('click', e => {
+  let n = 0;
+  const parts = [12, 13, 14, 15, 16].map(gi => {
+    const g = GROUPS[gi];
+    const style = gi === 16 ? g.style + '（标注“技能”的图标：' + SKILL_EXTRA + '）' : g.style;
+    return `【${g.title.replace('第四批 · ', '')}】统一画风：${style}\n` + g.items.map(([id, name, subj]) => `${++n}. ${name}（存到 ${g.folder}${id}.png）：${subj}`).join('\n');
+  });
+  copyText(`我要为一款三国题材的游戏画第四批素材，共 ${n} 张，分成几类，每类有自己的画风要求。请按序号逐个生成，每次只画一张，每张都是单独的图片。画完一张后告诉我序号和文件名，等我回复“继续”再画下一张。同一个武将的立绘、小人、特写要保持同一个长相和配色：先画立绘，之后画小人和特写时都参照它。所有图都和之前画的武将立绘是同一套美术风格。\n\n` + parts.join('\n\n'), e.currentTarget);
+});
+// 省图模式：同类图拼进一张网格大图，画好后再切开
+const pick = (gi, ids) => ids.map(id => GROUPS[gi].items.find(it => it[0] === id));
+const listOf = items => items.map(([id, name, subj], i) => `${i + 1}. ${name}（${id}）：${subj}`).join('\n');
+const LITE = [
+  () => portraitSheet(pick(12, ['chengyuanzhi', 'zhangbao', 'zhangjiao'])),
+  () => portraitSheet(pick(12, ['yanliang', 'wenchou', 'zhouyu'])),
+  () => `我要为一款游戏画一张战场 Q 版小人图集。统一画风：\n${SPRITE_STYLE}\n\n` +
+    `请把下面 9 个角色画在同一张正方形图里，排成 3 列 × 3 行的整齐网格，每格大小完全相同，每个角色完整地待在自己的格子里，互相不要重叠、不要越过格子。所有角色大小比例一致、脚底在各自格子里的同一高度，全部朝向画面右侧。按序号从左到右、从上到下排列。整张图背景透明，画面里不要任何文字、序号或格线。\n\n` +
+    listOf([...GROUPS[13].items, ...GROUPS[14].items]),
+  () => iconSheet([...GROUPS[16].items.slice(0, 6), ...pick(16, ['huangjin', 'digong', 'taiping'])]),
+  () => iconSheet([...GROUPS[16].items.slice(6, 12), ...pick(16, ['zhanpao', 'liangma', 'guqu'])]),
+];
+function portraitSheet(items) {
+  return `我要为一款游戏画一张角色立绘拼图。统一画风：\n${PORTRAIT_STYLE.replace('竖版，比例 2:3。', '')}\n\n` +
+    `请把下面 3 个角色画在同一张横版图里（比例 3:2），从左到右并排，每人各占三分之一宽度，都是头顶到腰部的半身像，大小比例一致，互相不要重叠、不要越过自己那一栏。整张图背景透明，画面里不要任何文字或分隔线。\n\n` + listOf(items);
+}
+function iconSheet(items) {
+  return `我要为一款游戏画一张图标图集。统一画风：\n${ICON_STYLE}\n标注“技能”的图标：${SKILL_EXTRA}\n\n` +
+    `请把下面 9 个图标画在同一张正方形图里，排成 3 列 × 3 行的整齐网格，每格大小完全相同、间距一致，每个图标都带同样的底板。按序号从左到右、从上到下排列。图集背景透明，画面里不要任何文字或序号。\n\n` + listOf(items);
+}
+document.querySelectorAll('[data-lite]').forEach(b => b.addEventListener('click', () => copyText(LITE[+b.dataset.lite](), b)));
+const LITE_NAMES = ['立绘拼图：黄巾三人', '立绘拼图：颜良、文丑、周瑜', '小人图集（9 个）', '图标图集：兵器 + 宝物', '图标图集：技能 + 宝物'];
+document.getElementById('copy-lite-all').addEventListener('click', e => copyText(
+  `我要为一款三国题材的游戏画 5 张拼图素材，每张大图里排好几个角色或图标。请按序号逐张生成，每次只画一张大图，画完告诉我序号，等我回复“继续”再画下一张。` +
+  `画第 3 张小人图集时，6 位武将的长相、服装和配色要和第 1、2 张立绘里画的一致。所有图都是同一套二次元美术风格。\n\n` +
+  LITE.map((f, i) => `========== 第 ${i + 1} 张：${LITE_NAMES[i]} ==========\n${f()}`).join('\n\n'),
+  e.currentTarget));
+document.getElementById('copy-sprites').addEventListener('click', e => {
+  const g = GROUPS[5];
+  const lines = g.items.map(([id, name, subj], i) => `${i + 1}. ${name}（文件名 ${id}.png）：${subj}`);
+  copyText(`我要为一款游戏画一整套战场 Q 版小人，共 ${g.items.length} 个。所有小人统一使用下面的画风：\n${SPRITE_STYLE}\n\n` +
+    `请按顺序逐个生成，每次只画一个角色，每张都是单独的正方形图片。画完一张后告诉我它的序号和文件名，等我回复“继续”再画下一个。如果我发了某个角色的立绘，就按立绘的造型画成 Q 版。所有小人保持完全相同的画风、比例和朝向。\n\n角色清单：\n` + lines.join('\n'), e.currentTarget);
+});
+document.querySelectorAll('[data-sheet]').forEach(b => b.addEventListener('click', () => copyText(sheetPrompt(+b.dataset.sheet), b)));
+
+document.querySelectorAll('.slip input').forEach(c => c.addEventListener('change', () => {
+  if (c.checked) done[c.dataset.k] = 1; else delete done[c.dataset.k];
+  c.closest('.slip').classList.toggle('done', c.checked);
+  save(); updateProgress();
+}));
+updateProgress();
+</script>
