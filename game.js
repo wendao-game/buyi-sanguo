@@ -95,14 +95,10 @@ const PENTA = [262, 294, 330, 392, 440, 523, 587, 659, 784, 880]; // 五声音�
 function sfx(name) {
   if (!actx || muted) return;
   const now = performance.now();
-  const gap = { hit: 70, pick: 45, swing: 90, hurt: 150, slam: 110, boss: 400, ult: 400 }[name] || 0;
+  const gap = { pick: 45, swing: 90, hurt: 150, slam: 110, boss: 400, ult: 400 }[name] || 0;
   if (gap && now - (sfxLast[name] || 0) < gap) return;
   sfxLast[name] = now;
   switch (name) {
-    case 'hit': // 命中：一记短促的闷击，像打在皮甲上
-      tone(rand(150, 190), 0.07, 0.12, { type: 'triangle', slide: 0.6, cut: 900 });
-      noise(0.05, 0.07, { f0: 1400, f1: 500 });
-      break;
     case 'pick': // 拾钱：清脆但很轻的铜钱声，音高在五声音阶里随机
       tone(PENTA[5 + Math.floor(Math.random() * 5)] * 2, 0.12, 0.07, { cut: 4000, atk: 0.003 });
       break;
@@ -368,7 +364,6 @@ function hitEnemy(e, base, opts) {
   else if (!(opts && opts.quiet)) sparks(hx, hy, ha, 2, '255,238,210', 380, 0.6, 1.8);
   addNumber(e.x + rand(-6, 6), e.y - e.r, String(dmg), crit ? '#ffcf5a' : armored ? '#a9c8ff' : '#f3ead6', crit ? 20 : 14);
   if (armored && Math.random() < 0.5) sparks(hx, hy, ha + Math.PI, 2, '170,200,255', 300, 0.9, 1.6); // 打在护甲上：蓝白火花
-  sfx('hit');
   if (e.hp <= 0) killEnemy(e);
 }
 // 护甲被打空：僵直 + 易伤，碎片四溅
@@ -974,7 +969,6 @@ function updateWeapons(dt) {
           cur = best;
         }
         S.effects.push({ kind: 'bolt', pts: zigzag(pts, 14), life: 0.2, max: 0.2, rgb: '170,200,255' });
-        sfx('hit');
         break;
       }
       case 'spin': { // 河北大刀：原地回旋，连斩数圈
@@ -2127,7 +2121,7 @@ function updateStrikes(dt) {
       S.shake = Math.max(S.shake, 2.5);
     }
   }
-  if (S.strikes.some(s => s.dead)) { sfx(S.strikes.some(s => s.dead && s.kind === 'rock') ? 'slam' : 'hit'); S.strikes = S.strikes.filter(s => !s.dead); }
+  if (S.strikes.some(s => s.dead)) { if (S.strikes.some(s => s.dead && s.kind === 'rock')) sfx('slam'); S.strikes = S.strikes.filter(s => !s.dead); }
 }
 
 // 爆炸：火光闪一下 + 火星四溅 + 黑烟
