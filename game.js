@@ -35,52 +35,102 @@ resize();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => spriteCache.clear());
 
 // ============ 音效（无素材，直接合成） ============
-let actx = null, noiseBuf = null, muted = false;
+// 听感原则：只用正弦 / 三角这类圆润的波形，噪声一律走低通或带通（不要刺耳的高频嘶声），
+// 每个声音都有几毫秒的起音（避免“咔哒”声）；所有声音先汇到总线：总音量 → 低通 → 压限器，
+// 同时响很多声也不会爆音。音阶用五声音阶（宫商角徵羽），听起来更像古风。
+let actx = null, noiseBuf = null, muted = false, bus = null, voices = 0;
 const sfxLast = {};
+const MAX_VOICES = 16; // 同时发声上限，大混战时不至于一片嘈杂
 try { muted = localStorage.getItem('buyi-muted') === '1'; } catch (e) { /* 存储不可用时忽略 */ }
 function audio() {
-  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; } }
+  if (!actx) {
+    try {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      const master = actx.createGain(), lp = actx.createBiquadFilter(), comp = actx.createDynamicsCompressor();
+      master.gain.value = 0.55;
+      lp.type = 'lowpass'; lp.frequency.value = 5200; lp.Q.value = 0.5;   // 削掉刺耳的高频
+      comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.004; comp.release.value = 0.2;
+      master.connect(lp).connect(comp).connect(actx.destination);
+      bus = master;
+    } catch (e) { actx = null; }
+  }
   if (actx && actx.state === 'suspended') actx.resume();
 }
-function tone(freq, dur, type, vol, slide) {
-  const a = actx; if (!a || muted) return;
-  const o = a.createOscillator(), g = a.createGain();
-  o.type = type; o.frequency.setValueAtTime(freq, a.currentTime);
-  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq * slide), a.currentTime + dur);
-  g.gain.setValueAtTime(vol, a.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
-  o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime + dur + 0.02);
+// 包络：起音 atk 秒升到 vol，再在 dur 内指数衰减
+function env(g, t0, vol, dur, atk = 0.006) {
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + atk);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 }
-function noise(dur, vol, hp) {
-  const a = actx; if (!a || muted) return;
+function voice(dur) { if (voices >= MAX_VOICES) return false; voices++; setTimeout(() => voices--, dur * 1000 + 30); return true; }
+// 音调：freq 从 f0 滑到 f0*slide；cut 是这个音自己的低通（让三角波更闷更软）
+function tone(f0, dur, vol, o = {}) {
+  const a = actx; if (!a || muted || !voice(dur + (o.delay || 0))) return;
+  const t0 = a.currentTime + (o.delay || 0);
+  const osc = a.createOscillator(), g = a.createGain(), f = a.createBiquadFilter();
+  osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(f0, t0);
+  if (o.slide) osc.frequency.exponentialRampToValueAtTime(Math.max(25, f0 * o.slide), t0 + dur);
+  f.type = 'lowpass'; f.frequency.value = o.cut || 3000;
+  env(g, t0, vol, dur, o.atk);
+  osc.connect(f).connect(g).connect(bus); osc.start(t0); osc.stop(t0 + dur + 0.03);
+}
+// 噪声：kind 'low' 低通（闷响、尘土）/ 'band' 带通（破风、刀风），freq 可以从 f0 扫到 f1
+function noise(dur, vol, o = {}) {
+  const a = actx; if (!a || muted || !voice(dur + (o.delay || 0))) return;
   if (!noiseBuf) {
-    noiseBuf = a.createBuffer(1, a.sampleRate * 0.5, a.sampleRate);
+    noiseBuf = a.createBuffer(1, a.sampleRate, a.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
+  const t0 = a.currentTime + (o.delay || 0);
   const s = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
-  s.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = hp;
-  g.gain.setValueAtTime(vol, a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
-  s.connect(f).connect(g).connect(a.destination); s.start(); s.stop(a.currentTime + dur);
+  s.buffer = noiseBuf;
+  f.type = o.kind === 'band' ? 'bandpass' : 'lowpass'; f.Q.value = o.q || (o.kind === 'band' ? 1.2 : 0.7);
+  f.frequency.setValueAtTime(o.f0 || 600, t0);
+  if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t0 + dur);
+  env(g, t0, vol, dur, o.atk || 0.008);
+  s.connect(f).connect(g).connect(bus); s.start(t0, Math.random() * 0.4); s.stop(t0 + dur + 0.03);
 }
+const PENTA = [262, 294, 330, 392, 440, 523, 587, 659, 784, 880]; // 五声音阶
 function sfx(name) {
   if (!actx || muted) return;
   const now = performance.now();
-  const gap = { hit: 45, pick: 35, swing: 60, hurt: 120 }[name] || 0;
+  const gap = { hit: 70, pick: 45, swing: 90, hurt: 150, slam: 110, boss: 400, ult: 400 }[name] || 0;
   if (gap && now - (sfxLast[name] || 0) < gap) return;
   sfxLast[name] = now;
   switch (name) {
-    case 'hit': tone(rand(170, 230), 0.06, 'square', 0.022, 0.5); break;
-    case 'pick': tone(rand(900, 1000), 0.05, 'sine', 0.025, 1.3); break;
-    case 'swing': noise(0.09, 0.035, 1800); break;
-    case 'hurt': tone(150, 0.2, 'sawtooth', 0.05, 0.5); break;
-    case 'level': [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.18, 'triangle', 0.05), i * 70)); break;
-    case 'boss': tone(72, 0.7, 'sawtooth', 0.08, 0.6); setTimeout(() => tone(55, 0.8, 'sawtooth', 0.08, 0.5), 260); break;
-    case 'slam': noise(0.35, 0.15, 180); tone(62, 0.3, 'sine', 0.14, 0.5); break;
-    case 'win': [392, 523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, 0.3, 'triangle', 0.06), i * 110)); break;
-    case 'ult': // 大招：低沉重击 + 上扬的破风声
-      tone(55, 0.9, 'sawtooth', 0.1, 0.6); noise(0.5, 0.12, 300);
-      setTimeout(() => tone(220, 0.45, 'square', 0.04, 3), 120); setTimeout(() => noise(0.4, 0.1, 1200), 350);
+    case 'hit': // 命中：一记短促的闷击，像打在皮甲上
+      tone(rand(150, 190), 0.07, 0.12, { type: 'triangle', slide: 0.6, cut: 900 });
+      noise(0.05, 0.07, { f0: 1400, f1: 500 });
+      break;
+    case 'pick': // 拾钱：清脆但很轻的铜钱声，音高在五声音阶里随机
+      tone(PENTA[5 + Math.floor(Math.random() * 5)] * 2, 0.12, 0.07, { cut: 4000, atk: 0.003 });
+      break;
+    case 'swing': // 挥砍：带通噪声从高往低扫，像刀风
+      noise(0.14, 0.28, { kind: 'band', f0: 1500, f1: 450, q: 1.4 });
+      break;
+    case 'hurt': // 受伤：闷闷的一下，带点下沉
+      tone(200, 0.22, 0.16, { type: 'triangle', slide: 0.5, cut: 700 });
+      noise(0.12, 0.08, { f0: 500 });
+      break;
+    case 'level': // 升级：五声音阶的一串琴音
+      [0, 2, 4, 5].forEach((k, i) => tone(PENTA[k + 3], 0.5, 0.045, { type: 'triangle', cut: 2400, delay: i * 0.075 }));
+      break;
+    case 'boss': // 武将登场：两声战鼓
+      for (const d of [0, 0.32]) { tone(95, 0.55, 0.22, { slide: 0.55, delay: d, atk: 0.004 }); noise(0.18, 0.08, { f0: 280, delay: d }); }
+      break;
+    case 'slam': // 重击：低沉的轰隆 + 尘土声
+      tone(70, 0.4, 0.3, { slide: 0.55, atk: 0.004 });
+      noise(0.35, 0.14, { f0: 520, f1: 160 });
+      break;
+    case 'win': // 章节胜利：一段上行的五声琶音
+      [0, 1, 2, 3, 4, 5, 7].forEach((k, i) => tone(PENTA[k], 0.7, 0.045, { type: 'triangle', cut: 2200, delay: i * 0.1 }));
+      break;
+    case 'ult': // 大招：沉重的鼓 + 由低到高卷起的风声 + 一声铜锣般的余响
+      tone(58, 1.0, 0.24, { slide: 0.6, atk: 0.005 });
+      noise(0.7, 0.07, { kind: 'band', f0: 250, f1: 1400, q: 0.9, delay: 0.05 });
+      tone(196, 1.2, 0.035, { type: 'triangle', cut: 1200, delay: 0.12 });
+      tone(294, 1.1, 0.02, { type: 'sine', delay: 0.14 });
       break;
   }
 }
