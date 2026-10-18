@@ -98,7 +98,18 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #lu-crit b { color: #ffcf5a; font-weight: 700; }
 #lu-portrait { position: relative; width: 30px; height: 30px; flex: none; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px var(--gold); }
 #lu-portrait svg { display: block; width: 100%; height: 100%; }
-#lu-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+#lu-cards { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 6px; }
+/* 神兵：金色卡，缓缓流动的金光 */
+.card.legend { background: linear-gradient(120deg, #fff4cc 0%, #f0cf6a 40%, #ffe9a8 50%, #d9a93a 62%, #f6dc8a 100%); background-size: 220% 100%;
+  box-shadow: 0 0 0 2px #ffd75a, 0 0 16px 2px rgba(255,200,80,.75); animation: legendShine 2.4s linear infinite; }
+.card.legend .kind { color: #7a4a08; font-weight: 700; }
+.card.legend .lvl { color: #8a2a10; }
+.card.legend .seal { background: #1c140a; box-shadow: 0 0 0 2px #ffd75a, 0 0 10px rgba(255,210,90,.9); }
+@keyframes legendShine { from { background-position: 0% 0; } to { background-position: 220% 0; } }
+@media (prefers-reduced-motion: reduce) { .card.legend { animation: none; } }
+#levelup.legend { border-color: #ffd75a; box-shadow: 0 0 22px rgba(255,200,80,.45), 0 8px 24px rgba(0,0,0,.55); }
+.slot.sb { box-shadow: 0 0 0 2px #ffd75a, 0 0 8px rgba(255,210,90,.8); }
+img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #120c05); }
 #levelup .card { max-width: none; padding: 9px 10px 9px; gap: 4px; box-shadow: none; }
 #levelup .card::before { inset: 3px; }
 #levelup .card:hover { transform: none; filter: brightness(1.06); }
@@ -251,6 +262,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
   #lu-title { font-size: 19px; }
   #lu-crit { margin-left: 0; width: 100%; }
   #lu-cards { gap: 5px; }
+  #levelup.legend #lu-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 4 张卡时手机上排两行 */
   #levelup .card { flex-basis: auto; padding: 7px 6px; gap: 3px; }
   #levelup .card .top { flex-direction: column; align-items: flex-start; gap: 4px; }
   #levelup .seal { width: 30px; height: 30px; font-size: 16px; }

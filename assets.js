@@ -49,6 +49,8 @@ window.Assets = (() => {
     // 招式特效贴图（黑底发光图，叠加着画）：刀光、冲击环、爆裂、雷电、枪芒、旋风、火焰、法阵、光柱
     for (const id of ['slash', 'ring', 'burst', 'bolt', 'thrust', 'whirl', 'flame', 'circle', 'pillar']) load('fxs:' + id, `${ASSET_BASE}fx/${id}.png`);
     load('mount:white', `${ASSET_BASE}mounts/white.png`);
+    // 神兵：悬浮在玩家身边的名将专属兵器（透明背景，兵器斜放）
+    for (const id in D.shenbing || {}) load('shenbing:' + id, `${ASSET_BASE}shenbing/${id}.png`);
   }
 
   const esc = s => String(s).replace(/"/g, '&quot;');

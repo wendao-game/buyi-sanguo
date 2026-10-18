@@ -795,6 +795,39 @@ window.GAME_DATA = {
     waves: [{ t: 0, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } }],
   },
 
+  // 神兵：击败名将时小概率掉落的专属兵器（奖励里出现一张金色卡）。
+  // 拿到后悬浮在身边，定时自动放出这位名将的招牌招式。再次掉落同一件 → 升级（伤害 +30%、冷却 -6%）。
+  // 伤害还会随你的等级成长：每级 +3.5%。iconFrom 是还没有神兵美术图时借用的兵器图标。
+  shenbingDrop: { base: 0.12, pity: 0.05, max: 0.45 }, // 基础掉率 12%，每次没掉 +5%，最高 45%，掉了就重置
+  shenbing: {
+    chengyuanzhi: { name: '开山神斧', icon: '斧', iconFrom: 'kaishan', rgb: '255,205,90', cd: 5, type: 'slam', dmg: 70, radius: 150, stun: 1,
+      desc: '神斧飞向敌人最密集处，劈地开山：落点一圈敌人受重伤并震晕。' },
+    zhangbao: { name: '地公幡', icon: '幡', iconFrom: 'yaofu', rgb: '190,230,120', cd: 6, type: 'rocks', dmg: 60, count: 6, radius: 72,
+      desc: '法幡一摇，六块巨石从天而降，砸向周围的敌人。' },
+    zhangjiao: { name: '太平九节杖', icon: '杖', iconFrom: 'jiujie', rgb: '255,225,110', cd: 4.5, type: 'thunder', dmg: 55, count: 6, radius: 64,
+      desc: '天公法杖召下六道天雷，劈向周围的敌人。' },
+    huaxiong: { name: '赤血斩将刀', icon: '刀', iconFrom: 'dadao', rgb: '255,150,70', cd: 6, type: 'whirl', dmg: 26, radius: 130, dur: 1.6,
+      desc: '血刀绕身狂舞 1.6 秒，周身敌人连受数刀。' },
+    lubu: { name: '无双方天戟', icon: '戟', iconFrom: 'halberd', rgb: '255,60,40', cd: 6.5, type: 'crescent', dmg: 120, R: 330, half: 0.95,
+      desc: '朝敌人最多的方向劈出一道血色巨月，扇形内敌人全部重创。' },
+    dianwei: { name: '恶来双铁戟', icon: '戟', iconFrom: 'shuangji', rgb: '255,130,60', cd: 5, type: 'jis', dmg: 44, count: 8, range: 300,
+      desc: '八柄铁戟向四面八方飞出，再旋转着飞回身边。' },
+    yanliang: { name: '河北斩旗刀', icon: '刀', iconFrom: 'hebeidao', rgb: '120,170,255', cd: 5.5, type: 'cleave3', dmg: 70, R: 230, half: 0.9,
+      desc: '朝最近的敌人连斩三刀，每刀都是一大片扇形。' },
+    wenchou: { name: '延津连弩', icon: '弩', iconFrom: 'lianmao', rgb: '190,150,255', cd: 4, type: 'bolts', dmg: 38, count: 11, spread: 1.0,
+      desc: '神弩一次扇形射出十一支光箭，每支穿透三个敌人。' },
+    guanyu: { name: '青龙偃月刀', icon: '龙', iconFrom: 'qinglong', rgb: '90,240,170', cd: 6, type: 'dragon', dmg: 110, r: 44,
+      desc: '神刀斩出一条巨大的青龙，贯穿一路上所有敌人。' },
+    zhugeliang: { name: '七星羽扇', icon: '扇', iconFrom: 'yushan', rgb: '255,150,60', cd: 7, type: 'firelines', dmg: 18, radius: 64,
+      desc: '羽扇一挥，敌群中燃起三排大火，持续灼烧。' },
+    zhangfei: { name: '丈八蛇矛', icon: '矛', iconFrom: 'shemao', rgb: '255,210,80', cd: 5, type: 'lance', dmg: 95, len: 560, w: 56, roar: 200, stun: 1.2,
+      desc: '蛇矛贯出一道长枪芒，随后一声怒吼震晕身边的敌人。' },
+    zhaoyun: { name: '龙胆亮银枪', icon: '枪', iconFrom: 'longdan', rgb: '200,225,255', cd: 4, type: 'flurry', dmg: 34, count: 7, len: 280,
+      desc: '银枪化作七道枪芒，追着附近的敌人连刺。' },
+    zhouyu: { name: '周郎焦尾琴', icon: '琴', iconFrom: 'zhouqin', rgb: '255,120,70', cd: 6, type: 'sonic', dmg: 50, rings: 3, ringR: 360, fire: 3,
+      desc: '琴声荡开三圈音波，并在三个敌人脚下燃起火焰。' },
+  },
+
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大
   champion: {
     shield: { boss: 0.35, elite: 0.3 },  // 护甲 = 最大生命的比例

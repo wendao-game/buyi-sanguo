@@ -140,7 +140,7 @@ const MOVE_KEYS = {
 addEventListener('keydown', e => {
   if (MOVE_KEYS[e.code]) { keys.add(e.code); e.preventDefault(); }
   if ((e.code === 'Escape' || e.code === 'KeyP') && S && !S.over) togglePause();
-  const m = /^(?:Digit|Numpad)([1-3])$/.exec(e.code);
+  const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code);
   if (m && !$('levelup').hidden && $('lu-cards').style.pointerEvents !== 'none') { const el = $('lu-cards').children[+m[1] - 1]; if (el) el.click(); }
 });
 addEventListener('keyup', e => keys.delete(e.code));
@@ -288,6 +288,7 @@ function newState(originId) {
     spawnAcc: {}, evIdx: 0, defeated: [],
     ch: 0, chStart: 0, chapterT: 0, nextBossOk: 0,     // 当前章节、本章开始时间、换章倒计时、下一名武将最早登场时间
     strikes: [], erings: [], lust: 0, lustT: 0, dash: null,
+    shenbing: [], sbPity: 0, later: [], sbWhirl: null,   // 神兵：悬浮在身边的名将专属兵器
     pendingLevels: 0, pendingReward: null, rewardReady: null, choice: null, cycle: 0,
     slowmo: 0, shake: 0, camX: 0, camY: 0, wsb: 0, buildDirty: true,
   };
@@ -468,7 +469,17 @@ function onBossDeath(e) {
   } else {
     banner(`斩 ${g.name}！`, '夺其兵器，承其武艺');
   }
-  S.pendingReward = { gid: e.gid, t: 0.35 };
+  // 神兵：小概率掉落（没掉就累积保底），掉了奖励里多一张金色卡
+  const SD = D.shenbingDrop, chance = Math.min(SD.max, SD.base + SD.pity * S.sbPity);
+  const legend = !!D.shenbing[e.gid] && Math.random() < chance;
+  if (legend) {
+    S.sbPity = 0;
+    fxTex('pillar', e.x, e.y - 160, { w: 120, h: 420, rgb: '255,215,90', life: 1.4, sx: 0.5, fadeIn: 0.05, core: 0.8 });
+    fxTex('burst', e.x, e.y - 40, { w: 260, h: 260, rgb: '255,220,120', life: 0.6, grow: 1.6 });
+    addNumber(e.x, e.y - 90, `神兵现世 · ${D.shenbing[e.gid].name}`, '#ffd75a', 24);
+    screenFlash('255,220,120', 0.25);
+  } else S.sbPity++;
+  S.pendingReward = { gid: e.gid, t: legend ? 0.8 : 0.35, legend };
 }
 // 进入下一章；全部打完则进入无尽征途
 function nextChapter() {
@@ -650,7 +661,7 @@ function updatePickups(dt) {
     g.y += (p.y - g.y) / d * g.vel * dt;
     if (d < p.r + 8) {
       g.dead = true;
-      if (g.kind === 'xp') { addXp(g.v); sfx('pick'); if (Math.random() < 0.35) glint(p.x + rand(-8, 8), p.y - 10, 9, '255,220,140', 0.14); }
+      if (g.kind === 'xp') { addXp(g.v); if (Math.random() < 0.35) glint(p.x + rand(-8, 8), p.y - 10, 9, '255,220,140', 0.14); }
       else if (g.kind === 'vacuum') { // 军令：全图铜钱飞向玩家
         for (const o of S.pickups) if (o.kind === 'xp') o.mag = true;
         addNumber(p.x, p.y - 30, '军令 · 聚', '#ffcf5a', 20);
@@ -2156,6 +2167,190 @@ function updateFx(dt) {
   S.particles = S.particles.filter(q => q.life > 0);
 }
 
+// ============ 神兵 ============
+// 悬浮在玩家身边，定时自动放出名将的招牌招式（缩小版）
+const later = (sec, fn) => S.later.push({ t: S.t + sec, fn });
+const sbDmg = (def, sb) => def.dmg * (1 + 0.3 * (sb.lv - 1)) * (1 + S.player.level * 0.035);
+// 敌人最密集的地方：随机抽一些附近的敌人，看谁身边的敌人最多
+function densest(R) {
+  const p = S.player, pool = [];
+  near(p.x, p.y, R, e => { if (!e.building && dist2(p.x, p.y, e.x, e.y) < R * R) pool.push(e); });
+  if (!pool.length) return null;
+  let best = pool[0], bc = -1;
+  for (let k = 0; k < Math.min(24, pool.length); k++) {
+    const c = pool[Math.floor(Math.random() * pool.length)];
+    let n = 0; near(c.x, c.y, 130, o => { if (dist2(c.x, c.y, o.x, o.y) < 130 * 130) n += o.boss ? 5 : o.ai ? 2 : 1; });
+    if (n > bc) { bc = n; best = c; }
+  }
+  return best;
+}
+// 范围伤害的几种形状
+function hitCircle(x, y, R, dmg, kb, stun) {
+  near(x, y, R + 48, e => {
+    if (dist2(x, y, e.x, e.y) >= (R + e.r) ** 2) return;
+    if (stun && !e.boss && !e.building) e.stunT = S.t + stun;
+    hitEnemy(e, dmg, { kb, kbAngle: angleTo(x, y, e.x, e.y), quiet: true });
+  });
+}
+function hitWedge(x, y, a, R, half, dmg, kb) {
+  near(x, y, R + 48, e => { if (inWedge(e.x, e.y, x, y, a, R, half, e.r)) hitEnemy(e, dmg, { kb, kbAngle: angleTo(x, y, e.x, e.y), quiet: true }); });
+}
+function hitLine(x, y, a, len, w, dmg, kb) {
+  near(x + Math.cos(a) * len / 2, y + Math.sin(a) * len / 2, len / 2 + 48, e => { if (segDist(e.x, e.y, x, y, a, len) < w / 2 + e.r) hitEnemy(e, dmg, { kb, kbAngle: a, quiet: true }); });
+}
+function castShenbing(sb) {
+  const def = D.shenbing[sb.gid], p = S.player, rgb = def.rgb, dmg = sbDmg(def, sb);
+  const tgt = densest(460);
+  if (!tgt) return false;
+  const a = angleTo(p.x, p.y, tgt.x, tgt.y);
+  sb.flash = 0.45; sb.aim = { x: tgt.x, y: tgt.y };
+  switch (def.type) {
+    case 'slam': { // 开山神斧：飞到敌群上空劈下
+      const x = tgt.x, y = tgt.y;
+      fxTex('circle', x, y, { w: def.radius * 2.2, h: def.radius * 2.2, rgb, under: true, life: 0.5, spin: 3, a: 0.7 });
+      later(0.35, () => {
+        hitCircle(x, y, def.radius, dmg, 260, def.stun);
+        fxTex('pillar', x, y - 150, { w: def.radius, h: 340, rgb, life: 0.35, sx: 0.3, core: 0.7 });
+        impact(x, y, def.radius * 0.9, rgb, 0.9); groundImpact(x, y, def.radius); sfx('slam');
+      });
+      break;
+    }
+    case 'rocks': // 地公幡：巨石落下
+      for (let i = 0; i < def.count; i++) { const e = densest(460) || tgt; S.strikes.push({ kind: 'rock', x: e.x + rand(-30, 30), y: e.y + rand(-30, 30), r: def.radius, t: 0.5 + i * 0.1, max: 0.5 + i * 0.1, dmg }); }
+      break;
+    case 'thunder': { // 太平九节杖：天雷
+      const pool = []; near(p.x, p.y, 460, e => { if (!e.building) pool.push(e); });
+      pool.sort((x, y) => y.maxHp - x.maxHp);
+      for (let i = 0; i < def.count; i++) { const e = pool[i % pool.length]; S.strikes.push({ kind: 'bolt', x: e.x, y: e.y, r: def.radius, t: 0.05 + i * 0.08, max: 0.12, dmg }); }
+      break;
+    }
+    case 'whirl': // 赤血斩将刀：绕身狂舞
+      S.sbWhirl = { until: S.t + def.dur, R: def.radius, dmg, tick: 0, rgb };
+      sfx('swing');
+      break;
+    case 'crescent': // 无双方天戟：血色巨月
+      hitWedge(p.x, p.y, a, def.R, def.half, dmg, 300);
+      fxTex('slash', p.x + Math.cos(a) * def.R * 0.6, p.y - 16 + Math.sin(a) * def.R * 0.6, { w: def.R * 1.5, h: def.R * 0.7, rot: a + Math.PI / 2, rgb, life: 0.45, grow: 1.12, core: 0.6 });
+      impact(p.x + Math.cos(a) * def.R * 0.5, p.y + Math.sin(a) * def.R * 0.5, def.R * 0.35, rgb, 1);
+      screenFlash(rgb, 0.15); sfx('slam');
+      break;
+    case 'jis': // 恶来双铁戟：八方飞戟再飞回
+      for (let i = 0; i < def.count; i++) {
+        const b = i / def.count * TAU;
+        S.proj.push({ kind: 'boom', x: p.x, y: p.y, vx: Math.cos(b) * 460, vy: Math.sin(b) * 460, speed: 460, r: 16, dmg, pierce: 9999, life: 4, hit: new Set(), kb: 140, boom: true, out: true, travel: 0, range: def.range, spin: 0 });
+      }
+      fxTex('whirl', 0, 0, { follow: p, oy: -14, w: 200, h: 200, rgb, life: 0.4, spin: 9, grow: 1.4 });
+      sfx('swing');
+      break;
+    case 'cleave3': // 河北斩旗刀：连斩三刀
+      for (let k = 0; k < 3; k++) later(k * 0.18, () => {
+        const t2 = nearest(p.x, p.y, def.R + 80) || tgt, b = angleTo(p.x, p.y, t2.x, t2.y) + (k - 1) * 0.35;
+        hitWedge(p.x, p.y, b, def.R, def.half, dmg, 200);
+        fxTex('slash', p.x + Math.cos(b) * def.R * 0.6, p.y - 16 + Math.sin(b) * def.R * 0.6, { w: def.R * 1.5, h: def.R * 0.7, rot: b + Math.PI / 2, rgb, life: 0.3, grow: 1.1, core: 0.55 });
+        punch(0.3); sfx('swing');
+      });
+      break;
+    case 'bolts': // 延津连弩：扇形光箭
+      for (let i = 0; i < def.count; i++) {
+        const b = a + (i / (def.count - 1) - 0.5) * def.spread;
+        S.proj.push({ kind: 'arrow', glow: rgb, x: p.x, y: p.y - 10, vx: Math.cos(b) * 720, vy: Math.sin(b) * 720, r: 7, dmg, pierce: 3, life: 0.9, hit: new Set(), kb: 80 });
+      }
+      fxTex('burst', p.x + Math.cos(a) * 30, p.y - 10 + Math.sin(a) * 30, { w: 120, h: 120, rgb, life: 0.25, grow: 1.5 });
+      sfx('swing');
+      break;
+    case 'dragon': // 青龙偃月刀：巨大的青龙
+      S.proj.push({ kind: 'crescent', x: p.x, y: p.y, a, vx: Math.cos(a) * 520, vy: Math.sin(a) * 520, r: def.r, dmg, pierce: 9999, life: 1.4, hit: new Set(), kb: 200, seed: rand(0, 9) });
+      fxTex('slash', p.x + Math.cos(a) * 70, p.y - 16 + Math.sin(a) * 70, { w: 260, h: 130, rot: a + Math.PI / 2, rgb, life: 0.35, grow: 1.2 });
+      punch(0.4); sfx('slam');
+      break;
+    case 'firelines': { // 七星羽扇：敌群里三排大火
+      const ux = Math.cos(a), uy = Math.sin(a), L = { dmg, tick: 0.4, life: 4 };
+      for (let row = -1; row <= 1; row++) for (let k = -2; k <= 2; k++) {
+        const x = tgt.x + ux * row * 110 - uy * k * 80, y = tgt.y + uy * row * 110 + ux * k * 80;
+        S.strikes.push({ kind: 'fire', x, y, r: def.radius, t: 0.35 + (row + 1) * 0.2, max: 0.35 + (row + 1) * 0.2, L });
+      }
+      break;
+    }
+    case 'lance': // 丈八蛇矛：长枪芒 + 怒吼
+      hitLine(p.x, p.y, a, def.len, def.w, dmg, 260);
+      fxTex('thrust', p.x + Math.cos(a) * def.len * 0.5, p.y - 16 + Math.sin(a) * def.len * 0.5, { w: def.len * 1.1, h: def.w * 1.6, rot: a, rgb, life: 0.35, sx: 1.2, core: 0.7 });
+      punch(0.4); sfx('swing');
+      later(0.3, () => {
+        hitCircle(p.x, p.y, def.roar, dmg * 0.4, 200, def.stun);
+        fxTex('ring', p.x, p.y, { w: def.roar * 0.6, h: def.roar * 0.6, rgb: '255,245,220', life: 0.45, grow: 3.4, core: 0.4 });
+        sfx('slam');
+      });
+      break;
+    case 'flurry': // 龙胆亮银枪：七道枪芒追着敌人刺
+      for (let k = 0; k < def.count; k++) later(k * 0.07, () => {
+        const e = nearest(p.x, p.y, def.len + 40);
+        if (!e) return;
+        const b = angleTo(p.x, p.y, e.x, e.y) + rand(-0.15, 0.15);
+        hitLine(p.x, p.y, b, def.len, 34, dmg, 80);
+        fxTex('thrust', p.x + Math.cos(b) * def.len * 0.5, p.y - 16 + Math.sin(b) * def.len * 0.5, { w: def.len * 1.1, h: 40, rot: b, rgb, life: 0.16, sx: 1.15, core: 0.8 });
+      });
+      sfx('swing');
+      break;
+    case 'sonic': { // 周郎焦尾琴：三圈音波 + 三处火焰
+      for (let k = 0; k < def.rings; k++) later(k * 0.25, () => S.rings.push({ x: p.x, y: p.y, r: 20, maxR: def.ringR, speed: 440, dmg, hit: new Set(), rgb: '255,190,150', core: '255,245,235', w: 12, kb: 100 }));
+      const pool = []; near(p.x, p.y, 420, e => { if (!e.building) pool.push(e); });
+      for (let i = 0; i < def.fire && pool.length; i++) { const e = pool[Math.floor(Math.random() * pool.length)]; S.strikes.push({ kind: 'fire', x: e.x, y: e.y, r: 80, t: 0.4 + i * 0.12, max: 0.4 + i * 0.12, L: { dmg: dmg * 0.25, tick: 0.4, life: 3.5 } }); }
+      break;
+    }
+  }
+  return true;
+}
+function updateShenbing(dt) {
+  const p = S.player;
+  for (const sb of S.shenbing) {
+    sb.flash = Math.max(0, sb.flash - dt);
+    sb.t -= dt;
+    if (sb.t > 0) continue;
+    const def = D.shenbing[sb.gid];
+    sb.t = castShenbing(sb) ? def.cd * Math.pow(0.94, sb.lv - 1) * p.cdMul : 0.3;
+  }
+  if (S.sbWhirl) { // 赤血斩将刀：绕身狂舞
+    const W2 = S.sbWhirl;
+    W2.tick -= dt;
+    if (W2.tick <= 0) {
+      W2.tick = 0.15;
+      hitCircle(p.x, p.y, W2.R, W2.dmg, 120);
+      fxTex('whirl', 0, 0, { follow: p, oy: -12, w: W2.R * 2.4, h: W2.R * 2.4, rgb: W2.rgb, life: 0.2, spin: 8, flat: 0.6, a: 0.85 });
+    }
+    if (S.t > W2.until) S.sbWhirl = null;
+  }
+  // 延迟执行的招式片段（连斩、怒吼、落斧……）
+  if (S.later.length) {
+    const due = S.later.filter(l => S.t >= l.t);
+    if (due.length) { S.later = S.later.filter(l => S.t < l.t); for (const l of due) l.fn(); }
+  }
+}
+// 神兵悬浮在玩家身后两侧，上下浮动；出招时放大、发光
+function drawShenbing() {
+  const p = S.player, n = S.shenbing.length;
+  S.shenbing.forEach((sb, i) => {
+    const def = D.shenbing[sb.gid], side = n === 1 ? -1 : (i % 2 ? 1 : -1), row = Math.floor(i / 2);
+    const x = p.x + side * (38 + row * 22), y = p.y - 46 - row * 18 + Math.sin(S.t * 2.4 + i * 1.7) * 5;
+    const f = sb.flash / 0.45, s = 34 * (1 + 0.35 * f);
+    ctx.globalCompositeOperation = 'lighter';
+    FX.glow(ctx, x, y, s * (1.1 + 0.15 * Math.sin(S.t * 5 + i)), def.rgb, 0.35 + 0.5 * f);
+    FX.glow(ctx, x, y, s * 0.5, '255,240,200', 0.25 + 0.5 * f);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    const img = window.Assets.get('shenbing:' + sb.gid);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(side * 0.25 + Math.sin(S.t * 1.8 + i) * 0.08);
+    if (img) { const w = s * 1.5, h = w * img.naturalHeight / img.naturalWidth; ctx.drawImage(img, -w / 2, -h / 2, w, h); }
+    else { // 还没有神兵美术图：金圈里放这位名将兵器的图标
+      const ic = window.Assets.get('icon:' + def.iconFrom), r = s * 0.42;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.closePath();
+      ctx.fillStyle = '#1c140a'; ctx.fill();
+      if (ic) { ctx.save(); ctx.clip(); ctx.drawImage(ic, -r, -r, r * 2, r * 2); ctx.restore(); }
+      else { ctx.fillStyle = '#ffd75a'; ctx.font = `900 ${Math.round(r * 1.2)}px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(def.icon, 0, 1); }
+      ctx.strokeStyle = '#ffd75a'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+
 // ============ 主更新 ============
 function update(dt) {
   S.t += dt;
@@ -2164,6 +2359,7 @@ function update(dt) {
   gridBuild();
   updateWeapons(dt);
   updateSkills(dt);
+  updateShenbing(dt);
   updateEnemies(dt);
   gridBuild();
   updateAllies(dt);
@@ -2176,7 +2372,7 @@ function update(dt) {
   S.camY += (p.y - S.camY) * k;
   if (S.pendingReward) {
     S.pendingReward.t -= dt;
-    if (S.pendingReward.t <= 0) { S.rewardReady = S.pendingReward.gid; S.pendingReward = null; }
+    if (S.pendingReward.t <= 0) { S.rewardReady = S.pendingReward.gid; S.rewardLegend = S.pendingReward.legend; S.pendingReward = null; }
   }
   if (S.rankUp) { banner(`晋升 · ${S.rankUp}`, `Lv ${p.level}`); S.rankUp = null; }
   // 选择栏不暂停游戏：有待选的升级 / 斩将奖励 / 铁匠铺时，在屏幕上方弹出
@@ -2185,9 +2381,9 @@ function update(dt) {
 
 // ============ 升级 / 武将奖励 ============
 function defOf(kind, id) {
-  return kind === 'weapon' ? D.weapons[id] : kind === 'skill' ? D.skills[id] : kind === 'passive' ? D.passives[id] : null;
+  return kind === 'weapon' ? D.weapons[id] : kind === 'skill' ? D.skills[id] : kind === 'passive' ? D.passives[id] : kind === 'shenbing' ? D.shenbing[id] : null;
 }
-function maxLv(kind, def) { return kind === 'passive' ? def.max : def.levels.length; }
+function maxLv(kind, def) { return kind === 'passive' ? def.max : kind === 'shenbing' ? 99 : def.levels.length; }
 function ownedLv(kind, id) {
   if (kind === 'weapon') { const w = S.weapons.find(x => x.id === id); return w ? w.lv : 0; }
   if (kind === 'skill') { const s = S.skills.find(x => x.id === id); return s ? s.lv : 0; }
@@ -2237,25 +2433,27 @@ function levelOptions() {
   if (!res.length) res.push(healOpt());
   return res;
 }
-function rewardOptions(gid) {
-  return D.generals[gid].rewards.map(id => {
+function rewardOptions(gid, legend) {
+  const opts = D.generals[gid].rewards.map(id => {
     const kind = kindOf(id), def = defOf(kind, id), lv = ownedLv(kind, id);
     if (def.unique && lv >= def.max) return healOpt();
     return { kind, id, cur: lv, gen: true };
   });
+  if (legend) { const sb = S.shenbing.find(x => x.gid === gid); opts.unshift({ kind: 'shenbing', id: gid, cur: sb ? sb.lv : 0, legend: true }); } // 金色神兵卡放在最前面
+  return opts;
 }
 
 function nextModal() {
   if (S.over) return;
-  if (S.rewardReady) { const gid = S.rewardReady; S.rewardReady = null; openChoices('reward', gid); return; }
+  if (S.rewardReady) { const gid = S.rewardReady; S.rewardReady = null; openChoices('reward', gid, S.rewardLegend); S.rewardLegend = false; return; }
   if (S.forgeReady > 0) { S.forgeReady--; openChoices('forge'); return; }
   if (S.pendingLevels > 0) { S.pendingLevels--; openChoices('level'); return; }
 }
 
-function openChoices(mode, gid) {
+function openChoices(mode, gid, legend) {
   S.choice = { mode, gid };
   const p = S.player;
-  const opts = mode === 'reward' ? rewardOptions(gid)
+  const opts = mode === 'reward' ? rewardOptions(gid, legend)
     : mode === 'forge' ? pickWeighted(S.weapons.map(w => ({ kind: 'weapon', id: w.id, cur: w.lv, w: 1 })), 3)
     : levelOptions();
   $('lu-portrait').hidden = mode !== 'reward';
@@ -2275,6 +2473,8 @@ function openChoices(mode, gid) {
   const box = $('lu-cards');
   box.innerHTML = '';
   opts.forEach((o, i) => box.appendChild(makeCard(o, i)));
+  box.style.setProperty('--n', opts.length);
+  $('levelup').classList.toggle('legend', !!legend);
   box.style.pointerEvents = 'none';
   setTimeout(() => { box.style.pointerEvents = ''; }, 320);
   $('lu-crit').innerHTML = critLine();
@@ -2290,6 +2490,12 @@ function makeCard(o, i) {
   let icon, name, kind, lvl, desc, sealCls = '';
   if (o.kind === 'heal') {
     icon = o.icon; name = o.name; kind = '补给'; lvl = `回复 ${o.amount} 生命`; desc = '此物已臻化境，换一壶庆功酒。';
+  } else if (o.kind === 'shenbing') { // 神兵：金色卡
+    const def = D.shenbing[o.id];
+    btn.className = 'card legend';
+    icon = sbIconHtml(o.id); name = def.name; kind = `神兵 · ${D.generals[o.id].name}专属`;
+    lvl = o.cur ? `Lv ${o.cur} → ${o.cur + 1} · 伤害 +30%` : '神兵现世 · 悬浮身边';
+    desc = `${def.desc}（每 ${def.cd} 秒一次）`;
   } else {
     const def = defOf(o.kind, o.id);
     icon = window.Assets.icon(o.id, def.icon, def.name); name = def.name;
@@ -2319,6 +2525,13 @@ function applyChoice(o) {
   const p = S.player;
   if (o.kind === 'heal') {
     p.hp = Math.min(p.maxHp, p.hp + o.amount);
+  } else if (o.kind === 'shenbing') { // 神兵入手：金光冲天
+    const sb = S.shenbing.find(x => x.gid === o.id);
+    if (sb) sb.lv++; else S.shenbing.push({ gid: o.id, lv: 1, t: 1.2, flash: 0 });
+    fxTex('pillar', 0, 0, { follow: p, oy: -120, w: 110, h: 360, rgb: '255,215,90', life: 1.0, sx: 0.5, core: 0.8 });
+    fxTex('circle', 0, 0, { follow: p, oy: 8, w: 240, h: 240, rgb: '255,205,80', under: true, flat: 0.55, life: 1.4, spin: 2 });
+    banner(`神兵 · ${D.shenbing[o.id].name}`, sb ? `升至 Lv ${sb.lv}` : '悬于身侧，随你征战');
+    sfx('win');
   } else if (o.kind === 'weapon') {
     const w = S.weapons.find(x => x.id === o.id);
     if (w) w.lv++; else S.weapons.push({ id: o.id, lv: 1, t: 0.2 });
@@ -2370,8 +2583,15 @@ function banner(main, sub) {
   b.classList.add('show');
 }
 
+// 神兵图标：有神兵美术图就用图，没有就借用这位名将兵器的图标
+function sbIconHtml(gid) {
+  const img = window.Assets.get('shenbing:' + gid);
+  if (img) return `<img class="ico sb" src="${img.src}" alt="${D.shenbing[gid].name}">`;
+  return window.Assets.icon(D.shenbing[gid].iconFrom, D.shenbing[gid].icon, D.shenbing[gid].name);
+}
 function slotHtml(kind, id, lv) {
   const def = defOf(kind, id);
+  if (kind === 'shenbing') return `<div class="slot sb" title="神兵 · ${def.name} Lv${lv}">${sbIconHtml(id)}<i>${lv}</i></div>`;
   const cls = kind === 'skill' ? ' skill' : kind === 'passive' ? ' passive' : '';
   const max = maxLv(kind, def);
   const badge = max > 1 ? `<i${lv > max ? ' class="brk"' : ''}>${lv}</i>` : '';
@@ -2379,6 +2599,7 @@ function slotHtml(kind, id, lv) {
 }
 function buildList() {
   const out = [];
+  for (const sb of S.shenbing) out.push(['shenbing', sb.gid, sb.lv]);
   for (const w of S.weapons) out.push(['weapon', w.id, w.lv]);
   for (const s of S.skills) out.push(['skill', s.id, s.lv]);
   for (const id in S.passives) out.push(['passive', id, S.passives[id]]);
@@ -3165,6 +3386,7 @@ function drawProjectiles() {
   for (const b of S.proj) {
     if (b.kind === 'arrow') {
       const sp = Math.hypot(b.vx, b.vy), ux = b.vx / sp, uy = b.vy / sp;
+      if (b.glow) FX.sprite(ctx, 'thrust', b.glow, b.x - ux * 40, b.y - uy * 40, 110, 22, Math.atan2(uy, ux), 0.9, 0.6); // 神弩光箭
       ctx.strokeStyle = 'rgba(255,245,220,0.18)'; ctx.lineWidth = 4; // 破空的尾迹
       ctx.beginPath(); ctx.moveTo(b.x - ux * 46, b.y - uy * 46); ctx.lineTo(b.x - ux * 10, b.y - uy * 10); ctx.stroke();
       ctx.strokeStyle = '#e8dcc0'; ctx.lineWidth = 2;
@@ -3519,6 +3741,7 @@ function render(raw) {
   drawGhosts();
   drawEnemies();
   drawPlayer();
+  drawShenbing();
   drawOrbit();
   drawProjectiles();
   FX.particles(ctx, S.particles, false); // 烟尘、碎屑
@@ -3559,6 +3782,7 @@ window.BUYI = {
   skipTo(t) { if (S) S.t = t; },
   boss(id, final) { if (S) spawnBoss(id, final); },
   chapter(i) { if (S) { S.ch = i - 1; S.endless = false; nextChapter(); } }, // 跳到第 i 章（0 起）
+  shenbing(gid) { if (S) { applyChoice({ kind: 'shenbing', id: gid }); } }, // 直接拿到一件神兵（测试用）
   xp(v) { if (S) addXp(v); },
   god(on = true) { if (S) S.god = on; },
   // 快进模拟：autoPick 为 true 时自动选择第一张卡
