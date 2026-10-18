@@ -151,6 +151,7 @@ const joy = { on: false, id: -1, ox: 0, oy: 0, x: 0, y: 0 };
 cv.addEventListener('pointerdown', e => {
   if (!S || S.over) return;
   audio();
+  if (joy.on) return; // 摇杆只跟着第一根手指走，第二根手指（比如去点升级卡）不会抢走它
   joy.on = true; joy.id = e.pointerId;
   joy.ox = joy.x = e.clientX; joy.oy = joy.y = e.clientY;
   try { cv.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -2517,7 +2518,13 @@ function makeCard(o, i) {
   btn.innerHTML = `<span class="key">${i + 1}</span>
     <div class="top"><div class="seal${sealCls}">${icon}</div><div><div class="nm">${name}</div><div class="kind">${kind}</div></div></div>
     <div class="lvl">${lvl}</div><div class="ds">${desc}</div>`;
-  btn.addEventListener('click', () => applyChoice(o));
+  // 手机上一根手指按着移动、另一根手指点卡时，浏览器往往不发 click，
+  // 所以触屏直接在“手指抬起”时选中；鼠标和键盘照常用 click。每张卡只生效一次。
+  const pick = () => { if (btn.dataset.done) return; btn.dataset.done = '1'; applyChoice(o); };
+  btn.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') btn.dataset.pid = e.pointerId; });
+  btn.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse' && btn.dataset.pid === String(e.pointerId)) pick(); });
+  btn.addEventListener('pointercancel', () => { delete btn.dataset.pid; });
+  btn.addEventListener('click', pick);
   return btn;
 }
 
