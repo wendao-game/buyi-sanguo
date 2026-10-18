@@ -8,6 +8,7 @@
 //   buildings/<据点id>.png   据点建筑，例如 buildings/camp.png
 //   props/caltrop.png        铁蒺藜（单个，俯视）
 //   cutins/<武将id>.png      大招特写横幅（眼部特写，宽 3:1）；sprites/lubu_mounted.png 吕布骑赤兔
+//   fx/dragon_white.png、fx/dragon_azure.png  白龙 / 青龙龙首（朝右）；mounts/white.png 白龙驹（不带骑手，朝右）
 // id 就是 data.js 里的英文名。
 
 // 素材文件夹：和 index.html 放在一起的 assets/。整个游戏文件夹搬到哪里都能用。
@@ -43,6 +44,9 @@ window.Assets = (() => {
     // 大招特写横幅、吕布骑赤兔
     for (const id in D.generals) load('cutin:' + id, `${ASSET_BASE}cutins/${id}.png`);
     load('sprite:lubu_mounted', `${ASSET_BASE}sprites/lubu_mounted.png`);
+    // 特效贴图：龙首（白龙 = 赵云七进七出，青龙 = 关羽刀气）、坐骑
+    for (const id of ['dragon_white', 'dragon_azure']) load('fx:' + id, `${ASSET_BASE}fx/${id}.png`);
+    load('mount:white', `${ASSET_BASE}mounts/white.png`);
   }
 
   const esc = s => String(s).replace(/"/g, '&quot;');

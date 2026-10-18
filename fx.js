@@ -87,22 +87,22 @@ window.FX = (() => {
     ctx.globalAlpha = 1;
   }
 
-  // 冲击环：亮环 + 内部淡光
+  // 冲击环：气浪由内向外推开——柔和的气浪前沿（渐变，不是实线）+ 一道细亮边 + 地面一圈暗影
   function shock(ctx, f) {
     const t = f.life / f.max, prog = 1 - t;
-    const r = f.r * (0.25 + 0.75 * Math.pow(prog, 0.55));
+    const r = f.r * (0.2 + 0.8 * Math.pow(prog, 0.5)), band = Math.max(10, f.r * 0.22 * (0.4 + 0.6 * t));
+    ctx.globalAlpha = t * 0.18; // 被气浪压低的地面
+    ctx.fillStyle = 'rgb(10,8,5)';
+    ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, TAU); ctx.arc(f.x, f.y, Math.max(0, r - band * 1.6), 0, TAU, true); ctx.fill();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = t * 0.22;
-    const g = ctx.createRadialGradient(f.x, f.y, r * 0.4, f.x, f.y, r);
-    g.addColorStop(0, `rgba(${f.rgb},0)`); g.addColorStop(1, `rgba(${f.rgb},0.9)`);
+    const g = ctx.createRadialGradient(f.x, f.y, Math.max(0, r - band * 2), f.x, f.y, r + band * 0.3);
+    g.addColorStop(0, `rgba(${f.rgb},0)`); g.addColorStop(0.75, `rgba(${f.rgb},0.55)`); g.addColorStop(0.93, 'rgba(255,255,245,0.5)'); g.addColorStop(1, `rgba(${f.rgb},0)`);
+    ctx.globalAlpha = t * 0.85;
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, TAU); ctx.fill();
-    ctx.globalAlpha = t;
-    ctx.strokeStyle = `rgb(${f.rgb})`;
-    ctx.lineWidth = 3 + 12 * t;
-    ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, TAU); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,240,0.8)';
-    ctx.lineWidth = 1.5 + 3 * t;
+    ctx.beginPath(); ctx.arc(f.x, f.y, r + band * 0.3, 0, TAU); ctx.fill();
+    ctx.globalAlpha = t * 0.7;
+    ctx.strokeStyle = 'rgba(255,255,245,0.9)';
+    ctx.lineWidth = 1 + 1.6 * t;
     ctx.beginPath(); ctx.arc(f.x, f.y, r, 0, TAU); ctx.stroke();
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
@@ -169,5 +169,86 @@ window.FX = (() => {
     return lines;
   }
 
-  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex };
+  // 龙形气劲：pts 从龙头到龙尾。身体是由粗到细的发光带（外层光晕 + 主体 + 白色龙芯），
+  // 沿脊背有一节节闪动的鳞光和背鳍；龙头有美术图就画图，没有就画发光的龙首轮廓与龙须。
+  function dragon(ctx, pts, o) {
+    const n = pts.length;
+    if (n < 3) return;
+    const a = o.a === undefined ? 1 : o.a, W = o.w, rgb = o.rgb, t = o.t || 0;
+    const L = [], R = [];
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(n - 1, i + 1)];
+      const dx = p1[0] - p0[0], dy = p1[1] - p0[1], d = Math.hypot(dx, dy) || 1;
+      const k = i / (n - 1), w = W * (k < 0.12 ? 0.7 + k * 2.5 : Math.pow(1 - k, 0.75)) * 0.5;
+      L.push([pts[i][0] - dy / d * w, pts[i][1] + dx / d * w]);
+      R.push([pts[i][0] + dy / d * w, pts[i][1] - dx / d * w]);
+    }
+    const band = s => { // 以龙脊为中线、按比例 s 缩放的身体轮廓
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) ctx.lineTo(pts[i][0] + (L[i][0] - pts[i][0]) * s, pts[i][1] + (L[i][1] - pts[i][1]) * s);
+      for (let i = n - 1; i >= 0; i--) ctx.lineTo(pts[i][0] + (R[i][0] - pts[i][0]) * s, pts[i][1] + (R[i][1] - pts[i][1]) * s);
+      ctx.closePath(); ctx.fill();
+    };
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = `rgb(${rgb})`;
+    ctx.globalAlpha = a * 0.16; band(2.2);
+    ctx.globalAlpha = a * 0.38; band(1);
+    ctx.fillStyle = `rgb(${o.core || '255,255,255'})`;
+    ctx.globalAlpha = a * 0.75; band(0.28);
+    // 背鳍：沿脊背一侧的一排细刺，随身体摆动
+    ctx.strokeStyle = `rgb(${o.core || '255,255,255'})`; ctx.lineCap = 'round';
+    for (let i = 2; i < n - 2; i += 2) {
+      const k = i / (n - 1), [lx, ly] = L[i], [px, py] = pts[i], [bx, by] = pts[i + 1];
+      const fl = 0.55 + 0.45 * Math.sin(t * 9 - i);
+      ctx.globalAlpha = a * 0.45 * (1 - k);
+      ctx.lineWidth = Math.max(1, W * 0.07 * (1 - k));
+      ctx.beginPath(); ctx.moveTo(lx, ly);
+      ctx.lineTo(lx + (lx - px) * 0.9 * fl + (bx - px) * 0.8, ly + (ly - py) * 0.9 * fl + (by - py) * 0.8); ctx.stroke();
+    }
+    // 鳞光：脊背上一闪一闪的亮点
+    for (let i = 1; i < n; i += 2) {
+      const k = i / (n - 1), fl = 0.5 + 0.5 * Math.sin(t * 14 + i * 1.7);
+      glow(ctx, pts[i][0], pts[i][1], W * (0.55 - 0.4 * k), o.core || '255,255,255', a * 0.35 * fl * (1 - k));
+    }
+    // 龙头
+    const [hx, hy] = pts[0], ang = Math.atan2(pts[0][1] - pts[2][1], pts[0][0] - pts[2][0]);
+    glow(ctx, hx, hy, W * 2.2, rgb, a * 0.65);
+    if (o.head) {
+      const s = W * (o.headScale || 3.4), ih = s * o.head.naturalHeight / o.head.naturalWidth;
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a;
+      ctx.translate(hx, hy); ctx.rotate(ang); if (Math.cos(ang) < 0) ctx.scale(1, -1);
+      ctx.drawImage(o.head, -s * 0.72, -ih / 2, s, ih);
+    } else {
+      ctx.translate(hx, hy); ctx.rotate(ang);
+      const hl = W * 1.5, hw = W * 0.62;
+      ctx.globalAlpha = a * 0.55; ctx.fillStyle = `rgb(${rgb})`;
+      ctx.beginPath(); ctx.moveTo(hl * 0.55, 0); ctx.quadraticCurveTo(hl * 0.2, -hw, -hl * 0.45, -hw * 0.75);
+      ctx.lineTo(-hl * 0.3, 0); ctx.lineTo(-hl * 0.45, hw * 0.75); ctx.quadraticCurveTo(hl * 0.2, hw, hl * 0.55, 0); ctx.fill();
+      ctx.globalAlpha = a * 0.9; ctx.fillStyle = `rgb(${o.core || '255,255,255'})`;
+      ctx.beginPath(); ctx.moveTo(hl * 0.5, 0); ctx.quadraticCurveTo(hl * 0.1, -hw * 0.4, -hl * 0.3, -hw * 0.25); ctx.lineTo(-hl * 0.3, hw * 0.25); ctx.quadraticCurveTo(hl * 0.1, hw * 0.4, hl * 0.5, 0); ctx.fill();
+      // 龙角与龙须：向后飘
+      ctx.strokeStyle = `rgb(${o.core || '255,255,255'})`; ctx.lineWidth = Math.max(1.2, W * 0.08);
+      for (const sgn of [-1, 1]) {
+        const sw = Math.sin(t * 7 + sgn) * hw * 0.5;
+        ctx.globalAlpha = a * 0.8;
+        ctx.beginPath(); ctx.moveTo(-hl * 0.1, sgn * hw * 0.55); ctx.quadraticCurveTo(-hl * 0.6, sgn * hw * 1.3, -hl * 1.1, sgn * hw * 1.1); ctx.stroke();
+        ctx.globalAlpha = a * 0.55;
+        ctx.beginPath(); ctx.moveTo(hl * 0.35, sgn * hw * 0.3); ctx.bezierCurveTo(hl * 0.1, sgn * hw * 1.6 + sw, -hl * 0.9, sgn * hw * 0.8 - sw, -hl * 1.7, sgn * hw * 1.5 + sw); ctx.stroke();
+      }
+      glow(ctx, hl * 0.15, -hw * 0.28, W * 0.3, '255,255,255', a); // 龙目
+    }
+    ctx.restore();
+  }
+  // 直线游动的龙：龙头在 (x, y)，朝 ang 方向，身体向后摆
+  function swimPts(x, y, ang, len, n, amp, phase) {
+    const ux = Math.cos(ang), uy = Math.sin(ang), out = [];
+    for (let i = 0; i < n; i++) {
+      const k = i / (n - 1), s = len * k, off = Math.sin(phase - k * 5.5) * amp * Math.sin(Math.PI * Math.min(1, k * 1.4));
+      out.push([x - ux * s - uy * off, y - uy * s + ux * off]);
+    }
+    return out;
+  }
+
+  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts };
 })();

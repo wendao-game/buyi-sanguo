@@ -1,3 +1,6 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>布衣三国</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -81,8 +84,32 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 @keyframes cutin { 0% { transform: translateX(-100%); opacity: 0; } 12% { transform: translateX(0); opacity: 1; } 82% { transform: translateX(0); opacity: 1; } 100% { transform: translateX(-30px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { #cutin.show { animation-name: bannerfade; } }
 
-#lu-portrait { width: 150px; margin-bottom: -10px; }
-#lu-portrait svg { display: block; width: 100%; height: auto; }
+/* 选择栏：浮在屏幕上方，游戏照常进行 */
+#levelup { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 10px);
+  width: min(760px, calc(100% - 16px)); box-sizing: border-box; display: grid; gap: 6px; padding: 7px;
+  background: rgba(18,15,11,.9); border: 1px solid var(--gold); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.55);
+  animation: luIn .22s ease-out; }
+@keyframes luIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { #levelup { animation: none; } }
+.lu-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; padding: 0 2px; }
+#lu-title { font-family: var(--display); font-weight: 400; font-size: 22px; line-height: 1.1; color: var(--paper); }
+#lu-sub { font-size: 12px; color: var(--gold); letter-spacing: .06em; }
+#lu-crit { margin-left: auto; font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#lu-crit b { color: #ffcf5a; font-weight: 700; }
+#lu-portrait { position: relative; width: 30px; height: 30px; flex: none; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px var(--gold); }
+#lu-portrait svg { display: block; width: 100%; height: 100%; }
+#lu-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+#levelup .card { max-width: none; padding: 9px 10px 9px; gap: 4px; box-shadow: none; }
+#levelup .card::before { inset: 3px; }
+#levelup .card:hover { transform: none; filter: brightness(1.06); }
+#levelup .card .top { gap: 7px; }
+#levelup .seal { width: 34px; height: 34px; font-size: 18px; }
+#levelup .card .nm { font-size: 15px; }
+#levelup .card .kind { font-size: 11px; }
+#levelup .card .lvl { font-size: 12px; }
+#levelup .card .ds { font-size: 12.5px; line-height: 1.45; }
+#levelup .card .key { right: 6px; top: 4px; }
+.card .ds b.crit { color: var(--seal); font-variant-numeric: tabular-nums; }
 
 /* 武将图鉴 */
 .codex { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 14px; width: 100%; max-width: 960px; }
@@ -98,7 +125,9 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 .gcard.unseen .art svg, .gcard.unseen .art img { filter: brightness(0) opacity(.55); }
 #bossname { font-family: var(--display); font-size: 26px; color: var(--paper); text-shadow: 0 2px 4px #000; line-height: 1.1; }
 #bosstitle { font-size: 12px; color: var(--gold); letter-spacing: .2em; margin-bottom: 4px; }
-#bosshp { height: 12px; background: #110d09; border: 1px solid var(--gold); }
+#bosshp { position: relative; height: 12px; background: #110d09; border: 1px solid var(--gold); }
+/* 护甲：叠在血条上方的一道亮蓝 */
+#bossshield { position: absolute; left: 0; top: 0; height: 4px; width: 0; background: linear-gradient(90deg, #7ea4e8, #d6e4ff); box-shadow: 0 0 6px rgba(170,200,255,.8); transition: width .1s; }
 #bossfill { height: 100%; width: 100%; background: linear-gradient(90deg, #7d1a13, var(--seal)); transition: width .1s; }
 
 #banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; pointer-events: none; opacity: 0; }
@@ -217,6 +246,38 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
   .seal { width: 38px; height: 38px; font-size: 20px; }
   #slots { max-width: 200px; }
   #bossface { width: 46px; height: 46px; }
+  /* 手机竖屏：选择栏三张卡并排，字小一号，名字和图标上下排 */
+  #levelup { width: calc(100% - 12px); padding: 6px; gap: 5px; }
+  #lu-title { font-size: 19px; }
+  #lu-crit { margin-left: 0; width: 100%; }
+  #lu-cards { gap: 5px; }
+  #levelup .card { flex-basis: auto; padding: 7px 6px; gap: 3px; }
+  #levelup .card .top { flex-direction: column; align-items: flex-start; gap: 4px; }
+  #levelup .seal { width: 30px; height: 30px; font-size: 16px; }
+  #levelup .card .nm { font-size: 13.5px; }
+  #levelup .card .kind { display: none; }
+  #levelup .card .lvl { font-size: 11px; }
+  #levelup .card .ds { font-size: 11.5px; line-height: 1.4; }
+  /* HUD 与提示文字 */
+  #lv { font-size: 22px; }
+  #rank { font-size: 12px; padding: 1px 6px; }
+  #time { font-size: 24px; }
+  #chap, #kills { font-size: 11px; }
+  .iconbtn { width: 32px; height: 32px; }
+  .slot { width: 26px; height: 26px; font-size: 14px; }
+  .slot.passive { width: 22px; height: 22px; font-size: 12px; }
+  #bossname { font-size: 21px; }
+  #bosstitle { font-size: 11px; letter-spacing: .12em; }
+  #banner b { font-size: clamp(30px, 9vw, 44px); }
+  #banner span { font-size: 13px; letter-spacing: .08em; padding: 0 12px; }
+  #toast-title { font-size: 14px; }
+  #cutin { height: 108px; bottom: calc(env(safe-area-inset-bottom, 0px) + 100px); }
+  #cut-line { font-size: 13px; }
+  #ult-name { font-size: clamp(32px, 11vw, 54px); }
+  #ult-gen { font-size: 12px; letter-spacing: .25em; }
+  .overlay h2 { font-size: clamp(28px, 8vw, 40px); }
+  #title .lede { font-size: 14px; }
+  .stats { font-size: 14px; gap: 6px 16px; }
 }
 </style>
 
@@ -248,7 +309,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <div class="bossinfo">
         <div id="bossname">华雄</div>
         <div id="bosstitle">董卓帐下骁将</div>
-        <div id="bosshp"><div id="bossfill"></div></div>
+        <div id="bosshp"><div id="bossfill"></div><div id="bossshield"></div></div>
       </div>
     </div>
     <div id="cutin"><div id="cut-art"></div><div class="cut-text"><b id="cut-name"></b><span id="cut-title"></span><span id="cut-line"></span></div></div>
@@ -283,11 +344,14 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <button class="btn primary" id="btn-codex-close">返回</button>
   </div>
 
-  <div id="levelup" class="overlay" hidden>
-    <div id="lu-portrait" hidden></div>
-    <h2 id="lu-title">升级</h2>
-    <div class="sub" id="lu-sub">选择一项</div>
-    <div class="cards" id="lu-cards"></div>
+  <!-- 升级 / 斩将 / 铁匠铺：屏幕上方的选择栏，不暂停游戏，边打边选 -->
+  <div id="levelup" hidden>
+    <div class="lu-head">
+      <div id="lu-portrait" hidden></div>
+      <b id="lu-title">升级</b><span id="lu-sub">选择一项</span>
+      <span id="lu-crit"></span>
+    </div>
+    <div id="lu-cards"></div>
   </div>
 
   <div id="pause" class="overlay" hidden>

@@ -36,23 +36,23 @@ window.GAME_DATA = {
   // 出身：开局三选一
   origins: [
     {
-      id: 'farmer', name: '农夫', icon: '农', weapon: 'hoe',
+      id: 'farmer', name: '农夫', icon: '农', weapon: 'hoe', focus: 'body', focusName: '炼体',
       desc: '种了半辈子地，身子骨硬朗。',
-      perks: ['生命上限 130', '每秒回复 0.4 生命'],
+      perks: ['生命上限 130', '每秒回复 0.4 生命', '炼体：更容易刷到生命、护甲、回复'],
       stats: { maxHp: 130, regen: 0.4 },
       look: { skin: '#c48a58', skinShade: '#9c6a40', robe: '#8c7b5a', trim: '#5e5040', armor: false, beard: 'stubble', beardColor: '#2a2018', eyes: 'normal', brows: 'sharp', head: 'straw', weapon: 'hoe', aura: '#6b7a4a', artFace: [0.50, 0.31, 0.36], extras: ['patches', 'towel'] },
     },
     {
-      id: 'hunter', name: '猎户', icon: '猎', weapon: 'bow',
+      id: 'hunter', name: '猎户', icon: '猎', weapon: 'bow', focus: 'bow', focusName: '弓箭',
       desc: '山中射猎为生，眼疾手快。',
-      perks: ['移动速度 +10%', '暴击率 +8%'],
+      perks: ['移动速度 +10%', '暴击率 +8%', '弓箭：更容易刷到弓弩与箭术'],
       stats: { speedMul: 1.1, crit: 0.08 },
       look: { skin: '#d6a273', skinShade: '#ae7c50', robe: '#5c4a33', trim: '#8a6a3a', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'hunter', headColor: '#3e5a3a', weapon: 'bow', aura: '#3f5f50', artFace: [0.53, 0.24, 0.36], extras: ['fur'] },
     },
     {
-      id: 'scholar', name: '书生', icon: '书', weapon: 'scroll',
+      id: 'scholar', name: '书生', icon: '书', weapon: 'scroll', focus: 'spell', focusName: '计策',
       desc: '读过几卷兵书，懂得借力。',
-      perks: ['冷却 -10%', '拾取范围 +30%'],
+      perks: ['冷却 -10%', '拾取范围 +30%', '计策：更容易刷到法术、技能与计谋'],
       stats: { cdMul: 0.9, pickupMul: 1.3 },
       look: { skin: '#efd6b4', skinShade: '#cfb08a', robe: '#d9d3c2', trim: '#34465a', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'scholar', headColor: '#2a2f38', weapon: 'scrolls', aura: '#4f6577', artFace: [0.48, 0.22, 0.36], extras: ['sash'] },
     },
@@ -61,7 +61,7 @@ window.GAME_DATA = {
   // 武器：type 决定攻击方式，levels 是每一级的数值
   weapons: {
     hoe: {
-      name: '锄头', icon: '锄', type: 'arc', common: true,
+      name: '锄头', icon: '锄', type: 'arc', common: true, tags: ['body'],
       desc: '朝最近的敌人挥砍，扇形范围内全部命中。',
       levels: [
         { dmg: 18, cd: 0.8, range: 95, angle: 140, kb: 140 },
@@ -72,7 +72,7 @@ window.GAME_DATA = {
       ],
     },
     bow: {
-      name: '猎弓', icon: '弓', type: 'projectile', common: true,
+      name: '猎弓', icon: '弓', type: 'projectile', common: true, tags: ['bow'],
       desc: '向最近的敌人射箭。',
       levels: [
         { dmg: 14, cd: 0.6, count: 1, speed: 580, pierce: 1 },
@@ -83,7 +83,7 @@ window.GAME_DATA = {
       ],
     },
     scroll: {
-      name: '竹简', icon: '简', type: 'homing', common: true,
+      name: '竹简', icon: '简', type: 'homing', common: true, tags: ['spell'],
       desc: '放出追踪敌人的文气。',
       levels: [
         { dmg: 14, cd: 0.95, count: 1, speed: 300 },
@@ -93,19 +93,8 @@ window.GAME_DATA = {
         { dmg: 32, cd: 0.7, count: 4, speed: 350, note: '文气数量 +1，伤害 +7' },
       ],
     },
-    stones: {
-      name: '飞蝗石', icon: '石', type: 'nova', common: true,
-      desc: '向四面八方撒出石子。',
-      levels: [
-        { dmg: 12, cd: 1.3, count: 6, speed: 400 },
-        { dmg: 15, cd: 1.3, count: 7, speed: 410, note: '石子 +1，伤害 +3' },
-        { dmg: 18, cd: 1.15, count: 9, speed: 420, note: '石子 +2，冷却缩短' },
-        { dmg: 22, cd: 1.0, count: 11, speed: 440, note: '石子 +2，冷却缩短' },
-        { dmg: 28, cd: 0.85, count: 14, speed: 460, note: '石子 +3，伤害 +6' },
-      ],
-    },
     torch: {
-      name: '火把', icon: '火', type: 'aura', common: true,
+      name: '火把', icon: '火', type: 'aura', common: true, tags: ['spell'],
       desc: '身边燃起火圈，持续灼烧靠近的敌人。',
       levels: [
         { dmg: 7, tick: 0.35, radius: 66 },
@@ -115,18 +104,6 @@ window.GAME_DATA = {
         { dmg: 19, tick: 0.25, radius: 112, note: '伤害 +5，火圈扩大' },
       ],
     },
-    caltrops: {
-      name: '铁蒺藜', icon: '藜', type: 'trap', common: true,
-      desc: '在脚下撒铁蒺藜，扎伤并减速敌人。',
-      levels: [
-        { dmg: 10, tick: 0.4, cd: 2.2, count: 1, radius: 46, life: 4, slow: 0.5 },
-        { dmg: 13, tick: 0.4, cd: 2.2, count: 1, radius: 52, life: 4, slow: 0.5, note: '伤害 +3，范围扩大' },
-        { dmg: 13, tick: 0.4, cd: 1.9, count: 2, radius: 52, life: 4, slow: 0.45, note: '一次撒 2 片' },
-        { dmg: 17, tick: 0.35, cd: 1.9, count: 2, radius: 58, life: 4.5, slow: 0.45, note: '伤害 +4，持续更久' },
-        { dmg: 22, tick: 0.35, cd: 1.6, count: 3, radius: 62, life: 5, slow: 0.4, note: '一次撒 3 片' },
-      ],
-    },
-
     // —— 武将兵器：只能从击败武将获得 ——
     dadao: {
       name: '华雄大刀', icon: '刀', type: 'arc', general: '华雄',
@@ -195,7 +172,7 @@ window.GAME_DATA = {
       ],
     },
     yushan: {
-      name: '羽扇', icon: '扇', type: 'burst', general: '诸葛亮',
+      name: '羽扇', icon: '扇', type: 'burst', general: '诸葛亮', tags: ['spell'],
       desc: '诸葛亮的羽扇。扇出火球追踪敌人，命中后爆炸。',
       levels: [
         { dmg: 26, cd: 1.2, count: 1, speed: 300, radius: 60 },
@@ -217,7 +194,7 @@ window.GAME_DATA = {
       ],
     },
     yaofu: {
-      name: '地公符', icon: '符', type: 'meteor', general: '张宝',
+      name: '地公符', icon: '符', type: 'meteor', general: '张宝', tags: ['spell'],
       desc: '张宝的符咒。符纸飞向敌群，片刻后引落一块巨石砸下。',
       levels: [
         { dmg: 44, cd: 1.5, count: 2, radius: 64, delay: 0.55 },
@@ -228,7 +205,7 @@ window.GAME_DATA = {
       ],
     },
     jiujie: {
-      name: '九节杖', icon: '杖', type: 'chain', general: '张角',
+      name: '九节杖', icon: '杖', type: 'chain', general: '张角', tags: ['spell'],
       desc: '天公将军的法杖。放出闪电，在敌人之间连续跳跃。',
       levels: [
         { dmg: 26, cd: 1.1, chains: 4, range: 380, jump: 170 },
@@ -250,7 +227,7 @@ window.GAME_DATA = {
       ],
     },
     lianmao: {
-      name: '文丑连弩', icon: '弩', type: 'projectile', general: '文丑',
+      name: '文丑连弩', icon: '弩', type: 'projectile', general: '文丑', tags: ['bow'],
       desc: '文丑的连弩。一次扇形射出一排弩箭，近身时几乎箭箭命中。',
       levels: [
         { dmg: 16, cd: 0.9, count: 4, speed: 640, pierce: 1, fan: 0.22 },
@@ -261,7 +238,7 @@ window.GAME_DATA = {
       ],
     },
     zhouqin: {
-      name: '周郎琴', icon: '琴', type: 'sonic', general: '周瑜',
+      name: '周郎琴', icon: '琴', type: 'sonic', general: '周瑜', tags: ['spell'],
       desc: '周瑜的古琴。琴音化作一圈圈音波向外扩散，穿过的敌人都会受伤。',
       levels: [
         { dmg: 24, cd: 1.6, ringR: 260, count: 1 },
@@ -332,7 +309,7 @@ window.GAME_DATA = {
     },
     qijin: {
       name: '七进七出', icon: '进', type: 'rampage', general: '赵云',
-      desc: '定时杀入敌阵：数秒内无敌并加速，撞到的敌人全部受伤。',
+      desc: '定时骑上白龙驹杀入敌阵：数秒内无敌并加速，身后白龙相随，撞到的敌人全部受伤。',
       levels: [
         { dmg: 30, cd: 14, dur: 2.5, speed: 0.6 },
         { dmg: 38, cd: 13, dur: 2.8, speed: 0.6, note: '持续更久' },
@@ -433,14 +410,26 @@ window.GAME_DATA = {
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得
   passives: {
-    sandals: { name: '草鞋', icon: '履', max: 5, desc: '移动速度 +10%', effects: { speedMul: 0.1 } },
-    leather: { name: '皮甲', icon: '甲', max: 5, desc: '护甲 +1（每次受伤减少 1 点）', effects: { armor: 1 } },
-    manual: { name: '兵书', icon: '典', max: 5, desc: '所有冷却 -8%', effects: { cdMul: -0.08 } },
+    sandals: { tags: [], name: '草鞋', icon: '履', max: 5, desc: '移动速度 +10%', effects: { speedMul: 0.1 } },
+    leather: { tags: ['body'], name: '皮甲', icon: '甲', max: 5, desc: '护甲 +1（每次受伤减少 1 点）', effects: { armor: 1 } },
+    manual: { tags: ['spell'], name: '兵书', icon: '典', max: 5, desc: '所有冷却 -8%', effects: { cdMul: -0.08 } },
     wine: { name: '烈酒', icon: '酒', max: 5, desc: '伤害 +10%', effects: { dmgMul: 0.1 } },
     banner: { name: '军旗', icon: '旗', max: 5, desc: '攻击范围 +10%', effects: { areaMul: 0.1 } },
-    rations: { name: '干粮', icon: '粮', max: 5, desc: '每秒回复 +0.3 生命', effects: { regen: 0.3 } },
+    rations: { tags: ['body'], name: '干粮', icon: '粮', max: 5, desc: '每秒回复 +0.3 生命', effects: { regen: 0.3 } },
     purse: { name: '钱袋', icon: '袋', max: 5, desc: '拾取范围 +25%', effects: { pickupMul: 0.25 } },
-    vigor: { name: '强身', icon: '身', max: 5, desc: '生命上限 +20', effects: { maxHp: 20 } },
+    vigor: { tags: ['body'], name: '强身', icon: '身', max: 5, desc: '生命上限 +20', effects: { maxHp: 20 } },
+    // 暴击：三种出身都能刷到
+    eagle: { tags: [], name: '鹰眼', icon: '眼', max: 5, desc: '暴击率 +4%', effects: { crit: 0.04 } },
+    vital: { tags: [], name: '要害', icon: '刺', max: 5, desc: '暴击伤害 +20%', effects: { critMul: 0.2 } },
+    // 农夫 · 炼体
+    lianti: { tags: ['body'], name: '炼体', icon: '体', max: 5, desc: '生命上限 +10%，每秒回复 +0.2', effects: { maxHpMul: 0.1, regen: 0.2 } },
+    tiebu: { tags: ['body'], name: '铁布衫', icon: '衫', max: 5, desc: '护甲 +1，生命上限 +15', effects: { armor: 1, maxHp: 15 } },
+    // 猎户 · 弓箭（对猎弓、连弩生效）
+    lianzhu: { tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每次多射 1 支箭', effects: { arrowCount: 1 } },
+    chuanyang: { tags: ['bow'], name: '百步穿杨', icon: '杨', max: 5, desc: '弓弩伤害 +15%，穿透 +1', effects: { arrowDmg: 0.15, arrowPierce: 1 } },
+    // 书生 · 计策（对竹简、羽扇、符咒、法杖、古琴、火把和所有技能生效）
+    qimou: { tags: ['spell'], name: '奇谋', icon: '谋', max: 5, desc: '计策与技能伤害 +15%', effects: { spellDmg: 0.15 } },
+    bingfa: { tags: ['spell'], name: '孙子兵法', icon: '孙', max: 5, desc: '计策与技能冷却 -8%，计策范围 +8%', effects: { skillCd: 0.08, spellArea: 0.08 } },
     xiliang: { name: '西凉铠', icon: '铠', max: 1, unique: true, general: '华雄', desc: '华雄的铁甲：护甲 +3，生命上限 +40', effects: { armor: 3, maxHp: 40 } },
     chunqiu: { name: '《春秋》', icon: '春', max: 1, unique: true, general: '关羽', desc: '关羽夜读之书：伤害 +25%，暴击率 +5%', effects: { dmgMul: 0.25, crit: 0.05 } },
     jiutan: { name: '张飞酒坛', icon: '坛', max: 1, unique: true, general: '张飞', desc: '一坛烈酒下肚：生命上限 +60，每秒回复 +1', effects: { maxHp: 60, regen: 1 } },
@@ -536,7 +525,7 @@ window.GAME_DATA = {
   generals: {
     // —— 第一章 · 黄巾之乱 ——
     chengyuanzhi: {
-      name: '程远志', title: '黄巾渠帅 · 涿郡先锋', icon: '程', hp: 1100, speed: 86, dmg: 13, r: 30, color: '#8a6a2a',
+      name: '程远志', title: '黄巾渠帅 · 涿郡先锋', icon: '程', hp: 1000, speed: 82, dmg: 11, r: 30, color: '#8a6a2a',
       attacks: ['charge', 'cleave', 'summon'], interval: 3.2, cleaveR: 170, chargeSpeed: 580, summon: 4, summonType: 'foot',
       rewards: ['kaishan', 'haoling', 'huangjin'],
       ultRgb: '240,200,60', ultEvery: 12,
@@ -591,7 +580,7 @@ window.GAME_DATA = {
       look: { skin: '#d6a77a', skinShade: '#b07f56', robe: '#4f2a1c', trim: '#c9a046', armor: true, armorColor: '#6b4a2e', beard: 'short', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#7a5a3a', plume: '#2b2622', weapon: 'dao', aura: '#7a3a22', artFace: [0.53, 0.24, 0.36], scar: true },
     },
     lubu: {
-      name: '吕布', title: '人中吕布 · 马中赤兔', icon: '吕', hp: 6500, speed: 108, dmg: 26, r: 36, color: '#6e1510',
+      name: '吕布', title: '人中吕布 · 马中赤兔', icon: '吕', hp: 6500, speed: 108, dmg: 24, r: 36, color: '#6e1510',
       attacks: ['charge3', 'slam', 'summon', 'charge3', 'slam'], interval: 2.9, slamR: 185, chargeSpeed: 700, summon: 6,
       rewards: ['halberd', 'wushuang', 'chitu'],
       ultRgb: '255,60,40', ultEvery: 10,
@@ -608,7 +597,7 @@ window.GAME_DATA = {
       name: '颜良', title: '河北名将 · 袁绍先锋', icon: '颜', hp: 5500, speed: 98, dmg: 26, r: 35, color: '#3a4a6a',
       attacks: ['charge', 'cleave', 'slam', 'charge3'], interval: 2.8, cleaveR: 200, slamR: 160, chargeSpeed: 680,
       rewards: ['hebeidao', 'chongzhen', 'zhanpao'],
-      ultRgb: '120,170,255', ultEvery: 11, mount: '#e8e0d0',
+      ultRgb: '120,170,255', ultEvery: 11, mount: '#eef0f2',
       ults: [
         { id: 'baima', name: '白马冲阵', type: 'mountDash', count: 2, speed: 1100, len: 680, tele: 0.6, dmg: 1.6 },
         { id: 'sweep', name: '河北刀阵', type: 'multiCleave', count: 3, R: 240, half: 1.0, tele: 0.45, dmg: 1.3 },
@@ -649,11 +638,12 @@ window.GAME_DATA = {
     zhaoyun: {
       name: '赵云', title: '常山赵子龙', icon: '赵', hp: 6000, speed: 125, dmg: 22, r: 32, color: '#6f7d8a',
       attacks: ['charge3', 'volley', 'charge3', 'volley'], interval: 2.4, chargeSpeed: 760,
+      homing: 2.2, rideCharge: true, mount: '#eef0f2', dragonTrail: true, // 赵云：骑白龙驹追着玩家冲，身后一条白龙
       volley: { count: 7, spread: 0.9, speed: 380, dmg: 14 },
       rewards: ['longdan', 'qijin', 'qinggang'],
       ultRgb: '150,210,255', ultEvery: 10,
       ults: [
-        { id: 'seven', name: '七进七出', type: 'sevenDash', count: 7, speed: 1250, len: 320, w: 40, tele: 0.32, dmg: 1.2 },
+        { id: 'seven', name: '七进七出', type: 'sevenDash', count: 7, speed: 1250, len: 320, w: 40, tele: 0.32, dmg: 1.2, home: 2.6 },
         { id: 'flurry', name: '百鸟朝凤', type: 'flurry', count: 12, R: 250, half: 0.45, dmg: 0.6 },
       ],
       banner: '长坂坡 · 赵云 单骑救主', line: '“吾乃常山赵子龙也！”', rage: '“七进七出，何惧尔等！”',
@@ -803,6 +793,19 @@ window.GAME_DATA = {
     elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
     ground: { bg: '#27231a', grass: 'rgba(126,130,74,0.4)', blot: 'rgba(12,10,6,0.16)', flag: 'rgba(150,45,35,0.45)' },
     waves: [{ t: 0, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } }],
+  },
+
+  // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大
+  champion: {
+    shield: { boss: 0.35, elite: 0.3 },  // 护甲 = 最大生命的比例
+    shieldRegenDelay: 9,                  // 多久没挨打，护甲开始恢复（秒）
+    shieldRegenTime: 4,                   // 从空恢复到满要几秒
+    breakStun: 1.4,                       // 破甲后僵直（秒）
+    breakVuln: 0.3,                       // 破甲后易伤（受伤 +30%）
+    breakVulnTime: 5,
+    speed: 1.2, charge: 1.15,             // 移动、冲锋速度倍率
+    interval: 0.75, ultEvery: 0.8,        // 出招间隔、大招冷却倍率（越小越频繁）
+    area: 1.22, ultArea: 1.1,             // 普通招式、大招的范围倍率
   },
 
   // 全局节奏
