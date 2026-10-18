@@ -3111,7 +3111,7 @@ function drawProjectiles() {
     if (b.kind === 'dragon') { // 关羽的青龙偃月：一条巨大的青龙破空而来
       const a = Math.atan2(b.vy, b.vx);
       FX.dragon(ctx, FX.swimPts(b.x, b.y, a, b.r * 8, 20, b.r * 0.5, S.t * 9 + b.seed),
-        { rgb: b.rgb, core: '230,255,242', w: b.r * 0.9, a: Math.min(1, b.life * 2), head: window.Assets.get('fx:dragon_azure'), headScale: 3.6, t: S.t + b.seed });
+        { rgb: b.rgb, core: '230,255,242', w: b.r * 0.9, a: Math.min(1, b.life * 2), head: window.Assets.get('fx:dragon_azure'), t: S.t + b.seed });
       continue;
     }
     ctx.globalCompositeOperation = 'lighter';

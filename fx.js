@@ -191,14 +191,16 @@ window.FX = (() => {
     };
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+    // 有美术龙首时，身体收窄、更虚，像龙首后面拖出的一缕灵气
+    const art = !!o.head, bw = art ? 0.6 : 1;
     ctx.fillStyle = `rgb(${rgb})`;
-    ctx.globalAlpha = a * 0.16; band(2.2);
-    ctx.globalAlpha = a * 0.38; band(1);
+    ctx.globalAlpha = a * (art ? 0.1 : 0.16); band(2.2 * bw);
+    ctx.globalAlpha = a * (art ? 0.22 : 0.38); band(bw);
     ctx.fillStyle = `rgb(${o.core || '255,255,255'})`;
-    ctx.globalAlpha = a * 0.75; band(0.28);
-    // 背鳍：沿脊背一侧的一排细刺，随身体摆动
+    ctx.globalAlpha = a * (art ? 0.45 : 0.75); band(0.28 * bw);
+    // 背鳍：沿脊背一侧的一排细刺，随身体摆动（有美术龙首时省略）
     ctx.strokeStyle = `rgb(${o.core || '255,255,255'})`; ctx.lineCap = 'round';
-    for (let i = 2; i < n - 2; i += 2) {
+    for (let i = 2; i < n - 2 && !art; i += 2) {
       const k = i / (n - 1), [lx, ly] = L[i], [px, py] = pts[i], [bx, by] = pts[i + 1];
       const fl = 0.55 + 0.45 * Math.sin(t * 9 - i);
       ctx.globalAlpha = a * 0.45 * (1 - k);
@@ -213,12 +215,12 @@ window.FX = (() => {
     }
     // 龙头
     const [hx, hy] = pts[0], ang = Math.atan2(pts[0][1] - pts[2][1], pts[0][0] - pts[2][0]);
-    glow(ctx, hx, hy, W * 2.2, rgb, a * 0.65);
-    if (o.head) {
-      const s = W * (o.headScale || 3.4), ih = s * o.head.naturalHeight / o.head.naturalWidth;
-      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a;
+    glow(ctx, hx, hy, W * (art ? 1.3 : 2.2), rgb, a * (art ? 0.35 : 0.65));
+    if (o.head) { // 美术龙首：图里龙头在右端、鬃毛向左拖，龙鼻对准龙头位置
+      const s = W * (o.headScale || 6), ih = s * o.head.naturalHeight / o.head.naturalWidth;
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a; // 叠加着画：图里暗色的光晕不会变成黑框，龙身自己发光
       ctx.translate(hx, hy); ctx.rotate(ang); if (Math.cos(ang) < 0) ctx.scale(1, -1);
-      ctx.drawImage(o.head, -s * 0.72, -ih / 2, s, ih);
+      ctx.drawImage(o.head, -s * 0.95, -ih * 0.6, s, ih);
     } else {
       ctx.translate(hx, hy); ctx.rotate(ang);
       const hl = W * 1.5, hw = W * 0.62;
