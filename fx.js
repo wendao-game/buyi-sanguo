@@ -252,5 +252,159 @@ window.FX = (() => {
     return out;
   }
 
-  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts };
+  // ---------- 特效贴图 ----------
+  // 9 种贴图：刀光、冲击环、爆裂、雷电、枪芒、旋风、火焰、法阵、光柱。
+  // 有 GPT 画的图（assets/fx/<名字>.png，黑底发光图）就用图，没有就用下面代码生成的版本。
+  // 一律用 'lighter' 叠加着画：黑色部分不显示，亮的部分发光；需要时再染成招式的颜色。
+  const TEX = {
+    slash: [512, 256], ring: [512, 512], burst: [512, 512], bolt: [256, 768], thrust: [768, 192],
+    whirl: [512, 512], flame: [256, 512], circle: [512, 512], pillar: [256, 768],
+  };
+  const genCache = new Map(), tintCache = new Map();
+  let artOf = () => null; // 由 game.js 接上：返回 GPT 画的贴图
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
+  const GEN = {
+    slash(g, w, h) { // 月牙刀光：外沿锋利、内沿虚化，两端收尖
+      const cx = w * 0.32, cy = h * 1.0, R = h * 0.92;
+      for (let pass = 0; pass < 3; pass++) {
+        const th = [0.34, 0.16, 0.05][pass], al = [0.25, 0.55, 1][pass];
+        g.beginPath();
+        const N = 40;
+        for (let i = 0; i <= N; i++) { const k = i / N, a = -Math.PI * 0.92 + k * Math.PI * 0.62; g.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); }
+        for (let i = N; i >= 0; i--) { const k = i / N, a = -Math.PI * 0.92 + k * Math.PI * 0.62, t = Math.pow(Math.sin(Math.PI * k), 0.7) * R * th; g.lineTo(cx + Math.cos(a) * (R - t), cy + Math.sin(a) * (R - t)); }
+        g.closePath(); g.fillStyle = `rgba(255,255,255,${al})`; g.fill();
+      }
+      for (let i = 0; i < 40; i++) { // 刀风细丝
+        const a = -Math.PI * 0.9 + rnd(0, Math.PI * 0.6), r = R * rnd(0.55, 0.98);
+        g.strokeStyle = `rgba(255,255,255,${rnd(0.08, 0.3)})`; g.lineWidth = rnd(0.6, 2);
+        g.beginPath(); g.arc(cx, cy, r, a, a + rnd(0.08, 0.3)); g.stroke();
+      }
+    },
+    ring(g, w) { // 冲击环：亮边 + 向内散开的气流
+      const c = w / 2, gr = g.createRadialGradient(c, c, c * 0.55, c, c, c);
+      gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.72, 'rgba(255,255,255,0.18)'); gr.addColorStop(0.9, 'rgba(255,255,255,0.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, w);
+      for (let i = 0; i < 140; i++) {
+        const a = rnd(0, TAU), r1 = c * rnd(0.6, 0.85), r2 = c * rnd(0.86, 0.97);
+        g.strokeStyle = `rgba(255,255,255,${rnd(0.05, 0.25)})`; g.lineWidth = rnd(1, 3);
+        g.beginPath(); g.moveTo(c + Math.cos(a) * r1, c + Math.sin(a) * r1); g.lineTo(c + Math.cos(a) * r2, c + Math.sin(a) * r2); g.stroke();
+      }
+    },
+    burst(g, w) { // 爆裂：白热核心 + 一圈长短不一的光刺
+      const c = w / 2;
+      for (let i = 0; i < 26; i++) {
+        const a = rnd(0, TAU), L = c * rnd(0.45, 0.98), wd = rnd(0.03, 0.08);
+        const gr = g.createLinearGradient(c, c, c + Math.cos(a) * L, c + Math.sin(a) * L);
+        gr.addColorStop(0, 'rgba(255,255,255,0.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = gr; g.beginPath(); g.moveTo(c + Math.cos(a - wd) * c * 0.1, c + Math.sin(a - wd) * c * 0.1); g.lineTo(c + Math.cos(a) * L, c + Math.sin(a) * L); g.lineTo(c + Math.cos(a + wd) * c * 0.1, c + Math.sin(a + wd) * c * 0.1); g.fill();
+      }
+      const gr = g.createRadialGradient(c, c, 0, c, c, c * 0.55);
+      gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    },
+    bolt(g, w, h) { // 雷电：主干 + 分叉，外层光晕
+      const main = [[w / 2, 0]]; let x = w / 2;
+      for (let y = 0; y < h; y += rnd(18, 34)) { x = Math.max(w * 0.2, Math.min(w * 0.8, x + rnd(-26, 26))); main.push([x, y]); }
+      main.push([w / 2, h]);
+      const line = (pts, lw, al) => { g.lineWidth = lw; g.strokeStyle = `rgba(255,255,255,${al})`; g.lineJoin = 'round'; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px, py) : g.moveTo(px, py)); g.stroke(); };
+      line(main, 26, 0.08); line(main, 12, 0.25); line(main, 4, 1);
+      for (let b = 0; b < 5; b++) {
+        const s = main[Math.floor(rnd(2, main.length - 3))], pts = [s]; let bx = s[0], by = s[1];
+        for (let k = 0; k < 6; k++) { bx += rnd(-30, 30); by += rnd(15, 30); pts.push([bx, by]); }
+        line(pts, 8, 0.1); line(pts, 2, 0.7);
+      }
+    },
+    thrust(g, w, h) { // 枪芒：一道向右越来越亮、越来越尖的光
+      const cy = h / 2;
+      for (const [th, al] of [[0.45, 0.15], [0.22, 0.4], [0.07, 1]]) {
+        const gr = g.createLinearGradient(0, 0, w, 0);
+        gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.75, `rgba(255,255,255,${al * 0.7})`); gr.addColorStop(1, `rgba(255,255,255,${al})`);
+        g.fillStyle = gr; g.beginPath(); g.moveTo(0, cy); g.quadraticCurveTo(w * 0.6, cy - h * th, w, cy); g.quadraticCurveTo(w * 0.6, cy + h * th, 0, cy); g.fill();
+      }
+      for (let i = 0; i < 30; i++) { const y = cy + rnd(-h * 0.3, h * 0.3), x0 = rnd(0, w * 0.6); g.strokeStyle = `rgba(255,255,255,${rnd(0.05, 0.2)})`; g.lineWidth = 1; g.beginPath(); g.moveTo(x0, y); g.lineTo(x0 + rnd(60, 200), y); g.stroke(); }
+    },
+    whirl(g, w) { // 旋风：几道螺旋刀风
+      const c = w / 2;
+      for (let k = 0; k < 7; k++) {
+        const a0 = k / 7 * TAU, al = rnd(0.25, 0.7);
+        g.strokeStyle = `rgba(255,255,255,${al})`; g.lineWidth = rnd(3, 9); g.lineCap = 'round';
+        g.beginPath();
+        for (let i = 0; i <= 30; i++) { const t = i / 30, r = c * (0.2 + 0.75 * t), a = a0 + t * 2.6; g.lineTo(c + Math.cos(a) * r, c + Math.sin(a) * r); }
+        g.stroke();
+      }
+      const gr = g.createRadialGradient(c, c, 0, c, c, c * 0.4); gr.addColorStop(0, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    },
+    flame(g, w, h) { // 火焰：一簇向上窜的火舌（橙黄色，不再染色）
+      for (let i = 0; i < 9; i++) {
+        const x = w * rnd(0.3, 0.7), top = h * rnd(0.05, 0.4), wd = w * rnd(0.12, 0.25);
+        const gr = g.createLinearGradient(0, h, 0, top);
+        gr.addColorStop(0, 'rgba(255,240,200,0.9)'); gr.addColorStop(0.35, 'rgba(255,170,60,0.6)'); gr.addColorStop(1, 'rgba(200,50,10,0)');
+        g.fillStyle = gr; g.beginPath(); g.moveTo(x - wd, h * 0.95); g.quadraticCurveTo(x - wd * 0.8, h * 0.5, x + rnd(-wd, wd), top); g.quadraticCurveTo(x + wd * 0.8, h * 0.5, x + wd, h * 0.95); g.fill();
+      }
+      const gr = g.createRadialGradient(w / 2, h * 0.88, 0, w / 2, h * 0.88, w * 0.45); gr.addColorStop(0, 'rgba(255,250,230,0.9)'); gr.addColorStop(1, 'rgba(255,150,50,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    },
+    circle(g, w) { // 法阵：双圈、八卦、八角、符点
+      const c = w / 2; g.strokeStyle = 'rgba(255,255,255,0.9)'; g.fillStyle = 'rgba(255,255,255,0.9)';
+      const ring = (r, lw) => { g.lineWidth = lw; g.beginPath(); g.arc(c, c, r, 0, TAU); g.stroke(); };
+      ring(c * 0.96, 3); ring(c * 0.88, 1.5); ring(c * 0.5, 2); ring(c * 0.44, 1);
+      g.lineWidth = 2; g.beginPath(); for (let i = 0; i <= 8; i++) { const a = i / 8 * TAU; g.lineTo(c + Math.cos(a) * c * 0.84, c + Math.sin(a) * c * 0.84); } g.stroke();
+      g.beginPath(); for (let i = 0; i <= 8; i++) { const a = i / 8 * TAU + Math.PI / 8; g.lineTo(c + Math.cos(a) * c * 0.84, c + Math.sin(a) * c * 0.84); } g.stroke();
+      for (let i = 0; i < 8; i++) { // 卦爻
+        const a = (i + 0.5) / 8 * TAU, rr = c * 0.66;
+        for (let k = -1; k <= 1; k++) { const px = -Math.sin(a), py = Math.cos(a), ox = Math.cos(a) * k * 9, oy = Math.sin(a) * k * 9, broken = (i + k + 3) % 2;
+          const x0 = c + Math.cos(a) * rr + ox, y0 = c + Math.sin(a) * rr + oy;
+          g.lineWidth = 4; g.beginPath();
+          if (broken) { g.moveTo(x0 - px * 18, y0 - py * 18); g.lineTo(x0 - px * 4, y0 - py * 4); g.moveTo(x0 + px * 4, y0 + py * 4); g.lineTo(x0 + px * 18, y0 + py * 18); }
+          else { g.moveTo(x0 - px * 18, y0 - py * 18); g.lineTo(x0 + px * 18, y0 + py * 18); }
+          g.stroke(); }
+      }
+      for (let i = 0; i < 48; i++) { const a = i / 48 * TAU; g.beginPath(); g.arc(c + Math.cos(a) * c * 0.92, c + Math.sin(a) * c * 0.92, i % 6 ? 1.5 : 3.5, 0, TAU); g.fill(); }
+      const gr = g.createRadialGradient(c, c, 0, c, c, c); gr.addColorStop(0, 'rgba(255,255,255,0.12)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w);
+    },
+    pillar(g, w, h) { // 光柱：中间最亮，向上逐渐消散
+      const gr = g.createLinearGradient(0, 0, w, 0);
+      gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.35)'); gr.addColorStop(0.5, 'rgba(255,255,255,1)'); gr.addColorStop(0.65, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = 'destination-in';
+      const v = g.createLinearGradient(0, 0, 0, h); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.5, 'rgba(0,0,0,0.6)'); v.addColorStop(1, 'rgba(0,0,0,1)');
+      g.fillStyle = v; g.fillRect(0, 0, w, h);
+      g.globalCompositeOperation = 'source-over';
+    },
+  };
+  function tex(key) {
+    const art = artOf(key);
+    if (art) return art;
+    let c = genCache.get(key);
+    if (!c) { const [w, h] = TEX[key]; let g; [c, g] = mk(w, h); GEN[key](g, w, h); genCache.set(key, c); }
+    return c;
+  }
+  // 染色：亮的地方染成 rgb（乘法），黑底保持黑（叠加时看不见）
+  function tinted(key, rgb) {
+    const src = tex(key), ck = key + '|' + rgb + '|' + (src.src || 'gen');
+    let c = tintCache.get(ck);
+    if (c) return c;
+    const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
+    let g; [c, g] = mk(w, h);
+    g.drawImage(src, 0, 0);
+    g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgb(${rgb})`; g.fillRect(0, 0, w, h);
+    g.globalCompositeOperation = 'destination-in'; g.drawImage(src, 0, 0);
+    tintCache.set(ck, c);
+    return c;
+  }
+  // 画一张特效贴图：中心在 (x, y)，宽 w 高 h，转 rot；core 是额外叠一层不染色的白光（保留白热核心）
+  function sprite(ctx, key, rgb, x, y, w, h, rot, a, core = 0.35, flat = 1) {
+    if (a <= 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.translate(x, y); if (flat !== 1) ctx.scale(1, flat); if (rot) ctx.rotate(rot);
+    if (rgb) { ctx.globalAlpha = Math.min(1, a); ctx.drawImage(tinted(key, rgb), -w / 2, -h / 2, w, h); }
+    if (!rgb || core > 0) { ctx.globalAlpha = Math.min(1, a * (rgb ? core : 1)); ctx.drawImage(tex(key), -w / 2, -h / 2, w, h); }
+    ctx.restore();
+  }
+  function setArt(fn) { artOf = fn; tintCache.clear(); }
+
+  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX };
 })();

@@ -46,6 +46,8 @@ window.Assets = (() => {
     load('sprite:lubu_mounted', `${ASSET_BASE}sprites/lubu_mounted.png`);
     // 特效贴图：龙首（白龙 = 赵云七进七出，青龙 = 关羽刀气）、坐骑
     for (const id of ['dragon_white', 'dragon_azure']) load('fx:' + id, `${ASSET_BASE}fx/${id}.png`);
+    // 招式特效贴图（黑底发光图，叠加着画）：刀光、冲击环、爆裂、雷电、枪芒、旋风、火焰、法阵、光柱
+    for (const id of ['slash', 'ring', 'burst', 'bolt', 'thrust', 'whirl', 'flame', 'circle', 'pillar']) load('fxs:' + id, `${ASSET_BASE}fx/${id}.png`);
     load('mount:white', `${ASSET_BASE}mounts/white.png`);
   }
 

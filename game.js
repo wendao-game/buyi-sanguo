@@ -357,6 +357,7 @@ function hurtPlayer(amount) {
     S.thornsT = S.t + 0.4;
     near(p.x, p.y, R + 48, e => { if (dist2(p.x, p.y, e.x, e.y) < (R + e.r) ** 2) hitEnemy(e, L.dmg, { kb: 220 }); });
     S.effects.push({ kind: 'wave', x: p.x, y: p.y, r: R, life: 0.35, max: 0.35, color: '#e0a060' });
+    fxTex('ring', p.x, p.y, { w: R * 0.8, h: R * 0.8, rgb: '255,150,70', life: 0.35, grow: 2.6, core: 0.4 });
     sparks(p.x, p.y, 0, 14, '255,180,100', 420, Math.PI, 2.4);
   }
   if (p.hp <= 0) { p.hp = 0; gameOver(); }
@@ -542,6 +543,22 @@ function drawDragonTrail(tr, rgb, a, headKey, w) {
   });
   FX.dragon(ctx, out, { rgb, a: a * Math.min(1, tr.length / 10), w, head: window.Assets.get(headKey), t: S.t, core: '255,255,255' });
 }
+// ---------- 特效贴图与打击感 ----------
+// fxTex：在地图上放一张特效贴图（见 fx.js）。o 里可选：w/h 尺寸、rot 角度、rgb 染色、life 持续、
+// grow 结束时放大倍数、spin 旋转、flat 压扁（贴地的环和法阵用 0.5 左右）、under 画在角色下面、fadeIn 淡入比例、core 白热核心亮度
+function fxTex(key, x, y, o) {
+  const life = o.life || 0.4;
+  S.effects.push(Object.assign({ kind: 'tex', key, x, y, w: 100, h: 100, rot: 0, life, max: life, grow: 1, spin: 0, flat: 1, fadeIn: 0.12, core: 0.35 }, o, { life, max: life }));
+}
+// 重击：贴地冲击环 + 爆裂 + 地裂 + 镜头一顿一冲
+function impact(x, y, R, rgb, power = 1) {
+  fxTex('ring', x, y, { w: R * 2.4, h: R * 2.4, rgb, flat: 0.5, under: true, life: 0.45, grow: 1.5, core: 0.5 });
+  fxTex('burst', x, y - R * 0.15, { w: R * 1.6, h: R * 1.6, rgb, life: 0.28, grow: 1.4, rot: rand(0, TAU), core: 0.7 });
+  punch(0.5 * power); hitstop(0.05 * power);
+}
+function punch(v) { S.punch = Math.max(S.punch || 0, v); }                       // 镜头往里一冲
+function hitstop(sec) { S.hitstopT = Math.max(S.hitstopT || 0, sec); }            // 命中瞬间顿帧
+function screenFlash(rgb, a, life = 0.25) { S.sflash = { rgb, a, life, max: life }; } // 全屏闪一下
 // 'r,g,b' 形式的颜色（特效统一用这种写法）
 const rgbCache = {};
 function rgbOf(hex) {
@@ -824,6 +841,8 @@ function swing(a, range, L, def) {
   // 刀光颜色：锄头土白、大刀金、青龙刀青、开山斧黄
   const rgb = { hoe: '240,228,196', dadao: '255,200,100', qinglong: '130,240,185', kaishan: '255,215,80' }[def.id] || (def.general ? '255,210,122' : '240,228,196');
   S.effects.push({ kind: 'arc', x: p.x, y: p.y - 10, a, range, half, life: 0.26, max: 0.26, rgb });
+  // 武将兵器：叠一层刀光贴图，更厚重
+  if (def.general) fxTex('slash', p.x + Math.cos(a) * range * 0.55, p.y - 10 + Math.sin(a) * range * 0.55, { w: range * 2 * Math.min(1, Math.sin(Math.min(half, 1.5)) + 0.2), h: range * 0.75, rot: a + Math.PI / 2, rgb, life: 0.24, grow: 1.1, a: 0.75, core: 0.5 });
   if (L.wave) fireCrescent(a, L.dmg * L.wave, 18);
 }
 // 贯穿全场的刀气（青龙偃月刀、武圣）
@@ -917,6 +936,7 @@ function updateWeapons(dt) {
             near(p.x, p.y, R + 48, e => { if (dist2(p.x, p.y, e.x, e.y) < (R + e.r) ** 2) hitEnemy(e, L.dmg, { kb: L.kb }); });
             w.a = (w.a || 0) + 2.1;
             S.effects.push({ kind: 'arc', x: p.x, y: p.y - 10, a: w.a, range: R, half: 2.4, life: 0.22, max: 0.22, rgb: '150,190,255' });
+            fxTex('whirl', 0, 0, { follow: p, oy: -10, w: R * 2.4, h: R * 2.4, rgb: '140,180,255', life: 0.22, spin: 7, flat: 0.6, a: 0.8 });
             sfx('swing');
           }
           break;
@@ -1055,6 +1075,11 @@ function updateSkills(dt) {
         });
         S.effects.push({ kind: 'wave', x: p.x, y: p.y, r: R, life: 0.5, max: 0.5, color: L.stun ? '#f0ead8' : '#f2c46b' });
         if (L.stun) S.effects.push({ kind: 'wave', x: p.x, y: p.y, r: R * 0.7, life: 0.35, max: 0.35, color: '#ffffff' }); // 咆哮的第二道声浪
+        // 气浪贴图：骁勇是金色的刀气炸开，咆哮是两圈白色声浪
+        fxTex('ring', p.x, p.y, { w: R * 0.6, h: R * 0.6, rgb: L.stun ? '245,240,225' : '255,200,100', life: 0.45, grow: 3.4, core: 0.5 });
+        if (L.stun) fxTex('ring', p.x, p.y, { w: R * 0.4, h: R * 0.4, rgb: '255,255,255', life: 0.55, grow: 4.5, core: 0.3 });
+        else fxTex('burst', p.x, p.y - 12, { w: R * 0.9, h: R * 0.9, rgb: '255,190,90', life: 0.3, grow: 1.4, rot: rand(0, TAU) });
+        punch(0.4);
         groundImpact(p.x, p.y + 8, R * 0.8);
         S.shake = Math.max(S.shake, 7);
         sfx('slam');
@@ -1065,6 +1090,8 @@ function updateSkills(dt) {
         s.t = L.cd * p.cdMul;
         S.rings.push({ x: p.x, y: p.y, r: 24, maxR: L.ringR * p.areaMul, speed: 560, dmg: L.dmg, hit: new Set() });
         glint(p.x, p.y - 14, 26, '255,90,70', 0.2);
+        fxTex('burst', p.x, p.y - 14, { w: 180, h: 180, rgb: '255,60,40', life: 0.3, grow: 1.5, rot: rand(0, TAU) });
+        punch(0.3);
         S.shake = Math.max(S.shake, 6);
         sfx('slam');
         break;
@@ -1120,6 +1147,8 @@ function updateSkills(dt) {
         if (!nearest(p.x, p.y, 450)) { s.t = 0.25; break; }
         s.t = L.cd * p.cdMul;
         addAllies('ally_yt', L.count, { life: L.life, dmg: L.dmg });
+        fxTex('circle', 0, 0, { follow: p, oy: 6, w: 200, h: 200, rgb: '255,200,70', under: true, flat: 0.55, life: 0.9, spin: 2, grow: 1.2 });
+        fxTex('pillar', 0, 0, { follow: p, oy: -80, w: 70, h: 220, rgb: '255,210,90', life: 0.5, sx: 0.4 });
         addNumber(p.x, p.y - 30, '黄巾号令！', '#ffd75a', 20);
         sfx('boss');
         break;
@@ -1161,6 +1190,8 @@ function updateSkills(dt) {
         if (best === null) { s.t = 0.25; break; }
         s.t = L.cd * p.cdMul;
         S.dash = { a: best, t: 0.22, dur: 0.22, len, w: L.w, dmg: L.dmg, hit: new Set() };
+        fxTex('thrust', p.x + Math.cos(best) * len * 0.5, p.y - 18 + Math.sin(best) * len * 0.5, { w: len * 1.15, h: L.w * 1.4, rot: best, rgb: '140,180,255', life: 0.3, sx: 1.2, core: 0.7 });
+        punch(0.35);
         sfx('swing');
         break;
       }
@@ -1238,6 +1269,10 @@ function showUltCutin(e, u) {
   $('ult-gen').textContent = `${g.name} · 大招`;
   box.classList.remove('show'); void box.offsetWidth; box.classList.add('show');
   S.ultFreeze = 1.25;   // 画面近乎定格，突出压迫感
+  // 蓄力：脚下展开专属色的法阵，身上冲起一道光柱
+  const uc = g.ultRgb || '255,80,60';
+  fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.5, w: e.r * 7, h: e.r * 7, rgb: uc, under: true, flat: 0.55, life: 1.8, spin: 1.6, grow: 1.15, fadeIn: 0.1, core: 0.5 });
+  fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 3, w: e.r * 3.2, h: e.r * 9, rgb: uc, life: 1.0, sx: 0.4, fadeIn: 0.05, core: 0.6 });
   S.shake = Math.max(S.shake, 8);
   sfx('ult');
 }
@@ -1269,16 +1304,27 @@ function runUlt(e, dt) {
         tele({ kind: 'line', x: e.x, y: e.y, a: U.ang, len: U.len + e.r, w: u.w || e.r * 2.2, life: u.tele, rgb });
         U.t = u.tele; U.phase = 1;
       } else if (U.phase === 1) {
-        if (U.t <= 0) { U.phase = 2; U.t = U.len / u.speed; U.hit = false; sfx('swing'); }
+        if (U.t <= 0) {
+          U.phase = 2; U.t = U.len / u.speed; U.hit = false; sfx('swing');
+          // 起步：脚下爆开一圈气浪，前方拉出一道贯穿整条路线的枪芒
+          const ux = Math.cos(U.ang), uy = Math.sin(U.ang);
+          fxTex('thrust', e.x + ux * U.len * 0.5, e.y - e.r * 0.6 + uy * U.len * 0.5, { w: U.len * 1.15, h: (u.w || e.r * 2) * 1.6, rot: U.ang, rgb, life: 0.4, sx: 1.2, core: 0.7 });
+          fxTex('ring', e.x, e.y + e.r * 0.4, { w: e.r * 4, h: e.r * 4, rgb, flat: 0.55, under: true, life: 0.35, grow: 1.8 });
+          punch(0.35);
+        }
       } else {
         if (u.home) U.ang += clamp(angDiff(U.ang, toP), -u.home * dt, u.home * dt); // 赵云：冲刺中咬住玩家转向
         e.x += Math.cos(U.ang) * u.speed * dt; e.y += Math.sin(U.ang) * u.speed * dt;
         fxp({ type: 'dust', x: e.x + rand(-8, 8), y: e.y + e.r * 0.5, vx: -Math.cos(U.ang) * 90, vy: -Math.sin(U.ang) * 90, drag: 3, grow: 26, life: 0.5, rgb: '120,100,72', size: rand(8, 13) });
-        if (u.trail && Math.random() < 0.55) { // 赤兔踏过的地面留下火焰
+        if (u.trail && Math.random() < 0.55) { // 赤兔踏过的地面燃起一串火焰
           S.ezones.push({ x: e.x, y: e.y + 6, r: 30, life: 1.8, max: 1.8, dmg: DMG(0.35), tick: 0.45, tt: 0, rgb: '255,110,40' });
+          fxTex('flame', e.x + rand(-10, 10), e.y - 18, { w: 46, h: 92, life: 1.2, fadeIn: 0.1, grow: 1.2 });
         }
         if (Math.random() < 0.8) sparks(e.x, e.y - e.r, U.ang + Math.PI, 2, rgb, 300, 0.4, 2.4);
-        if (!U.hit && segDist(p.x, p.y, e.x - Math.cos(U.ang) * 40, e.y - Math.sin(U.ang) * 40, U.ang, 60) < e.r + p.r + (u.w || 0) * 0.3) { U.hit = true; hurtPlayer(DMG(u.dmg)); }
+        if (!U.hit && segDist(p.x, p.y, e.x - Math.cos(U.ang) * 40, e.y - Math.sin(U.ang) * 40, U.ang, 60) < e.r + p.r + (u.w || 0) * 0.3) {
+          U.hit = true; hurtPlayer(DMG(u.dmg));
+          impact(p.x, p.y, 70, rgb, 0.8);
+        }
         if (U.t <= 0) { U.n++; if (U.n < u.count) U.phase = 0; else ultDone(e); }
       }
       break;
@@ -1295,7 +1341,10 @@ function runUlt(e, dt) {
           const sp = u.speed * (mid ? 1.3 : 1);
           S.eproj.push({ kind: 'bigArrow', x: e.x, y: e.y - 20, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: mid ? 12 : 8, dmg: DMG(u.dmg * (mid ? 1.6 : 1)), life: 2.2, rgb });
         }
-        glint(e.x, e.y - 30, 50, rgb, 0.25);
+        // 弓弦一震：弓前爆开一团光，扇形方向扫出一道冲击
+        fxTex('burst', e.x + Math.cos(U.ang) * 40, e.y - 20 + Math.sin(U.ang) * 40, { w: 170, h: 170, rgb, life: 0.3, grow: 1.5, rot: rand(0, TAU), core: 0.7 });
+        fxTex('slash', e.x + Math.cos(U.ang) * 120, e.y - 20 + Math.sin(U.ang) * 120, { w: 320, h: 160, rot: U.ang + Math.PI / 2, rgb, life: 0.3, grow: 1.3, a: 0.6 });
+        punch(0.4);
         sfx('slam');
         ultDone(e, 0.5);
       }
@@ -1312,8 +1361,13 @@ function runUlt(e, dt) {
       } else if (U.t <= 0) {
         if (inWedge(p.x, p.y, e.x, e.y, U.ang, u.R, u.half, p.r)) hurtPlayer(DMG(u.dmg));
         S.effects.push({ kind: 'arc', x: e.x, y: e.y - 20, a: U.ang, range: u.R, half: u.half, life: 0.45, max: 0.45, rgb });
+        // 巨大的月牙刀光贴着扇形扫过
+        const span = u.R * Math.min(2, 2 * Math.sin(Math.min(u.half, 1.5)) + 0.3);
+        fxTex('slash', e.x + Math.cos(U.ang) * u.R * 0.62, e.y - 20 + Math.sin(U.ang) * u.R * 0.62, { w: span * 1.15, h: u.R * 0.75, rot: U.ang + Math.PI / 2, rgb, life: big ? 0.5 : 0.32, grow: 1.12, core: 0.6 });
         sparks(e.x + Math.cos(U.ang) * u.R * 0.7, e.y + Math.sin(U.ang) * u.R * 0.7, U.ang, 16, rgb, 620, 0.9, 3);
         if (big) {
+          impact(e.x + Math.cos(U.ang) * u.R * 0.55, e.y + Math.sin(U.ang) * u.R * 0.55, u.R * 0.45, rgb, 1.4);
+          screenFlash(rgb, 0.3);
           groundImpact(e.x + Math.cos(U.ang) * u.R * 0.5, e.y + Math.sin(U.ang) * u.R * 0.5, u.R * 0.6);
           S.decals.push({ kind: 'crack', x: e.x, y: e.y, lines: [{ pts: Array.from({ length: 12 }, (_, i) => [Math.cos(U.ang) * i * u.R / 11 + rand(-6, 6), Math.sin(U.ang) * i * u.R / 11 + rand(-6, 6)]), w: 4 }], life: 2, max: 2 });
         }
@@ -1329,6 +1383,7 @@ function runUlt(e, dt) {
       if (U.phase === 0) {
         U.sx = e.x; U.sy = e.y; U.tx = p.x; U.ty = p.y;
         tele({ kind: 'circle', x: U.tx, y: U.ty, r: u.radius, life: 1.0, rgb });
+        fxTex('circle', U.tx, U.ty, { w: u.radius * 2.3, h: u.radius * 2.3, rgb, under: true, life: 1.05, spin: 2, fadeIn: 0.2, a: 0.7 }); // 落点法阵
         U.t = 1.0; U.phase = 1;
       } else {
         const k = 1 - Math.max(0, U.t) / 1.0;
@@ -1337,6 +1392,10 @@ function runUlt(e, dt) {
         if (U.t <= 0) {
           e.leapH = 0;
           if (dist2(p.x, p.y, e.x, e.y) < (u.radius + p.r) ** 2) hurtPlayer(DMG(u.dmg));
+          // 砸地：一道光柱落下、炸开一圈气浪
+          fxTex('pillar', e.x, e.y - 160, { w: u.radius * 1.1, h: 380, rgb, life: 0.35, sx: 0.3, core: 0.7 });
+          impact(e.x, e.y + e.r * 0.4, u.radius, rgb, 1.5);
+          screenFlash('255,240,220', 0.22);
           S.effects.push({ kind: 'wave', x: e.x, y: e.y, r: u.radius * 1.2, life: 0.5, max: 0.5, rgb });
           groundImpact(e.x, e.y + e.r * 0.5, u.radius * 1.3);
           for (let i = 0; i < 14; i++) particle(e.x, e.y, '#6b5a44', 420);
@@ -1355,7 +1414,7 @@ function runUlt(e, dt) {
       if (U.tick <= 0) {
         U.tick = 0.3;
         if (dist2(p.x, p.y, e.x, e.y) < (u.radius + p.r) ** 2) hurtPlayer(DMG(u.dmg));
-        S.effects.push({ kind: 'arc', x: e.x, y: e.y - 16, a: S.t * 12, range: u.radius, half: 1.4, life: 0.25, max: 0.25, rgb });
+        fxTex('slash', e.x, e.y - 16, { w: u.radius * 2.2, h: u.radius * 1.1, rot: S.t * 12, rgb, life: 0.22, grow: 1.1, a: 0.7 });
       }
       if (U.t <= 0) ultDone(e);
       break;
@@ -1371,6 +1430,10 @@ function runUlt(e, dt) {
           addNumber(p.x, p.y - 34, '震慑', '#ffd98a', 18);
         }
         for (const [k, life] of [[1, 0.6], [0.7, 0.45], [0.4, 0.3]]) S.effects.push({ kind: 'wave', x: e.x, y: e.y, r: u.R * k, life, max: life, rgb: k === 1 ? rgb : '255,255,240' });
+        // 声浪：三圈由小到大推开的气浪 + 口中爆开的白光
+        for (const [d, life] of [[0, 0.55], [0.08, 0.6], [0.16, 0.65]]) fxTex('ring', e.x, e.y, { w: u.R * 0.6, h: u.R * 0.6, rgb: d ? '255,250,235' : rgb, life: life + d, grow: 3.4 - d * 4, core: 0.5 });
+        fxTex('burst', e.x, e.y - e.r * 1.5, { w: e.r * 6, h: e.r * 6, rgb, life: 0.35, grow: 1.6, core: 0.8 });
+        screenFlash('255,245,220', 0.25); punch(1); hitstop(0.07);
         groundImpact(e.x, e.y + e.r * 0.5, u.R * 0.6);
         S.shake = Math.max(S.shake, 24);
         sfx('boss');
@@ -1382,6 +1445,10 @@ function runUlt(e, dt) {
     case 'frenzy': {
       if (U.phase === 0) {
         e.frenzyT = S.t + u.dur; U.t = 0.4; U.phase = 1;
+        // 血气冲天：一道红色光柱 + 脚下血色法阵
+        fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 3, w: e.r * 4, h: e.r * 9, rgb: '255,60,40', life: 0.9, sx: 0.5, core: 0.5 });
+        fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.5, w: e.r * 6, h: e.r * 6, rgb: '255,50,30', under: true, flat: 0.55, life: 1.4, spin: -2.5 });
+        punch(0.6); screenFlash('255,40,20', 0.18);
         glint(e.x, e.y - 30, 70, '255,60,40', 0.35);
         embers(e.x, e.y - 20, 24, '255,70,40', 160, 80, 9, 0.9);
         say(e, '“杀！！”');
@@ -1396,6 +1463,7 @@ function runUlt(e, dt) {
         const a = U.ang + rand(-u.half, u.half);
         if (segDist(p.x, p.y, e.x, e.y, a, u.R) < 14 + p.r) hurtPlayer(DMG(u.dmg));
         S.effects.push({ kind: 'thrust', x: e.x, y: e.y - 16, a, len: u.R, w: 18, life: 0.16, max: 0.16, rgb });
+        fxTex('thrust', e.x + Math.cos(a) * u.R * 0.55, e.y - 16 + Math.sin(a) * u.R * 0.55, { w: u.R * 1.1, h: 44, rot: a, rgb, life: 0.18, sx: 1.15, core: 0.8 });
         if (++U.k >= u.count) ultDone(e);
       }
       break;
@@ -1407,6 +1475,9 @@ function runUlt(e, dt) {
           const a = i / u.count * TAU + rand(-0.1, 0.1);
           S.eproj.push({ kind: 'ji', x: e.x, y: e.y - 16, vx: Math.cos(a) * u.speed, vy: Math.sin(a) * u.speed, r: 12, dmg: DMG(u.dmg), life: 5, pierce: true, ret: { boss: e, travel: 0, range: u.range, back: false }, spin: 0 });
         }
+        fxTex('whirl', 0, 0, { follow: e, oy: -16, w: e.r * 6, h: e.r * 6, rgb, life: 0.6, spin: 9, grow: 1.4, core: 0.5 });
+        fxTex('ring', e.x, e.y, { w: e.r * 3, h: e.r * 3, rgb, flat: 0.55, under: true, life: 0.4, grow: 2.5 });
+        punch(0.5);
         sfx('swing'); U.t = 0.5; U.phase = 1;
       } else if (U.t <= 0) ultDone(e, 0.4);
       break;
@@ -1416,6 +1487,10 @@ function runUlt(e, dt) {
       if (U.phase === 0) { U.ang = toP; tele({ kind: 'line', x: e.x, y: e.y, a: U.ang, len: 900, w: u.r * 2, life: 0.8, rgb }); U.t = 0.8; U.phase = 1; }
       else if (U.t <= 0) {
         S.eproj.push({ kind: 'dragon', x: e.x, y: e.y - 10, vx: Math.cos(U.ang) * u.speed, vy: Math.sin(U.ang) * u.speed, r: u.r, dmg: DMG(u.dmg), life: 3, pierce: true, rgb, seed: rand(0, 9) });
+        // 青龙出刀：一记巨大的刀光劈出，青光炸开
+        fxTex('slash', e.x + Math.cos(U.ang) * 90, e.y - 20 + Math.sin(U.ang) * 90, { w: 360, h: 180, rot: U.ang + Math.PI / 2, rgb, life: 0.4, grow: 1.25, core: 0.6 });
+        fxTex('burst', e.x + Math.cos(U.ang) * 50, e.y - 20 + Math.sin(U.ang) * 50, { w: 200, h: 200, rgb, life: 0.3, grow: 1.5, rot: rand(0, TAU) });
+        screenFlash(rgb, 0.2); punch(0.8); hitstop(0.05);
         sfx('slam'); S.shake = Math.max(S.shake, 10);
         ultDone(e, 0.5);
       }
@@ -1426,8 +1501,9 @@ function runUlt(e, dt) {
       const base = rand(0, TAU);
       for (let i = 0; i < u.count; i++) {
         const a = base + i * 0.75, r = 70 + i * 22;
-        addHazard(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 62, 0.9 + i * 0.07, DMG(u.dmg), rgb);
+        addHazard(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 62, 0.9 + i * 0.07, DMG(u.dmg), rgb, { pillar: true }); // 青龙之气化作光柱落下
       }
+      fxTex('circle', e.x, e.y, { w: 700, h: 700, rgb, under: true, flat: 0.6, life: 2.2, spin: 1.2, fadeIn: 0.1, a: 0.55 });
       ultDone(e, 1.0);
       break;
     }
@@ -1447,7 +1523,9 @@ function runUlt(e, dt) {
     // 八阵图：在玩家周围布一圈石阵，随后阵中落石
     // 张角雷池、周瑜铁索连环也用这一招：外圈先落，内圈随后
     case 'stoneRing': {
-      const ex = { bolt: u.bolt, burn: u.burn };
+      const ex = { bolt: u.bolt, burn: u.burn, pillar: !u.bolt && !u.burn };
+      // 玩家脚下展开一座大阵，转着收紧
+      fxTex('circle', p.x, p.y, { w: u.R * 2.5, h: u.R * 2.5, rgb: u.rgb || '170,200,230', under: true, life: 2.4, spin: 1.5, grow: 0.85, fadeIn: 0.1, a: 0.8 });
       for (let i = 0; i < u.n; i++) {
         const a = i / u.n * TAU;
         addHazard(p.x + Math.cos(a) * u.R, p.y + Math.sin(a) * u.R, 48, 1.2, DMG(u.dmg), u.rgb || '170,190,200', ex);
@@ -1475,7 +1553,10 @@ function runUlt(e, dt) {
         spawnEnemy(type, x, y);
         smoke(x, y - 10, 2, '210,180,80', 12, 6, 0.6);
         embers(x, y - 10, 3, '255,210,90', 60, 40, 5, 0.6);
+        fxTex('pillar', x, y - 70, { w: 46, h: 190, rgb: '255,210,90', life: 0.6, sx: 0.4 }); // 每个兵从金光里冒出来
       }
+      fxTex('circle', p.x, p.y, { w: u.R * 2.3, h: u.R * 2.3, rgb: '255,205,80', under: true, life: 1.4, spin: 1.8, fadeIn: 0.1, a: 0.7 });
+      screenFlash('255,220,120', 0.15);
       say(e, '“黄天当立！”');
       ultDone(e, 0.6);
       break;
@@ -1505,6 +1586,8 @@ function runUlt(e, dt) {
           const sx = p.x + Math.cos(from) * 520 - Math.sin(from) * side, sy = p.y + Math.sin(from) * 520 + Math.cos(from) * side;
           const tx = p.x + rand(-140, 140), ty = p.y + rand(-140, 140), a = Math.atan2(ty - sy, tx - sx);
           S.eproj.push({ kind: 'bigArrow', x: sx, y: sy, vx: Math.cos(a) * 480, vy: Math.sin(a) * 480, r: 7, dmg: DMG(u.dmg), life: 2.2, rgb: '255,140,50' });
+          // 风痕：一道道顺风掠过的白色气流
+          fxTex('thrust', p.x + rand(-1, 1) * W / ZOOM * 0.5, p.y + rand(-1, 1) * H / ZOOM * 0.5, { w: rand(220, 380), h: 26, rot: wa, rgb: '225,235,245', life: 0.45, sx: 1.4, a: 0.5, core: 0.2 });
         }
         if (U.t <= 0) ultDone(e, 0.5);
       }
@@ -1548,6 +1631,8 @@ function updateBoss(e, dt) {
         const d = Math.sqrt(dist2(e.x, e.y, p.x, p.y));
         if (d < g.cleaveR + p.r && Math.abs(angDiff(e.ang, toP)) < Math.PI / 3) hurtPlayer(e.dmg * 1.6);
         S.effects.push({ kind: 'arc', x: e.x, y: e.y - 20, a: e.ang, range: g.cleaveR, half: Math.PI / 3, life: 0.34, max: 0.34, rgb: '255,95,60' });
+        fxTex('slash', e.x + Math.cos(e.ang) * g.cleaveR * 0.6, e.y - 20 + Math.sin(e.ang) * g.cleaveR * 0.6, { w: g.cleaveR * 1.9, h: g.cleaveR * 0.8, rot: e.ang + Math.PI / 2, rgb: g.ultRgb || '255,120,70', life: 0.28, grow: 1.12, core: 0.55 });
+        punch(0.3);
         sparks(e.x + Math.cos(e.ang) * g.cleaveR * 0.8, e.y + Math.sin(e.ang) * g.cleaveR * 0.8, e.ang, 12, '255,150,90', 500, 0.9, 2.6);
         S.shake = Math.max(S.shake, 10);
         sfx('slam');
@@ -1563,6 +1648,8 @@ function updateBoss(e, dt) {
         }
         S.effects.push({ kind: 'wave', x: e.x, y: e.y, r: g.roarR, life: 0.55, max: 0.55, color: '#f0ead8' });
         S.effects.push({ kind: 'wave', x: e.x, y: e.y, r: g.roarR * 0.65, life: 0.4, max: 0.4, color: '#ffffff' });
+        fxTex('ring', e.x, e.y, { w: g.roarR * 0.7, h: g.roarR * 0.7, rgb: g.ultRgb || '255,240,200', life: 0.5, grow: 3, core: 0.5 });
+        punch(0.5);
         groundImpact(e.x, e.y + e.r * 0.5, g.roarR * 0.7);
         S.shake = Math.max(S.shake, 14);
         sfx('boss');
@@ -1583,7 +1670,11 @@ function updateBoss(e, dt) {
     case 'tele_charge':
       e.stateT -= dt;
       if (e.stateT > e.stateMax * 0.35) e.ang = toP; // 前段跟踪，后段锁定方向
-      if (e.stateT <= 0) { e.state = 'charge'; e.stateT = 0.45; }
+      if (e.stateT <= 0) {
+        e.state = 'charge'; e.stateT = 0.45;
+        const L = g.chargeSpeed * 0.45; // 冲锋起步：沿冲锋路线拉出一道光
+        fxTex('thrust', e.x + Math.cos(e.ang) * L * 0.5, e.y - e.r * 0.5 + Math.sin(e.ang) * L * 0.5, { w: L * 1.1, h: e.r * 2.4, rot: e.ang, rgb: g.ultRgb || '255,140,90', life: 0.3, sx: 1.2, a: e.boss ? 0.8 : 0.5 });
+      }
       break;
     case 'charge': {
       const sp = g.chargeSpeed * (e.enraged ? 1.12 : 1);
@@ -1603,6 +1694,7 @@ function updateBoss(e, dt) {
       if (e.stateT <= 0) {
         if (dist2(e.x, e.y, p.x, p.y) < (g.slamR + p.r) ** 2) hurtPlayer(e.dmg * 1.5);
         S.effects.push({ kind: 'wave', x: e.x, y: e.y, r: g.slamR, life: 0.45, max: 0.45, color: '#ff6a46' });
+        impact(e.x, e.y + e.r * 0.4, g.slamR * 0.8, g.ultRgb || '255,120,70', e.boss ? 1 : 0.6);
         groundImpact(e.x, e.y + e.r * 0.5, g.slamR);
         S.shake = Math.max(S.shake, 12);
         sfx('slam');
@@ -1860,15 +1952,24 @@ function updateProjectiles(dt) {
     if (h.t <= 0) {
       if (dist2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) hurtPlayer(h.dmg);
       S.effects.push({ kind: 'blast', x: h.x, y: h.y, r: h.r, life: 0.4, max: 0.4, enemy: true, rgb: h.rgb });
+      fxTex('ring', h.x, h.y, { w: h.r * 2, h: h.r * 2, rgb: h.rgb || '255,140,60', under: true, life: 0.35, grow: 1.6, core: 0.4 });
+      if (h.pillar) fxTex('pillar', h.x, h.y - 150, { w: h.r * 1.5, h: 340, rgb: h.rgb, life: 0.4, sx: 0.35, core: 0.7 }); // 天上落下的光柱
       if (h.bolt) { // 雷击：天上劈下一道闪电
         S.effects.push({ kind: 'bolt', pts: zigzag([[h.x + rand(-50, 50), h.y - 380], [h.x, h.y]], 18), life: 0.28, max: 0.28, rgb: '200,220,255', w: 6 });
+        fxTex('bolt', h.x, h.y - 200, { w: 110, h: 420, rgb: '190,215,255', life: 0.26, core: 0.8, fadeIn: 0.02 });
+        fxTex('burst', h.x, h.y, { w: h.r * 2.2, h: h.r * 2.2, rgb: '170,200,255', life: 0.25, grow: 1.3, rot: rand(0, TAU) });
         sparks(h.x, h.y, -Math.PI / 2, 12, '220,235,255', 460, Math.PI, 2.4);
         S.decals.push({ kind: 'crack', x: h.x, y: h.y, lines: FX.makeCrack(h.r * 0.7), life: 1.2, max: 1.2 });
         if (S.decals.length > 12) S.decals.shift();
         S.shake = Math.max(S.shake, 6);
       }
       else if (h.rgb && h.rgb.startsWith('170')) { groundImpact(h.x, h.y, h.r, '130,140,150'); for (let i = 0; i < 6; i++) particle(h.x, h.y, '#8a9098', 300); } // 石阵：碎石
-      else explosion(h.x, h.y, h.r, true);
+      else {
+        explosion(h.x, h.y, h.r, true);
+        const fire = !h.rgb || /^255,1[0-6]\d/.test(h.rgb); // 火攻：落点窜起一簇火焰
+        fxTex('burst', h.x, h.y - h.r * 0.2, { w: h.r * 2.4, h: h.r * 2.4, rgb: h.rgb || '255,140,60', life: 0.3, grow: 1.4, rot: rand(0, TAU) });
+        if (fire) fxTex('flame', h.x, h.y - h.r * 0.9, { w: h.r * 1.5, h: h.r * 3, life: 0.6, grow: 1.15 });
+      }
       if (h.burn) S.ezones.push({ x: h.x, y: h.y, r: h.r * 0.75, life: 3.5, max: 3.5, dmg: h.dmg * 0.2, tick: 0.45, tt: 0, rgb: '255,110,40' }); // 铁索连环：落点留下大火
       h.dead = true;
     }
@@ -1969,6 +2070,8 @@ function updateStrikes(dt) {
       S.shake = Math.max(S.shake, 3);
     } else { // 天雷
       S.effects.push({ kind: 'bolt', pts: zigzag([[s.x + rand(-40, 40), s.y - 340], [s.x, s.y]], 16), life: 0.24, max: 0.24, rgb: '180,210,255', w: 5 });
+      fxTex('bolt', s.x, s.y - 180, { w: 90, h: 380, rgb: '255,235,150', life: 0.22, core: 0.8, fadeIn: 0.02 });
+      fxTex('ring', s.x, s.y, { w: s.r * 1.4, h: s.r * 1.4, rgb: '170,200,255', under: true, life: 0.3, grow: 1.6 });
       S.effects.push({ kind: 'blast', x: s.x, y: s.y, r: s.r * 0.7, life: 0.18, max: 0.18, rgb: '120,160,255' });
       sparks(s.x, s.y, -Math.PI / 2, 10, '210,230,255', 420, Math.PI, 2.2);
       S.shake = Math.max(S.shake, 2.5);
@@ -1994,6 +2097,7 @@ function updateFx(dt) {
   for (const gh of S.ghosts) gh.life -= dt;
   S.ghosts = S.ghosts.filter(gh => gh.life > 0);
   S.hurtFlash = Math.max(0, S.hurtFlash - dt);
+  if (S.sflash) { S.sflash.life -= dt; if (S.sflash.life <= 0) S.sflash = null; }
   for (const n of S.numbers) { n.life -= dt; n.y -= (n.float || 40) * dt; }
   S.numbers = S.numbers.filter(n => n.life > 0);
   for (const q of S.particles) {
@@ -2397,11 +2501,13 @@ function buildTitle() {
 
 // 美术图加载完成后刷新用到它的地方
 window.Assets.init(D);
+FX.setArt(k => window.Assets.get('fxs:' + k));
 let assetRefresh = 0;
 window.Assets.onLoad(() => {
   clearTimeout(assetRefresh);
   assetRefresh = setTimeout(() => {
     spriteCache.clear();
+    FX.setArt(k => window.Assets.get('fxs:' + k)); // 换上 GPT 画的特效贴图
     renderOrigins();
     if (S) { S.buildDirty = true; S.faceGid = null; }
     if (!$('codex').hidden) openCodex();
@@ -2995,13 +3101,11 @@ function drawEnemies() {
     let fx = faceToward(e, dashing ? e.x + Math.cos(U.ang) * 10 : e.state === 'charge' ? e.x + Math.cos(e.ang) * 10 : p.x);
     if (e.whirl) fx = Math.sin(S.t * 28) > 0 ? 1 : -1; // 狂刃：原地急转
     if ((e.state === 'charge' || dashing) && S.t - (e.ghostT || 0) > 0.035) { addGhost(spr, e.x, e.y + e.r * 0.6, fx, dashing ? 0.5 : 0.4); e.ghostT = S.t; } // 冲锋残影
-    if (e.whirl) { // 周身旋转的刀风
-      ctx.globalCompositeOperation = 'lighter';
-      for (let k = 0; k < 3; k++) {
-        ctx.globalAlpha = 0.35 - k * 0.08; ctx.strokeStyle = `rgb(${urgb})`; ctx.lineWidth = 10 - k * 3;
-        ctx.beginPath(); ctx.ellipse(e.x, e.y - 10, 95 - k * 12, 40 - k * 5, 0, S.t * 14 + k, S.t * 14 + k + 3.6); ctx.stroke();
-      }
-      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    if (e.whirl) { // 周身旋转的刀风：两层旋风贴图反向转，贴地压扁
+      const R = (U && U.u.radius) || 95;
+      FX.sprite(ctx, 'whirl', urgb, e.x, e.y - 10, R * 2.6, R * 2.6, S.t * 14, 0.85, 0.45, 0.5);
+      FX.sprite(ctx, 'whirl', '255,255,255', e.x, e.y - 30, R * 1.8, R * 1.8, -S.t * 10, 0.35, 0, 0.45);
+      ctx.globalAlpha = 1;
     }
     const top = drawUnit(spr, e.x, e.y, e.r, fx, walkBob(e.id, moving) * 1.6 + (e.leapH || 0));
     e.topY = top;
@@ -3084,10 +3188,10 @@ function drawProjectiles() {
   }
   for (const b of S.eproj) {
     const sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp, uy = b.vy / sp;
-    if (b.kind === 'bigArrow') { // 吕布、诸葛亮的大箭：发光的长箭
+    if (b.kind === 'bigArrow') { // 吕布、诸葛亮的大箭：拖着一道枪芒般的长光
+      const a = Math.atan2(uy, ux), L = b.r * 16;
+      FX.sprite(ctx, 'thrust', b.rgb, b.x - ux * L * 0.45, b.y - uy * L * 0.45, L, b.r * 4.5, a, 0.9, 0.6);
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.5; ctx.strokeStyle = `rgb(${b.rgb})`; ctx.lineWidth = b.r * 0.9;
-      ctx.beginPath(); ctx.moveTo(b.x - ux * b.r * 9, b.y - uy * b.r * 9); ctx.lineTo(b.x, b.y); ctx.stroke();
       FX.glow(ctx, b.x, b.y, b.r * 2.6, b.rgb, 0.9);
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
       ctx.strokeStyle = '#fff4e0'; ctx.lineWidth = 2.5;
@@ -3138,10 +3242,22 @@ function drawZones() {
         const t = z.id * 1.7 + i * 1.3, rr = z.r * 0.55 * ((i * 0.37) % 1);
         FX.glow(ctx, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.8, z.r * 0.4 * (0.8 + 0.25 * Math.sin(S.t * 17 + i * 2)), '255,170,70', 0.45 * a);
       }
+      for (let i = 0; i < 4; i++) { // 窜动的火舌
+        const t = z.id * 2.3 + i * 1.57, rr = z.r * 0.45, fl = 0.85 + 0.25 * Math.sin(S.t * 13 + i * 2.1);
+        FX.sprite(ctx, 'flame', null, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.7 - z.r * 0.35 * fl, z.r * 0.55, z.r * 1.1 * fl, Math.sin(S.t * 5 + i) * 0.12, 0.75 * a);
+      }
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
       continue;
     }
-    if (z.formation) { // 八阵图：八边形石阵，缓慢旋转
+    if (z.formation) { // 八阵图：法阵贴图缓缓旋转，外圈一层反向转的光环
+      ctx.fillStyle = `rgba(30,50,60,${0.16 * a})`;
+      ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill();
+      FX.sprite(ctx, 'circle', '255,205,110', z.x, z.y, z.r * 2.1, z.r * 2.1, S.t * 0.35, 0.85 * a, 0.35);
+      FX.sprite(ctx, 'ring', '120,200,230', z.x, z.y, z.r * 2.2, z.r * 2.2, -S.t * 0.5, 0.35 * a, 0.2);
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    if (z.formationOld) { // 旧的线描八阵图（保留备用）
       const rot = S.t * 0.3;
       ctx.fillStyle = `rgba(62,90,107,${0.18 * a})`;
       ctx.strokeStyle = `rgba(207,163,74,${0.7 * a})`; ctx.lineWidth = 2.5;
@@ -3182,10 +3298,19 @@ function drawZones() {
   }
 }
 
+// 特效贴图：放大、旋转、淡入淡出（贴地的 under 版本在角色下面画）
+function drawTexFx(f) {
+  const t = Math.max(0, f.life / f.max), prog = 1 - t, ease = 1 - Math.pow(1 - prog, 3);
+  const s = 1 + (f.grow - 1) * ease, a = (f.fadeIn ? Math.min(1, prog / f.fadeIn) : 1) * Math.pow(t, 0.7) * (f.a === undefined ? 1 : f.a);
+  const x = f.follow ? f.follow.x + (f.ox || 0) : f.x, y = f.follow ? f.follow.y + (f.oy || 0) : f.y;
+  FX.sprite(ctx, f.key, f.rgb, x, y, f.w * (f.sx ? 1 + (f.sx - 1) * ease : s), f.h * s, f.rot + f.spin * prog, a, f.core, f.flat);
+}
+function drawEffectsUnder() { for (const f of S.effects) if (f.kind === 'tex' && f.under) drawTexFx(f); }
 function drawEffects() {
   for (const f of S.effects) {
     const t = f.life / f.max;
-    if (f.kind === 'arc') FX.slash(ctx, f.rgb ? f : Object.assign(f, { rgb: rgbOf(f.color) }));
+    if (f.kind === 'tex') { if (!f.under) drawTexFx(f); }
+    else if (f.kind === 'arc') FX.slash(ctx, f.rgb ? f : Object.assign(f, { rgb: rgbOf(f.color) }));
     else if (f.kind === 'wave') FX.shock(ctx, f.rgb ? f : Object.assign(f, { rgb: rgbOf(f.color) }));
     else if (f.kind === 'thrust') { // 枪矛直刺：一道由暗到亮的枪芒
       ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.a);
@@ -3224,6 +3349,8 @@ function drawEffects() {
   }
   for (const r of S.rings) { // 无双：血色戟气；周郎琴：淡色音波
     const t = 1 - r.r / r.maxR;
+    if (!r.rgb) FX.sprite(ctx, 'ring', '255,50,35', r.x, r.y, r.r * 2.15, r.r * 2.15, r.r * 0.004, 0.35 + 0.65 * t, 0.4); // 戟气贴图
+    else FX.sprite(ctx, 'ring', r.rgb, r.x, r.y, r.r * 2.1, r.r * 2.1, 0, 0.5 * t + 0.15, 0.3);
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = (r.rgb ? 0.15 : 0.25) + 0.5 * t; ctx.strokeStyle = `rgb(${r.rgb || '220,40,30'})`; ctx.lineWidth = (r.w || 22) * t + 6;
     ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke();
@@ -3298,6 +3425,8 @@ function drawScreen() {
       ctx.strokeText(`${m2} 步`, ex, ey + 25); ctx.fillStyle = '#ffd98a'; ctx.fillText(`${m2} 步`, ex, ey + 25);
     }
   }
+  // 大招命中：全屏闪一下招式的颜色
+  if (S.sflash) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(${S.sflash.rgb},${S.sflash.a * S.sflash.life / S.sflash.max})`; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = 'source-over'; }
   // 受伤：屏幕边缘闪一下红
   if (S.hurtFlash > 0) {
     const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
@@ -3334,10 +3463,12 @@ function render(raw) {
     return;
   }
   const sx = S.shake > 0 ? rand(-1, 1) * S.shake : 0, sy = S.shake > 0 ? rand(-1, 1) * S.shake : 0;
-  ctx.setTransform(DPR * ZOOM, 0, 0, DPR * ZOOM, DPR * (W / 2 + sx) - DPR * ZOOM * S.camX, DPR * (H / 2 + sy) - DPR * ZOOM * S.camY);
+  const Z = ZOOM * (1 + 0.06 * (S.punch || 0)); // 重击时镜头往里一冲
+  ctx.setTransform(DPR * Z, 0, 0, DPR * Z, DPR * (W / 2 + sx) - DPR * Z * S.camX, DPR * (H / 2 + sy) - DPR * Z * S.camY);
   drawGround(S.camX, S.camY);
   for (const f of S.decals) FX.crack(ctx, f); // 地面裂纹
   drawZones();
+  drawEffectsUnder();
   drawWeaponsUnder();
   drawTelegraphs();
   drawPickups();
@@ -3362,6 +3493,8 @@ function frame(now) {
   if (S && !S.paused && !S.modal && !S.over) {
     let dt = S.slowmo > 0 ? raw * 0.3 : raw;
     if (S.ultFreeze > 0) { S.ultFreeze -= raw; dt = raw * 0.04; } // 大招演出：画面近乎定格
+    else if (S.hitstopT > 0) { S.hitstopT -= raw; dt = raw * 0.06; } // 重击顿帧
+    S.punch = Math.max(0, (S.punch || 0) - raw * 3.5);
     S.slowmo -= raw;
     update(dt);
   }
