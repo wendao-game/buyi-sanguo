@@ -397,6 +397,7 @@ window.FX = (() => {
   // 画一张特效贴图：中心在 (x, y)，宽 w 高 h，转 rot；core 是额外叠一层不染色的白光（保留白热核心）
   function sprite(ctx, key, rgb, x, y, w, h, rot, a, core = 0.35, flat = 1) {
     if (a <= 0) return;
+    if (artOf(key)) a *= 0.8; // 画的贴图比代码生成的亮，压一点免得刺眼
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.translate(x, y); if (flat !== 1) ctx.scale(1, flat); if (rot) ctx.rotate(rot);
