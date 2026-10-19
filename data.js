@@ -795,6 +795,30 @@ window.GAME_DATA = {
     waves: [{ t: 0, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } }],
   },
 
+  // 局外成长：金币跨局保存，在开局界面给三个出身各自购买、升级专属装备（每件最高 10 级），开局就带着。
+  // 价格：base × growth^当前等级（向上取整到 5）。effects 是每级的加成；startDmg 是起手武器伤害，startLvEvery 是每几级起手武器开局 +1 级。
+  meta: {
+    gold: { minion: 0.02, elite: [4, 8], building: 10, general: 18, generalPerChapter: 8, chapterClear: 30 },
+    costBase: 30, costGrowth: 1.45, maxLv: 10,
+    gear: {
+      farmer: [
+        { id: 'g_hoe', name: '开垦宝锄', icon: '锄', slot: '武器', effects: { startDmg: 0.12 }, startLvEvery: 3, desc: '锄头伤害 +12%/级；每 3 级开局锄头 +1 级' },
+        { id: 'g_baina', name: '百衲铁甲', icon: '甲', slot: '护甲', effects: { maxHp: 15 }, armorEvery: 3, desc: '生命上限 +15/级；每 3 级护甲 +1' },
+        { id: 'g_fudai', name: '五谷福袋', icon: '袋', slot: '饰品', effects: { regen: 0.2 }, desc: '每秒回复 +0.2/级' },
+      ],
+      hunter: [
+        { id: 'g_zhegong', name: '柘木长弓', icon: '弓', slot: '武器', effects: { startDmg: 0.12 }, startLvEvery: 3, desc: '猎弓伤害 +12%/级；每 3 级开局猎弓 +1 级' },
+        { id: 'g_luxue', name: '鹿皮快靴', icon: '靴', slot: '护甲', effects: { speedMul: 0.03, maxHp: 6 }, desc: '移动速度 +3%、生命上限 +6/级' },
+        { id: 'g_langya', name: '狼牙护符', icon: '牙', slot: '饰品', effects: { crit: 0.015, critMul: 0.05 }, desc: '暴击率 +1.5%、爆伤 +5%/级' },
+      ],
+      scholar: [
+        { id: 'g_zhujian', name: '青竹简册', icon: '简', slot: '武器', effects: { startDmg: 0.12 }, startLvEvery: 3, desc: '竹简伤害 +12%/级；每 3 级开局竹简 +1 级' },
+        { id: 'g_fangjin', name: '儒生方巾', icon: '巾', slot: '护甲', effects: { cdMul: -0.02, maxHp: 6 }, desc: '所有冷却 -2%、生命上限 +6/级' },
+        { id: 'g_jinnang', name: '妙计锦囊', icon: '囊', slot: '饰品', effects: { pickupMul: 0.08, xpMul: 0.04 }, desc: '拾取范围 +8%、经验 +4%/级' },
+      ],
+    },
+  },
+
   // 神兵：击败名将时小概率掉落的专属兵器（奖励里出现一张金色卡）。
   // 拿到后悬浮在身边，定时自动放出这位名将的招牌招式。再次掉落同一件 → 升级（伤害 +30%、冷却 -6%）。
   // 伤害还会随你的等级成长：每级 +3.5%。iconFrom 是还没有神兵美术图时借用的兵器图标。
@@ -836,9 +860,9 @@ window.GAME_DATA = {
     breakStun: 1.4,                       // 破甲后僵直（秒）
     breakVuln: 0.3,                       // 破甲后易伤（受伤 +30%）
     breakVulnTime: 5,
-    speed: 1.2, charge: 1.15,             // 移动、冲锋速度倍率
-    interval: 0.75, ultEvery: 0.8,        // 出招间隔、大招冷却倍率（越小越频繁）
-    area: 1.22, ultArea: 1.1,             // 普通招式、大招的范围倍率
+    speed: 1.35, charge: 1.3,             // 移动、冲锋速度倍率
+    interval: 0.62, ultEvery: 0.65,       // 出招间隔、大招冷却倍率（越小越频繁）
+    area: 1.4, ultArea: 1.25,             // 普通招式、大招的范围倍率
   },
 
   // 全局节奏
@@ -846,9 +870,9 @@ window.GAME_DATA = {
     bossRateMul: 0.35,     // 武将在场时小兵刷新倍率
     bossGap: 10,            // 两名武将之间至少隔几秒
     chapterGap: 5,          // 章末武将倒下后几秒进入下一章
-    hpGrowth: 1 / 150,      // 每过 150 秒小兵血量 +100%
-    lateStart: 600,         // 10 分钟后，敌人强度开始按平方额外增长
-    lateDiv: 600,
+    hpGrowth: 1 / 95,       // 每过 95 秒小兵血量 +100%
+    lateStart: 420,         // 7 分钟后，敌人强度开始按平方额外增长
+    lateDiv: 480,
     endlessDiv: 300,        // 进入无尽征途后，再按平方加速增长
     endlessBossHp: 6000,    // 无尽征途里武将的最低基础血量
     xpGrowthStart: 240,     // 4 分钟后小兵经验开始增长

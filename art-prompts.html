@@ -76,7 +76,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
 <div class="wrap">
   <header>
     <h1>布衣三国 · <em>美术提示词</em></h1>
-    <p class="lede">一共 157 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵），第五批 11 张（白龙、青龙龙首，白龙驹，8 个新物品图标），第六批 9 种招式特效贴图（拼在一张图里），以及第七批 13 件神兵（拼在一张图里）。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
+    <p class="lede">一共 166 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵），第五批 11 张（白龙、青龙龙首，白龙驹，8 个新物品图标），第六批 9 种招式特效贴图（拼在一张图里），第七批 13 件神兵（拼在一张图里），以及第八批 9 件军需装备图标（拼在一张图里）。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
     <div class="progress"><span>已完成 <span id="count">0 / 45</span></span><div class="bar"><i id="bar"></i></div></div>
   </header>
 
@@ -184,6 +184,18 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
           <button class="copy" data-lite="3">④ 图标图集：兵器 + 宝物</button>
           <button class="copy" data-lite="4">⑤ 图标图集：技能 + 宝物</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>第八批新增<span class="folder">军需装备图标</span></h2>
+    <p class="section-note">开局界面“军需”商店里的 9 件装备（农夫、猎户、书生各 3 件），用金币购买、升级，开局就带着。画在一张 3×3 的图里，和之前的图标用同一种底板。没画之前商店里用一个字代替。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>复制第八批（1 张图）</h3>
+        <p>画好后直接发给 Claude，由 Claude 切开放进 <code>G:\布衣三国\assets\icons</code>。</p>
+        <button class="copy primary" id="copy-batch8">复制第八批 1 张</button>
       </div>
     </div>
   </section>
@@ -538,6 +550,23 @@ const GROUPS = [
       ['zhouyu', '周郎焦尾琴', '一张古琴，琴尾焦黑，琴弦泛着金光，琴身周围有一圈圈淡金色的音波和点点火光。'],
     ],
   },
+
+  // —— 第八批：三个出身的局外装备（军需商店里用金币购买） ——
+  {
+    title: '第八批 · 军需装备图标', folder: 'assets/icons/', style: ICON_STYLE,
+    note: '开局界面“军需”商店里的 9 件装备：农夫、猎户、书生各一把专属武器、一件护甲、一件饰品。是普通人用得起的好东西，朴实但做工精良，不要神兵那样的光效。',
+    items: [
+      ['g_hoe', '开垦宝锄', '一把做工精良的铁锄头：锄刃锻打得厚实锃亮，硬木长柄缠着麻绳和一小块红布，刃口带一点寒光。'],
+      ['g_baina', '百衲铁甲', '一件用许多块旧布和铁片缝补在一起的护身短甲：粗布打底，胸口和肩膀钉着铁片，针脚密实。'],
+      ['g_fudai', '五谷福袋', '一个鼓鼓的红布福袋，袋口用麻绳扎紧，袋口露出几粒金黄的稻谷和豆子，系着一枚小铜钱。'],
+      ['g_zhegong', '柘木长弓', '一张柘木做的长弓，弓身深褐有光泽，两端包着牛角，弓弦紧绷，旁边一支白羽箭。'],
+      ['g_luxue', '鹿皮快靴', '一双轻便的鹿皮短靴，浅褐色的鹿皮带细小斑点，靴口翻毛，绑着皮绳。'],
+      ['g_langya', '狼牙护符', '一枚用皮绳穿着的狼牙护符：弯弯的白色狼牙，皮绳上串着两颗小骨珠和一颗绿松石。'],
+      ['g_zhujian', '青竹简册', '一卷翠绿的新竹简册，竹片光洁，用青色丝绳编连，半展开，竹片上只有模糊不可辨认的墨迹。'],
+      ['g_fangjin', '儒生方巾', '一顶黑色的儒生软方巾，布料柔软有垂感，两条巾带垂下，叠放在一块浅色布上。'],
+      ['g_jinnang', '妙计锦囊', '一个精致的锦缎小袋：深蓝底色绣着金色云纹，袋口金线收紧，挂一条红色流苏。'],
+    ],
+  },
 ];
 
 const KEY = 'buyi-art-done';
@@ -655,6 +684,11 @@ function iconSheet(items) {
     `请把下面 9 个图标画在同一张正方形图里，排成 3 列 × 3 行的整齐网格，每格大小完全相同、间距一致，每个图标都带同样的底板。按序号从左到右、从上到下排列。图集背景透明，画面里不要任何文字或序号。\n\n` + listOf(items);
 }
 document.querySelectorAll('[data-lite]').forEach(b => b.addEventListener('click', () => copyText(LITE[+b.dataset.lite](), b)));
+// 第八批：1 张图（9 件军需装备图标拼成 3×3）
+document.getElementById('copy-batch8').addEventListener('click', e => copyText(
+  `我要为一款三国题材的游戏画一张装备图标图集。统一画风：\n${ICON_STYLE}\n\n` +
+  `请把下面 9 个图标画在同一张正方形图里，排成 3 列 × 3 行的整齐网格，每格大小完全相同、间距一致，每个图标都带同样的底板。第一行是农夫的，第二行是猎户的，第三行是书生的；每行依次是武器、护甲、饰品。按序号从左到右、从上到下排列。图集背景透明，画面里不要任何文字或序号。\n\n` +
+  listOf(GROUPS[22].items), e.currentTarget));
 // 第七批：1 张图（13 件神兵拼成 4×4，最后 3 格留空）
 document.getElementById('copy-batch7').addEventListener('click', e => copyText(
   `我要为一款三国题材的游戏画一张神兵图集。统一画风：\n${SHENBING_STYLE}\n\n` +

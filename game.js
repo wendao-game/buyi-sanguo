@@ -250,7 +250,9 @@ function breakNote(def, nextLv) {
 }
 // 带出身专精加成的数值：弓弩吃“弓箭”物品，计策兵器和所有技能吃“计策”物品
 function wStats(def, lv) {
-  const L = statsOf(def, lv), p = S.player, t = def.tags || [];
+  let L = statsOf(def, lv);
+  const p = S.player, t = def.tags || [];
+  if (S.startDmg && def.id === S.origin.weapon) L = Object.assign({}, L, { dmg: L.dmg * (1 + S.startDmg) }); // 局外装备：起手武器
   if (t.includes('bow') && (p.arrowCount || p.arrowDmg || p.arrowPierce))
     return Object.assign({}, L, { count: (L.count || 1) + p.arrowCount, dmg: L.dmg * (1 + p.arrowDmg), pierce: (L.pierce || 1) + p.arrowPierce });
   if (t.includes('spell') && (p.spellDmg || p.spellArea || p.skillCd)) {
@@ -290,11 +292,13 @@ function newState(originId) {
     ch: 0, chStart: 0, chapterT: 0, nextBossOk: 0,     // 当前章节、本章开始时间、换章倒计时、下一名武将最早登场时间
     strikes: [], erings: [], lust: 0, lustT: 0, dash: null,
     shenbing: [], sbPity: 0, later: [], sbWhirl: null,   // 神兵：悬浮在身边的名将专属兵器
+    goldRun: 0, startDmg: 0, xpMul: 0, saveT: 15,         // 本局金币、局外装备加成、自动存档倒计时
     pendingLevels: 0, pendingReward: null, rewardReady: null, choice: null, cycle: 0,
     slowmo: 0, shake: 0, camX: 0, camY: 0, wsb: 0, buildDirty: true,
   };
   recomputeStats();
   S.weapons.push({ id: origin.weapon, lv: 1, t: 0.3 });
+  applyGear();
   return S;
 }
 
@@ -422,7 +426,8 @@ function killEnemy(e) {
   }
   if (e.boss) { onBossDeath(e); return; }
   if (e.building) { onBuildingDestroyed(e); return; }
-  if (e.ai) { // 精英：多掉经验，大概率掉补给
+  if (e.ai) { // 精英：多掉经验、金币，大概率掉补给
+    { const G = D.meta.gold.elite; dropGold(e.x, e.y, Math.round(rand(G[0], G[1]))); }
     for (let i = 0; i < 6; i++) dropXp(e.x + rand(-30, 30), e.y + rand(-30, 30), Math.max(2, Math.round(e.def.xp / 3 * (1 + S.t / 300))));
     if (Math.random() < 0.45) S.pickups.push({ kind: 'heal', x: e.x + 14, y: e.y, v: 30, mag: false, vel: 0 });
     if (Math.random() < 0.25) S.pickups.push({ kind: 'vacuum', x: e.x - 14, y: e.y, v: 0, mag: false, vel: 0 });
@@ -433,6 +438,7 @@ function killEnemy(e) {
   }
   // 经验随时间增长，保证后期也能持续升级
   dropXp(e.x, e.y, Math.max(1, Math.round(e.def.xp * (1 + Math.max(0, S.t - D.stage.xpGrowthStart) / D.stage.xpGrowthSec) * (e.elite ? 5 : 1))));
+  if (Math.random() < (e.elite ? 0.6 : D.meta.gold.minion)) dropGold(e.x, e.y, e.elite ? 3 : 1);
   if (Math.random() < (e.elite ? 0.25 : 0.012)) S.pickups.push({ kind: 'heal', x: e.x, y: e.y, v: 25, mag: false, vel: 0 });
   else if (Math.random() < (e.elite ? 0.15 : 0.002)) S.pickups.push({ kind: 'vacuum', x: e.x, y: e.y, v: 0, mag: false, vel: 0 });
   // 倒下：一团墨烟 + 几块碎屑；精英多一道金光
@@ -455,6 +461,7 @@ function onBossDeath(e) {
   glint(e.x, e.y - 30, 90, '255,235,180', 0.45);
   groundImpact(e.x, e.y + e.r * 0.5, 220);
   for (let i = 0; i < 24; i++) dropXp(e.x + rand(-60, 60), e.y + rand(-60, 60), 5);
+  { const G = D.meta.gold; for (let i = 0; i < 3; i++) dropGold(e.x + rand(-50, 50), e.y + rand(-50, 50), Math.round((G.general + G.generalPerChapter * (S.endless ? D.chapters.length : S.ch)) / 3)); }
   S.pickups.push({ kind: 'heal', x: e.x + 20, y: e.y, v: 40, mag: false, vel: 0 });
   S.pickups.push({ kind: 'vacuum', x: e.x - 20, y: e.y, v: 0, mag: false, vel: 0 });
   S.effects.push({ kind: 'wave', x: e.x, y: e.y, r: 260, life: 0.6, max: 0.6, color: '#cfa34a' });
@@ -464,6 +471,7 @@ function onBossDeath(e) {
     for (const m of S.enemies) if (!m.dead && !m.boss && !m.building) killEnemy(m);
     const next = D.chapters[S.ch + 1];
     banner(chap().clear, next ? `下一章 · ${next.name.split(' · ')[1]}` : '天下三分 · 征途无尽');
+    addGold(D.meta.gold.chapterClear, S.player.x, S.player.y - 20); // 过章奖励
     S.chapterT = S.t + D.stage.chapterGap;
     if (!next) S.won = true;
     sfx('win');
@@ -506,6 +514,7 @@ function onBuildingDestroyed(e) {
   S.shake = Math.max(S.shake, 10);
   sfx('slam');
   for (let i = 0; i < 8; i++) dropXp(e.x + rand(-40, 40), e.y + rand(-30, 30), Math.max(2, Math.round(def.xp / 4 * (1 + S.t / 300))));
+  dropGold(e.x, e.y, D.meta.gold.building);
   // 奖励
   let msg = def.desc.replace('摧毁后', '');
   if (rw.bonus) for (const k in rw.bonus) S.bonus[k] = (S.bonus[k] || 0) + rw.bonus[k];
@@ -528,6 +537,7 @@ function gameOver() {
   S.over = true;
   S.modal = true;
   S.choice = null;
+  clearRun(); saveMeta(true); // 战死：这一局的存档作废，金币已经存好
   $('levelup').hidden = true;
   showEnd();
 }
@@ -636,7 +646,7 @@ function dropXp(x, y, v) {
 }
 function addXp(v) {
   const p = S.player;
-  p.xp += v;
+  p.xp += v * (1 + (S.xpMul || 0));
   while (p.xp >= p.xpNext) {
     p.xp -= p.xpNext;
     const before = rankOf(p.level);
@@ -663,8 +673,9 @@ function updatePickups(dt) {
     if (d < p.r + 8) {
       g.dead = true;
       if (g.kind === 'xp') { addXp(g.v); if (Math.random() < 0.35) glint(p.x + rand(-8, 8), p.y - 10, 9, '255,220,140', 0.14); }
-      else if (g.kind === 'vacuum') { // 军令：全图铜钱飞向玩家
-        for (const o of S.pickups) if (o.kind === 'xp') o.mag = true;
+      else if (g.kind === 'gold') addGold(g.v, p.x, p.y);
+      else if (g.kind === 'vacuum') { // 军令：全图铜钱、金币飞向玩家
+        for (const o of S.pickups) if (o.kind === 'xp' || o.kind === 'gold') o.mag = true;
         addNumber(p.x, p.y - 30, '军令 · 聚', '#ffcf5a', 20);
         sfx('level');
       }
@@ -706,7 +717,7 @@ function spawnEnemy(type, x, y) {
 // 精英与武将的强化版招式数据：更快、出招更勤、范围更大（不改动 data.js 里的原始数据）
 const champCache = {};
 // 强化幅度随时间拉满：开局的武将、精英只强化一部分（champK），5 分钟后全额
-const champK = () => clamp(0.15 + S.t / 400, 0.15, 1);
+const champK = () => clamp(0.3 + S.t / 300, 0.3, 1);
 function championDef(key, base) {
   const kk = Math.round(champK() * 10) / 10, ck = key + '|' + kk;
   if (champCache[ck]) return champCache[ck];
@@ -2376,6 +2387,7 @@ function update(dt) {
     if (S.pendingReward.t <= 0) { S.rewardReady = S.pendingReward.gid; S.rewardLegend = S.pendingReward.legend; S.pendingReward = null; }
   }
   if (S.rankUp) { banner(`晋升 · ${S.rankUp}`, `Lv ${p.level}`); S.rankUp = null; }
+  S.saveT -= dt; if (S.saveT <= 0) { S.saveT = 15; saveRun(); } // 每 15 秒自动存档
   // 选择栏不暂停游戏：有待选的升级 / 斩将奖励 / 铁匠铺时，在屏幕上方弹出
   if (!S.over && !S.choice && (S.rewardReady || S.forgeReady || S.pendingLevels > 0)) nextModal();
 }
@@ -2625,6 +2637,7 @@ function updateHud() {
   $('hptext').textContent = `${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}`;
   $('time').textContent = fmtTime(S.t);
   $('kills').textContent = `斩敌 ${S.kills}`;
+  $('goldhud').textContent = `金 ${loadMeta().gold}（本局 +${S.goldRun}）`;
   const perm = S.allies.filter(a => !a.until).length, lust = Math.floor(S.lust);
   const info = [perm ? `随从 ${perm}/${D.allyCap}` : '', S.blessings.length ? `祝福 ${S.blessings.length}` : '', lust ? `战意 ${lust}` : ''].filter(Boolean);
   $('allies').hidden = !info.length;
@@ -2643,6 +2656,174 @@ function updateHud() {
   if (S.buildDirty) {
     S.buildDirty = false;
     $('slots').innerHTML = buildList().map(([k, id, lv]) => slotHtml(k, id, lv)).join('');
+  }
+}
+
+// ---------- 局外成长：金币与装备（存在本机浏览器里） ----------
+let META = null;
+function loadMeta() {
+  if (META) return META;
+  try { META = JSON.parse(localStorage.getItem('buyi-meta')) || null; } catch (e) { META = null; }
+  META = Object.assign({ gold: 0, total: 0, gear: {} }, META || {});
+  return META;
+}
+let metaSaveT = 0;
+function saveMeta(now) {
+  const t = performance.now();
+  if (!now && t - metaSaveT < 1500) { clearTimeout(saveMeta.pending); saveMeta.pending = setTimeout(() => saveMeta(true), 1600); return; }
+  metaSaveT = t;
+  try { localStorage.setItem('buyi-meta', JSON.stringify(loadMeta())); } catch (e) { /* 存储不可用时忽略 */ }
+}
+const gearLv = id => loadMeta().gear[id] || 0;
+const gearCost = lv => Math.ceil(D.meta.costBase * Math.pow(D.meta.costGrowth, lv) / 5) * 5;
+function addGold(v, x, y) {
+  const m = loadMeta();
+  m.gold += v; m.total += v; S.goldRun += v;
+  if (x !== undefined) addNumber(x, y - 26, `+金 ${v}`, '#ffd75a', 15);
+  saveMeta();
+}
+function dropGold(x, y, v) { S.pickups.push({ kind: 'gold', x: x + rand(-8, 8), y: y + rand(-8, 8), v, mag: false, vel: 0 }); }
+// 开局：把这个出身买过的装备加到本局（起手武器伤害 / 等级、属性加成）
+function applyGear() {
+  const gear = D.meta.gear[S.origin.id] || [];
+  S.startDmg = 0; S.xpMul = 0;
+  for (const g of gear) {
+    const lv = gearLv(g.id); if (!lv) continue;
+    for (const k in g.effects) {
+      const v = g.effects[k] * lv;
+      if (k === 'startDmg') S.startDmg += v;
+      else if (k === 'xpMul') S.xpMul += v;
+      else S.bonus[k] = (S.bonus[k] || 0) + v;
+    }
+    if (g.armorEvery) S.bonus.armor = (S.bonus.armor || 0) + Math.floor(lv / g.armorEvery);
+    if (g.startLvEvery) { const w = S.weapons.find(x => x.id === S.origin.weapon); if (w) w.lv += Math.floor(lv / g.startLvEvery); }
+  }
+  recomputeStats();
+  const p = S.player; p.hp = p.maxHp;
+}
+
+// ---------- 军需商店 ----------
+function openShop() {
+  renderShop();
+  $('title').hidden = true; $('shop').hidden = false;
+  $('btn-shop-close').focus();
+}
+function closeShop() { $('shop').hidden = true; $('title').hidden = false; refreshTitle(); }
+function gearEffectText(g, lv) {
+  if (!lv) return '尚未购买';
+  const parts = [];
+  for (const k in g.effects) {
+    const v = g.effects[k] * lv, pct = x => `${Math.round(x * 1000) / 10}%`;
+    parts.push({ startDmg: `起手武器伤害 +${pct(v)}`, maxHp: `生命 +${Math.round(v)}`, regen: `回复 +${v.toFixed(1)}/秒`, speedMul: `移速 +${pct(v)}`,
+      crit: `暴击 +${pct(v)}`, critMul: `爆伤 +${pct(v)}`, cdMul: `冷却 ${pct(v)}`, pickupMul: `拾取 +${pct(v)}`, xpMul: `经验 +${pct(v)}` }[k] || '');
+  }
+  if (g.armorEvery && lv >= g.armorEvery) parts.push(`护甲 +${Math.floor(lv / g.armorEvery)}`);
+  if (g.startLvEvery && lv >= g.startLvEvery) parts.push(`开局武器 +${Math.floor(lv / g.startLvEvery)} 级`);
+  return parts.join('，');
+}
+function renderShop() {
+  const m = loadMeta();
+  $('shop-gold').textContent = `金币 ${m.gold} · 每个出身各有三件专属装备，开局就带着`;
+  $('shop-list').innerHTML = D.origins.map(o => `<div class="shop-col"><h3>${o.name}<small>${o.focusName || ''}</small></h3>` +
+    D.meta.gear[o.id].map(g => {
+      const lv = gearLv(g.id), max = lv >= D.meta.maxLv, cost = gearCost(lv);
+      return `<div class="gear"><div class="seal">${window.Assets.icon(g.id, g.icon, g.name)}</div>
+        <div class="gn">${g.name}<small>${g.slot} · Lv ${lv}/${D.meta.maxLv}</small></div>
+        <button class="buy${max ? ' max' : ''}" data-g="${g.id}" ${max || m.gold < cost ? 'disabled' : ''}>${max ? '已满级' : `${lv ? '升级' : '购买'} · 金 ${cost}`}</button>
+        <div class="gd">${g.desc}<br>当前：<b>${gearEffectText(g, lv)}</b>${max ? '' : `<br>下一级：${gearEffectText(g, lv + 1)}`}</div></div>`;
+    }).join('') + '</div>').join('');
+  $('shop-list').querySelectorAll('.buy').forEach(b => b.addEventListener('click', () => buyGear(b.dataset.g)));
+}
+function buyGear(id) {
+  const m = loadMeta(), lv = gearLv(id), cost = gearCost(lv);
+  if (lv >= D.meta.maxLv || m.gold < cost) return;
+  m.gold -= cost; m.gear[id] = lv + 1; saveMeta(true);
+  sfx('level');
+  renderShop();
+  const b = $('shop-list').querySelector(`[data-g="${id}"]`); if (b) b.focus();
+}
+
+// ---------- 存档：自动保存这一局，下次“继续征战” ----------
+const RUN_KEY = 'buyi-run';
+function snapshot() {
+  if (!S || S.over) return null;
+  const p = S.player, ch = S.choice;
+  return {
+    v: 1, saved: Date.now(), origin: S.origin.id, t: S.t, kills: S.kills,
+    ch: S.ch, chStart: S.chStart, chapterT: S.chapterT, nextBossOk: S.nextBossOk, evIdx: S.evIdx,
+    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss,
+    player: { level: p.level, xp: p.xp, hp: p.hp },
+    weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
+    passives: S.passives, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
+    bonus: S.bonus, blessings: S.blessings, allies: S.allies.filter(a => !a.until).map(a => a.type), allyPower: S.allyPower,
+    defeated: S.defeated, seen: S.seen, sbPity: S.sbPity, goldRun: S.goldRun, startDmg: S.startDmg, xpMul: S.xpMul,
+    forgeReady: S.forgeReady + (ch && ch.mode === 'forge' ? 1 : 0),
+    pendingLevels: S.pendingLevels + (ch && ch.mode === 'level' ? 1 : 0),
+    reward: S.rewardReady || (S.pendingReward && S.pendingReward.gid) || (ch && ch.mode === 'reward' ? ch.gid : null),
+    rewardLegend: !!(S.rewardLegend || (S.pendingReward && S.pendingReward.legend) || (ch && ch.mode === 'reward' && $('levelup').classList.contains('legend'))),
+    bosses: S.bossList.map(e => ({ gid: e.gid, hp: e.hp / e.maxHp, final: e.final })),
+    eliteT: S.eliteT, buildingT: S.buildingT,
+  };
+}
+function saveRun() {
+  const snap = snapshot();
+  if (!snap) return;
+  try { localStorage.setItem(RUN_KEY, JSON.stringify(snap)); } catch (e) { /* 存储不可用时忽略 */ }
+}
+function loadRun() { try { return JSON.parse(localStorage.getItem(RUN_KEY)) || null; } catch (e) { return null; } }
+function clearRun() { try { localStorage.removeItem(RUN_KEY); } catch (e) { /* ignore */ } }
+function continueRun() {
+  const r = loadRun();
+  if (!r) return;
+  audio(); joy.on = false;
+  newState(r.origin);
+  const p = S.player;
+  for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
+    'passives', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT']) if (r[k] !== undefined) S[k] = r[k];
+  S.weapons = r.weapons.map(w => ({ id: w.id, lv: w.lv, t: 0.3 }));
+  S.skills = r.skills.map(s => ({ id: s.id, lv: s.lv, t: 1 }));
+  S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0 }));
+  p.level = r.player.level; p.xp = r.player.xp; p.xpNext = xpFor(p.level);
+  recomputeStats(); p.hp = Math.min(p.maxHp, Math.max(1, r.player.hp));
+  (r.allies || []).forEach(t => addAllies(t, 1));
+  for (const b of r.bosses || []) { spawnBoss(b.gid, b.final); const e = S.bossList[S.bossList.length - 1]; e.hp = e.maxHp * b.hp; }
+  S.seen = r.seen || S.seen;
+  if (r.reward) { S.rewardReady = r.reward; S.rewardLegend = r.rewardLegend; }
+  S.buildDirty = true; S.saveT = 15;
+  for (const id of ['title', 'end', 'levelup', 'pause', 'shop', 'savecode']) $(id).hidden = true;
+  $('hud').hidden = false;
+  updateHud();
+  banner('继续征战', `${S.endless ? D.endless.name : chap().name} · Lv ${p.level}`);
+}
+// 存档码：金币、装备、图鉴、最佳纪录和未打完的一局
+const SAVE_KEYS = ['buyi-meta', 'buyi-run', 'buyi-best', 'buyi-slain'];
+function exportCode() {
+  if (S && !S.over) saveRun();
+  saveMeta(true);
+  const o = {}; for (const k of SAVE_KEYS) { try { const v = localStorage.getItem(k); if (v) o[k] = JSON.parse(v); } catch (e) { /* ignore */ } }
+  return 'BUYI1:' + btoa(unescape(encodeURIComponent(JSON.stringify(o))));
+}
+function importCode(text) {
+  const m = /BUYI1:([A-Za-z0-9+/=]+)/.exec(text.replace(/\s+/g, ''));
+  if (!m) return '这不是布衣三国的存档码，请完整复制后再粘贴';
+  let o; try { o = JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch (e) { return '存档码不完整，请完整复制后再粘贴'; }
+  for (const k of SAVE_KEYS) { try { if (o[k]) localStorage.setItem(k, JSON.stringify(o[k])); else if (k === 'buyi-run') localStorage.removeItem(k); } catch (e) { return '这台设备不能保存数据（可能是无痕模式）'; } }
+  META = null;
+  return `已读取：金币 ${loadMeta().gold}${o['buyi-run'] ? '，含一局未打完的征战' : ''}`;
+}
+function openSaveCode() {
+  $('save-text').value = exportCode(); $('save-msg').textContent = '';
+  $('title').hidden = true; $('savecode').hidden = false;
+  $('btn-save-copy').focus();
+}
+function refreshTitle() {
+  showBestOnTitle();
+  $('title-gold').textContent = `金 ${loadMeta().gold}`;
+  const r = loadRun();
+  $('continue-box').hidden = !r;
+  if (r) {
+    const c = r.endless ? '天下三分' : D.chapters[r.ch].name.split(' · ')[1], o = D.origins.find(x => x.id === r.origin);
+    $('continue-note').textContent = `${o ? o.name : ''} · ${c} · Lv ${r.player.level} · ${fmtTime(r.t)}（选新出身会开新局，覆盖这一局）`;
   }
 }
 
@@ -2709,7 +2890,7 @@ function showEnd() {
     ['征战至', S.endless ? '天下三分' : chap().name.split(' · ')[1]],
     ['坚持时间', fmtTime(S.t)], ['等级', `Lv ${p.level}`],
     ['军衔', rankOf(p.level)], ['斩敌', S.kills],
-    ['斩将次数', S.defeated.length],
+    ['斩将次数', S.defeated.length], ['本局金币', `+${S.goldRun}`], ['金币总数', loadMeta().gold],
     ...(best ? [['最佳坚持', fmtTime(best.t)], ['最佳等级', `Lv ${best.lv}`]] : []),
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
   $('end-build').innerHTML = buildChips();
@@ -2726,12 +2907,14 @@ function togglePause() {
   if (S.paused) { S.paused = false; $('pause').hidden = true; return; }
   if (S.modal) return;
   S.paused = true;
+  saveRun();
   $('pause-build').innerHTML = buildChips();
   $('pause').hidden = false;
   $('btn-resume').focus();
 }
 
 function startGame(originId) {
+  clearRun();
   audio();
   joy.on = false;
   newState(originId);
@@ -2741,10 +2924,11 @@ function startGame(originId) {
   banner(D.chapters[0].name, D.chapters[0].sub);
 }
 function toTitle() {
+  saveRun();
   S = null;
   for (const id of ['end', 'levelup', 'pause', 'hud']) $(id).hidden = true;
   $('title').hidden = false;
-  showBestOnTitle();
+  refreshTitle();
 }
 
 function renderOrigins() {
@@ -2768,7 +2952,7 @@ function buildTitle() {
     const m = /^(?:Digit|Numpad)([1-3])$/.exec(e.code);
     if (m && !$('title').hidden) startGame(D.origins[+m[1] - 1].id);
   });
-  showBestOnTitle();
+  refreshTitle();
 }
 
 // 美术图加载完成后刷新用到它的地方
@@ -2787,6 +2971,18 @@ window.Assets.onLoad(() => {
 });
 
 $('btn-codex').addEventListener('click', openCodex);
+$('btn-shop').addEventListener('click', openShop);
+$('btn-shop-close').addEventListener('click', closeShop);
+$('btn-continue').addEventListener('click', continueRun);
+$('btn-save').addEventListener('click', openSaveCode);
+$('btn-save-close').addEventListener('click', () => { $('savecode').hidden = true; $('title').hidden = false; refreshTitle(); });
+$('btn-save-copy').addEventListener('click', () => {
+  const t = $('save-text'); t.select();
+  const ok = () => { $('save-msg').textContent = '已复制。到另一台设备打开“存档码”，粘贴后点“读取粘贴的存档码”'; };
+  const manual = () => { try { document.execCommand('copy'); ok(); } catch (e) { $('save-msg').textContent = '请长按文字手动复制'; } };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(ok, manual); else manual();
+});
+$('btn-save-load').addEventListener('click', () => { $('save-msg').textContent = importCode($('save-text').value); renderOrigins(); });
 $('btn-codex-close').addEventListener('click', closeCodex);
 $('btn-pause').addEventListener('click', togglePause);
 $('btn-resume').addEventListener('click', togglePause);
@@ -2798,7 +2994,8 @@ $('btn-sound').addEventListener('click', () => {
   audio();
 });
 $('btn-sound').textContent = muted ? '静' : '声';
-document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause(); if (document.hidden) { saveRun(); saveMeta(true); } });
+addEventListener('pagehide', () => { saveRun(); saveMeta(true); });
 
 // ============ 绘制 ============
 function hash(x, y) {
@@ -3194,6 +3391,17 @@ function drawPickups() {
       ctx.fillStyle = '#f3ead6'; ctx.strokeStyle = '#6b5a3a'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(g.x, g.y, 8, 0, TAU); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(g.x - 4, g.y - 2); ctx.quadraticCurveTo(g.x, g.y - 7, g.x + 4, g.y - 2); ctx.stroke();
+      continue;
+    }
+    if (g.kind === 'gold') { // 金元宝：船形金锭，带一点闪光
+      const s = 1 + Math.min(1, g.v / 10) * 0.5, bob = Math.sin(S.t * 4 + g.x) * 1.5;
+      ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, g.x, g.y - 2 + bob, 16 * s, '255,200,80', 0.45); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      const gr = ctx.createLinearGradient(0, g.y - 9 * s + bob, 0, g.y + 5 * s + bob);
+      gr.addColorStop(0, '#fff2b0'); gr.addColorStop(0.5, '#e8b440'); gr.addColorStop(1, '#a86e14');
+      ctx.fillStyle = gr; ctx.strokeStyle = 'rgba(90,50,8,0.9)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(g.x - 9 * s, g.y - 4 * s + bob); ctx.quadraticCurveTo(g.x, g.y + 7 * s + bob, g.x + 9 * s, g.y - 4 * s + bob);
+      ctx.quadraticCurveTo(g.x, g.y - 1 * s + bob, g.x - 9 * s, g.y - 4 * s + bob); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(g.x, g.y - 4 * s + bob, 4 * s, 3.5 * s, 0, Math.PI, 0); ctx.fill(); ctx.stroke();
       continue;
     }
     if (g.kind === 'vacuum') { // 军令牌

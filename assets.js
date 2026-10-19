@@ -33,6 +33,8 @@ window.Assets = (() => {
     for (const group of [D.weapons, D.skills, D.passives]) {
       for (const id in group) load('icon:' + id, `${ASSET_BASE}icons/${id}.png`);
     }
+    // 局外装备图标
+    for (const o in (D.meta && D.meta.gear) || {}) for (const g of D.meta.gear[o]) load('icon:' + g.id, `${ASSET_BASE}icons/${g.id}.png`);
     // 战场小人（Q 版全身、朝右、透明背景，脚底贴着图片下沿）
     for (const id of [...D.origins.map(o => o.id), ...Object.keys(D.generals), ...Object.keys(D.enemies), ...Object.keys(D.allies)]) {
       load('sprite:' + id, `${ASSET_BASE}sprites/${id}.png`);

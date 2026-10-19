@@ -58,6 +58,7 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #time { font-family: var(--display); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
 #kills { font-size: 13px; color: var(--muted); }
 #chap { font-size: 12px; color: var(--gold); letter-spacing: .12em; margin-bottom: 2px; }
+#goldhud { font-size: 13px; color: #ffd75a; font-variant-numeric: tabular-nums; }
 .hud-btns { display: flex; gap: 6px; pointer-events: auto; margin-top: 4px; }
 .iconbtn { width: 34px; height: 34px; border: 1px solid rgba(235,224,197,.3); background: rgba(21,18,13,.6); color: var(--text); border-radius: 3px; font-size: 14px; }
 
@@ -90,6 +91,8 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
   background: rgba(18,15,11,.9); border: 1px solid var(--gold); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.55);
   animation: luIn .22s ease-out; }
 @keyframes luIn { from { opacity: 0; transform: translate(-50%, -12px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* 窄屏：选择栏放到右上角按钮（声音 / 暂停）下面，不挡住它们 */
+@media (max-width: 900px) { #levelup { top: calc(env(safe-area-inset-top, 0px) + 128px); } }
 @media (prefers-reduced-motion: reduce) { #levelup { animation: none; } }
 .lu-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; padding: 0 2px; }
 #lu-title { font-family: var(--display); font-weight: 400; font-size: 22px; line-height: 1.1; color: var(--paper); }
@@ -121,6 +124,29 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 #levelup .card .ds { font-size: 12.5px; line-height: 1.45; }
 #levelup .card .key { right: 6px; top: 4px; }
 .card .ds b.crit { color: var(--seal); font-variant-numeric: tabular-nums; }
+
+/* 继续征战 */
+#continue-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.cont-note { font-size: 13px; color: var(--muted); text-align: center; }
+#title-gold { margin-left: 8px; color: #ffd75a; font-variant-numeric: tabular-nums; }
+/* 军需 */
+.shop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: 100%; max-width: 980px; }
+.shop-col { background: rgba(235,224,197,.06); border: 1px solid rgba(235,224,197,.18); border-radius: 3px; padding: 10px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.shop-col h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; color: var(--paper); display: flex; align-items: baseline; gap: 8px; }
+.shop-col h3 small { font-family: var(--body); font-size: 12px; color: var(--gold); letter-spacing: .1em; }
+.gear { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; background: var(--paper); color: var(--paper-ink); border-radius: 2px; padding: 8px; }
+.gear .seal { grid-row: span 2; width: 44px; height: 44px; font-size: 22px; }
+.gear .gn { font-weight: 900; font-size: 15px; display: flex; flex-direction: column; min-width: 0; line-height: 1.25; white-space: nowrap; }
+.gear .gn small { font-weight: 700; font-size: 11px; color: #7a6a4c; }
+.gear .gd { font-size: 12px; line-height: 1.45; grid-column: 2 / span 2; }
+.gear .gd b { color: var(--seal); }
+.gear .buy { grid-row: 1; grid-column: 3; padding: 6px 10px; font-size: 13px; font-weight: 700; border: 0; border-radius: 2px; background: var(--seal); color: var(--paper); white-space: nowrap; }
+.gear .buy:disabled { background: #9a8f78; cursor: default; }
+.gear .buy.max { background: #6b5a3a; }
+/* 存档码 */
+#save-text { width: min(640px, 100%); box-sizing: border-box; font: 12px/1.4 ui-monospace, Consolas, monospace; background: rgba(235,224,197,.08); color: var(--text); border: 1px solid rgba(235,224,197,.3); border-radius: 3px; padding: 8px; resize: vertical; }
+.save-msg { min-height: 1.4em; font-size: 14px; color: var(--gold); text-align: center; }
+@media (max-width: 760px) { .shop { grid-template-columns: minmax(0, 1fr); } }
 
 /* 武将图鉴 */
 .codex { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 14px; width: 100%; max-width: 960px; }
@@ -310,6 +336,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
         <div id="chap">黄巾之乱</div>
         <div id="time">00:00</div>
         <div id="kills">斩敌 0</div>
+        <div id="goldhud">金 0</div>
         <div class="hud-btns">
           <button class="iconbtn" id="btn-sound" aria-label="声音开关">声</button>
           <button class="iconbtn" id="btn-pause" aria-label="暂停">停</button>
@@ -343,10 +370,39 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <h1>布衣<em>三国</em></h1>
     <p class="lede">黄巾起事，天下大乱，你只是一介布衣。从黄巾之乱一路打到赤壁，斩将夺器，没有上限地变强。</p>
     <p id="best" hidden></p>
+    <div id="continue-box" hidden>
+      <button class="btn primary" id="btn-continue">继续征战</button>
+      <div class="cont-note" id="continue-note"></div>
+    </div>
     <div class="sub">选择出身</div>
     <div class="cards" id="origins"></div>
-    <button class="btn" id="btn-codex">武将图鉴</button>
+    <div class="btns">
+      <button class="btn" id="btn-shop">军需 · 装备<span id="title-gold"></span></button>
+      <button class="btn" id="btn-codex">武将图鉴</button>
+      <button class="btn" id="btn-save">存档码</button>
+    </div>
     <div class="howto"><b>WASD / 方向键</b> 移动 · 手机上 <b>按住拖动</b> 移动 · 攻击全自动 · <b>Esc</b> 暂停<br>击败武将可夺取其兵器或技能 · 武器满级后还能继续突破 · 黄巾 → 讨董 → 群雄 → 赤壁，之后天下三分、征途无尽</div>
+  </div>
+
+  <!-- 军需：用金币给三个出身买专属装备（局外成长） -->
+  <div id="shop" class="overlay" hidden>
+    <h2>军需</h2>
+    <div class="sub" id="shop-gold"></div>
+    <div class="shop" id="shop-list"></div>
+    <button class="btn primary" id="btn-shop-close">返回</button>
+  </div>
+
+  <!-- 存档码：把金币、装备、图鉴和当前这一局打包成一段文字，换设备时粘贴进来 -->
+  <div id="savecode" class="overlay" hidden>
+    <h2>存档码</h2>
+    <div class="sub">复制这段文字，到另一台电脑或手机上粘贴进来，就能带走金币、装备、图鉴和未打完的这一局</div>
+    <textarea id="save-text" rows="6" spellcheck="false" aria-label="存档码"></textarea>
+    <div class="save-msg" id="save-msg" role="status"></div>
+    <div class="btns">
+      <button class="btn primary" id="btn-save-copy">复制存档码</button>
+      <button class="btn" id="btn-save-load">读取粘贴的存档码</button>
+      <button class="btn" id="btn-save-close">返回</button>
+    </div>
   </div>
 
   <div id="codex" class="overlay" hidden>
