@@ -34,7 +34,11 @@ window.Assets = (() => {
       for (const id in group) load('icon:' + id, `${ASSET_BASE}icons/${id}.png`);
     }
     // 局外装备图标
-    for (const o in (D.meta && D.meta.gear) || {}) for (const g of D.meta.gear[o]) load('icon:' + g.id, `${ASSET_BASE}icons/${g.id}.png`);
+    // 局外装备：每件 9 个形态的图标（icons/<装备>_<级>.png），以及每个出身 9 种造型的小人（sprites/<出身>_w<武器阶段>a<护甲阶段>.png）
+    for (const o in (D.meta && D.meta.gear) || {}) {
+      for (const g of D.meta.gear[o]) for (let lv = 1; lv <= 9; lv++) load(`icon:${g.id}_${lv}`, `${ASSET_BASE}icons/${g.id}_${lv}.png`);
+      for (let w = 1; w <= 3; w++) for (let a = 1; a <= 3; a++) load(`sprite:${o}_w${w}a${a}`, `${ASSET_BASE}sprites/${o}_w${w}a${a}.png`);
+    }
     // 战场小人（Q 版全身、朝右、透明背景，脚底贴着图片下沿）
     for (const id of [...D.origins.map(o => o.id), ...Object.keys(D.generals), ...Object.keys(D.enemies), ...Object.keys(D.allies)]) {
       load('sprite:' + id, `${ASSET_BASE}sprites/${id}.png`);

@@ -129,6 +129,7 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 #continue-box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .cont-note { font-size: 13px; color: var(--muted); text-align: center; }
 #title-gold { margin-left: 8px; color: #ffd75a; font-variant-numeric: tabular-nums; }
+.card .kit { font-size: 12px; font-weight: 700; color: #7a6a4c; border-top: 1px dashed rgba(42,33,22,.25); padding-top: 5px; }
 /* 军需 */
 .shop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: 100%; max-width: 980px; }
 .shop-col { background: rgba(235,224,197,.06); border: 1px solid rgba(235,224,197,.18); border-radius: 3px; padding: 10px; display: grid; gap: 8px; align-content: start; min-width: 0; }
@@ -142,6 +143,9 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .gear .gd b { color: var(--seal); }
 .gear .buy { grid-row: 1; grid-column: 3; padding: 6px 10px; font-size: 13px; font-weight: 700; border: 0; border-radius: 2px; background: var(--seal); color: var(--paper); white-space: nowrap; }
 .gear .buy:disabled { background: #9a8f78; cursor: default; }
+/* 装备稀有度：精良淡蓝底、传说金色底 */
+.gear.r2 { background: linear-gradient(135deg, var(--paper), #d9e4ef); }
+.gear.r3 { background: linear-gradient(135deg, #fff3cc, #f0d48a); box-shadow: 0 0 10px rgba(255,200,80,.5); }
 .gear .buy.max { background: #6b5a3a; }
 /* 存档码 */
 #save-text { width: min(640px, 100%); box-sizing: border-box; font: 12px/1.4 ui-monospace, Consolas, monospace; background: rgba(235,224,197,.08); color: var(--text); border: 1px solid rgba(235,224,197,.3); border-radius: 3px; padding: 8px; resize: vertical; }

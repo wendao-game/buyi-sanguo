@@ -795,26 +795,42 @@ window.GAME_DATA = {
     waves: [{ t: 0, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } }],
   },
 
-  // 局外成长：金币跨局保存，在开局界面给三个出身各自购买、升级专属装备（每件最高 10 级），开局就带着。
+  // 局外成长：金币跨局保存，在开局界面给三个出身各自购买、升级专属装备，开局就带着。
+  // 每件装备 9 级，每一级都是一个新形态（tiers：名字 + 外观描述），1–3 级普通、4–6 级精良、7–9 级传说。
+  // 武器和护甲的阶段（1–3 / 4–6 / 7–9 级）决定人物小人的造型（sprites/<出身>_w<武器阶段>a<护甲阶段>.png）；饰品显示为身边的护身光珠。
   // 价格：base × growth^当前等级（向上取整到 5）。effects 是每级的加成；startDmg 是起手武器伤害，startLvEvery 是每几级起手武器开局 +1 级。
   meta: {
     gold: { minion: 0.02, elite: [4, 8], building: 10, general: 18, generalPerChapter: 8, chapterClear: 30 },
-    costBase: 30, costGrowth: 1.45, maxLv: 10,
+    costBase: 30, costGrowth: 1.5, maxLv: 9,
+    rarity: [
+      { name: '普通', color: '#b08a5a', rgb: '210,170,120' },  // 1–3 级
+      { name: '精良', color: '#7aa6d8', rgb: '150,200,255' },  // 4–6 级
+      { name: '传说', color: '#e8b440', rgb: '255,210,90' },   // 7–9 级
+    ],
     gear: {
       farmer: [
-        { id: 'g_hoe', name: '开垦宝锄', icon: '锄', slot: '武器', effects: { startDmg: 0.12 }, startLvEvery: 3, desc: '锄头伤害 +12%/级；每 3 级开局锄头 +1 级' },
-        { id: 'g_baina', name: '百衲铁甲', icon: '甲', slot: '护甲', effects: { maxHp: 15 }, armorEvery: 3, desc: '生命上限 +15/级；每 3 级护甲 +1' },
-        { id: 'g_fudai', name: '五谷福袋', icon: '袋', slot: '饰品', effects: { regen: 0.2 }, desc: '每秒回复 +0.2/级' },
+        { id: 'g_hoe', name: '锄', icon: '锄', slot: '武器', effects: { startDmg: 0.13 }, startLvEvery: 3, desc: '锄头伤害 +13%/级；每 3 级开局锄头 +1 级',
+          look: '农家锄头，长柄、宽刃', tiers: ['木柄锄', '精铁锄', '开垦宝锄', '百炼锄', '镔铁开山锄', '青铜兽首锄', '寒铁裂地锄', '鎏金神农锄', '神农开天锄'] },
+        { id: 'g_baina', name: '甲', icon: '甲', slot: '护甲', effects: { maxHp: 16 }, armorEvery: 3, desc: '生命上限 +16/级；每 3 级护甲 +1',
+          look: '庄稼汉穿的护身衣甲，从粗布到重铠', tiers: ['粗布短褐', '百衲布衣', '牛皮护胸', '镶铁皮甲', '百衲铁甲', '鱼鳞铁甲', '明光铠', '玄铁重铠', '不动山岳铠'] },
+        { id: 'g_fudai', name: '福袋', icon: '袋', slot: '饰品', effects: { regen: 0.22 }, desc: '每秒回复 +0.22/级',
+          look: '农家祈福的小饰物', tiers: ['五谷福袋', '铜钱平安符', '桃木护身符', '稻穗玉坠', '社稷红绳', '后土玉佩', '丰年金铃', '神农药囊', '五谷神珠'] },
       ],
       hunter: [
-        { id: 'g_zhegong', name: '柘木长弓', icon: '弓', slot: '武器', effects: { startDmg: 0.12 }, startLvEvery: 3, desc: '猎弓伤害 +12%/级；每 3 级开局猎弓 +1 级' },
-        { id: 'g_luxue', name: '鹿皮快靴', icon: '靴', slot: '护甲', effects: { speedMul: 0.03, maxHp: 6 }, desc: '移动速度 +3%、生命上限 +6/级' },
-        { id: 'g_langya', name: '狼牙护符', icon: '牙', slot: '饰品', effects: { crit: 0.015, critMul: 0.05 }, desc: '暴击率 +1.5%、爆伤 +5%/级' },
+        { id: 'g_zhegong', name: '弓', icon: '弓', slot: '武器', effects: { startDmg: 0.13 }, startLvEvery: 3, desc: '猎弓伤害 +13%/级；每 3 级开局猎弓 +1 级',
+          look: '猎人的长弓', tiers: ['竹弓', '桑木弓', '柘木长弓', '牛角弓', '犀角强弓', '铁胎弓', '鹊画雕弓', '落日弓', '射日神弓'] },
+        { id: 'g_luxue', name: '猎装', icon: '装', slot: '护甲', effects: { speedMul: 0.035, maxHp: 7 }, desc: '移动速度 +3.5%、生命上限 +7/级',
+          look: '猎人的轻便衣甲和靴子，从兽皮到轻铠', tiers: ['兽皮短衣', '麻编猎装', '鹿皮快装', '狼皮猎甲', '云纹轻甲', '踏雪轻铠', '追风劲装', '飞羽轻铠', '山君神行铠'] },
+        { id: 'g_langya', name: '护符', icon: '牙', slot: '饰品', effects: { crit: 0.017, critMul: 0.055 }, desc: '暴击率 +1.7%、爆伤 +5.5%/级',
+          look: '猎人挂在身上的兽牙护符', tiers: ['兽骨坠', '狼牙护符', '熊爪护符', '鹰羽护符', '虎齿项链', '豹纹玉坠', '白狼王牙', '金雕羽坠', '山君神符'] },
       ],
       scholar: [
-        { id: 'g_zhujian', name: '青竹简册', icon: '简', slot: '武器', effects: { startDmg: 0.12 }, startLvEvery: 3, desc: '竹简伤害 +12%/级；每 3 级开局竹简 +1 级' },
-        { id: 'g_fangjin', name: '儒生方巾', icon: '巾', slot: '护甲', effects: { cdMul: -0.02, maxHp: 6 }, desc: '所有冷却 -2%、生命上限 +6/级' },
-        { id: 'g_jinnang', name: '妙计锦囊', icon: '囊', slot: '饰品', effects: { pickupMul: 0.08, xpMul: 0.04 }, desc: '拾取范围 +8%、经验 +4%/级' },
+        { id: 'g_zhujian', name: '书', icon: '简', slot: '武器', effects: { startDmg: 0.13 }, startLvEvery: 3, desc: '竹简伤害 +13%/级；每 3 级开局竹简 +1 级',
+          look: '书生的书卷（竹简、帛书、天书）', tiers: ['旧竹简', '青竹简册', '漆书竹简', '帛书卷', '兵法竹简', '太公阴符', '黄石天书', '遁甲天书', '河图洛书'] },
+        { id: 'g_fangjin', name: '衣冠', icon: '巾', slot: '护甲', effects: { cdMul: -0.022, maxHp: 7 }, desc: '所有冷却 -2.2%、生命上限 +7/级',
+          look: '书生的衣冠，从布巾长衫到羽衣', tiers: ['布巾长衫', '儒生方巾', '青衿深衣', '进贤冠服', '纶巾鹤氅', '云纹道袍', '鹤羽道袍', '八卦道袍', '卧龙羽衣'] },
+        { id: 'g_jinnang', name: '锦囊', icon: '囊', slot: '饰品', effects: { pickupMul: 0.09, xpMul: 0.045 }, desc: '拾取范围 +9%、经验 +4.5%/级',
+          look: '书生随身的小物件', tiers: ['粗布书囊', '妙计锦囊', '青玉佩', '白玉如意', '铜星盘', '八卦铜镜', '紫檀罗盘', '七星宝灯', '天机锦囊'] },
       ],
     },
   },

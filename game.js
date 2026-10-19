@@ -2671,14 +2671,29 @@ let metaSaveT = 0;
 function saveMeta(now) {
   const t = performance.now();
   if (!now && t - metaSaveT < 1500) { clearTimeout(saveMeta.pending); saveMeta.pending = setTimeout(() => saveMeta(true), 1600); return; }
-  metaSaveT = t;
-  try { localStorage.setItem('buyi-meta', JSON.stringify(loadMeta())); } catch (e) { /* 存储不可用时忽略 */ }
+  if (!META || !META._dirty) return; // 只有金币或装备变了才写，避免两个网页互相覆盖
+  metaSaveT = t; delete META._dirty;
+  try { localStorage.setItem('buyi-meta', JSON.stringify(META)); } catch (e) { /* 存储不可用时忽略 */ }
 }
-const gearLv = id => loadMeta().gear[id] || 0;
+const gearLv = id => Math.min(D.meta.maxLv, loadMeta().gear[id] || 0);
+// 装备形态：每一级一个名字；1–3 级普通、4–6 级精良、7–9 级传说（阶段 0 表示还没买）
+const gearStage = lv => lv ? Math.ceil(lv / 3) : 0;
+const gearTierName = (g, lv) => lv ? g.tiers[lv - 1] : '尚未购买';
+function gearIconHtml(g, lv) {
+  const img = window.Assets.get(`icon:${g.id}_${Math.max(1, lv)}`) || window.Assets.get('icon:' + g.id);
+  const name = gearTierName(g, lv);
+  return img ? `<img class="ico" src="${img.src}" alt="${name}">` : g.icon;
+}
+// 本局人物造型：武器阶段 × 护甲阶段（没买过的算第 1 阶段）
+function gearLook(originId) {
+  const gear = D.meta.gear[originId] || [];
+  const w = gear.find(g => g.slot === '武器'), a = gear.find(g => g.slot === '护甲'), c = gear.find(g => g.slot === '饰品');
+  return { w: Math.max(1, gearStage(w ? gearLv(w.id) : 0)), a: Math.max(1, gearStage(a ? gearLv(a.id) : 0)), c: c ? gearLv(c.id) : 0 };
+}
 const gearCost = lv => Math.ceil(D.meta.costBase * Math.pow(D.meta.costGrowth, lv) / 5) * 5;
 function addGold(v, x, y) {
   const m = loadMeta();
-  m.gold += v; m.total += v; S.goldRun += v;
+  m.gold += v; m.total += v; S.goldRun += v; m._dirty = true;
   if (x !== undefined) addNumber(x, y - 26, `+金 ${v}`, '#ffd75a', 15);
   saveMeta();
 }
@@ -2687,6 +2702,7 @@ function dropGold(x, y, v) { S.pickups.push({ kind: 'gold', x: x + rand(-8, 8), 
 function applyGear() {
   const gear = D.meta.gear[S.origin.id] || [];
   S.startDmg = 0; S.xpMul = 0;
+  S.gearLook = gearLook(S.origin.id); // 本局人物造型
   for (const g of gear) {
     const lv = gearLv(g.id); if (!lv) continue;
     for (const k in g.effects) {
@@ -2708,7 +2724,7 @@ function openShop() {
   $('title').hidden = true; $('shop').hidden = false;
   $('btn-shop-close').focus();
 }
-function closeShop() { $('shop').hidden = true; $('title').hidden = false; refreshTitle(); }
+function closeShop() { $('shop').hidden = true; $('title').hidden = false; refreshTitle(); renderOrigins(); }
 function gearEffectText(g, lv) {
   if (!lv) return '尚未购买';
   const parts = [];
@@ -2726,18 +2742,18 @@ function renderShop() {
   $('shop-gold').textContent = `金币 ${m.gold} · 每个出身各有三件专属装备，开局就带着`;
   $('shop-list').innerHTML = D.origins.map(o => `<div class="shop-col"><h3>${o.name}<small>${o.focusName || ''}</small></h3>` +
     D.meta.gear[o.id].map(g => {
-      const lv = gearLv(g.id), max = lv >= D.meta.maxLv, cost = gearCost(lv);
-      return `<div class="gear"><div class="seal">${window.Assets.icon(g.id, g.icon, g.name)}</div>
-        <div class="gn">${g.name}<small>${g.slot} · Lv ${lv}/${D.meta.maxLv}</small></div>
+      const lv = gearLv(g.id), max = lv >= D.meta.maxLv, cost = gearCost(lv), st = gearStage(lv), R = st ? D.meta.rarity[st - 1] : null;
+      const nx = max ? '' : `<br>下一级：<b>${g.tiers[lv]}</b> · ${gearEffectText(g, lv + 1)}`;
+      return `<div class="gear${st ? ' r' + st : ''}"><div class="seal" ${R ? `style="box-shadow: 0 0 0 2px ${R.color}, 0 0 8px ${R.color}"` : ''}>${gearIconHtml(g, lv)}</div>
+        <div class="gn">${gearTierName(g, lv)}<small>${g.slot}${R ? ` · <span style="color:${R.color}">${R.name}</span>` : ''} · Lv ${lv}/${D.meta.maxLv}</small></div>
         <button class="buy${max ? ' max' : ''}" data-g="${g.id}" ${max || m.gold < cost ? 'disabled' : ''}>${max ? '已满级' : `${lv ? '升级' : '购买'} · 金 ${cost}`}</button>
-        <div class="gd">${g.desc}<br>当前：<b>${gearEffectText(g, lv)}</b>${max ? '' : `<br>下一级：${gearEffectText(g, lv + 1)}`}</div></div>`;
-    }).join('') + '</div>').join('');
-  $('shop-list').querySelectorAll('.buy').forEach(b => b.addEventListener('click', () => buyGear(b.dataset.g)));
+        <div class="gd">${g.desc}<br>当前：<b>${gearEffectText(g, lv)}</b>${nx}</div></div>`;
+    }).join('') + '</div>').join('');  $('shop-list').querySelectorAll('.buy').forEach(b => b.addEventListener('click', () => buyGear(b.dataset.g)));
 }
 function buyGear(id) {
   const m = loadMeta(), lv = gearLv(id), cost = gearCost(lv);
   if (lv >= D.meta.maxLv || m.gold < cost) return;
-  m.gold -= cost; m.gear[id] = lv + 1; saveMeta(true);
+  m.gold -= cost; m.gear[id] = lv + 1; m._dirty = true; saveMeta(true);
   sfx('level');
   renderShop();
   const b = $('shop-list').querySelector(`[data-g="${id}"]`); if (b) b.focus();
@@ -2940,7 +2956,8 @@ function renderOrigins() {
     b.innerHTML = `<span class="key">${i + 1}</span>
       <div class="oart">${window.Portrait.html('origin', o.id)}</div>
       <div class="top"><div><div class="nm">${o.name}</div><div class="kind">初始武器 · ${D.weapons[o.weapon].name}</div></div></div>
-      <div class="ds">${o.desc}</div><ul>${o.perks.map(x => `<li>${x}</li>`).join('')}</ul>`;
+      <div class="ds">${o.desc}</div><ul>${o.perks.map(x => `<li>${x}</li>`).join('')}</ul>
+      <div class="kit">${D.meta.gear[o.id].map(g => { const lv = gearLv(g.id), st = gearStage(lv); return lv ? `<span style="color:${D.meta.rarity[st - 1].color}">${g.tiers[lv - 1]}</span>` : ''; }).filter(Boolean).join(' · ') || '尚无军需装备'}</div>`;
     b.addEventListener('click', () => startGame(o.id));
     box.appendChild(b);
   });
@@ -3175,7 +3192,21 @@ function drawPlayer() {
   const seven = S.t < S.rampageT;                      // 七进七出：骑上白龙驹
   const ride = chitu || seven || S.dash;               // 冲阵时也骑马
   const mount = seven || (S.dash && !chitu) ? WHITE_HORSE : chitu ? '#a3261b' : '';
-  const spr = ride ? unitSprite(S.origin.id + '_mounted', S.origin.look, 58, false, mount) : unitSprite(S.origin.id, S.origin.look, 44, false, '');
+  // 人物造型跟着局外装备变：有对应的美术小人（武器阶段 × 护甲阶段）就用它，否则用出身原本的小人
+  const L = S.gearLook || { w: 1, a: 1, c: 0 }, lookId = `${S.origin.id}_w${L.w}a${L.a}`;
+  const sid = window.Assets.get('sprite:' + lookId) ? lookId : S.origin.id;
+  const hasLookArt = sid === lookId;
+  if (!hasLookArt && (L.a > 1 || L.w > 1)) { // 还没有造型美术图：用光效区分装备阶段
+    const R = D.meta.rarity;
+    ctx.globalCompositeOperation = 'lighter';
+    if (L.a > 1) { // 护甲：脚下一圈稀有度颜色的光环
+      ctx.globalAlpha = 0.55; ctx.strokeStyle = `rgb(${R[L.a - 1].rgb})`; ctx.lineWidth = L.a === 3 ? 3 : 2;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r * 0.6, p.r * 1.35, p.r * 0.5, 0, 0, TAU); ctx.stroke();
+    }
+    if (L.w > 1) FX.glow(ctx, p.x + (p.fx || 1) * 12, p.y - 18, L.w === 3 ? 26 : 18, R[L.w - 1].rgb, 0.35 + 0.1 * Math.sin(S.t * 6)); // 武器：持械的手边发光
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = blink ? 0.45 : 1;
+  }
+  const spr = ride ? unitSprite(sid + '_mounted', S.origin.look, 58, false, mount) : unitSprite(sid, S.origin.look, 44, false, '');
   if (seven && S.player.trail) drawDragonTrail(S.player.trail, '235,245,255', 1, 'fx:dragon_white', 26);
   // 七进七出、冲阵、骑赤兔奔跑时留下残影
   const rampage = seven || !!S.dash;
@@ -3189,6 +3220,14 @@ function drawPlayer() {
     ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r * 0.6, p.r * 1.5, p.r * 0.55, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
   }
   ctx.globalAlpha = 1;
+  if (L.c) { // 饰品：一颗绕身旋转的护身光珠，等级越高越大越亮，颜色随稀有度
+    const R = D.meta.rarity[gearStage(L.c) - 1], a = S.t * 2.2, ox = Math.cos(a) * 20, oy = Math.sin(a) * 8;
+    const behind = Math.sin(a) < 0, sz = 4 + L.c * 0.7;
+    ctx.globalCompositeOperation = 'lighter';
+    FX.glow(ctx, p.x + ox, p.y - 14 + oy, sz * 3, R.rgb, behind ? 0.3 : 0.6);
+    FX.glow(ctx, p.x + ox, p.y - 14 + oy, sz, '255,250,235', behind ? 0.4 : 0.9);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  }
   const bw = 36, by = p.y + p.r * 0.6 + 6;
   ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, by, bw, 4);
   ctx.fillStyle = '#c9493d'; ctx.fillRect(p.x - bw / 2, by, bw * p.hp / p.maxHp, 4);
