@@ -675,7 +675,7 @@ window.GAME_DATA = {
         { id: 'lianhuan', name: '连环计', type: 'petalRain', hpBelow: 0.5, count: 22, dur: 3.2, r: 66, dmg: 1.2 },
       ],
       banner: '司徒府 · 貂蝉 起舞', line: '“将军，可愿看妾身一舞？”', rage: '“花落……人亦断肠。”',
-      look: { skin: '#f6dcc4', skinShade: '#dcb498', robe: '#e07aa6', trim: '#f6e2ea', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#1c1218', pin: '#ff9ac8', weapon: 'ribbon', ribbon: '#ff9ac8', aura: '#d86a9a', female: true, artFace: [0.50, 0.24, 0.34] },
+      look: { skin: '#f6dcc4', skinShade: '#dcb498', robe: '#e07aa6', trim: '#f6e2ea', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#1c1218', pin: '#ff9ac8', weapon: 'ribbon', ribbon: '#ff9ac8', aura: '#d86a9a', female: true, artFace: [0.53, 0.29, 0.34] },
     },
     zhenji: {
       name: '甄姬', title: '洛神 · 凌波仙子', icon: '甄', hp: 6000, speed: 106, dmg: 22, r: 29, color: '#5a8ac0',
@@ -690,7 +690,7 @@ window.GAME_DATA = {
         { id: 'icering', name: '冰封千里', type: 'stoneRing', hpBelow: 0.5, R: 230, n: 16, dmg: 1.4, rgb: '170,220,255', ice: true },
       ],
       banner: '邺城 · 甄姬 凌波而来', line: '“翩若惊鸿，婉若游龙。”', rage: '“洛水寒，君可知？”',
-      look: { skin: '#f4e0cc', skinShade: '#d6b8a0', robe: '#7aa8d8', trim: '#e6f2fa', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#141820', pin: '#bfe6ff', weapon: 'flute', aura: '#5a8ac0', female: true, artFace: [0.50, 0.24, 0.34] },
+      look: { skin: '#f4e0cc', skinShade: '#d6b8a0', robe: '#7aa8d8', trim: '#e6f2fa', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#141820', pin: '#bfe6ff', weapon: 'flute', aura: '#5a8ac0', female: true, artFace: [0.56, 0.29, 0.34] },
     },
     sunshangxiang: {
       name: '孙尚香', title: '枭姬 · 江东郡主', icon: '香', hp: 7000, speed: 114, dmg: 22, r: 29, color: '#c8463a',
@@ -705,7 +705,7 @@ window.GAME_DATA = {
         { id: 'xiaoji', name: '枭姬之怒', type: 'frenzy', hpBelow: 0.4, dur: 7 },
       ],
       banner: '甘露寺 · 孙尚香 拦路', line: '“想过此关，先问问我的扇子！”', rage: '“我孙家儿女，岂是好惹的！”',
-      look: { skin: '#f2d6bc', skinShade: '#d4b092', robe: '#c8463a', trim: '#f0d080', armor: true, armorColor: '#b8862e', beard: 'none', eyes: 'round', brows: 'sharp', head: 'bun', hairColor: '#2a1810', pin: '#f0c040', weapon: 'fan', fanColor: '#e86a50', aura: '#c8463a', female: true, artFace: [0.50, 0.24, 0.34] },
+      look: { skin: '#f2d6bc', skinShade: '#d4b092', robe: '#c8463a', trim: '#f0d080', armor: true, armorColor: '#b8862e', beard: 'none', eyes: 'round', brows: 'sharp', head: 'bun', hairColor: '#2a1810', pin: '#f0c040', weapon: 'fan', fanColor: '#e86a50', aura: '#c8463a', female: true, artFace: [0.52, 0.29, 0.34] },
     },
 
     // —— 第三章 · 群雄逐鹿：颜良、文丑（典韦、关羽在下面） ——
