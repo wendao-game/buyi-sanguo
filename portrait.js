@@ -53,7 +53,11 @@ window.Portrait = (() => {
   }
   function weapon(L) {
     switch (L.weapon) {
-      case 'fan': case 'scrolls': return '';
+      case 'fan': case 'scrolls': case 'flute': return '';
+      case 'ribbon': { // 貂蝉：身后飘起的两条彩绸
+        const r = (d, c) => stroke(d, INK, 13) + stroke(d, c, 9);
+        return r('M30 290 C10 220 70 200 40 130 C20 80 60 40 90 30', L.ribbon || '#ff9ac8') + r('M210 290 C232 230 172 200 204 130 C222 84 186 46 156 36', '#f6e2ea');
+      }
       case 'twinji': {
         const one = (x1, y1, x2, y2, rot) =>
           stroke(`M${x1} ${y1} L${x2} ${y2}`, INK, 10) + stroke(`M${x1} ${y1} L${x2} ${y2}`, '#4a3423', 6) +
@@ -196,6 +200,8 @@ window.Portrait = (() => {
       return r('M136 78 Q166 110 158 168') + r('M104 78 Q74 110 82 168');
     }
     if (L.head === 'hunter') return stroke('M148 100 Q168 110 166 140', INK, 7) + stroke('M148 100 Q168 110 166 140', L.headColor, 4.5);
+    if (L.head === 'bun') return fill('M86 100 C70 140 72 200 84 236 Q100 226 108 232 Q96 190 100 150 Z', L.hairColor || '#15110c', 2) + // 女将：两侧垂到肩下的长发
+      mirror(fill('M86 100 C70 140 72 200 84 236 Q100 226 108 232 Q96 190 100 150 Z', L.hairColor || '#15110c', 2));
     return '';
   }
   const HAIR = 'M89 114 C85 80 104 70 120 70 C136 70 155 80 151 114 C146 96 134 90 120 92 C106 90 94 96 89 114 Z';
@@ -240,6 +246,17 @@ window.Portrait = (() => {
         s += `<circle cx="120" cy="36" r="4" fill="#8a6d34" stroke="${INK}" stroke-width="1.4"/>`;
         return s;
       }
+      case 'bun': { // 女将：高髻、刘海、发簪和簪花
+        const hc = L.hairColor || '#15110c';
+        return fill(HAIR, hc, 0) +
+          fill('M92 108 C92 84 106 76 120 76 C134 76 148 84 148 108 C140 94 130 92 120 96 C110 92 100 94 92 108 Z', hc, 1.8) +
+          `<ellipse cx="120" cy="58" rx="22" ry="17" fill="${hc}" stroke="${INK}" stroke-width="2"/>` +
+          stroke('M108 52 Q120 46 132 52', '#ffffff', 2, 'opacity=".25"') +
+          stroke('M92 66 L152 50', '#c9a046', 3) +
+          `<circle cx="152" cy="50" r="6" fill="${L.pin || '#ff9ac8'}" stroke="${INK}" stroke-width="1.4"/>` +
+          `<circle cx="96" cy="74" r="5" fill="${L.pin || '#ff9ac8'}" stroke="${INK}" stroke-width="1.2"/>` +
+          stroke('M150 56 L148 76', L.pin || '#ff9ac8', 1.6) + `<circle cx="148" cy="78" r="2.4" fill="${L.pin || '#ff9ac8'}"/>`;
+      }
       case 'scholar': // 软方巾
         return fill(HAIR, '#15110c', 0) + hairStrands +
           fill('M90 100 C88 70 100 56 120 56 C140 56 152 70 150 100 Q120 90 90 100 Z', L.headColor, 2.2) +
@@ -272,8 +289,14 @@ window.Portrait = (() => {
     if (L.weapon === 'fan') {
       let s = stroke('M152 300 L170 238', INK, 9) + stroke('M152 300 L170 238', '#7a5a2a', 5);
       s += '<g transform="translate(172 230)">';
-      for (let i = -3; i <= 3; i++) s += `<ellipse cx="0" cy="-34" rx="10" ry="34" transform="rotate(${i * 17})" fill="#f4f1e8" stroke="${INK}" stroke-width="1.3"/>` + stroke('M0 -4 L0 -62', '#c9c2b0', 0.8, `transform="rotate(${i * 17})"`);
+      for (let i = -3; i <= 3; i++) s += `<ellipse cx="0" cy="-34" rx="10" ry="34" transform="rotate(${i * 17})" fill="${L.fanColor || '#f4f1e8'}" stroke="${INK}" stroke-width="1.3"/>` + stroke('M0 -4 L0 -62', '#c9c2b0', 0.8, `transform="rotate(${i * 17})"`);
       return s + `<circle cx="0" cy="0" r="7" fill="#2c3440" stroke="${INK}" stroke-width="1.5"/></g>`;
+    }
+    if (L.weapon === 'flute') { // 甄姬：手持玉笛横在胸前
+      return `<g transform="translate(120 250) rotate(-14)"><rect x="-58" y="-6" width="116" height="12" rx="6" fill="#bfe6ff" stroke="${INK}" stroke-width="2"/>` +
+        [-30, -12, 6, 24].map(x => `<circle cx="${x}" cy="0" r="2.6" fill="${INK}"/>`).join('') +
+        stroke('M-58 0 Q-70 20 -64 40', '#ff9ac8', 2.4) + '</g>' +
+        fill('M96 262 Q110 252 128 260 Q126 276 108 278 Q96 274 96 262 Z', L.skin, 1.8);
     }
     if (L.weapon === 'scrolls') { // 怀抱一捆竹简
       let s = '<g transform="translate(150 246) rotate(-22)">';

@@ -126,6 +126,10 @@ window.FX = (() => {
         }
         case 'ember': glow(ctx, q.x, q.y, q.size * (0.5 + 0.5 * t), q.rgb, t); break;
         case 'glint': star(ctx, q.x, q.y, q.size * (0.6 + 0.8 * (1 - t)), q.rgb, t, q.rot || 0); break;
+        case 'petal': petal(ctx, q.x + Math.sin(q.life * 6 + (q.seed || 0)) * 5, q.y, q.size * (0.75 + 0.25 * Math.cos(q.life * 9 + (q.seed || 0))), q.rot || 0, q.rgb, Math.min(1, t * 1.6)); break;
+        case 'shard': shard(ctx, q.x, q.y, q.size, q.rot || 0, Math.min(1, t * 1.5)); break;
+        case 'snow': snowflake(ctx, q.x, q.y, q.size, q.rot || 0, t); break;
+        case 'page': page(ctx, q.x, q.y, q.size, q.rot || 0, Math.min(1, t * 1.5), Math.cos(q.life * 8 + (q.seed || 0))); break;
         case 'smoke': case 'dust':
           ctx.globalAlpha = t * (q.type === 'dust' ? 0.35 : 0.45);
           ctx.fillStyle = `rgb(${q.rgb})`;
@@ -407,5 +411,80 @@ window.FX = (() => {
   }
   function setArt(fn) { artOf = fn; tintCache.clear(); }
 
-  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX };
+  // ---------- 女将的小物件：樱花瓣、冰晶、雪花、书页、折扇 ----------
+  // 樱花瓣：一头尖、一头带小缺口的心形瓣，中间一道浅色
+  function petal(ctx, x, y, s, rot, rgb, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = Math.min(1, a);
+    ctx.fillStyle = `rgb(${rgb || '255,170,205'})`;
+    ctx.beginPath();
+    ctx.moveTo(0, s);
+    ctx.bezierCurveTo(-s * 0.95, s * 0.35, -s * 0.75, -s * 0.95, -s * 0.16, -s * 0.85);
+    ctx.lineTo(0, -s * 0.55);
+    ctx.lineTo(s * 0.16, -s * 0.85);
+    ctx.bezierCurveTo(s * 0.75, -s * 0.95, s * 0.95, s * 0.35, 0, s);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.ellipse(0, -s * 0.05, s * 0.16, s * 0.55, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  // 冰晶：细长的菱形冰棱，一半亮一半暗，白色描边
+  function shard(ctx, x, y, s, rot, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = Math.min(1, a);
+    ctx.fillStyle = 'rgba(150,205,250,0.9)'; ctx.strokeStyle = 'rgba(240,250,255,0.95)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * 0.3, 0); ctx.lineTo(0, s * 0.55); ctx.lineTo(-s * 0.3, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(235,248,255,0.75)';
+    ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * 0.3, 0); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  // 雪花：六瓣，每瓣带两根小枝
+  function snowflake(ctx, x, y, s, rot, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = Math.min(1, a);
+    ctx.strokeStyle = 'rgb(225,245,255)'; ctx.lineWidth = Math.max(1, s * 0.12); ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const c = Math.cos(i * TAU / 6), d = Math.sin(i * TAU / 6);
+      ctx.moveTo(0, 0); ctx.lineTo(c * s, d * s);
+      for (const k of [0.5, 0.75]) {
+        const bx = c * s * k, by = d * s * k, l = s * 0.25;
+        ctx.moveTo(bx, by); ctx.lineTo(bx + Math.cos(i * TAU / 6 + 0.8) * l, by + Math.sin(i * TAU / 6 + 0.8) * l);
+        ctx.moveTo(bx, by); ctx.lineTo(bx + Math.cos(i * TAU / 6 - 0.8) * l, by + Math.sin(i * TAU / 6 - 0.8) * l);
+      }
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  // 书页：米黄纸面 + 竖排墨字（几道墨线），sk 是翻动时的横向压缩
+  function page(ctx, x, y, s, rot, a, sk = 1) {
+    if (a <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sk, 1); ctx.globalAlpha = Math.min(1, a);
+    ctx.fillStyle = '#f2e7c8'; ctx.strokeStyle = '#5a4026'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.rect(-s * 0.7, -s, s * 1.4, s * 2); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(40,28,18,0.75)'; ctx.lineWidth = Math.max(0.8, s * 0.12);
+    ctx.beginPath();
+    for (const k of [-0.38, 0, 0.38]) { ctx.moveTo(s * k, -s * 0.75); ctx.lineTo(s * k, s * (0.35 + 0.35 * Math.abs(k))); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(190,40,30,0.85)'; ctx.fillRect(s * 0.3, s * 0.55, s * 0.28, s * 0.28); // 朱红小印
+    ctx.restore();
+  }
+  // 折扇：扇面从扇骨处的米白渐变到扇色，扇骨一根根散开
+  function fan(ctx, x, y, s, rot, rgb, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = Math.min(1, a);
+    const a0 = -Math.PI * 0.86, a1 = -Math.PI * 0.14;
+    const g = ctx.createRadialGradient(0, 0, s * 0.3, 0, 0, s);
+    g.addColorStop(0, '#f8f0dc'); g.addColorStop(1, `rgb(${rgb || '232,106,80'})`);
+    ctx.fillStyle = g; ctx.strokeStyle = '#3a2414'; ctx.lineWidth = 1.3;
+    ctx.beginPath(); ctx.arc(0, 0, s, a0, a1); ctx.arc(0, 0, s * 0.32, a1, a0, true); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(70,40,20,0.7)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= 8; i++) { const t = a0 + (a1 - a0) * i / 8; ctx.moveTo(Math.cos(t) * s * 0.1, Math.sin(t) * s * 0.1); ctx.lineTo(Math.cos(t) * s * 0.97, Math.sin(t) * s * 0.97); }
+    ctx.stroke();
+    ctx.fillStyle = '#c9a046'; ctx.beginPath(); ctx.arc(0, 0, s * 0.1, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
+  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX, petal, shard, snowflake, page, fan };
 })();

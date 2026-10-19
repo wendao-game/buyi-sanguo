@@ -65,8 +65,20 @@ window.Sprites = (() => {
         break;
       case 'fan':
         g.save(); g.translate(hx + 2, hy - 6);
-        for (let i = -2; i <= 2; i++) { g.save(); g.rotate(i * 0.32); shape(g, '#f4f1e8', s => s.ellipse(0, -9, 3.6, 9, 0, 0, Math.PI * 2), 1); g.restore(); }
+        for (let i = -2; i <= 2; i++) { g.save(); g.rotate(i * 0.32); shape(g, L.fanColor || '#f4f1e8', s => s.ellipse(0, -9, 3.6, 9, 0, 0, Math.PI * 2), 1); g.restore(); }
         g.restore();
+        break;
+      case 'ribbon': // 貂蝉的彩绸：从手里飘起的两条绸带
+        for (const [dy, c] of [[0, L.ribbon || '#ff9ac8'], [6, '#f6e2ea']]) {
+          g.lineCap = 'round';
+          g.beginPath(); g.moveTo(hx, hy); g.bezierCurveTo(62, 40 + dy, 50, 22 + dy, 62, 10 + dy);
+          g.strokeStyle = INK; g.lineWidth = 4.4; g.stroke(); g.strokeStyle = c; g.lineWidth = 2.6; g.stroke();
+        }
+        break;
+      case 'flute': // 甄姬的玉笛：横在手边
+        line(g, hx - 6, hy - 6, hx + 14, hy - 14, '#bfe6ff', 2.6);
+        g.fillStyle = INK;
+        for (const t of [0.35, 0.55, 0.75]) { g.beginPath(); g.arc(hx - 6 + 20 * t, hy - 6 - 8 * t, 0.7, 0, Math.PI * 2); g.fill(); }
         break;
       case 'scrolls':
         g.save(); g.translate(hx - 2, hy - 4); g.rotate(-0.35);
@@ -117,6 +129,7 @@ window.Sprites = (() => {
     if (L.head === 'hood') shape(g, L.headColor, s => { s.moveTo(18, 12); s.quadraticCurveTo(6, 18, 8, 32); s.quadraticCurveTo(14, 24, 20, 20); s.closePath(); });
     if (L.head === 'scholar' || L.head === 'lunjin') line(g, 18, 14, 10, 34, L.headColor, 2.4);
     if (L.head === 'band' || L.head === 'hunter') line(g, 17, 18, 8, 26, L.head === 'band' ? L.bandColor || '#a8322a' : L.headColor, 2.2);
+    if (L.head === 'bun') shape(g, L.hairColor || '#15110c', s => { s.moveTo(18, 14); s.quadraticCurveTo(6, 30, 12, 50); s.quadraticCurveTo(18, 44, 22, 46); s.quadraticCurveTo(18, 30, 26, 18); s.closePath(); }, 1.2); // 女将：披在背后的长发
   }
   function headgear(g, L) {
     switch (L.head) {
@@ -145,6 +158,15 @@ window.Sprites = (() => {
       case 'band': {
         shape(g, '#15110c', s => { s.moveTo(15, 24); for (let i = 0; i <= 8; i++) { const a = Math.PI * (1.05 + i * 0.9 / 8), r = i % 2 ? 21 : 15; s.lineTo(32 + Math.cos(a) * r, 21 + Math.sin(a) * r); } s.lineTo(49, 22); s.closePath(); }, 1.3);
         line(g, 16, 15, 48, 14, L.bandColor || '#a8322a', 3);
+        break;
+      }
+      case 'bun': { // 女将：高髻 + 发簪（簪头一朵花 / 一颗珠）
+        const hc = L.hairColor || '#15110c';
+        shape(g, hc, HAIR, 0.01);
+        shape(g, hc, s => s.ellipse(30, 4, 8, 6.5, 0, 0, Math.PI * 2), 1.2);
+        line(g, 20, 4, 42, -1, '#c9a046', 1.4);
+        shape(g, L.pin || '#ff9ac8', s => s.arc(42, -1, 3, 0, Math.PI * 2), 1);
+        shape(g, L.pin || '#ff9ac8', s => s.arc(20, 10, 2.4, 0, Math.PI * 2), 0.9);
         break;
       }
       case 'straw':

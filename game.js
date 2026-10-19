@@ -287,6 +287,7 @@ function newState(originId) {
     rampageT: 0, thornsT: 0, seen: {},
     decals: [], ghosts: [], hurtFlash: 0, ghostT: 0,
     teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0,
+    pChillT: 0, frozenT: 0, charm: null, // 女将：冰冻减速、冻住不能动、被貂蝉迷住往她身边走
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
     spawnAcc: {}, evIdx: 0, defeated: [],
     ch: 0, chStart: 0, chapterT: 0, nextBossOk: 0,     // 当前章节、本章开始时间、换章倒计时、下一名武将最早登场时间
@@ -346,6 +347,7 @@ function hitEnemy(e, base, opts) {
   const crit = Math.random() < p.crit;
   if (crit) dmg *= p.critMul;
   if (e.vulnT > S.t) dmg *= 1 + D.champion.breakVuln; // 破甲后易伤
+  if (e.dr) dmg *= 1 - e.dr;                          // 名将半血 / 濒死减伤
   dmg = Math.max(1, Math.round(dmg * rand(0.92, 1.08)));
   // 护甲护体：先扣护甲，打空了才伤到血；护甲在时几乎推不动
   let armored = false;
@@ -579,6 +581,26 @@ function smoke(x, y, n, rgb, size = 8, spread = 10, life = 0.55) {
 function glint(x, y, size, rgb, life = 0.16) {
   fxp({ type: 'glint', x, y, vx: 0, vy: 0, life, rgb, size, rot: rand(0, 0.8) }, true);
 }
+// 女将特效的碎片：樱花瓣飘散、冰晶迸裂、书页翻飞
+function petals(x, y, n, speed = 160, rgb = '255,165,205', size = 6, life = 1.1) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), v = rand(speed * 0.3, speed);
+    fxp({ type: 'petal', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 30, g: 40, drag: 2.2, life: rand(life * 0.6, life), rgb: Math.random() < 0.3 ? '255,225,238' : rgb, size: rand(size * 0.7, size * 1.2), rot: rand(0, TAU), spin: rand(-7, 7), seed: rand(0, 9) });
+  }
+}
+function shards(x, y, n, speed = 260, size = 9) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), v = rand(speed * 0.4, speed);
+    fxp({ type: 'shard', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 80, g: 420, drag: 2, life: rand(0.4, 0.75), size: rand(size * 0.6, size * 1.2), rot: a + Math.PI / 2, spin: rand(-8, 8) });
+  }
+  for (let i = 0; i < Math.ceil(n / 3); i++) fxp({ type: 'snow', x: x + rand(-20, 20), y: y + rand(-20, 10), vx: rand(-40, 40), vy: rand(-60, -20), drag: 1.5, life: rand(0.6, 1), size: rand(4, 7), rot: rand(0, TAU), spin: rand(-3, 3) });
+}
+function pages(x, y, n, speed = 200, size = 7) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, TAU), v = rand(speed * 0.3, speed);
+    fxp({ type: 'page', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 50, g: 60, drag: 2, life: rand(0.6, 1.1), size: rand(size * 0.7, size * 1.2), rot: rand(-0.6, 0.6), spin: rand(-5, 5), seed: rand(0, 9) });
+  }
+}
 // 重击落地：扬尘一圈 + 地面裂纹
 function groundImpact(x, y, R, rgb = '120,100,72') {
   const n = Math.min(26, 10 + R / 10);
@@ -718,20 +740,53 @@ function spawnEnemy(type, x, y) {
 const champCache = {};
 // 强化幅度随时间拉满：开局的武将、精英只强化一部分（champK），5 分钟后全额
 const champK = () => clamp(0.3 + S.t / 300, 0.3, 1);
+// 名将额外的那一档强化也随时间拉满：第一章的名将几乎不加，第二章起全额（新手先学会躲招）
+const genK = () => clamp((S.t - D.champion.general.rampFrom) / D.champion.general.rampSec, 0, 1);
 function championDef(key, base) {
-  const kk = Math.round(champK() * 10) / 10, ck = key + '|' + kk;
+  const C = D.champion, G = key.startsWith('g:') ? C.general : null; // 名将再加强一档
+  const kk = Math.round(Math.max(champK(), G ? G.kMin : 0) * 10) / 10, gk = G ? Math.round(genK() * 10) / 10 : 0, ck = key + '|' + kk + '|' + gk;
   if (champCache[ck]) return champCache[ck];
-  const C = D.champion, g = Object.assign({}, base), m = v => 1 + (v - 1) * kk;
-  const area = (o, a = C.area) => { const c = Object.assign({}, o); for (const k of ['radius', 'R', 'r', 'len']) if (c[k]) c[k] *= m(a); return c; };
-  g.speed = base.speed * m(C.speed);
-  if (base.chargeSpeed) g.chargeSpeed = base.chargeSpeed * m(C.charge);
+  const g = Object.assign({}, base);
+  const m = v => 1 + (v - 1) * kk;                                   // 精英那一档
+  const mx = v => G ? 1 + (v - 1) * gk : 1;                          // 名将额外那一档（只有名将有）
+  const mg = (gv, ev) => m(ev) * (G ? mx(gv / ev) : 1);              // 名将：精英那一档 × 额外那一档
+  const big = (k, v, gv, ev) => { const x = v * mg(gv, ev); return G && G.cap[k] ? Math.min(x, Math.max(G.cap[k], v)) : x; };
+  const area = (o, gv, ev) => {
+    const c = Object.assign({}, o);
+    for (const k of ['radius', 'R', 'r']) if (c[k]) c[k] = (k === 'R' && /^(beanArmy|stoneRing)$/.test(c.type)) ? c[k] * m(ev) : big(k, c[k], gv, ev); // 围住玩家的圈不放大，否则反而更好躲
+    if (c.len) c.len *= m(C.ultArea);
+    if (G && c.w) c.w *= mx(G.width);
+    if (G && c.range) c.range *= mx(G.hazard);
+    if (G && c.delay) c.delay *= mx(G.tele);
+    return c;
+  };
+  const GG = G || {};
+  g.speed = base.speed * mg(GG.speed || C.speed, C.speed);
+  if (base.chargeSpeed) g.chargeSpeed = base.chargeSpeed * mg(GG.charge || C.charge, C.charge);
   if (base.interval) g.interval = base.interval * m(C.interval);
   if (base.ultEvery) g.ultEvery = base.ultEvery * m(C.ultEvery);
-  for (const k of ['slamR', 'cleaveR', 'roarR']) if (base[k]) g[k] = base[k] * m(C.area);
-  if (base.meteor) g.meteor = area(base.meteor);
+  for (const k of ['slamR', 'cleaveR', 'roarR']) if (base[k]) g[k] = big(k, base[k], GG.area || C.area, C.area);
+  if (base.meteor) g.meteor = area(base.meteor, GG.area || C.area, C.area);
   if (base.kite) g.kite = base.kite * m(0.8); // 远程武将也贴得更近
-  if (base.ults) g.ults = base.ults.map(u => area(u, C.ultArea));
+  if (base.ults) g.ults = base.ults.map(u => area(u, GG.ultArea || C.ultArea, C.ultArea));
+  g.aoe = mx(GG.hazard || 1);   // 大招里写死大小的落点也跟着放大
+  g.teleK = mx(GG.tele || 1);
   return (champCache[ck] = g);
+}
+// 名将的减伤：半血、濒死各一档（data.js 的 champion.phases）
+function bossPhase(e) {
+  const ph = D.champion.phases, f = e.hp / e.maxHp;
+  let k = 0;
+  for (let i = 0; i < ph.length; i++) if (f < ph[i].below) k = i + 1;
+  if (k <= (e.phase || 0)) return;
+  e.phase = k; e.dr = Math.round(ph[k - 1].dr * (0.5 + 0.5 * genK()) * 100) / 100; // 第一章的名将减伤只有一半，之后全额
+  const rgb = k > 1 ? '255,120,80' : '255,210,110';
+  addNumber(e.x, (e.topY || e.y - 80) - 30, `${ph[k - 1].text} · 减伤 ${Math.round(e.dr * 100)}%`, k > 1 ? '#ff9a7a' : '#ffd98a', 22);
+  fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.6, w: e.r * 6, h: e.r * 6, rgb, under: true, flat: 0.5, life: 1.2, spin: 2.5, grow: 1.3, fadeIn: 0.05 });
+  fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 3, w: e.r * 3, h: e.r * 8, rgb, life: 0.7, sx: 0.4, core: 0.6 });
+  glint(e.x, e.y - e.r * 1.5, 60, rgb, 0.3);
+  S.shake = Math.max(S.shake, 8);
+  sfx('boss');
 }
 function addShield(e, frac) { e.shieldMax = e.shield = e.maxHp * frac * (0.35 + 0.65 * champK()); e.shieldHitT = 0; }
 
@@ -863,10 +918,20 @@ function updatePlayer(dt) {
   const p = S.player;
   const [mx, my] = moveInput();
   const rampage = S.t < S.rampageT ? 1 + S.rampageSpeed : 1;
-  const slowed = S.t < S.pSlowT ? 0.55 : 1;              // 被张飞怒吼震慑
+  const slowed = (S.t < S.pSlowT ? 0.55 : 1) * (S.t < S.pChillT ? 0.6 : 1) * (S.t < S.frozenT ? 0 : 1); // 震慑 / 冰冻减速 / 冻住
   const wind = S.t < S.windT ? 1 : 0;                     // 借东风：被风推着走
-  p.x += mx * p.speed * rampage * slowed * dt + p.kvx * dt + S.windX * wind * dt;
-  p.y += my * p.speed * rampage * slowed * dt + p.kvy * dt + S.windY * wind * dt;
+  let cx = 0, cy = 0;                                     // 被貂蝉迷住：不由自主地往她身边走
+  const ch = S.charm;
+  if (ch && (S.t > ch.until || ch.boss.dead)) S.charm = null;
+  else if (ch) {
+    const a = angleTo(p.x, p.y, ch.boss.x, ch.boss.y), d = Math.sqrt(dist2(p.x, p.y, ch.boss.x, ch.boss.y));
+    if (d > ch.boss.r + p.r + 20) { cx = Math.cos(a) * ch.pull; cy = Math.sin(a) * ch.pull; }
+    if (Math.random() < 0.5) fxp({ type: 'petal', x: p.x + rand(-14, 14), y: p.y - rand(10, 40), vx: Math.cos(a) * 80, vy: Math.sin(a) * 80 - 20, drag: 1, life: 0.8, rgb: '255,160,205', size: rand(4, 6), rot: rand(0, TAU), spin: rand(-6, 6), seed: rand(0, 9) });
+  }
+  const ctl = ch ? 0.45 : 1;
+  p.x += mx * p.speed * rampage * slowed * ctl * dt + p.kvx * dt + S.windX * wind * dt + cx * dt;
+  p.y += my * p.speed * rampage * slowed * ctl * dt + p.kvy * dt + S.windY * wind * dt + cy * dt;
+  if (S.t < S.pChillT && Math.random() < 0.3) fxp({ type: 'snow', x: p.x + rand(-16, 16), y: p.y - rand(0, 40), vx: rand(-10, 10), vy: rand(10, 30), drag: 1, life: 0.7, size: rand(3, 5), rot: rand(0, TAU), spin: rand(-3, 3) });
   if (wind && Math.random() < 0.9) { // 风的线条
     const ox = rand(-1, 1) * W / ZOOM * 0.6, oy = rand(-1, 1) * H / ZOOM * 0.6;
     fxp({ type: 'spark', x: p.x + ox, y: p.y + oy, vx: S.windX * 7, vy: S.windY * 7, drag: 0.5, life: 0.35, rgb: '230,235,240', size: 1.4 });
@@ -1018,7 +1083,9 @@ function updateWeapons(dt) {
           w.qt -= dt;
           if (w.qt <= 0) {
             w.queue--; w.qt = 0.28;
-            S.rings.push({ x: p.x, y: p.y, r: 20, maxR: L.ringR * p.areaMul, speed: 420, dmg: L.dmg, hit: new Set(), rgb: '255,200,170', core: '255,245,235', w: 10, kb: 80 });
+            S.rings.push(def.ice // 寒玉笛：冰蓝的寒气环，碰到的敌人走不快
+              ? { x: p.x, y: p.y, r: 20, maxR: L.ringR * p.areaMul, speed: 400, dmg: L.dmg, hit: new Set(), rgb: '160,215,255', core: '240,250,255', w: 10, kb: 40, ice: true }
+              : { x: p.x, y: p.y, r: 20, maxR: L.ringR * p.areaMul, speed: 420, dmg: L.dmg, hit: new Set(), rgb: '255,200,170', core: '255,245,235', w: 10, kb: 80 });
             sfx('pick');
           }
         }
@@ -1033,8 +1100,9 @@ function updateWeapons(dt) {
         w.t = L.cd * p.cdMul;
         for (let i = 0; i < L.count; i++) {
           const a = rand(0, TAU);
-          S.proj.push({ kind: 'orb', x: p.x, y: p.y, a, speed: L.speed, vx: 0, vy: 0, r: 7, dmg: L.dmg, pierce: 1, life: 3.5, hit: new Set(), homing: true, target: null, kb: 40 });
+          S.proj.push({ kind: def.pkind || 'orb', x: p.x, y: p.y, a, speed: L.speed, vx: 0, vy: 0, r: 7, dmg: L.dmg, pierce: 1, life: 3.5, hit: new Set(), homing: true, target: null, kb: 40, spin: rand(0, TAU) });
         }
+        if (def.pkind === 'petal') petals(p.x, p.y - 14, 4, 90);
         break;
       }
       case 'nova': {
@@ -1087,7 +1155,7 @@ function updateWeapons(dt) {
         const a0 = angleTo(p.x, p.y, tgt.x, tgt.y);
         for (let i = 0; i < L.count; i++) {
           const a = a0 + (i - (L.count - 1) / 2) * 0.45;
-          S.proj.push({ kind: 'boom', x: p.x, y: p.y, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, speed: L.speed, r: 14, dmg: L.dmg, pierce: 9999, life: 4, hit: new Set(), kb: 120, boom: true, out: true, travel: 0, range: L.range * p.areaMul, spin: 0 });
+          S.proj.push({ kind: 'boom', fan: def.fan, x: p.x, y: p.y, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, speed: L.speed, r: 14, dmg: L.dmg, pierce: 9999, life: 4, hit: new Set(), kb: 120, boom: true, out: true, travel: 0, range: L.range * p.areaMul, spin: 0 });
         }
         break;
       }
@@ -1140,6 +1208,13 @@ function updateSkills(dt) {
           if (L.stun && !e.boss) e.stunT = S.t + L.stun;
           hitEnemy(e, L.dmg, { kb: L.kb });
         });
+        if (def.petal) { // 闭月：粉色花浪一圈圈推开，花瓣漫天
+          for (const [d, life] of [[0, 0.5], [0.12, 0.6]]) fxTex('ring', p.x, p.y, { w: R * 0.5, h: R * 0.5, rgb: d ? '255,235,245' : '255,140,200', life: life + d, grow: 4, core: 0.4 });
+          petals(p.x, p.y - 14, 34, R * 2.4);
+          near(p.x, p.y, R + 48, e => { if (!e.boss && dist2(p.x, p.y, e.x, e.y) < (R + e.r) ** 2 && Math.random() < 0.25) petals(e.x, e.y - e.r, 2, 60); });
+          punch(0.3); sfx('slam');
+          break;
+        }
         S.effects.push({ kind: 'wave', x: p.x, y: p.y, r: R, life: 0.5, max: 0.5, color: L.stun ? '#f0ead8' : '#f2c46b' });
         if (L.stun) S.effects.push({ kind: 'wave', x: p.x, y: p.y, r: R * 0.7, life: 0.35, max: 0.35, color: '#ffffff' }); // 咆哮的第二道声浪
         // 气浪贴图：骁勇是金色的刀气炸开，咆哮是两圈白色声浪
@@ -1206,7 +1281,8 @@ function updateSkills(dt) {
         s.t -= dt; if (s.t > 0) break;
         if (!nearest(p.x, p.y, 450)) { s.t = 0.25; break; }
         s.t = L.cd * p.cdMul;
-        S.zones.push({ id: nextId++, formation: true, x: p.x, y: p.y, r: L.radius * p.areaMul, dmg: L.dmg, tick: L.tick, tt: 0, life: L.life, max: L.life, slow: L.slow });
+        S.zones.push({ id: nextId++, formation: !def.ice, ice: !!def.ice, x: p.x, y: p.y, r: L.radius * p.areaMul, dmg: L.dmg, tick: L.tick, tt: 0, life: L.life, max: L.life, slow: L.slow });
+        if (def.ice) { shards(p.x, p.y, 16, L.radius * 2); fxTex('ring', p.x, p.y, { w: L.radius, h: L.radius, rgb: '170,220,255', life: 0.45, grow: 2.4, core: 0.5 }); sfx('slam'); }
         break;
       }
       case 'levy': { // 黄巾号令：召来临时降卒
@@ -1226,9 +1302,10 @@ function updateSkills(dt) {
         s.t = L.cd * p.cdMul;
         for (let i = 0; i < L.count; i++) {
           const a = i / L.count * TAU + rand(-0.2, 0.2);
-          S.proj.push({ kind: 'bean', x: p.x + Math.cos(a) * 30, y: p.y + Math.sin(a) * 30, a, speed: 250, vx: 0, vy: 0, r: 9, dmg: L.dmg, pierce: 1, life: 4, hit: new Set(), homing: true, target: null, kb: 90, blast: L.radius * p.areaMul, rgb: '255,210,90', seed: rand(0, 9) });
+          S.proj.push({ kind: def.page ? 'page' : 'bean', x: p.x + Math.cos(a) * 30, y: p.y + Math.sin(a) * 30, a, speed: def.page ? 300 : 250, vx: 0, vy: 0, r: 9, dmg: L.dmg, pierce: 1, life: 4, hit: new Set(), homing: true, target: null, kb: 90, blast: L.radius * p.areaMul, rgb: def.page ? '255,215,140' : '255,210,90', seed: rand(0, 9), spin: rand(0, TAU) });
         }
-        embers(p.x, p.y, 14, '255,210,90', 140, 20, 6, 0.6);
+        if (def.page) pages(p.x, p.y - 16, 10, 160);
+        else embers(p.x, p.y, 14, '255,210,90', 140, 20, 6, 0.6);
         break;
       }
       case 'thunder': { // 天雷：劈向附近的数个敌人
@@ -1287,12 +1364,16 @@ function updateSkills(dt) {
     // 血色戟气 / 琴音边缘洒出火花
     for (let k = 0; k < (r.rgb ? 2 : 4); k++) {
       const a = rand(0, TAU);
+      if (r.ice) { if (Math.random() < 0.4) fxp({ type: 'snow', x: r.x + Math.cos(a) * r.r, y: r.y + Math.sin(a) * r.r, vx: Math.cos(a) * 60, vy: Math.sin(a) * 60, drag: 3, life: 0.5, size: rand(3, 5), rot: rand(0, TAU), spin: 3 }); continue; }
       fxp({ type: 'spark', x: r.x + Math.cos(a) * r.r, y: r.y + Math.sin(a) * r.r, vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, drag: 6, life: 0.2, rgb: r.rgb || '255,80,60', size: 2.4 });
     }
     near(r.x, r.y, r.r + 48, e => {
       if (r.hit.has(e.id)) return;
       const d = Math.sqrt(dist2(r.x, r.y, e.x, e.y));
-      if (Math.abs(d - r.r) < 22 + e.r) { r.hit.add(e.id); hitEnemy(e, r.dmg, { kb: r.kb || 240, kbAngle: angleTo(r.x, r.y, e.x, e.y), quiet: !!r.rgb }); }
+      if (Math.abs(d - r.r) < 22 + e.r) {
+        r.hit.add(e.id); hitEnemy(e, r.dmg, { kb: r.kb || 240, kbAngle: angleTo(r.x, r.y, e.x, e.y), quiet: !!r.rgb });
+        if (r.ice && !e.building) { e.slowT = S.t + 1.6; e.slowF = 0.45; if (Math.random() < 0.3) shards(e.x, e.y - e.r, 2, 120, 5); }
+      }
     });
     if (r.r > r.maxR) r.dead = true;
   }
@@ -1358,7 +1439,7 @@ function addHazard(x, y, r, delay, dmg, rgb, extra) { const h = { x, y, r, t: de
 
 function runUlt(e, dt) {
   const U = e.ult, u = U.u, g = e.def, p = S.player, rgb = g.ultRgb || '255,80,60';
-  const toP = angleTo(e.x, e.y, p.x, p.y), DMG = m => e.dmg * m;
+  const toP = angleTo(e.x, e.y, p.x, p.y), DMG = m => e.dmg * m, A = g.aoe || 1;
   U.t -= dt;
   switch (u.type) {
     // 冲锋类：吕布骑赤兔三连冲、张飞长距离突刺、赵云七进七出
@@ -1386,6 +1467,12 @@ function runUlt(e, dt) {
         if (u.trail && Math.random() < 0.55) { // 赤兔踏过的地面燃起一串火焰
           S.ezones.push({ x: e.x, y: e.y + 6, r: 30, life: 1.8, max: 1.8, dmg: DMG(0.35), tick: 0.45, tt: 0, rgb: '255,110,40' });
           fxTex('flame', e.x + rand(-10, 10), e.y - 18, { w: 46, h: 92, life: 1.2, fadeIn: 0.1, grow: 1.2 });
+        }
+        if (u.iceTrail && Math.random() < 0.5) { // 凌波微步：踏过的地方结一层冰，踩上去被冻伤、走不快
+          S.ezones.push({ x: e.x, y: e.y + 6, r: 34 * Math.sqrt(A), life: 2.4, max: 2.4, dmg: DMG(0.25), tick: 0.5, tt: 0, rgb: '150,210,255', ice: true });
+          S.decals.push({ kind: 'frost', x: e.x, y: e.y + 6, r: 34 * Math.sqrt(A), life: 2.4, max: 2.4 });
+          if (S.decals.length > 40) S.decals.shift();
+          if (Math.random() < 0.5) shards(e.x, e.y, 2, 120, 6);
         }
         if (Math.random() < 0.8) sparks(e.x, e.y - e.r, U.ang + Math.PI, 2, rgb, 300, 0.4, 2.4);
         if (!U.hit && segDist(p.x, p.y, e.x - Math.cos(U.ang) * 40, e.y - Math.sin(U.ang) * 40, U.ang, 60) < e.r + p.r + (u.w || 0) * 0.3) {
@@ -1449,11 +1536,12 @@ function runUlt(e, dt) {
     case 'leap': {
       if (U.phase === 0) {
         U.sx = e.x; U.sy = e.y; U.tx = p.x; U.ty = p.y;
-        tele({ kind: 'circle', x: U.tx, y: U.ty, r: u.radius, life: 1.0, rgb });
-        fxTex('circle', U.tx, U.ty, { w: u.radius * 2.3, h: u.radius * 2.3, rgb, under: true, life: 1.05, spin: 2, fadeIn: 0.2, a: 0.7 }); // 落点法阵
-        U.t = 1.0; U.phase = 1;
+        U.tt = Math.max(1, u.radius / 230); // 落点越大，预警越久，留出跑出圈的时间
+        tele({ kind: 'circle', x: U.tx, y: U.ty, r: u.radius, life: U.tt, rgb });
+        fxTex('circle', U.tx, U.ty, { w: u.radius * 2.3, h: u.radius * 2.3, rgb, under: true, life: U.tt + 0.05, spin: 2, fadeIn: 0.2, a: 0.7 }); // 落点法阵
+        U.t = U.tt; U.phase = 1;
       } else {
-        const k = 1 - Math.max(0, U.t) / 1.0;
+        const k = 1 - Math.max(0, U.t) / U.tt;
         e.x = U.sx + (U.tx - U.sx) * k; e.y = U.sy + (U.ty - U.sy) * k;
         e.leapH = Math.sin(Math.PI * k) * 150;
         if (U.t <= 0) {
@@ -1540,7 +1628,7 @@ function runUlt(e, dt) {
       if (U.phase === 0) {
         for (let i = 0; i < u.count; i++) {
           const a = i / u.count * TAU + rand(-0.1, 0.1);
-          S.eproj.push({ kind: 'ji', x: e.x, y: e.y - 16, vx: Math.cos(a) * u.speed, vy: Math.sin(a) * u.speed, r: 12, dmg: DMG(u.dmg), life: 5, pierce: true, ret: { boss: e, travel: 0, range: u.range, back: false }, spin: 0 });
+          S.eproj.push({ kind: u.fan ? 'fan' : 'ji', x: e.x, y: e.y - 16, vx: Math.cos(a) * u.speed, vy: Math.sin(a) * u.speed, r: 12 * Math.sqrt(A), dmg: DMG(u.dmg), life: 5, pierce: true, ret: { boss: e, travel: 0, range: u.range, back: false }, spin: 0 });
         }
         fxTex('whirl', 0, 0, { follow: e, oy: -16, w: e.r * 6, h: e.r * 6, rgb, life: 0.6, spin: 9, grow: 1.4, core: 0.5 });
         fxTex('ring', e.x, e.y, { w: e.r * 3, h: e.r * 3, rgb, flat: 0.55, under: true, life: 0.4, grow: 2.5 });
@@ -1567,10 +1655,10 @@ function runUlt(e, dt) {
     case 'spiral': {
       const base = rand(0, TAU);
       for (let i = 0; i < u.count; i++) {
-        const a = base + i * 0.75, r = 70 + i * 22;
-        addHazard(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 62, 0.9 + i * 0.07, DMG(u.dmg), rgb, { pillar: true }); // 青龙之气化作光柱落下
+        const a = base + i * 0.75, r = (70 + i * 22) * A;
+        addHazard(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 62 * A, 0.9 + i * 0.07, DMG(u.dmg), rgb, { pillar: true }); // 青龙之气化作光柱落下
       }
-      fxTex('circle', e.x, e.y, { w: 700, h: 700, rgb, under: true, flat: 0.6, life: 2.2, spin: 1.2, fadeIn: 0.1, a: 0.55 });
+      fxTex('circle', e.x, e.y, { w: 700 * A, h: 700 * A, rgb, under: true, flat: 0.6, life: 2.2, spin: 1.2, fadeIn: 0.1, a: 0.55 });
       ultDone(e, 1.0);
       break;
     }
@@ -1578,10 +1666,10 @@ function runUlt(e, dt) {
     case 'fireLines': {
       const ax = Math.cos(toP), ay = Math.sin(toP), px2 = -ay, py2 = ax;
       for (let L = 0; L < u.lines; L++) {
-        const off = (L - (u.lines - 1) / 2) * 120;
+        const off = (L - (u.lines - 1) / 2) * 120 * A;
         for (let k = 0; k < u.per; k++) {
-          const s2 = (k - (u.per - 1) / 2) * 72;
-          addHazard(p.x + ax * off + px2 * s2, p.y + ay * off + py2 * s2, 58, 1.0 + L * 0.35, DMG(u.dmg), '255,120,40');
+          const s2 = (k - (u.per - 1) / 2) * 72 * A;
+          addHazard(p.x + ax * off + px2 * s2, p.y + ay * off + py2 * s2, 58 * A, (1.0 + L * 0.35) * (1 + (A - 1) * 0.4), DMG(u.dmg), '255,120,40');
         }
       }
       ultDone(e, 0.8);
@@ -1590,14 +1678,14 @@ function runUlt(e, dt) {
     // 八阵图：在玩家周围布一圈石阵，随后阵中落石
     // 张角雷池、周瑜铁索连环也用这一招：外圈先落，内圈随后
     case 'stoneRing': {
-      const ex = { bolt: u.bolt, burn: u.burn, pillar: !u.bolt && !u.burn };
+      const ex = { bolt: u.bolt, burn: u.burn, ice: u.ice, pillar: !u.bolt && !u.burn && !u.ice };
       // 玩家脚下展开一座大阵，转着收紧
       fxTex('circle', p.x, p.y, { w: u.R * 2.5, h: u.R * 2.5, rgb: u.rgb || '170,200,230', under: true, life: 2.4, spin: 1.5, grow: 0.85, fadeIn: 0.1, a: 0.8 });
       for (let i = 0; i < u.n; i++) {
         const a = i / u.n * TAU;
-        addHazard(p.x + Math.cos(a) * u.R, p.y + Math.sin(a) * u.R, 48, 1.2, DMG(u.dmg), u.rgb || '170,190,200', ex);
+        addHazard(p.x + Math.cos(a) * u.R, p.y + Math.sin(a) * u.R, 48 * A, 1.2, DMG(u.dmg), u.rgb || '170,190,200', ex);
       }
-      for (let i = 0; i < 4; i++) addHazard(p.x + rand(-90, 90), p.y + rand(-90, 90), 64, 2.0 + i * 0.2, DMG(u.dmg), u.rgb || '255,150,60', ex);
+      for (let i = 0; i < 4; i++) addHazard(p.x + rand(-90, 90) * A, p.y + rand(-90, 90) * A, 64 * A, 2.0 + i * 0.2, DMG(u.dmg), u.rgb || '255,150,60', ex);
       ultDone(e, 0.8);
       break;
     }
@@ -1607,7 +1695,7 @@ function runUlt(e, dt) {
       if (U.t <= 0) {
         U.t = u.gap;
         const lead = U.k ? 0 : 1;
-        addHazard(p.x + rand(-30, 30) * lead, p.y + rand(-30, 30) * lead, u.r, 0.8, DMG(u.dmg), '190,215,255', { bolt: true });
+        addHazard(p.x + rand(-30, 30) * lead, p.y + rand(-30, 30) * lead, u.r, 0.8 * (1 + (A - 1) * 0.4), DMG(u.dmg), '190,215,255', { bolt: true });
         if (++U.k >= u.count) ultDone(e, 0.9);
       }
       break;
@@ -1660,6 +1748,103 @@ function runUlt(e, dt) {
       }
       break;
     }
+    // —— 貂蝉 ——
+    // 闭月舞：原地起舞，几条樱花旋臂一圈圈转着向外扩散，从缝隙里钻出去
+    case 'petalSpiral': {
+      if (U.phase === 0) {
+        U.phase = 1; U.k = 0; U.t = 0.3; U.base = toP; U.dir = Math.random() < 0.5 ? 1 : -1;
+        fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.6, w: e.r * 9, h: e.r * 9, rgb, under: true, flat: 0.5, life: u.waves * u.gap + 0.6, spin: 3 * U.dir, fadeIn: 0.1 });
+        petals(e.x, e.y - 20, 24, 220);
+      } else if (U.t <= 0) {
+        U.t = u.gap;
+        for (let i = 0; i < u.arms; i++) {
+          const a = U.base + i * TAU / u.arms + U.k * 0.21 * U.dir;
+          S.eproj.push({ kind: 'petal', x: e.x, y: e.y - 16, vx: Math.cos(a) * u.speed, vy: Math.sin(a) * u.speed, r: 9, dmg: DMG(u.dmg), life: 3, spin: rand(0, TAU), spinRate: 6 });
+        }
+        if (++U.k >= u.waves) ultDone(e, 0.5);
+      }
+      break;
+    }
+    // 倾城一顾：粉色的圈收拢过来，圈里的人被迷住，身不由己往她身边走
+    case 'charm': {
+      if (U.phase === 0) { tele({ kind: 'ring', x: e.x, y: e.y, r: u.radius, life: u.tele, rgb }); U.t = u.tele; U.phase = 1; }
+      else if (U.t <= 0) {
+        if (dist2(p.x, p.y, e.x, e.y) < (u.radius + p.r) ** 2) {
+          hurtPlayer(DMG(u.dmg));
+          S.charm = { boss: e, until: S.t + u.dur, pull: u.pull };
+          addNumber(p.x, p.y - 34, '迷惑', '#ffb0d8', 20);
+        }
+        for (const [d, life] of [[0, 0.6], [0.1, 0.7]]) fxTex('ring', e.x, e.y, { w: u.radius * 0.5, h: u.radius * 0.5, rgb: d ? '255,235,245' : rgb, life: life + d, grow: 4.2, core: 0.4 });
+        petals(e.x, e.y - 20, 40, u.radius * 2.2);
+        screenFlash(rgb, 0.18); punch(0.5);
+        say(e, '“将军……过来呀。”');
+        ultDone(e, 0.6);
+      }
+      break;
+    }
+    // 连环计：漫天樱花，一朵朵落点追着玩家绽开
+    case 'petalRain': {
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0; screenFlash(rgb, 0.12); }
+      if (U.t <= 0) {
+        U.t = u.dur / u.count;
+        const sp = 260 * A, lead = U.k % 3 === 0;
+        addHazard(p.x + (lead ? 0 : rand(-sp, sp)), p.y + (lead ? 0 : rand(-sp, sp)), u.r, 0.95, DMG(u.dmg), rgb, { petal: true });
+        if (++U.k >= u.count) ultDone(e, 0.6);
+      }
+      if (Math.random() < 0.8) fxp({ type: 'petal', x: p.x + rand(-1, 1) * W / ZOOM * 0.6, y: p.y - H / ZOOM * 0.55, vx: rand(20, 70), vy: rand(80, 140), drag: 0.3, life: 2.2, rgb: '255,170,210', size: rand(5, 8), rot: rand(0, TAU), spin: rand(-4, 4), seed: rand(0, 9) });
+      break;
+    }
+    // —— 甄姬 ——
+    // 洛水寒川：脚下寒气聚成一圈，圈里的人被冻住
+    case 'frostNova': {
+      if (U.phase === 0) {
+        tele({ kind: 'circle', x: e.x, y: e.y, r: u.radius, life: u.tele, rgb });
+        fxTex('circle', e.x, e.y, { w: u.radius * 2.3, h: u.radius * 2.3, rgb, under: true, life: u.tele + 0.1, spin: -2, fadeIn: 0.2, a: 0.7 });
+        U.t = u.tele; U.phase = 1;
+      } else {
+        if (Math.random() < 0.6) { const a = rand(0, TAU), r = u.radius * rand(0.3, 1); fxp({ type: 'snow', x: e.x + Math.cos(a) * r, y: e.y + Math.sin(a) * r * 0.8, vx: 0, vy: rand(-30, -10), drag: 1, life: 0.6, size: rand(4, 7), rot: rand(0, TAU), spin: 2 }); }
+        if (U.t <= 0) {
+          if (dist2(p.x, p.y, e.x, e.y) < (u.radius + p.r) ** 2) {
+            hurtPlayer(DMG(u.dmg));
+            S.frozenT = S.t + u.freeze; S.pChillT = S.t + u.freeze + 1.5;
+            addNumber(p.x, p.y - 34, '冻结', '#bfe6ff', 20);
+          }
+          for (let i = 0; i < 16; i++) { // 一圈冰棱从地里刺出
+            const a = i / 16 * TAU, r = u.radius * rand(0.55, 0.95);
+            fxTex('thrust', e.x + Math.cos(a) * r, e.y + Math.sin(a) * r - 26, { w: 90, h: 34, rot: -Math.PI / 2 + rand(-0.3, 0.3), rgb, life: 0.5, sx: 1.2, core: 0.7 });
+          }
+          shards(e.x, e.y - 20, 30, u.radius * 2.4, 11);
+          S.decals.push({ kind: 'frost', x: e.x, y: e.y, r: u.radius, life: 3, max: 3 });
+          fxTex('ring', e.x, e.y, { w: u.radius * 0.6, h: u.radius * 0.6, rgb: '230,245,255', life: 0.5, grow: 3.4, core: 0.6 });
+          screenFlash('200,230,255', 0.25); punch(0.8); hitstop(0.05);
+          S.shake = Math.max(S.shake, 14);
+          sfx('slam');
+          ultDone(e, 0.7);
+        }
+      }
+      break;
+    }
+    // —— 孙尚香 ——
+    // 兵书万卷：书页在玩家四周围成一圈，留一道缺口，然后一齐朝圈心飞来
+    case 'pageCage': {
+      if (U.phase === 0) {
+        const cx = p.x, cy = p.y, R = u.cageR * A, n = Math.round(u.n * A), gapA = rand(0, TAU);
+        tele({ kind: 'ring', x: cx, y: cy, r: R, life: u.tele, rgb });
+        for (let i = 0; i < n; i++) { // 书页先悬在圈上（能看清缺口在哪），预警结束一齐飞向圈心
+          const a = i / n * TAU;
+          if (Math.abs(angDiff(a, gapA)) < 0.32) continue; // 缺口
+          const x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+          S.eproj.push({ kind: 'page', x, y, vx: 0, vy: 0, lvx: -Math.cos(a) * u.speed, lvy: -Math.sin(a) * u.speed, wait: u.tele, r: 11, dmg: DMG(u.dmg), life: u.tele + R / u.speed + 0.5, spin: a, spinRate: 3, homeIn: { x: cx, y: cy } });
+          glint(x, y, 16, '255,220,150', 0.2);
+        }
+        pages(e.x, e.y - 30, 14, 200);
+        U.t = u.tele; U.phase = 1;
+      } else if (U.t <= 0) {
+        sfx('swing');
+        ultDone(e, 0.5);
+      }
+      break;
+    }
     default: ultDone(e);
   }
 }
@@ -1671,6 +1856,7 @@ function updateBoss(e, dt) {
     say(e, g.rage || '“有点本事！”');
     S.shake = 10;
   }
+  if (e.boss) bossPhase(e);
   if (e.ult) { runUlt(e, dt); return; } // 正在放大招
   const frenzy = e.frenzyT > S.t;
   if (frenzy && Math.random() < 0.5) fxp({ type: 'ember', x: e.x + rand(-e.r, e.r), y: e.y - rand(0, e.r * 2.4), vx: 0, vy: rand(-90, -40), drag: 1, life: 0.5, rgb: '255,70,40', size: rand(6, 10) });
@@ -1729,8 +1915,11 @@ function updateBoss(e, dt) {
         const v = g.volley, n = v.count + (e.enraged ? 2 : 0), spread = v.spread * (n / v.count);
         for (let i = 0; i < n; i++) {
           const a = toP + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
-          S.eproj.push({ x: e.x, y: e.y, vx: Math.cos(a) * v.speed, vy: Math.sin(a) * v.speed, r: v.big ? 10 : 6, big: v.big, dmg: v.dmg * e.dmg / g.dmg, life: 2.6 });
+          const kind = v.petal ? 'petal' : v.ice ? 'icicle' : v.fan ? 'fan' : undefined; // 女将：花瓣 / 冰棱 / 飞扇
+          S.eproj.push({ kind, x: e.x, y: e.y - 14, vx: Math.cos(a) * v.speed, vy: Math.sin(a) * v.speed, r: v.big ? 10 : kind ? 9 : 6, big: v.big, dmg: v.dmg * e.dmg / g.dmg, life: 2.6, spin: rand(0, TAU), spinRate: kind === 'fan' ? 16 : kind === 'petal' ? 5 : 0, chill: v.ice ? 1.2 : 0 });
         }
+        if (v.petal) petals(e.x, e.y - 20, 10, 140);
+        else if (v.ice) shards(e.x, e.y - 20, 6, 160, 7);
         e.state = 'recover'; e.stateT = 0.4;
       }
       break;
@@ -1777,13 +1966,13 @@ function updateBoss(e, dt) {
 function startBossAttack(e) {
   const g = e.def, p = S.player;
   const atk = g.attacks[e.atkIdx++ % g.attacks.length];
-  const fast = e.enraged ? 0.75 : 1;
+  const fast = e.enraged ? 0.75 : 1, tk = fast * (g.teleK || 1); // 范围招式的预警按范围拉长一点
   if (atk === 'charge' || atk === 'charge3') {
     e.charges = atk === 'charge3' ? (e.enraged ? 4 : 3) : 1;
     e.state = 'tele_charge'; e.stateT = e.stateMax = 0.8 * fast;
     e.ang = angleTo(e.x, e.y, p.x, p.y);
   } else if (atk === 'slam') {
-    e.state = 'tele_slam'; e.stateT = e.stateMax = 0.95 * fast;
+    e.state = 'tele_slam'; e.stateT = e.stateMax = 0.95 * tk;
   } else if (atk === 'summon') {
     const n = (g.summon || 4) + (e.enraged ? 3 : 0), type = g.summonType || 'cavalry';
     for (let i = 0; i < n; i++) {
@@ -1793,17 +1982,17 @@ function startBossAttack(e) {
     say(e, `“${D.enemies[type].name}，随我杀敌！”`);
     e.state = 'recover'; e.stateT = 0.5;
   } else if (atk === 'cleave') {
-    e.state = 'tele_cleave'; e.stateT = e.stateMax = 0.85 * fast;
+    e.state = 'tele_cleave'; e.stateT = e.stateMax = 0.85 * tk;
     e.ang = angleTo(e.x, e.y, p.x, p.y);
   } else if (atk === 'roar') {
-    e.state = 'tele_roar'; e.stateT = e.stateMax = 1.0 * fast;
+    e.state = 'tele_roar'; e.stateT = e.stateMax = 1.0 * tk;
   } else if (atk === 'volley') {
     e.state = 'windup'; e.stateT = e.stateMax = 0.5 * fast;
   } else if (atk === 'meteor') { // 诸葛亮火攻：玩家脚下与周围落下火球
-    const m = g.meteor, n = m.count + (e.enraged ? 3 : 0);
+    const m = g.meteor, n = m.count + (e.enraged ? 3 : 0), spread = 160 * (g.aoe || 1);
     for (let i = 0; i < n; i++) {
-      const ox = i ? rand(-160, 160) : 0, oy = i ? rand(-160, 160) : 0;
-      S.hazards.push({ x: p.x + ox, y: p.y + oy, r: m.radius, t: m.delay + i * 0.08, max: m.delay + i * 0.08, dmg: m.dmg * e.dmg / g.dmg, rgb: m.rgb, bolt: m.bolt });
+      const ox = i ? rand(-spread, spread) : 0, oy = i ? rand(-spread, spread) : 0;
+      S.hazards.push({ x: p.x + ox, y: p.y + oy, r: m.radius, t: m.delay + i * 0.08, max: m.delay + i * 0.08, dmg: m.dmg * e.dmg / g.dmg, rgb: m.rgb, bolt: m.bolt, petal: m.petal, ice: m.ice, page: m.page });
     }
     e.state = 'recover'; e.stateT = 0.6;
   }
@@ -1988,7 +2177,10 @@ function updateProjectiles(dt) {
     }
     b.x += b.vx * dt; b.y += b.vy * dt;
     // 拖尾
-    if (b.kind === 'orb' && Math.random() < 0.6) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-15, 15), vy: rand(-15, 15), drag: 3, life: 0.35, rgb: '140,240,200', size: rand(5, 8) });
+    if (b.spin !== undefined && !b.boom) b.spin += dt * (b.kind === 'page' ? 4 : 6);
+    if (b.curl) { b.a += b.curl * dt; b.vx = Math.cos(b.a) * b.speed; b.vy = Math.sin(b.a) * b.speed; } // 花扇的花瓣：打着旋飞出去
+    if (b.kind === 'petal' && Math.random() < 0.3) fxp({ type: 'petal', x: b.x, y: b.y, vx: -b.vx * 0.1, vy: -b.vy * 0.1 + 10, drag: 2, life: 0.55, rgb: '255,180,215', size: rand(3, 4.5), rot: rand(0, TAU), spin: rand(-6, 6), seed: rand(0, 9) });
+    else if (b.kind === 'orb' && Math.random() < 0.6) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-15, 15), vy: rand(-15, 15), drag: 3, life: 0.35, rgb: '140,240,200', size: rand(5, 8) });
     else if (b.kind === 'bean' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-10, 10), vy: rand(-20, 0), drag: 3, life: 0.3, rgb: '255,210,90', size: rand(4, 6) });
     else if (b.kind === 'fire') {
       fxp({ type: 'ember', x: b.x + rand(-3, 3), y: b.y + rand(-3, 3), vx: rand(-20, 20), vy: rand(-40, -10), drag: 2, life: 0.4, rgb: Math.random() < 0.5 ? '255,140,50' : '255,210,100', size: rand(6, 10) });
@@ -2003,6 +2195,7 @@ function updateProjectiles(dt) {
           near(b.x, b.y, R + 48, o => { if (dist2(b.x, b.y, o.x, o.y) < (R + o.r) ** 2) hitEnemy(o, b.dmg, { kb: 120, kbAngle: angleTo(b.x, b.y, o.x, o.y), quiet: true }); });
           S.effects.push({ kind: 'blast', x: b.x, y: b.y, r: R, life: 0.34, max: 0.34, rgb: b.rgb });
           if (b.kind === 'bean') { sparks(b.x, b.y, 0, 10, '255,220,120', R * 6, Math.PI, 2.2); embers(b.x, b.y, 8, '255,200,90', R * 2, 30, 7, 0.5); }
+          else if (b.kind === 'page') { pages(b.x, b.y, 6, R * 3, 6); sparks(b.x, b.y, 0, 8, '255,225,160', R * 5, Math.PI, 2); }
           else explosion(b.x, b.y, R, false);
           b.dead = true;
           return;
@@ -2017,9 +2210,24 @@ function updateProjectiles(dt) {
   for (const h of S.hazards) { // 诸葛亮火攻落点
     h.t -= dt;
     if (h.t <= 0) {
-      if (dist2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) hurtPlayer(h.dmg);
+      if (dist2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) {
+        const was = p.iframes;
+        hurtPlayer(h.dmg);
+        if (h.ice && !was) S.pChillT = Math.max(S.pChillT, S.t + 1.6);
+      }
       S.effects.push({ kind: 'blast', x: h.x, y: h.y, r: h.r, life: 0.4, max: 0.4, enemy: true, rgb: h.rgb });
       fxTex('ring', h.x, h.y, { w: h.r * 2, h: h.r * 2, rgb: h.rgb || '255,140,60', under: true, life: 0.35, grow: 1.6, core: 0.4 });
+      if (h.petal || h.ice || h.page) { // 女将的落点：樱花绽开 / 冰棱破地 / 书页炸散
+        fxTex('burst', h.x, h.y - h.r * 0.2, { w: h.r * 2.2, h: h.r * 2.2, rgb: h.rgb, life: 0.35, grow: 1.4, rot: rand(0, TAU), core: 0.25, a: 0.55 });
+        if (h.petal) petals(h.x, h.y - 10, 14, h.r * 3);
+        else if (h.ice) {
+          shards(h.x, h.y - 10, 12, h.r * 4);
+          S.decals.push({ kind: 'frost', x: h.x, y: h.y, r: h.r, life: 2, max: 2 });
+          if (S.decals.length > 16) S.decals.shift();
+        } else { pages(h.x, h.y - 10, 10, h.r * 3); glint(h.x, h.y - 10, h.r * 0.8, '255,215,140', 0.25); }
+        h.dead = true;
+        continue;
+      }
       if (h.pillar) fxTex('pillar', h.x, h.y - 150, { w: h.r * 1.5, h: 340, rgb: h.rgb, life: 0.4, sx: 0.35, core: 0.7 }); // 天上落下的光柱
       if (h.bolt) { // 雷击：天上劈下一道闪电
         S.effects.push({ kind: 'bolt', pts: zigzag([[h.x + rand(-50, 50), h.y - 380], [h.x, h.y]], 18), life: 0.28, max: 0.28, rgb: '200,220,255', w: 6 });
@@ -2057,18 +2265,34 @@ function updateProjectiles(dt) {
         if (dist2(b.x, b.y, o.x, o.y) < 30 * 30) { b.dead = true; continue; }
       }
     }
+    if (b.wait > 0) { b.wait -= dt; if (b.wait <= 0) { b.vx = b.lvx; b.vy = b.lvy; } }
     b.x += b.vx * dt; b.y += b.vy * dt;
+    if (b.spinRate) b.spin += b.spinRate * dt;
+    if (b.homeIn) { // 兵书万卷：书页朝圈心收拢，过了圈心再飞一小段就散
+      if (dist2(b.x, b.y, b.homeIn.x, b.homeIn.y) < 30 * 30 && !b.passed) { b.passed = true; b.life = Math.min(b.life, 0.35); }
+    }
+    if (b.kind === 'petal' && Math.random() < 0.25) fxp({ type: 'petal', x: b.x, y: b.y, vx: -b.vx * 0.1, vy: -b.vy * 0.1 + 10, drag: 2, life: 0.6, rgb: '255,175,210', size: rand(3, 5), rot: rand(0, TAU), spin: rand(-6, 6), seed: rand(0, 9) });
+    else if (b.kind === 'icicle' && Math.random() < 0.25) fxp({ type: 'snow', x: b.x, y: b.y, vx: 0, vy: 10, drag: 2, life: 0.5, size: rand(2.5, 4), rot: rand(0, TAU), spin: 2 });
     if (b.kind === 'dragon' && Math.random() < 0.9) fxp({ type: 'ember', x: b.x + rand(-b.r, b.r) * 0.6, y: b.y + rand(-b.r, b.r) * 0.6, vx: -b.vx * 0.15, vy: -b.vy * 0.15, drag: 2, life: 0.5, rgb: '110,240,170', size: rand(8, 14) });
     if (b.kind === 'bigArrow' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: 0, vy: 0, drag: 2, life: 0.25, rgb: b.rgb, size: 6 });
-    if (dist2(b.x, b.y, p.x, p.y) < (b.r + p.r) ** 2) { hurtPlayer(b.dmg); if (!b.pierce) b.dead = true; }
+    if (dist2(b.x, b.y, p.x, p.y) < (b.r + p.r) ** 2) {
+      const was = p.iframes;
+      hurtPlayer(b.dmg);
+      if (b.chill && !was) S.pChillT = Math.max(S.pChillT, S.t + b.chill); // 冰棱：打中就被冻得走不快
+      if (!b.pierce) {
+        b.dead = true;
+        if (b.kind === 'petal') petals(b.x, b.y, 5, 100); else if (b.kind === 'icicle') shards(b.x, b.y, 4, 160, 6); else if (b.kind === 'page') pages(b.x, b.y, 3, 120, 5);
+      }
+    }
     if (b.life <= 0) b.dead = true;
   }
   S.eproj = S.eproj.filter(b => !b.dead);
 
   for (const z of S.ezones) { // 敌方火焰地带（赤兔踏过的火）
     z.life -= dt; z.tt -= dt;
-    if (Math.random() < 0.35) fxp({ type: 'ember', x: z.x + rand(-z.r, z.r) * 0.6, y: z.y + rand(-z.r, z.r) * 0.4, vx: rand(-10, 10), vy: rand(-60, -30), drag: 1, life: 0.45, rgb: Math.random() < 0.5 ? '255,120,40' : '255,190,80', size: rand(5, 9) });
-    if (z.tt <= 0 && dist2(z.x, z.y, p.x, p.y) < (z.r + p.r) ** 2) { z.tt = z.tick; hurtPlayer(z.dmg); }
+    if (z.ice) { if (Math.random() < 0.08) fxp({ type: 'snow', x: z.x + rand(-z.r, z.r) * 0.6, y: z.y + rand(-z.r, z.r) * 0.4, vx: 0, vy: rand(-25, -10), drag: 1, life: 0.6, size: rand(3, 5), rot: rand(0, TAU), spin: 2 }); }
+    else if (Math.random() < 0.35) fxp({ type: 'ember', x: z.x + rand(-z.r, z.r) * 0.6, y: z.y + rand(-z.r, z.r) * 0.4, vx: rand(-10, 10), vy: rand(-60, -30), drag: 1, life: 0.45, rgb: Math.random() < 0.5 ? '255,120,40' : '255,190,80', size: rand(5, 9) });
+    if (z.tt <= 0 && dist2(z.x, z.y, p.x, p.y) < (z.r + p.r) ** 2) { z.tt = z.tick; hurtPlayer(z.dmg); if (z.ice) S.pChillT = Math.max(S.pChillT, S.t + 1); }
   }
   S.ezones = S.ezones.filter(z => z.life > 0);
 
@@ -2098,7 +2322,8 @@ function updateProjectiles(dt) {
         if (dist2(z.x, z.y, e.x, e.y) < (z.r + e.r) ** 2) {
           if (z.slow < 1) { e.slowT = S.t + 0.5; e.slowF = z.slow; }
           hitEnemy(e, z.dmg, { quiet: true });
-          if (!z.formation && !z.fire && Math.random() < 0.5) sparks(e.x, e.y + e.r * 0.4, -Math.PI / 2, 2, '220,225,235', 220, 0.9, 1.6); // 扎脚的火星
+          if (z.ice && Math.random() < 0.15) shards(e.x, e.y, 2, 90, 5);
+          else if (!z.formation && !z.fire && !z.ice && Math.random() < 0.5) sparks(e.x, e.y + e.r * 0.4, -Math.PI / 2, 2, '220,225,235', 220, 0.9, 1.6); // 扎脚的火星
         }
       });
     }
@@ -2303,6 +2528,47 @@ function castShenbing(sb) {
       });
       sfx('swing');
       break;
+    case 'blossom': { // 倾城花扇：樱花旋转着飞出；身边的敌人被迷住
+      const off = rand(0, TAU);
+      for (let i = 0; i < def.count; i++) {
+        const b = off + i / def.count * TAU;
+        later(i * 0.02, () => S.proj.push({ kind: 'petal', x: p.x, y: p.y - 12, a: b, speed: 380, vx: Math.cos(b) * 380, vy: Math.sin(b) * 380, r: 10, dmg, pierce: 3, life: 1.1, hit: new Set(), kb: 60, spin: rand(0, TAU), curl: 2.4 }));
+      }
+      hitCircle(p.x, p.y, def.radius, dmg * 0.5, 40, def.stun);
+      fxTex('ring', p.x, p.y, { w: def.radius * 0.5, h: def.radius * 0.5, rgb, life: 0.5, grow: 4, core: 0.4 });
+      petals(p.x, p.y - 14, 30, def.radius * 2);
+      sfx('swing');
+      break;
+    }
+    case 'icespikes': { // 洛神寒笛：敌人脚下破冰而出的冰棱
+      const pool = []; near(p.x, p.y, 460, e => { if (!e.building) pool.push(e); });
+      pool.sort((x, y) => y.maxHp - x.maxHp);
+      for (let i = 0; i < def.count && pool.length; i++) {
+        const e = i < pool.length ? pool[i] : pool[Math.floor(Math.random() * pool.length)], x = e.x, y = e.y;
+        S.decals.push({ kind: 'frost', x, y, r: def.radius, life: 1.6, max: 1.6 });
+        later(0.25 + i * 0.07, () => {
+          hitCircle(x, y, def.radius, dmg, 60, def.stun);
+          for (let k = 0; k < 5; k++) fxTex('thrust', x + rand(-def.radius, def.radius) * 0.5, y - 26 + rand(-10, 10), { w: rand(70, 110), h: 30, rot: -Math.PI / 2 + rand(-0.35, 0.35), rgb, life: 0.45, sx: 1.25, core: 0.7 });
+          shards(x, y - 10, 10, def.radius * 3);
+          sfx('slam');
+        });
+      }
+      fxTex('ring', p.x, p.y, { w: 120, h: 120, rgb, life: 0.4, grow: 2.2 });
+      break;
+    }
+    case 'fans': { // 枭姬铁扇：六把铁扇四面飞出再飞回，再撒一阵书页
+      for (let i = 0; i < def.count; i++) {
+        const b = i / def.count * TAU;
+        S.proj.push({ kind: 'boom', fan: true, x: p.x, y: p.y, vx: Math.cos(b) * 480, vy: Math.sin(b) * 480, speed: 480, r: 16, dmg, pierce: 9999, life: 4, hit: new Set(), kb: 140, boom: true, out: true, travel: 0, range: def.range, spin: 0 });
+      }
+      for (let i = 0; i < 4; i++) {
+        const b = rand(0, TAU);
+        S.proj.push({ kind: 'page', x: p.x, y: p.y - 10, a: b, speed: 320, vx: 0, vy: 0, r: 9, dmg: dmg * 0.8, pierce: 1, life: 3, hit: new Set(), homing: true, target: null, kb: 80, blast: 60, rgb, seed: rand(0, 9), spin: rand(0, TAU) });
+      }
+      pages(p.x, p.y - 16, 10, 160);
+      sfx('swing');
+      break;
+    }
     case 'sonic': { // 周郎焦尾琴：三圈音波 + 三处火焰
       for (let k = 0; k < def.rings; k++) later(k * 0.25, () => S.rings.push({ x: p.x, y: p.y, r: 20, maxR: def.ringR, speed: 440, dmg, hit: new Set(), rgb: '255,190,150', core: '255,245,235', w: 12, kb: 100 }));
       const pool = []; near(p.x, p.y, 420, e => { if (!e.building) pool.push(e); });
@@ -2651,7 +2917,7 @@ function updateHud() {
     $('bosstitle').textContent = boss.def.title;
     $('bossfill').style.width = Math.max(0, boss.hp / boss.maxHp * 100).toFixed(1) + '%';
     $('bossshield').style.width = (boss.shieldMax ? Math.max(0, boss.shield / boss.shieldMax * 100) : 0).toFixed(1) + '%';
-    $('bossname').textContent = boss.def.name + (boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '');
+    $('bossname').textContent = boss.def.name + (boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '');
   }
   if (S.buildDirty) {
     S.buildDirty = false;
@@ -3215,6 +3481,23 @@ function drawPlayer() {
     S.ghostT = S.t;
   }
   const top = drawUnit(spr, p.x, p.y, p.r, p.fx || 1, walkBob(0, p.moving));
+  if (S.t < S.frozenT) { // 被冻住：一块半透明的冰把人包住
+    ctx.fillStyle = 'rgba(170,220,255,0.35)'; ctx.strokeStyle = 'rgba(235,248,255,0.9)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(p.x - 20, p.y + p.r * 0.6); ctx.lineTo(p.x - 24, top + 4); ctx.lineTo(p.x - 6, top - 10); ctx.lineTo(p.x + 18, top - 2); ctx.lineTo(p.x + 24, p.y + p.r * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    FX.shard(ctx, p.x - 16, top + 2, 12, -0.4, 0.9); FX.shard(ctx, p.x + 16, top + 6, 10, 0.5, 0.9);
+    ctx.globalAlpha = 1;
+  } else if (S.t < S.pChillT) { // 冻得走不快：脚下一圈冰蓝
+    ctx.strokeStyle = `rgba(170,220,255,${0.5 + 0.3 * Math.sin(S.t * 10)})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r * 0.6, p.r * 1.4, p.r * 0.5, 0, 0, TAU); ctx.stroke();
+  }
+  if (S.charm) { // 被迷住：一条粉色的光丝把人牵向貂蝉
+    const b = S.charm.boss;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `rgba(255,140,200,${0.45 + 0.25 * Math.sin(S.t * 18)})`; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y - 20); ctx.quadraticCurveTo((p.x + b.x) / 2, Math.min(p.y, b.y) - 60, b.x, b.y - b.r); ctx.stroke();
+    FX.glow(ctx, p.x, p.y - 20, 30, '255,120,190', 0.5);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  }
   if (S.t < S.pSlowT) { // 被震慑：脚下黄色震荡圈
     ctx.strokeStyle = `rgba(255,220,120,${0.5 + 0.3 * Math.sin(S.t * 20)})`; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
     ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r * 0.6, p.r * 1.5, p.r * 0.55, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
@@ -3339,6 +3622,10 @@ function drawTelegraphs() {
     ctx.beginPath(); ctx.arc(h.x, h.y, h.r * prog, 0, TAU); ctx.fill();
     ctx.strokeStyle = `rgba(${rgb},0.85)`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.stroke();
+    if (h.petal) for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + S.t * 2, r = h.r * (1 - prog * 0.85); FX.petal(ctx, h.x + Math.cos(a) * r, h.y + Math.sin(a) * r * 0.8, 6, a + S.t * 3, '255,160,205', 0.9); } // 花瓣旋着收拢
+    else if (h.ice) FX.snowflake(ctx, h.x, h.y, h.r * 0.35 * (0.4 + 0.6 * prog), S.t, 0.8); // 雪花慢慢长大
+    else if (h.page) FX.page(ctx, h.x, h.y - (1 - prog) * 220, 10, Math.sin(S.t * 6 + h.x) * 0.4, Math.min(1, prog * 2), Math.cos(S.t * 9 + h.y)); // 书页从天上飘下
+    ctx.globalAlpha = 1;
   }
   // 大招预警：颜色用武将的专属色，随时间填满；边缘发光、闪烁，越接近越急
   for (const f of S.teles) {
@@ -3608,6 +3895,10 @@ function drawEnemies() {
       FX.glow(ctx, e.x, e.y - h * 0.4 - (e.leapH || 0), h * 0.9, urgb, 0.35 + 0.15 * Math.sin(S.t * 20));
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     }
+    if (e.dr) { // 减伤：脚下一圈慢慢转的护体法阵，濒死时变成红色、更亮
+      FX.sprite(ctx, 'circle', e.phase > 1 ? '255,120,80' : '255,210,110', e.x, e.y + e.r * 0.6, e.r * 4.4, e.r * 4.4, S.t * 1.4, e.phase > 1 ? 0.7 : 0.45, 0.3, 0.45);
+      ctx.globalAlpha = 1;
+    }
     if (e.frenzyT > S.t) { // 狂暴：红色火焰气场
       ctx.globalCompositeOperation = 'lighter';
       FX.glow(ctx, e.x, e.y - h * 0.35, h * 0.85, '255,50,30', 0.4 + 0.15 * Math.sin(S.t * 16));
@@ -3658,6 +3949,29 @@ function drawProjectiles() {
       const a = Math.atan2(b.vy, b.vx), fade = Math.min(1, b.life * 2.5);
       FX.dragon(ctx, FX.swimPts(b.x, b.y, a, b.r * 7, 14, b.r * 0.45, S.t * 12 + b.seed),
         { rgb: '90,235,170', core: '225,255,240', w: b.r * 0.95, a: fade, head: window.Assets.get('fx:dragon_azure'), t: S.t + b.seed });
+    } else if (b.kind === 'petal') { // 落樱：粉光里一片打着转的樱花瓣
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, b.x, b.y, 18, '255,130,190', 0.55);
+      ctx.globalCompositeOperation = 'source-over';
+      FX.petal(ctx, b.x, b.y, 8, b.spin, '255,170,210', 1);
+      ctx.globalAlpha = 1;
+    } else if (b.kind === 'page') { // 兵书：一张翻飞的书页，带金色光尾
+      const sp = Math.hypot(b.vx, b.vy) || 1;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(255,210,130,0.35)'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(b.x - b.vx / sp * 24, b.y - b.vy / sp * 24); ctx.lineTo(b.x, b.y); ctx.stroke();
+      FX.glow(ctx, b.x, b.y, 18, '255,200,110', 0.55);
+      ctx.globalCompositeOperation = 'source-over';
+      FX.page(ctx, b.x, b.y, 8, Math.sin(b.spin) * 0.5, 1, Math.cos(b.spin * 1.7));
+      ctx.globalAlpha = 1;
+    } else if (b.kind === 'boom' && b.fan) { // 飞扇：旋转的铁骨折扇 + 一圈红光
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, b.x, b.y, 26, '255,140,90', 0.45);
+      ctx.strokeStyle = 'rgba(255,190,140,0.4)'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(b.x, b.y, 16, b.spin - 2.2, b.spin); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+      FX.fan(ctx, b.x, b.y + 6, 17, b.spin, '232,106,80', 1);
+      ctx.globalAlpha = 1;
     } else if (b.kind === 'boom') { // 双铁戟：高速旋转的钢刃，只留下一圈金属反光
       ctx.globalCompositeOperation = 'lighter';
       ctx.lineCap = 'round';
@@ -3718,6 +4032,38 @@ function drawProjectiles() {
       ctx.beginPath(); ctx.moveTo(b.x - ux * b.r * 3.5, b.y - uy * b.r * 3.5); ctx.lineTo(b.x + ux * b.r, b.y + uy * b.r); ctx.stroke();
       continue;
     }
+    if (b.kind === 'petal') { // 貂蝉：粉色光晕里的樱花瓣
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, b.x, b.y, b.r * 2.6, '255,90,170', 0.6);
+      ctx.globalCompositeOperation = 'source-over';
+      FX.petal(ctx, b.x, b.y, b.r * 1.1, b.spin, '255,150,200', 1);
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    if (b.kind === 'icicle') { // 甄姬：顺着飞行方向的冰棱
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, b.x, b.y, b.r * 2.6, '120,190,255', 0.6);
+      ctx.globalCompositeOperation = 'source-over';
+      FX.shard(ctx, b.x, b.y, b.r * 1.6, Math.atan2(uy, ux) + Math.PI / 2, 1);
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    if (b.kind === 'fan') { // 孙尚香：旋转的折扇，带一圈红光
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, b.x, b.y, b.r * 3, '255,90,60', 0.55);
+      ctx.globalCompositeOperation = 'source-over';
+      FX.fan(ctx, b.x, b.y + b.r * 0.4, b.r * 1.5, b.spin, '220,70,50', 1);
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    if (b.kind === 'page') { // 兵书万卷：悬着 / 飞来的书页，外面一圈红光提示危险
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, b.x, b.y, b.r * 2.6, b.wait > 0 ? '255,180,90' : '255,90,60', b.wait > 0 ? 0.4 + 0.2 * Math.sin(S.t * 14) : 0.6);
+      ctx.globalCompositeOperation = 'source-over';
+      FX.page(ctx, b.x, b.y, b.r, Math.sin(b.spin) * 0.4, 1, Math.cos(b.spin * 1.3));
+      ctx.globalAlpha = 1;
+      continue;
+    }
     if (b.kind === 'ji') { // 典韦的旋转短戟：钢刃反光 + 橙红杀气
       ctx.globalCompositeOperation = 'lighter';
       FX.glow(ctx, b.x, b.y, 30, '255,110,50', 0.45);
@@ -3767,6 +4113,21 @@ function drawZones() {
         FX.sprite(ctx, 'flame', null, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.7 - z.r * 0.35 * fl, z.r * 0.55, z.r * 1.1 * fl, Math.sin(S.t * 5 + i) * 0.12, 0.75 * a);
       }
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      continue;
+    }
+    if (z.ice) { // 冰封：一片泛着冷光的冰面，冰纹 + 几簇冰棱
+      ctx.fillStyle = `rgba(150,205,245,${0.22 * a})`;
+      ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.8, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = `rgba(235,248,255,${0.55 * a})`; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.8, 0, 0, TAU); ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i < 9; i++) { const t = z.id * 0.7 + i * 0.7; ctx.moveTo(z.x + Math.cos(t) * z.r * 0.15, z.y + Math.sin(t) * z.r * 0.12); ctx.lineTo(z.x + Math.cos(t + 0.2) * z.r * 0.9, z.y + Math.sin(t + 0.2) * z.r * 0.72); }
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
+      FX.sprite(ctx, 'ring', '150,210,255', z.x, z.y, z.r * 2.2, z.r * 2.2, S.t * 0.4, 0.3 * a, 0.2, 0.8);
+      ctx.globalCompositeOperation = 'source-over';
+      for (let i = 0; i < 6; i++) { const t = z.id * 1.3 + i * 1.05, rr = z.r * (0.35 + 0.5 * ((i * 0.41) % 1)); FX.shard(ctx, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.8 - 8, 12, 0, 0.85 * a); }
+      ctx.globalAlpha = 1;
       continue;
     }
     if (z.formation) { // 八阵图：法阵贴图缓缓旋转，外圈一层反向转的光环
@@ -3986,7 +4347,16 @@ function render(raw) {
   const Z = ZOOM * (1 + 0.06 * (S.punch || 0)); // 重击时镜头往里一冲
   ctx.setTransform(DPR * Z, 0, 0, DPR * Z, DPR * (W / 2 + sx) - DPR * Z * S.camX, DPR * (H / 2 + sy) - DPR * Z * S.camY);
   drawGround(S.camX, S.camY);
-  for (const f of S.decals) FX.crack(ctx, f); // 地面裂纹
+  for (const f of S.decals) { // 地面裂纹；甄姬的冰面：一片淡蓝的霜，边上几道白色冰纹
+    if (f.kind !== 'frost') { FX.crack(ctx, f); continue; }
+    const a = Math.min(1, f.life / (f.max * 0.5));
+    ctx.globalAlpha = 0.35 * a; ctx.fillStyle = 'rgb(170,215,245)';
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.7, 0, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 0.6 * a; ctx.strokeStyle = 'rgb(235,248,255)'; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) { const t = i * 1.05 + f.x * 0.01; ctx.moveTo(f.x + Math.cos(t) * f.r * 0.2, f.y + Math.sin(t) * f.r * 0.14); ctx.lineTo(f.x + Math.cos(t) * f.r * 0.85, f.y + Math.sin(t) * f.r * 0.6); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
   drawZones();
   drawEffectsUnder();
   drawWeaponsUnder();

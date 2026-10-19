@@ -237,6 +237,39 @@ window.GAME_DATA = {
         { dmg: 33, cd: 0.65, count: 7, speed: 740, pierce: 3, fan: 0.2, note: '弩箭 +1，穿透 3 个' },
       ],
     },
+    luoying: {
+      name: '落樱', icon: '樱', type: 'homing', general: '貂蝉', tags: ['spell'], pkind: 'petal',
+      desc: '貂蝉的花扇。扇出一簇樱花瓣，追着敌人飞去。',
+      levels: [
+        { dmg: 15, cd: 0.9, count: 3, speed: 330 },
+        { dmg: 19, cd: 0.9, count: 3, speed: 340, note: '伤害 +4' },
+        { dmg: 21, cd: 0.8, count: 4, speed: 350, note: '花瓣 +1，更快' },
+        { dmg: 25, cd: 0.75, count: 5, speed: 360, note: '花瓣 +1，伤害 +4' },
+        { dmg: 31, cd: 0.65, count: 6, speed: 380, note: '花瓣 +1，落英缤纷' },
+      ],
+    },
+    yudi: {
+      name: '寒玉笛', icon: '笛', type: 'sonic', general: '甄姬', tags: ['spell'], ice: true,
+      desc: '甄姬的玉笛。笛声化作一圈圈寒气向外扩散，碰到的敌人受伤并被冻得行动迟缓。',
+      levels: [
+        { dmg: 22, cd: 1.5, ringR: 250, count: 1 },
+        { dmg: 28, cd: 1.45, ringR: 270, count: 1, note: '伤害 +6，传得更远' },
+        { dmg: 30, cd: 1.4, ringR: 280, count: 2, note: '连吹两声' },
+        { dmg: 38, cd: 1.3, ringR: 300, count: 2, note: '伤害 +8，传得更远' },
+        { dmg: 46, cd: 1.2, ringR: 330, count: 3, note: '连吹三声' },
+      ],
+    },
+    feishan: {
+      name: '飞扇', icon: '扇', type: 'boomerang', general: '孙尚香', fan: true,
+      desc: '孙尚香的铁骨折扇。掷出后旋转着飞回手中，来回都能伤敌。',
+      levels: [
+        { dmg: 26, cd: 1.3, count: 2, range: 240, speed: 480 },
+        { dmg: 32, cd: 1.25, count: 2, range: 250, speed: 490, note: '伤害 +6' },
+        { dmg: 36, cd: 1.15, count: 3, range: 260, speed: 500, note: '多掷一把' },
+        { dmg: 44, cd: 1.1, count: 3, range: 280, speed: 510, note: '伤害 +8，飞得更远' },
+        { dmg: 54, cd: 1.0, count: 4, range: 300, speed: 530, note: '多掷一把' },
+      ],
+    },
     zhouqin: {
       name: '周郎琴', icon: '琴', type: 'sonic', general: '周瑜', tags: ['spell'],
       desc: '周瑜的古琴。琴音化作一圈圈音波向外扩散，穿过的敌人都会受伤。',
@@ -252,6 +285,39 @@ window.GAME_DATA = {
 
   // 技能：只能从武将处获得，之后升级时可以强化
   skills: {
+    biyue: {
+      name: '闭月', icon: '月', type: 'shockwave', general: '貂蝉', petal: true,
+      desc: '定时一舞，樱花如潮涌出：周围敌人受伤，并被迷住呆立片刻。',
+      levels: [
+        { dmg: 40, cd: 8, radius: 200, kb: 60, stun: 1.4 },
+        { dmg: 50, cd: 7.5, radius: 215, kb: 60, stun: 1.6, note: '伤害 +10，迷得更久' },
+        { dmg: 62, cd: 7, radius: 230, kb: 70, stun: 1.8, note: '范围扩大，冷却缩短' },
+        { dmg: 78, cd: 6.5, radius: 245, kb: 70, stun: 2.0, note: '伤害 +16，迷得更久' },
+        { dmg: 98, cd: 6, radius: 270, kb: 80, stun: 2.4, note: '闭月羞花，满场倾倒' },
+      ],
+    },
+    hanbing: {
+      name: '冰封', icon: '冰', type: 'formation', general: '甄姬', ice: true,
+      desc: '定时在脚下铺开一片寒冰，冰上的敌人寸步难行，并持续被冻伤。',
+      levels: [
+        { dmg: 11, cd: 9, radius: 170, life: 4.5, slow: 0.3, tick: 0.4 },
+        { dmg: 14, cd: 9, radius: 182, life: 4.5, slow: 0.3, tick: 0.4, note: '冻伤更重，冰面更大' },
+        { dmg: 17, cd: 8, radius: 195, life: 5, slow: 0.28, tick: 0.4, note: '冷却缩短，持续更久' },
+        { dmg: 22, cd: 8, radius: 210, life: 5, slow: 0.25, tick: 0.35, note: '冻得更狠' },
+        { dmg: 28, cd: 7, radius: 230, life: 5.5, slow: 0.2, tick: 0.35, note: '洛水成冰，万军难渡' },
+      ],
+    },
+    bingshu: {
+      name: '兵书', icon: '书', type: 'beans', general: '孙尚香', page: true,
+      desc: '定时翻开兵书，书页化作飞刃扑向敌人，撞上后炸开。',
+      levels: [
+        { count: 4, cd: 6, dmg: 38, radius: 62 },
+        { count: 5, cd: 5.6, dmg: 46, radius: 64, note: '书页 +1' },
+        { count: 6, cd: 5.2, dmg: 54, radius: 68, note: '书页 +1，伤害提高' },
+        { count: 7, cd: 4.8, dmg: 64, radius: 72, note: '书页 +1，爆炸更大' },
+        { count: 9, cd: 4.2, dmg: 78, radius: 78, note: '万卷齐飞，书页 +2' },
+      ],
+    },
     xiaoyong: {
       name: '骁勇', icon: '勇', type: 'shockwave', general: '华雄',
       desc: '定时怒喝一声，震伤并震退周围所有敌人。',
@@ -441,6 +507,9 @@ window.GAME_DATA = {
     taiping: { name: '《太平要术》', icon: '太', max: 1, unique: true, general: '张角', desc: '南华老仙所授天书：冷却 -12%，伤害 +12%，每秒回复 +0.5', effects: { cdMul: -0.12, dmgMul: 0.12, regen: 0.5 } },
     zhanpao: { name: '河北战袍', icon: '袍', max: 1, unique: true, general: '颜良', desc: '颜良的战袍：生命上限 +50，伤害 +12%', effects: { maxHp: 50, dmgMul: 0.12 } },
     liangma: { name: '河北良驹', icon: '驹', max: 1, unique: true, general: '文丑', desc: '文丑的坐骑：移动速度 +12%，暴击率 +6%', effects: { speedMul: 0.12, crit: 0.06 } },
+    yuzan: { name: '闭月玉簪', icon: '簪', max: 1, unique: true, general: '貂蝉', desc: '貂蝉发间的玉簪：暴击率 +8%，暴击伤害 +30%，拾取范围 +20%', effects: { crit: 0.08, critMul: 0.3, pickupMul: 0.2 } },
+    luoshenfu: { name: '《洛神赋》', icon: '洛', max: 1, unique: true, general: '甄姬', desc: '“翩若惊鸿”：冷却 -10%，攻击范围 +10%，每秒回复 +0.5', effects: { cdMul: -0.1, areaMul: 0.1, regen: 0.5 } },
+    jindai: { name: '吴宫锦带', icon: '锦', max: 1, unique: true, general: '孙尚香', desc: '孙夫人的锦带：移动速度 +10%，伤害 +12%，暴击率 +4%', effects: { speedMul: 0.1, dmgMul: 0.12, crit: 0.04 } },
     guqu: { name: '曲有误', icon: '曲', max: 1, unique: true, general: '周瑜', desc: '“曲有误，周郎顾”：冷却 -10%，暴击率 +8%，攻击范围 +10%', effects: { cdMul: -0.1, crit: 0.08, areaMul: 0.1 } },
   },
 
@@ -592,6 +661,53 @@ window.GAME_DATA = {
       banner: '虎牢关 · 吕布 出阵', line: '“三姓家奴？谁敢再说！”', rage: '“今日教你见识天下无双！”',
       look: { skin: '#f0cfa8', skinShade: '#cfa37a', robe: '#7a1712', trim: '#c9a046', armor: true, armorColor: '#9a2a1c', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'pheasant', weapon: 'ji', aura: '#b5372a', artFace: [0.50, 0.22, 0.36] },
     },
+    // —— 女将：貂蝉（樱花）、甄姬（冰）、孙尚香（书与扇） ——
+    diaochan: {
+      name: '貂蝉', title: '闭月 · 倾城舞姬', icon: '貂', hp: 5000, speed: 104, dmg: 20, r: 29, color: '#d86a9a',
+      attacks: ['volley', 'meteor', 'charge', 'volley', 'meteor'], interval: 2.6, kite: 220, chargeSpeed: 660,
+      volley: { count: 7, spread: 1.0, speed: 300, dmg: 13, petal: true },
+      meteor: { count: 5, radius: 66, delay: 1.0, dmg: 22, rgb: '255,150,200', petal: true },
+      rewards: ['luoying', 'biyue', 'yuzan'],
+      ultRgb: '255,140,200', ultEvery: 10,
+      ults: [
+        { id: 'dance', name: '闭月舞', type: 'petalSpiral', arms: 5, waves: 16, gap: 0.09, speed: 250, dmg: 0.8 },
+        { id: 'charm', name: '倾城一顾', type: 'charm', radius: 150, tele: 1.0, pull: 300, dur: 1.6, dmg: 0.8 },
+        { id: 'lianhuan', name: '连环计', type: 'petalRain', hpBelow: 0.5, count: 22, dur: 3.2, r: 66, dmg: 1.2 },
+      ],
+      banner: '司徒府 · 貂蝉 起舞', line: '“将军，可愿看妾身一舞？”', rage: '“花落……人亦断肠。”',
+      look: { skin: '#f6dcc4', skinShade: '#dcb498', robe: '#e07aa6', trim: '#f6e2ea', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#1c1218', pin: '#ff9ac8', weapon: 'ribbon', ribbon: '#ff9ac8', aura: '#d86a9a', female: true, artFace: [0.50, 0.24, 0.34] },
+    },
+    zhenji: {
+      name: '甄姬', title: '洛神 · 凌波仙子', icon: '甄', hp: 6000, speed: 106, dmg: 22, r: 29, color: '#5a8ac0',
+      attacks: ['volley', 'meteor', 'charge', 'meteor', 'volley'], interval: 2.5, kite: 240, chargeSpeed: 680,
+      volley: { count: 8, spread: 1.1, speed: 330, dmg: 13, ice: true },
+      meteor: { count: 5, radius: 66, delay: 1.0, dmg: 22, rgb: '170,220,255', ice: true },
+      rewards: ['yudi', 'hanbing', 'luoshenfu'],
+      ultRgb: '150,210,255', ultEvery: 10,
+      ults: [
+        { id: 'lingbo', name: '凌波微步', type: 'sevenDash', count: 4, speed: 1150, len: 340, w: 40, tele: 0.38, dmg: 1.1, iceTrail: true },
+        { id: 'frost', name: '洛水寒川', type: 'frostNova', radius: 140, tele: 1.15, dmg: 1.3, freeze: 0.9 },
+        { id: 'icering', name: '冰封千里', type: 'stoneRing', hpBelow: 0.5, R: 230, n: 16, dmg: 1.4, rgb: '170,220,255', ice: true },
+      ],
+      banner: '邺城 · 甄姬 凌波而来', line: '“翩若惊鸿，婉若游龙。”', rage: '“洛水寒，君可知？”',
+      look: { skin: '#f4e0cc', skinShade: '#d6b8a0', robe: '#7aa8d8', trim: '#e6f2fa', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#141820', pin: '#bfe6ff', weapon: 'flute', aura: '#5a8ac0', female: true, artFace: [0.50, 0.24, 0.34] },
+    },
+    sunshangxiang: {
+      name: '孙尚香', title: '枭姬 · 江东郡主', icon: '香', hp: 7000, speed: 114, dmg: 22, r: 29, color: '#c8463a',
+      attacks: ['volley', 'charge3', 'meteor', 'volley'], interval: 2.4, chargeSpeed: 720,
+      volley: { count: 6, spread: 0.9, speed: 380, dmg: 14, fan: true },
+      meteor: { count: 5, radius: 66, delay: 1.0, dmg: 22, rgb: '255,205,130', page: true },
+      rewards: ['feishan', 'bingshu', 'jindai'],
+      ultRgb: '255,190,90', ultEvery: 10,
+      ults: [
+        { id: 'feishan', name: '飞扇回旋', type: 'twinStorm', count: 7, speed: 420, range: 330, dmg: 1.0, fan: true },
+        { id: 'bingshu', name: '兵书万卷', type: 'pageCage', n: 16, cageR: 300, speed: 260, tele: 0.9, dmg: 0.9 },
+        { id: 'xiaoji', name: '枭姬之怒', type: 'frenzy', hpBelow: 0.4, dur: 7 },
+      ],
+      banner: '甘露寺 · 孙尚香 拦路', line: '“想过此关，先问问我的扇子！”', rage: '“我孙家儿女，岂是好惹的！”',
+      look: { skin: '#f2d6bc', skinShade: '#d4b092', robe: '#c8463a', trim: '#f0d080', armor: true, armorColor: '#b8862e', beard: 'none', eyes: 'round', brows: 'sharp', head: 'bun', hairColor: '#2a1810', pin: '#f0c040', weapon: 'fan', fanColor: '#e86a50', aura: '#c8463a', female: true, artFace: [0.50, 0.24, 0.34] },
+    },
+
     // —— 第三章 · 群雄逐鹿：颜良、文丑（典韦、关羽在下面） ——
     yanliang: {
       name: '颜良', title: '河北名将 · 袁绍先锋', icon: '颜', hp: 5500, speed: 98, dmg: 26, r: 35, color: '#3a4a6a',
@@ -733,7 +849,7 @@ window.GAME_DATA = {
       ],
     },
     {
-      id: 'taodong', name: '第二章 · 讨董之战', sub: '公元 190 年 · 汜水关 → 虎牢关',
+      id: 'taodong', name: '第二章 · 讨董之战', sub: '公元 190 年 · 汜水关 → 连环计 → 虎牢关',
       clear: '威震虎牢',
       elites: { captain: 10, brute: 30, crossbow: 60 },
       ground: { bg: '#27231a', grass: 'rgba(126,130,74,0.4)', blot: 'rgba(12,10,6,0.16)', flag: 'rgba(150,45,35,0.45)' },
@@ -745,13 +861,14 @@ window.GAME_DATA = {
       ],
       events: [
         { t: 55, type: 'boss', id: 'huaxiong' },
-        { t: 110, type: 'ambush', enemy: 'foot', count: 42, text: '伏兵四起' },
-        { t: 145, type: 'ambush', enemy: 'cavalry', count: 20, text: '西凉铁骑' },
-        { t: 170, type: 'boss', id: 'lubu', final: true },
+        { t: 95, type: 'ambush', enemy: 'foot', count: 42, text: '伏兵四起' },
+        { t: 120, type: 'boss', id: 'diaochan' },
+        { t: 160, type: 'ambush', enemy: 'cavalry', count: 20, text: '西凉铁骑' },
+        { t: 190, type: 'boss', id: 'lubu', final: true },
       ],
     },
     {
-      id: 'qunxiong', name: '第三章 · 群雄逐鹿', sub: '公元 197–200 年 · 宛城 → 白马 → 过五关',
+      id: 'qunxiong', name: '第三章 · 群雄逐鹿', sub: '公元 197–204 年 · 宛城 → 白马 → 邺城 → 过五关',
       clear: '千里走单骑',
       elites: { captain: 0, brute: 0, crossbow: 0 },
       ground: { bg: '#22261a', grass: 'rgba(112,142,72,0.45)', blot: 'rgba(8,12,6,0.16)', flag: 'rgba(50,72,128,0.5)' },
@@ -765,11 +882,12 @@ window.GAME_DATA = {
         { t: 105, type: 'boss', id: 'yanliang' },
         { t: 140, type: 'ambush', enemy: 'cavalry', count: 24, text: '河北铁骑' },
         { t: 170, type: 'boss', id: 'wenchou' },
-        { t: 240, type: 'boss', id: 'guanyu', final: true },
+        { t: 210, type: 'boss', id: 'zhenji' },
+        { t: 260, type: 'boss', id: 'guanyu', final: true },
       ],
     },
     {
-      id: 'chibi', name: '第四章 · 赤壁之战', sub: '公元 208 年 · 博望坡 → 长坂坡 → 赤壁',
+      id: 'chibi', name: '第四章 · 赤壁之战', sub: '公元 208 年 · 博望坡 → 长坂坡 → 甘露寺 → 赤壁',
       clear: '火烧赤壁',
       elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
       ground: { bg: '#1e231f', grass: 'rgba(96,136,104,0.42)', blot: 'rgba(40,74,96,0.24)', flag: 'rgba(170,50,40,0.5)', reeds: true },
@@ -783,7 +901,8 @@ window.GAME_DATA = {
         { t: 105, type: 'boss', id: 'zhangfei' },
         { t: 150, type: 'ambush', enemy: 'foot', count: 48, text: '曹军南下' },
         { t: 165, type: 'boss', id: 'zhaoyun' },
-        { t: 240, type: 'boss', id: 'zhouyu', final: true },
+        { t: 210, type: 'boss', id: 'sunshangxiang' },
+        { t: 265, type: 'boss', id: 'zhouyu', final: true },
       ],
     },
   ],
@@ -866,6 +985,12 @@ window.GAME_DATA = {
       desc: '银枪化作七道枪芒，追着附近的敌人连刺。' },
     zhouyu: { name: '周郎焦尾琴', icon: '琴', iconFrom: 'zhouqin', rgb: '255,120,70', cd: 6, type: 'sonic', dmg: 50, rings: 3, ringR: 360, fire: 3,
       desc: '琴声荡开三圈音波，并在三个敌人脚下燃起火焰。' },
+    diaochan: { name: '倾城花扇', icon: '扇', iconFrom: 'luoying', rgb: '255,150,200', cd: 5, type: 'blossom', dmg: 30, count: 20, radius: 200, stun: 1.2,
+      desc: '花扇一展，二十片樱花旋转着飞出，所过之处敌人受伤；身边的敌人被迷住片刻。' },
+    zhenji: { name: '洛神寒笛', icon: '笛', iconFrom: 'yudi', rgb: '160,215,255', cd: 5.5, type: 'icespikes', dmg: 62, count: 7, radius: 72, stun: 1.2,
+      desc: '笛声一起，七处冰棱从敌人脚下破冰而出，被刺中的敌人冻住片刻。' },
+    sunshangxiang: { name: '枭姬铁扇', icon: '扇', iconFrom: 'feishan', rgb: '255,190,90', cd: 4.5, type: 'fans', dmg: 40, count: 6, range: 300,
+      desc: '六把铁扇向四面飞出再旋回手中，并撒下一阵书页，炸伤附近的敌人。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大
@@ -879,6 +1004,22 @@ window.GAME_DATA = {
     speed: 1.35, charge: 1.3,             // 移动、冲锋速度倍率
     interval: 0.62, ultEvery: 0.65,       // 出招间隔、大招冷却倍率（越小越频繁）
     area: 1.4, ultArea: 1.25,             // 普通招式、大招的范围倍率
+    // 名将（武将）在上面的基础上再加强：招式范围翻倍、跑得比玩家还快，没法随便放风筝
+    general: {
+      kMin: 0,                            // 精英那一档：和精英一样随时间拉满
+      rampFrom: 60, rampSec: 300,         // 名将额外那一档：60 秒后开始加，再过 300 秒加满（第一章几乎不加，第二章起基本全额）
+      speed: 1.75, charge: 1.45,          // 移动、冲锋速度倍率
+      area: 2.8, ultArea: 2.5,            // 普通招式、大招范围倍率（= 精英的两倍）
+      width: 1.6, hazard: 1.6,            // 冲刺宽度、大招里固定大小的落点（火线、石阵、光柱）倍率
+      tele: 1.15,                         // 范围变大后，普通招式的预警稍微拉长一点，还躲得开
+      // 范围上限：太大的招式会铺满整个屏幕
+      cap: { slamR: 470, cleaveR: 540, roarR: 580, radius: 330, R: 820, r: 130 },
+    },
+    // 名将血量越低越难打：半血、濒死时受到的伤害降低（第一章的名将只减一半）
+    phases: [
+      { below: 0.5, dr: 0.25, text: '半血' },
+      { below: 0.2, dr: 0.45, text: '濒死' },
+    ],
   },
 
   // 全局节奏
