@@ -151,7 +151,7 @@ fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
   // 配音两种写法：["lubu_enter", …]（一句一个文件），或 { lubu: { file: "lubu.mp3", clips: { enter: [起, 止], … } } }（一位名将一个文件，按时间段取每一句）
   const v = m.voice || [];
   if (Array.isArray(v)) for (const id of v) AUDIO.voice[id] = { src: `${ASSET_BASE}voice/${id}.mp3` };
-  else for (const gid in v) for (const k in v[gid].clips) AUDIO.voice[`${gid}_${k}`] = { src: `${ASSET_BASE}voice/${v[gid].file}`, t: v[gid].clips[k] };
+  else for (const gid in v) for (const k in v[gid].clips) AUDIO.voice[`${gid}_${k}`] = { src: `${ASSET_BASE}voice/${v[gid].file}`, t: v[gid].clips[k], gain: v[gid].gain || 1 }; // gain：录得小声的名将单独放大
   Music.refresh();
 }).catch(() => { /* 没有清单：用合成音乐 */ });
 
@@ -317,9 +317,14 @@ function speak(gid, key, text, subtitle = true) {
   voiceBuf(clip.src).then(buf => {
     if (ask !== speak.n || !voiceOn || muted) return; // 等解码的时候又说了别的
     const [t0, t1] = clip.t || [0, buf.duration], dur = Math.max(0.1, Math.min(buf.duration, t1) - t0);
+    if (!speak.out) { // 语音总线：压限器，放大后的小声配音也不会爆音，各名将响度更一致
+      const c = actx.createDynamicsCompressor();
+      c.threshold.value = -10; c.knee.value = 6; c.ratio.value = 12; c.attack.value = 0.003; c.release.value = 0.15;
+      c.connect(actx.destination); speak.out = c;
+    }
     const s = actx.createBufferSource(), g = actx.createGain();
-    s.buffer = buf; g.gain.value = 0.95;
-    s.connect(g).connect(actx.destination); s.start(0, t0, dur);
+    s.buffer = buf; g.gain.value = 0.95 * (clip.gain || 1);
+    s.connect(g).connect(speak.out); s.start(0, t0, dur);
     vClip = s; vUntil = performance.now() + dur * 1000;
     Music.duck(dur + 0.2);
   }).catch(() => { /* 文件坏了：只留字幕 */ });
