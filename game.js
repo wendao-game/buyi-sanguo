@@ -2892,13 +2892,15 @@ function levelOptions() {
   // 没有等级上限：满级后继续出现“突破”选项，权重略低
   for (const w of S.weapons) { const d = D.weapons[w.id]; pool.push({ kind: 'weapon', id: w.id, cur: w.lv, w: (w.lv < d.levels.length ? 3.6 : 1.8) * focusMul(d, 'weapon') }); }
   for (const s of S.skills) { const d = D.skills[s.id]; pool.push({ kind: 'skill', id: s.id, cur: s.lv, w: (s.lv < d.levels.length ? 3.5 : 2) * focusMul(d, 'skill') }); }
+  // 别的出身的起手武器（锄头、猎弓、竹简）和专精物品刷不到
+  const otherStart = new Set(D.origins.filter(o => o.id !== S.origin.id).map(o => o.weapon));
   if (S.weapons.length < D.player.weaponSlots) {
-    for (const id in D.weapons) { const d = D.weapons[id]; if (d.common && !S.weapons.some(w => w.id === id)) pool.push({ kind: 'weapon', id, cur: 0, w: 2 * focusMul(d, 'weapon') }); }
+    for (const id in D.weapons) { const d = D.weapons[id]; if (d.common && !otherStart.has(id) && !S.weapons.some(w => w.id === id)) pool.push({ kind: 'weapon', id, cur: 0, w: 2 * focusMul(d, 'weapon') }); }
   }
   const ownedPassives = Object.keys(S.passives).filter(id => !D.passives[id].unique).length;
   for (const id in D.passives) {
     const def = D.passives[id];
-    if (def.unique) continue;
+    if (def.unique || (def.origin && def.origin !== S.origin.id)) continue;
     const lv = S.passives[id] || 0;
     if (!lv && ownedPassives >= D.player.passiveSlots) continue;
     pool.push({ kind: 'passive', id, cur: lv, w: (!lv ? 1.0 : lv < def.max ? 2.0 : 0.8) * focusMul(def, 'passive') });

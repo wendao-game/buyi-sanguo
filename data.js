@@ -480,7 +480,7 @@ window.GAME_DATA = {
     },
   },
 
-  // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得
+  // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
   passives: {
     sandals: { tags: [], name: '草鞋', icon: '履', max: 5, desc: '移动速度 +10%', effects: { speedMul: 0.1 } },
     leather: { tags: ['body'], name: '皮甲', icon: '甲', max: 5, desc: '护甲 +1（每次受伤减少 1 点）', effects: { armor: 1 } },
@@ -494,14 +494,14 @@ window.GAME_DATA = {
     eagle: { tags: [], name: '鹰眼', icon: '眼', max: 5, desc: '暴击率 +4%', effects: { crit: 0.04 } },
     vital: { tags: [], name: '要害', icon: '刺', max: 5, desc: '暴击伤害 +20%', effects: { critMul: 0.2 } },
     // 农夫 · 炼体
-    lianti: { tags: ['body'], name: '炼体', icon: '体', max: 5, desc: '生命上限 +10%，每秒回复 +0.2', effects: { maxHpMul: 0.1, regen: 0.2 } },
-    tiebu: { tags: ['body'], name: '铁布衫', icon: '衫', max: 5, desc: '护甲 +1，生命上限 +15', effects: { armor: 1, maxHp: 15 } },
+    lianti: { origin: 'farmer', tags: ['body'], name: '炼体', icon: '体', max: 5, desc: '生命上限 +10%，每秒回复 +0.2', effects: { maxHpMul: 0.1, regen: 0.2 } },
+    tiebu: { origin: 'farmer', tags: ['body'], name: '铁布衫', icon: '衫', max: 5, desc: '护甲 +1，生命上限 +15', effects: { armor: 1, maxHp: 15 } },
     // 猎户 · 弓箭（对猎弓、连弩生效）
-    lianzhu: { tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每次多射 1 支箭（一次最多 4 支，射满后改为伤害 +12%）', effects: { arrowCount: 1 } },
-    chuanyang: { tags: ['bow'], name: '百步穿杨', icon: '杨', max: 5, desc: '弓弩伤害 +15%，穿透 +1', effects: { arrowDmg: 0.15, arrowPierce: 1 } },
+    lianzhu: { origin: 'hunter', tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每次多射 1 支箭（一次最多 4 支，射满后改为伤害 +12%）', effects: { arrowCount: 1 } },
+    chuanyang: { origin: 'hunter', tags: ['bow'], name: '百步穿杨', icon: '杨', max: 5, desc: '弓弩伤害 +15%，穿透 +1', effects: { arrowDmg: 0.15, arrowPierce: 1 } },
     // 书生 · 计策（对竹简、羽扇、符咒、法杖、古琴、火把和所有技能生效）
-    qimou: { tags: ['spell'], name: '奇谋', icon: '谋', max: 5, desc: '计策与技能伤害 +15%', effects: { spellDmg: 0.15 } },
-    bingfa: { tags: ['spell'], name: '孙子兵法', icon: '孙', max: 5, desc: '计策与技能冷却 -8%，计策范围 +8%', effects: { skillCd: 0.08, spellArea: 0.08 } },
+    qimou: { origin: 'scholar', tags: ['spell'], name: '奇谋', icon: '谋', max: 5, desc: '计策与技能伤害 +15%', effects: { spellDmg: 0.15 } },
+    bingfa: { origin: 'scholar', tags: ['spell'], name: '孙子兵法', icon: '孙', max: 5, desc: '计策与技能冷却 -8%，计策范围 +8%', effects: { skillCd: 0.08, spellArea: 0.08 } },
     xiliang: { name: '西凉铠', icon: '铠', max: 1, unique: true, general: '华雄', desc: '华雄的铁甲：护甲 +3，生命上限 +40', effects: { armor: 3, maxHp: 40 } },
     chunqiu: { name: '《春秋》', icon: '春', max: 1, unique: true, general: '关羽', desc: '关羽夜读之书：伤害 +25%，暴击率 +5%', effects: { dmgMul: 0.25, crit: 0.05 } },
     jiutan: { name: '张飞酒坛', icon: '坛', max: 1, unique: true, general: '张飞', desc: '一坛烈酒下肚：生命上限 +60，每秒回复 +1', effects: { maxHp: 60, regen: 1 } },
