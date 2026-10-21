@@ -143,10 +143,11 @@ function noiseBuffer() {
 // 音乐、语音文件由 assets/audio.json 列出（装素材时生成），没有清单时一律用合成的占位音乐、只显示字幕，不会去请求不存在的文件。
 let musicOn = true, voiceOn = true;
 try { musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0'; } catch (e) { /* 存储不可用时忽略 */ }
-const AUDIO = { bgm: {}, voice: {} };
+const AUDIO = { bgm: {}, voice: {}, loop: {} };
 fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
   if (!m) return;
   for (const id of m.bgm || []) AUDIO.bgm[id] = `${ASSET_BASE}bgm/${id}.mp3`;
+  Object.assign(AUDIO.loop, m.loop || {}); // 每首的循环长度（采样帧，44.1 kHz），用来做无缝循环
   for (const id of m.voice || []) AUDIO.voice[id] = `${ASSET_BASE}voice/${id}.mp3`;
   Music.refresh();
 }).catch(() => { /* 没有清单：用合成音乐 */ });
@@ -155,7 +156,7 @@ fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
 // 每首曲子按名字生成固定的两段 4 小节旋律，交替循环，所以每次听到的是同一首。
 const Music = (() => {
   const VOL_FILE = 0.45, VOL_SYNTH = 0.55;
-  let cur = null, live = false, el = null, timer = null, gain = null, duckUntil = 0;
+  let cur = null, live = false, timer = null, gain = null, duckUntil = 0;
   const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const hashStr = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
   function compose(id, P) {
@@ -230,21 +231,43 @@ const Music = (() => {
       }
     }, 90);
   }
+  // 音乐文件：解码成整段音频，用 Web Audio 无缝循环（<audio loop> 循环时会有一小段空白）。
+  // 解码后的音频很占内存，只留最近用过的 2 首。
+  const decoded = new Map();
+  function load(id) {
+    if (decoded.has(id)) { const p = decoded.get(id); decoded.delete(id); decoded.set(id, p); return p; }
+    const p = fetch(AUDIO.bgm[id]).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => actx.decodeAudioData(b, ok, no)));
+    decoded.set(id, p);
+    while (decoded.size > 2) decoded.delete(decoded.keys().next().value);
+    p.catch(() => decoded.delete(id));
+    return p;
+  }
+  let src = null, srcGain = null, token = 0;
+  function startFile(id) {
+    const my = ++token;
+    load(id).then(buf => {
+      if (my !== token || cur !== id || !live) return; // 解码期间已经换了曲子
+      const a = actx, s = a.createBufferSource(), g = a.createGain();
+      s.buffer = buf; s.loop = true;
+      const frames = AUDIO.loop[id];
+      if (frames && frames / 44100 <= buf.duration + 0.01) { s.loopStart = 0; s.loopEnd = Math.min(buf.duration, frames / 44100); }
+      g.gain.setValueAtTime(0.0001, a.currentTime); g.gain.linearRampToValueAtTime(VOL_FILE * (performance.now() < duckUntil ? 0.35 : 1), a.currentTime + 1.5);
+      s.connect(g).connect(a.destination); s.start();
+      src = s; srcGain = g;
+    }).catch(() => { if (my === token && cur === id && D.bgm[id]) startSynth(id, D.bgm[id]); }); // 文件坏了就退回合成音乐
+  }
   function stop() {
-    live = false;
+    live = false; token++;
     if (timer) { clearInterval(timer); timer = null; }
     if (gain) { const g = gain; gain = null; g.gain.cancelScheduledValues(actx.currentTime); g.gain.setValueAtTime(g.gain.value, actx.currentTime); g.gain.linearRampToValueAtTime(0.0001, actx.currentTime + 1.2); setTimeout(() => g.disconnect(), 1500); }
-    if (el) { const old = el; el = null; let v = old.volume; const iv = setInterval(() => { v = Math.max(0, v - 0.05); old.volume = v; if (v <= 0) { clearInterval(iv); old.pause(); } }, 60); }
+    if (src) { const s = src, g = srcGain; src = srcGain = null; const t = actx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + 1.2); s.stop(t + 1.3); }
   }
   function start(id) {
     stop();
     if (!id || !actx || muted || !musicOn) return;
     live = true;
-    if (AUDIO.bgm[id]) {
-      const a = el = new Audio(AUDIO.bgm[id]); a.loop = true; a.volume = 0;
-      a.play().catch(() => { /* 还没有用户操作，下次再试 */ live = false; });
-      let v = 0; const iv = setInterval(() => { if (el !== a) return clearInterval(iv); v = Math.min(VOL_FILE * (performance.now() < duckUntil ? 0.35 : 1), v + 0.03); a.volume = v; if (v >= VOL_FILE) clearInterval(iv); }, 60);
-    } else if (D.bgm[id]) startSynth(id, D.bgm[id]);
+    if (AUDIO.bgm[id]) startFile(id);
+    else if (D.bgm[id]) startSynth(id, D.bgm[id]);
   }
   return {
     want(id) { if (id === cur && (live || !actx || muted || !musicOn)) return; cur = id; start(id); },
@@ -253,9 +276,10 @@ const Music = (() => {
     duck(sec) {
       duckUntil = performance.now() + sec * 1000;
       if (gain) { const t = actx.currentTime; gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(gain.gain.value, t); gain.gain.linearRampToValueAtTime(VOL_SYNTH * 0.35, t + 0.15); gain.gain.setValueAtTime(VOL_SYNTH * 0.35, t + sec); gain.gain.linearRampToValueAtTime(VOL_SYNTH, t + sec + 0.6); }
-      if (el) { const a = el; a.volume = VOL_FILE * 0.35; setTimeout(() => { if (el === a) a.volume = VOL_FILE; }, sec * 1000); }
+      if (srcGain) { const g = srcGain, t = actx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(VOL_FILE * 0.35, t + 0.15); g.gain.setValueAtTime(VOL_FILE * 0.35, t + sec); g.gain.linearRampToValueAtTime(VOL_FILE, t + sec + 0.6); }
     },
     get current() { return cur; },
+    get playing() { return src ? 'file' : timer ? 'synth' : null; },
   };
 })();
 // 现在应该放哪首：标题 / 各章 / 名将在场 / 无尽征途；战死后停
@@ -4918,7 +4942,7 @@ window.BUYI = {
   xp(v) { if (S) addXp(v); },
   god(on = true) { if (S) S.god = on; },
   bot(fn) { botMove = fn || null; },
-  get audio() { return { track: Music.current, ctx: actx && actx.state, musicOn, voiceOn, muted, files: AUDIO }; }, // 调试：现在放的是哪首
+  get audio() { return { track: Music.current, playing: Music.playing, ctx: actx && actx.state, musicOn, voiceOn, muted, files: AUDIO }; }, // 调试：现在放的是哪首
   start(originId) { startGame(originId); },
   // 快进模拟：autoPick 为 true 时自动选择第一张卡；也可以传一个函数 (opts) => 第几张
   step(sec, autoPick) {

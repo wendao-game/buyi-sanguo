@@ -1,1 +1,1 @@
-{ "bgm": [], "voice": [] }
+{ "bgm": ["title", "huangjin", "taodong", "qunxiong", "chibi", "endless", "boss"], "loop": { "title": 4838400, "huangjin": 4409856, "taodong": 4703616, "qunxiong": 4565376, "chibi": 4536576, "endless": 4664448, "boss": 4669056 }, "voice": [] }
