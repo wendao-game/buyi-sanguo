@@ -130,6 +130,164 @@ function sfx(name) {
       break;
   }
 }
+function noiseBuffer() {
+  if (!noiseBuf) {
+    noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  return noiseBuf;
+}
+
+// ============ 背景音乐与名将语音 ============
+// 音乐、语音文件由 assets/audio.json 列出（装素材时生成），没有清单时一律用合成的占位音乐、只显示字幕，不会去请求不存在的文件。
+let musicOn = true, voiceOn = true;
+try { musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0'; } catch (e) { /* 存储不可用时忽略 */ }
+const AUDIO = { bgm: {}, voice: {} };
+fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
+  if (!m) return;
+  for (const id of m.bgm || []) AUDIO.bgm[id] = `${ASSET_BASE}bgm/${id}.mp3`;
+  for (const id of m.voice || []) AUDIO.voice[id] = `${ASSET_BASE}voice/${id}.mp3`;
+  Music.refresh();
+}).catch(() => { /* 没有清单：用合成音乐 */ });
+
+// 合成的古风占位曲：弹拨（像古筝）的五声旋律 + 低音 + 长音铺底 + 战鼓 + 锣。
+// 每首曲子按名字生成固定的两段 4 小节旋律，交替循环，所以每次听到的是同一首。
+const Music = (() => {
+  const VOL_FILE = 0.45, VOL_SYNTH = 0.55;
+  let cur = null, live = false, el = null, timer = null, gain = null, duckUntil = 0;
+  const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const hashStr = s => { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
+  function compose(id, P) {
+    const r = mulberry(hashStr(id)), scale = P.mode === 'yu' ? [0, 3, 5, 7, 10] : [0, 2, 4, 7, 9];
+    const RHY = P.drums >= 2 ? [[0, 3, 6, 8, 12], [0, 2, 4, 8, 10, 12], [0, 4, 6, 8, 12, 14], [0, 3, 6, 10, 12], [0, 2, 3, 4, 8, 12]]
+      : [[0, 4, 8, 12], [0, 6, 8, 12], [0, 8, 12], [0, 4, 8], [0, 6, 8, 14]];
+    const phrases = [];
+    for (let ph = 0; ph < 2; ph++) {
+      const bars = []; let deg = 6 + Math.floor(r() * 3);
+      for (let b = 0; b < 4; b++) {
+        const notes = {};
+        for (const st of RHY[Math.floor(r() * RHY.length)]) { deg = Math.max(3, Math.min(12, deg + Math.floor(r() * 5) - 2)); notes[st] = deg; }
+        if (b === 3) { for (const st in notes) if (+st > 8) delete notes[st]; notes[12] = ph ? 5 : 7; } // 段落结尾落在主音 / 属音
+        bars.push(notes);
+      }
+      phrases.push(bars);
+    }
+    const freq = d => P.root * Math.pow(2, (Math.floor(d / 5) * 12 + scale[((d % 5) + 5) % 5]) / 12);
+    return { phrases, freq };
+  }
+  // 弹拨：三角波 + 高八度正弦泛音，滤波器随余音慢慢关上，像拨了一下琴弦
+  function pluck(f, t, vol, dec) {
+    const a = actx, o1 = a.createOscillator(), o2 = a.createOscillator(), h = a.createGain(), lp = a.createBiquadFilter(), e = a.createGain();
+    o1.type = 'triangle'; o2.type = 'sine'; o1.frequency.value = f; o2.frequency.value = f * 2.004; h.gain.value = 0.3;
+    lp.type = 'lowpass'; lp.frequency.setValueAtTime(Math.min(5000, f * 7), t); lp.frequency.exponentialRampToValueAtTime(Math.max(220, f * 1.4), t + dec);
+    e.gain.setValueAtTime(0.0001, t); e.gain.exponentialRampToValueAtTime(vol, t + 0.004); e.gain.exponentialRampToValueAtTime(0.0001, t + dec);
+    o1.connect(lp); o2.connect(h).connect(lp); lp.connect(e).connect(gain);
+    o1.start(t); o2.start(t); o1.stop(t + dec + 0.05); o2.stop(t + dec + 0.05);
+  }
+  // 铺底长音：主音和五度，慢起慢收
+  function pad(f, t, dur, vol) {
+    for (const k of [1, 1.5]) {
+      const o = actx.createOscillator(), e = actx.createGain();
+      o.type = 'sine'; o.frequency.value = f * k;
+      e.gain.setValueAtTime(0.0001, t); e.gain.linearRampToValueAtTime(vol / k, t + dur * 0.3); e.gain.linearRampToValueAtTime(0.0001, t + dur);
+      o.connect(e).connect(gain); o.start(t); o.stop(t + dur + 0.05);
+    }
+  }
+  function hit(t, f0, f1, dur, vol, nf, nv) { // 鼓：下滑的低音 + 一点闷噪声
+    const o = actx.createOscillator(), e = actx.createGain();
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    e.gain.setValueAtTime(0.0001, t); e.gain.exponentialRampToValueAtTime(vol, t + 0.004); e.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(e).connect(gain); o.start(t); o.stop(t + dur + 0.05);
+    if (nv) {
+      const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+      s.buffer = noiseBuffer(); f.type = nf > 1000 ? 'bandpass' : 'lowpass'; f.frequency.value = nf;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(nv, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + (nf > 1000 ? 0.08 : 0.2));
+      s.connect(f).connect(g).connect(gain); s.start(t, Math.random() * 0.5); s.stop(t + 0.25);
+    }
+  }
+  function drums(lvl, s, bar, t) {
+    if (!lvl) return;
+    const big = [[], [0, 8], [0, 6, 8], [0, 3, 6, 8, 11, 14]][lvl], small = [[], [], [4, 12], [4, 12, 15]][lvl];
+    if (big.includes(s)) hit(t, 92, 42, 0.42, s === 0 ? 0.36 : 0.24, 300, 0.06);
+    if (small.includes(s)) hit(t, 220, 160, 0.06, 0.03, 1900, 0.05);
+    if (lvl >= 2 && bar % 4 === 3 && s >= 12) hit(t, 200, 150, 0.05, 0.02, 1700, 0.025 + (s - 12) * 0.01); // 段尾滚奏
+  }
+  function startSynth(id, P) {
+    const C = compose(id, P), a = actx, sp = 60 / P.bpm / 4;
+    gain = a.createGain(); gain.gain.setValueAtTime(0.0001, a.currentTime); gain.gain.linearRampToValueAtTime(VOL_SYNTH, a.currentTime + 2.5);
+    gain.connect(bus);
+    let step = 0, t = a.currentTime + 0.1;
+    timer = setInterval(() => {
+      while (t < a.currentTime + 0.4) {
+        const bar = Math.floor(step / 16), s = step % 16, notes = C.phrases[Math.floor(bar / 4) % 2][bar % 4];
+        if (notes[s] !== undefined) pluck(C.freq(notes[s]), t, 0.1, P.decay);
+        if (s === 0 || s === 8) pluck(C.freq(s === 0 ? 0 : bar % 2 ? 3 : 2) / 2, t, 0.08, P.decay * 1.3); // 低音
+        if (s === 0 && bar % 2 === 0) pad(C.freq(0) / 2, t, sp * 32, 0.03);
+        drums(P.drums, s, bar, t);
+        if (P.gong && s === 0 && bar % 8 === 0) { hit(t, 110, 104, 3, 0.05, 0, 0); hit(t, 166, 160, 2.6, 0.03, 0, 0); }
+        step++; t += sp;
+      }
+    }, 90);
+  }
+  function stop() {
+    live = false;
+    if (timer) { clearInterval(timer); timer = null; }
+    if (gain) { const g = gain; gain = null; g.gain.cancelScheduledValues(actx.currentTime); g.gain.setValueAtTime(g.gain.value, actx.currentTime); g.gain.linearRampToValueAtTime(0.0001, actx.currentTime + 1.2); setTimeout(() => g.disconnect(), 1500); }
+    if (el) { const old = el; el = null; let v = old.volume; const iv = setInterval(() => { v = Math.max(0, v - 0.05); old.volume = v; if (v <= 0) { clearInterval(iv); old.pause(); } }, 60); }
+  }
+  function start(id) {
+    stop();
+    if (!id || !actx || muted || !musicOn) return;
+    live = true;
+    if (AUDIO.bgm[id]) {
+      const a = el = new Audio(AUDIO.bgm[id]); a.loop = true; a.volume = 0;
+      a.play().catch(() => { /* 还没有用户操作，下次再试 */ live = false; });
+      let v = 0; const iv = setInterval(() => { if (el !== a) return clearInterval(iv); v = Math.min(VOL_FILE * (performance.now() < duckUntil ? 0.35 : 1), v + 0.03); a.volume = v; if (v >= VOL_FILE) clearInterval(iv); }, 60);
+    } else if (D.bgm[id]) startSynth(id, D.bgm[id]);
+  }
+  return {
+    want(id) { if (id === cur && (live || !actx || muted || !musicOn)) return; cur = id; start(id); },
+    refresh() { start(cur); },
+    // 名将说话时把音乐压低
+    duck(sec) {
+      duckUntil = performance.now() + sec * 1000;
+      if (gain) { const t = actx.currentTime; gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(gain.gain.value, t); gain.gain.linearRampToValueAtTime(VOL_SYNTH * 0.35, t + 0.15); gain.gain.setValueAtTime(VOL_SYNTH * 0.35, t + sec); gain.gain.linearRampToValueAtTime(VOL_SYNTH, t + sec + 0.6); }
+      if (el) { const a = el; a.volume = VOL_FILE * 0.35; setTimeout(() => { if (el === a) a.volume = VOL_FILE; }, sec * 1000); }
+    },
+    get current() { return cur; },
+  };
+})();
+// 现在应该放哪首：标题 / 各章 / 名将在场 / 无尽征途；战死后停
+function musicTrack() {
+  if (!S) return 'title';
+  if (S.over) return null;
+  if (S.bossList.length) return 'boss';
+  if (S.endless) return 'endless';
+  return (D.chapters[S.ch] || {}).id || 'endless';
+}
+
+// 名将语音：同时只说一句，重要的（阵亡 > 大招 > 登场 > 暴怒）可以打断不重要的；有字幕，有配音就播放
+const VOICE_PRI = { death: 4, ult: 3, enter: 2, rage: 1 };
+let vClip = null, vPri = 0, vUntil = 0;
+function speak(gid, key, text, subtitle = true) {
+  const g = D.generals[gid];
+  if (!g || !text) return;
+  const pri = VOICE_PRI[key.split('_')[0]] || 1, now = performance.now();
+  if (now < vUntil && pri < vPri) return;
+  vPri = pri; vUntil = now + 2600;
+  if (subtitle) {
+    $('vl-name').textContent = g.name; $('vl-text').textContent = text;
+    const b = $('vline'); b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
+  }
+  if (vClip) { vClip.pause(); vClip = null; }
+  const src = AUDIO.voice[`${gid}_${key}`];
+  if (!src || !voiceOn || muted) return;
+  const a = vClip = new Audio(src);
+  a.volume = 0.95;
+  a.addEventListener('loadedmetadata', () => { Music.duck(a.duration + 0.2); vUntil = now + a.duration * 1000; });
+  a.play().catch(() => { /* 浏览器不让播：只留字幕 */ });
+}
 
 // ============ 输入 ============
 const keys = new Set();
@@ -597,6 +755,7 @@ function onBossDeath(e) {
   S.bossList = S.bossList.filter(b => b !== e);
   S.defeated.push(g.name);
   markSlain(e.gid);
+  if (D.voice[e.gid]) speak(e.gid, 'death', `“${D.voice[e.gid].death}”`);
   S.shake = 18; S.slowmo = 1.0;
   sfx('slam');
   for (let i = 0; i < 24; i++) particle(e.x, e.y - 20, i % 2 ? '#cfa34a' : g.color, 360);
@@ -952,6 +1111,7 @@ function spawnBoss(gid, final) {
   // 立绘切入：第一次登场念台词，再次登场显示强度
   if (S.seen[gid]) { S.seen[gid]++; showCutin(gid, `${g.name} 卷土重来`, `第 ${S.seen[gid]} 次交手 · 血量 ${Math.round(hp)}`); }
   else { S.seen[gid] = 1; showCutin(gid, g.banner, g.line); }
+  speak(gid, 'enter', g.line, false); // 登场横幅里已经有这句台词，不再另出字幕
   sfx('boss');
   S.shake = 12;
 }
@@ -1598,6 +1758,8 @@ function showUltCutin(e, u) {
   $('ult-gen').textContent = `${g.name} · 大招`;
   box.classList.remove('show'); void box.offsetWidth; box.classList.add('show');
   S.ultFreeze = 1.25;   // 画面近乎定格，突出压迫感
+  const vl = D.voice[e.gid];
+  if (vl && vl.ult[u.id]) speak(e.gid, 'ult_' + u.id, `“${vl.ult[u.id]}”`);
   // 蓄力：脚下展开专属色的法阵，身上冲起一道光柱
   const uc = g.ultRgb || '255,80,60';
   fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.5, w: e.r * 7, h: e.r * 7, rgb: uc, under: true, flat: 0.55, life: 1.8, spin: 1.6, grow: 1.15, fadeIn: 0.1, core: 0.5 });
@@ -2035,6 +2197,7 @@ function updateBoss(e, dt) {
   if (e.boss && !e.enraged && e.hp < e.maxHp * 0.5) {
     e.enraged = true;
     say(e, g.rage || '“有点本事！”');
+    if (e.boss) speak(e.gid, 'rage', g.rage);
     S.shake = 10;
   }
   if (e.boss) bossPhase(e);
@@ -3543,9 +3706,18 @@ $('btn-sound').addEventListener('click', () => {
   $('btn-sound').textContent = muted ? '静' : '声';
   try { localStorage.setItem('buyi-muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
   audio();
+  Music.refresh();
+  if (muted && vClip) vClip.pause();
 });
 $('btn-sound').textContent = muted ? '静' : '声';
-document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause(); if (document.hidden) { saveRun(); saveMeta(true); } });
+// 暂停菜单里分别开关音乐和语音
+const audioLabels = () => { $('btn-music').textContent = `音乐：${musicOn ? '开' : '关'}`; $('btn-voice').textContent = `语音：${voiceOn ? '开' : '关'}`; };
+$('btn-music').addEventListener('click', () => { musicOn = !musicOn; try { localStorage.setItem('buyi-music', musicOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); Music.refresh(); });
+$('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; try { localStorage.setItem('buyi-voice', voiceOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); if (!voiceOn && vClip) vClip.pause(); });
+audioLabels();
+// 浏览器要求先有一次点击 / 按键才能出声：标题界面第一次操作时就把音乐放起来
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => audio(), { once: true, capture: true });
+document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause(); if (document.hidden) { saveRun(); saveMeta(true); Music.want(null); } });
 addEventListener('pagehide', () => { saveRun(); saveMeta(true); });
 
 // ============ 绘制 ============
@@ -4725,6 +4897,7 @@ function frame(now) {
     update(dt);
   }
   if (S) S.shake = Math.max(0, S.shake - raw * 30);
+  Music.want(musicTrack());
   render(raw);
   hudT -= raw;
   if (S && hudT <= 0) { hudT = 0.1; updateHud(); }
@@ -4745,6 +4918,7 @@ window.BUYI = {
   xp(v) { if (S) addXp(v); },
   god(on = true) { if (S) S.god = on; },
   bot(fn) { botMove = fn || null; },
+  get audio() { return { track: Music.current, ctx: actx && actx.state, musicOn, voiceOn, muted, files: AUDIO }; }, // 调试：现在放的是哪首
   start(originId) { startGame(originId); },
   // 快进模拟：autoPick 为 true 时自动选择第一张卡；也可以传一个函数 (opts) => 第几张
   step(sec, autoPick) {

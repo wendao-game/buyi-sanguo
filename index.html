@@ -208,6 +208,16 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 @keyframes ultLines { 0% { background-position: 0 0, 0 0; } 100% { background-position: 0 24px, 0 0; } }
 @keyframes ultText { 0%, 14% { opacity: 0; transform: scale(2.2); letter-spacing: .6em; } 24% { opacity: 1; transform: scale(1); letter-spacing: .12em; } 86% { opacity: 1; transform: scale(1.04); } 100% { opacity: 0; transform: scale(1.1); } }
 @media (prefers-reduced-motion: reduce) { #ult.show .ult-art, #ult.show .ult-lines { animation: none; } }
+/* 名将台词字幕：底部居中，压在大招演出上面 */
+#vline { position: absolute; z-index: 4; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); transform: translate(-50%, 8px); opacity: 0;
+  display: flex; align-items: baseline; gap: 10px; max-width: min(620px, calc(100% - 32px)); padding: 8px 16px;
+  background: rgba(18,15,11,.82); border-left: 3px solid var(--seal); border-radius: 2px; pointer-events: none; }
+#vline.show { animation: vline 2.8s ease forwards; }
+#vl-name { flex: none; font-family: var(--display); font-weight: 400; font-size: 22px; color: var(--gold); line-height: 1; }
+#vl-text { font-size: 17px; color: var(--paper); line-height: 1.4; }
+@keyframes vline { 0% { opacity: 0; transform: translate(-50%, 8px); } 8% { opacity: 1; transform: translate(-50%, 0); } 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #vline.show { animation-name: bannerfade; } }
+@media (max-width: 560px) { #vline { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); } #vl-name { font-size: 18px; } #vl-text { font-size: 14px; } }
 #allies { font-size: 12px; color: #9cc4ff; text-shadow: 0 1px 2px #000; }
 /* 顶部小提示：精英出现、攻破据点 */
 #toast { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 16px); transform: translate(-50%, -20px); opacity: 0;
@@ -376,6 +386,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <div class="ult-text"><b id="ult-name"></b><span id="ult-gen"></span></div>
     </div>
     <div id="toast"><div id="toast-face"></div><div class="toast-text"><b id="toast-title"></b><span id="toast-sub"></span></div></div>
+    <div id="vline" aria-live="polite"><b id="vl-name"></b><span id="vl-text"></span></div>
     <div id="tip">攻击全自动 · 专心走位</div>
   </div>
 
@@ -441,6 +452,10 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="btns">
       <button class="btn primary" id="btn-resume">继续</button>
       <button class="btn" id="btn-quit">回到标题</button>
+    </div>
+    <div class="btns">
+      <button class="btn" id="btn-music">音乐：开</button>
+      <button class="btn" id="btn-voice">语音：开</button>
     </div>
   </div>
 

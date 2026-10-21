@@ -891,6 +891,39 @@ window.GAME_DATA = {
     },
   },
 
+  // 名将语音：登场用 generals 里的 line，半血暴怒用 rage，这里补上阵亡和每个大招的台词（全部原创，不照搬别的游戏）。
+  // 有配音文件就播放（assets/voice/<武将>_enter / _rage / _death / _ult_<大招id>.mp3），没有就只显示字幕。
+  voice: {
+    chengyuanzhi: { death: '大贤良师……救我……', ult: { axe: '开山！给我破！', mob: '黄巾儿郎，随我杀！' } },
+    zhangbao: { death: '地公……也会死么……', ult: { beans: '撒豆成兵，起！', bolt: '妖雷，落！' } },
+    zhangjiao: { death: '黄天……终究未立……', ult: { thunder: '天公雷罚，降！', host: '黄天当立，众生听令！', pool: '雷池之中，寸步难行！' } },
+    huaxiong: { death: '关外……竟有此等人物……', ult: { leap: '斩将刀下，不留全尸！', whirl: '西凉狂刃，看你往哪逃！' } },
+    lubu: { death: '我……天下无双……', ult: { chitu: '赤兔，随我踏平此阵！', yuanmen: '辕门射戟，一箭定乾坤！', wushuang: '画戟所向，片甲不留！' } },
+    diaochan: { death: '妾身……终是一场空……', ult: { dance: '闭月一舞，与君同醉。', charm: '将军，看着妾身。', lianhuan: '一环扣一环，君已入局。' } },
+    zhenji: { death: '洛水……好冷……', ult: { lingbo: '凌波微步，罗袜生尘。', frost: '洛水寒川，冻彻君骨。', icering: '冰封千里，无处可逃。' } },
+    sunshangxiang: { death: '哥哥……尚香尽力了……', ult: { feishan: '扇去扇回，看你躲得几次！', bingshu: '兵书万卷，一页一刃！', xiaoji: '枭姬之怒，你接得住吗！' } },
+    yanliang: { death: '我……还未出刀……', ult: { baima: '白马冲阵，挡我者死！', sweep: '河北刀阵，一个不留！', flag: '斩你帅旗，夺你首级！' } },
+    wenchou: { death: '兄长……我来了……', ult: { rain: '延津箭雨，万箭穿心！', pierce: '连环突刺，看枪！', blood: '兄长之仇，以血来偿！' } },
+    zhangfei: { death: '大哥……二哥……', ult: { roar: '当阳桥头，谁敢过来！', lance: '丈八蛇矛，捅你个对穿！', rage: '燕人在此，血战到底！' } },
+    zhaoyun: { death: '主公……子龙……去了……', ult: { seven: '七进七出，如入无人之境！', flurry: '百鸟朝凤，枪出如龙！' } },
+    dianwei: { death: '主公……快走……', ult: { storm: '双戟旋风，近者皆死！', quake: '给我——倒下！', elai: '恶来在此，死战不退！' } },
+    guanyu: { death: '大哥……关某……去也……', ult: { dragon: '青龙偃月，斩！', five: '过五关，斩六将，谁能阻我！', spiral: '青龙在天，忠义在心！' } },
+    zhugeliang: { death: '出师未捷……亮，尽力矣……', ult: { fire: '火烧博望，一个不留。', maze: '八阵已成，汝等插翅难飞。', wind: '借来东风，助我火攻！' } },
+    zhouyu: { death: '江东……就托付给你们了……', ult: { chibi: '火烧赤壁，樯橹成灰！', qu: '曲有误，周郎顾。', chain: '铁索连环，一火俱焚！' } },
+  },
+
+  // 背景音乐：有音乐文件（assets/bgm/<id>.mp3）就播放，没有就用代码合成一段古风占位曲。
+  // 合成参数：bpm 速度，root 主音频率，mode 调式（gong 宫调明亮 / yu 羽调苍凉），drums 鼓的密度 0–3，gong 每 8 小节一声锣，decay 弹拨余音长短
+  bgm: {
+    title: { name: '标题', bpm: 70, root: 196, mode: 'gong', drums: 0, decay: 2.2 },
+    huangjin: { name: '第一章 · 黄巾之乱', bpm: 96, root: 147, mode: 'yu', drums: 1, decay: 1.5 },
+    taodong: { name: '第二章 · 讨董之战', bpm: 108, root: 165, mode: 'yu', drums: 2, decay: 1.3 },
+    qunxiong: { name: '第三章 · 群雄逐鹿', bpm: 102, root: 175, mode: 'gong', drums: 2, decay: 1.4 },
+    chibi: { name: '第四章 · 赤壁之战', bpm: 112, root: 147, mode: 'yu', drums: 2, decay: 1.6, gong: true },
+    endless: { name: '天下三分 · 无尽征途', bpm: 118, root: 156, mode: 'yu', drums: 2, decay: 1.2, gong: true },
+    boss: { name: '名将交锋', bpm: 136, root: 147, mode: 'yu', drums: 3, decay: 0.9, gong: true },
+  },
+
   // 战役：按三国历史顺序分章。每章的 waves / events 时间从本章开始时算起；
   // 章末武将（final）倒下后敌军溃散，几秒后进入下一章；最后一章打完进入无尽征途。
   // swap：本章把通用兵种换成别的兵（黄巾章全是黄巾军）；elites：本章精英与解锁秒数；ground：地面配色

@@ -76,7 +76,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
 <div class="wrap">
   <header>
     <h1>布衣三国 · <em>美术提示词</em></h1>
-    <p class="lede">一共 206 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵），第五批 11 张（白龙、青龙龙首，白龙驹，8 个新物品图标），第六批 9 种招式特效贴图（拼在一张图里），第七批 13 件神兵（拼在一张图里），第八批 12 张拼图（9 件军需装备各 9 个形态的图标、3 个出身各 9 种换装小人），第九批 4 张拼图（貂蝉、甄姬、孙尚香三位女将的立绘、小人、神兵、特写和 9 个图标），以及第十批 4 张拼图（冰火雷风四种属性的图标、属性箭、属性弹、命中爆光）。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
+    <p class="lede">一共 206 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵），第五批 11 张（白龙、青龙龙首，白龙驹，8 个新物品图标），第六批 9 种招式特效贴图（拼在一张图里），第七批 13 件神兵（拼在一张图里），第八批 12 张拼图（9 件军需装备各 9 个形态的图标、3 个出身各 9 种换装小人），第九批 4 张拼图（貂蝉、甄姬、孙尚香三位女将的立绘、小人、神兵、特写和 9 个图标），第十批 4 张拼图（冰火雷风四种属性的图标、属性箭、属性弹、命中爆光），另外第十一批是声音：7 首背景音乐和 92 句名将配音。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
     <div class="progress"><span>已完成 <span id="count">0 / 45</span></span><div class="bar"><i id="bar"></i></div></div>
   </header>
 
@@ -184,6 +184,25 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
           <button class="copy" data-lite="3">④ 图标图集：兵器 + 宝物</button>
           <button class="copy" data-lite="4">⑤ 图标图集：技能 + 宝物</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>第十一批新增<span class="folder">背景音乐 · 名将配音</span></h2>
+    <p class="section-note">7 首背景音乐（标题、四章各一首、无尽征途、名将交锋），以及 16 位名将的配音台本，每人 5–6 句：登场、半血暴怒、每个大招一句、阵亡，共 92 句。台词全部是原创的，不照搬别的游戏。没做之前，游戏里用代码合成的古风曲占位，台词只显示字幕。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>背景音乐 7 首</h3>
+        <p>每首 1.5–2 分钟、纯器乐、能首尾循环，导出 MP3，按提示里的文件名保存。可以先发给 ChatGPT 试试；如果它说做不了音乐文件，就换 Suno 这类 AI 音乐工具，提示词照样能用。</p>
+        <button class="copy primary" id="copy-music">复制音乐提示词（7 首）</button>
+        <div id="m11-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
+      </div>
+      <div class="anchor">
+        <h3>名将配音 92 句</h3>
+        <p>每位名将一段，带声音设定和逐句文件名，一句一个 MP3。ChatGPT 做不了的话，可以用剪映的「文本朗读」或其他 AI 配音工具，挑接近声音设定的音色。不要模仿或克隆别的游戏里配音演员的声音。做好后打包发给 Claude 放进游戏。</p>
+        <button class="copy primary" id="copy-voice">复制全部配音台本</button>
+        <div id="v11-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
       </div>
     </div>
   </section>
@@ -877,6 +896,50 @@ document.getElementById('copy-batch10').addEventListener('click', e => copyText(
   B10.map(([t, f], i) => `========== 第 ${i + 1} 张：${t} ==========\n${f()}`).join('\n\n'), e.currentTarget));
 document.getElementById('b10-buttons').innerHTML = B10.map(([t], i) => `<button class="copy" data-b10="${i}">${i + 1}. ${t}</button>`).join('');
 document.querySelectorAll('[data-b10]').forEach(b => b.addEventListener('click', () => copyText(B10[+b.dataset.b10][1](), b)));
+// 第十一批：背景音乐与名将配音（台词和 data.js 里的 voice / line / rage 一致）
+const MUSIC_STYLE = '纯器乐，不要人声唱词（最多一点很轻的无词吟唱）；中国古风配器：古筝、琵琶、竹笛、二胡、编钟、大鼓和锣，可以加一点低沉的弦乐铺底；混音干净，低频不要轰头，适合在游戏里长时间循环；时长 1.5–2 分钟，开头和结尾能无缝衔接循环，不要渐弱收尾；导出 MP3。';
+const MUSIC11 = [
+  ['title', '标题界面', '舒缓大气的开场，古筝和竹笛主奏，远处偶尔一声编钟，像乱世开篇前的宁静，速度约 70 BPM。'],
+  ['huangjin', '第一章 · 黄巾之乱', '苍凉、带点草莽气的行军曲，琵琶扫弦和二胡，节奏稳定的中速战鼓，约 96 BPM。'],
+  ['taodong', '第二章 · 讨董之战', '紧张肃杀，关隘攻防的感觉，低音弦乐和急促的琵琶轮指，鼓点更密，约 108 BPM。'],
+  ['qunxiong', '第三章 · 群雄逐鹿', '英雄辈出、意气风发，竹笛和古筝的明亮旋律，大鼓推进，约 102 BPM。'],
+  ['chibi', '第四章 · 赤壁之战', '江上决战，宏大激昂，大鼓和锣、二胡与弦乐层层推高，带一点江水和火光的磅礴感，约 112 BPM。'],
+  ['endless', '天下三分 · 无尽征途', '永不停歇的征战，节奏强劲、循环感强，越听越燃，约 118 BPM。'],
+  ['boss', '名将交锋（名将登场时切换）', '最有压迫感的一首：重鼓、锣、急促的琵琶和低音弦乐，像与名将狭路相逢、生死一线，约 136 BPM。'],
+];
+const musicPrompt = ([id, name, desc]) => `为《布衣三国》（三国题材的 2D 动作肉鸽游戏）制作一首背景音乐：「${name}」。\n统一要求：${MUSIC_STYLE}\n这一首的风格：${desc}\n文件名：${id}.mp3`;
+const VOICE_STYLE = '用标准普通话配音，像动作游戏里武将放招时的台词：情绪饱满、有气势、吐字清楚，短句干脆有力，带适当的呼吸和喊声；每句单独导出一个 MP3，句子前后不要留长时间空白，不要背景音乐、不要音效、不要混响过重。不要模仿或克隆任何真人或其他游戏里配音演员的声音。';
+const VOICE_CAST = {
+  chengyuanzhi: '四十岁左右的黄巾莽汉，嗓音沙哑粗野，喊起来像吼',
+  zhangbao: '中年道人，声音阴冷细长，念咒般带一点拖腔',
+  zhangjiao: '老年道人，苍老深沉，狂热又庄严，像在布道',
+  huaxiong: '三十多岁的西凉悍将，粗重低沉，傲慢轻蔑',
+  lubu: '二十多岁的绝世猛将，嗓音高亢，狂傲霸气，睥睨一切',
+  diaochan: '十八九岁的少女，柔媚婉转，轻声细语，带一丝哀愁',
+  zhenji: '二十岁出头的女子，清冷空灵，语速舒缓，优雅高贵',
+  sunshangxiang: '活泼英气的少女，声音清脆，带着笑意的挑衅',
+  yanliang: '魁梧的河北猛将，大嗓门，粗犷骄横',
+  wenchou: '凶悍的河北猛将，嗓音沙哑狠厉，带着复仇的怒火',
+  zhangfei: '豪放的猛将，炸雷般的大嗓门，吼声震天',
+  zhaoyun: '年轻英武的将军，声音清亮坚定，干净利落',
+  dianwei: '魁梧壮汉，低沉厚重，憨直凶猛，说话短促',
+  guanyu: '中年武圣，沉稳威严，字字有力，不怒自威',
+  zhugeliang: '中年谋士，儒雅从容，语速平稳，智珠在握',
+  zhouyu: '青年统帅，清朗自信，意气风发，带一点锋芒',
+};
+const VOICE11 = [{"id":"chengyuanzhi","name":"程远志","title":"黄巾渠帅 · 涿郡先锋","lines":[["chengyuanzhi_enter","登场","黄天当立！谁敢挡我！"],["chengyuanzhi_rage","半血暴怒","儿郎们，给我上！"],["chengyuanzhi_ult_axe","大招「开山一斧」","开山！给我破！"],["chengyuanzhi_ult_mob","大招「黄巾乱舞」","黄巾儿郎，随我杀！"],["chengyuanzhi_death","阵亡","大贤良师……救我……"]]},{"id":"zhangbao","name":"张宝","title":"地公将军","lines":[["zhangbao_enter","登场","风来！雨来！雷来！"],["zhangbao_rage","半血暴怒","撒豆成兵，看你如何抵挡！"],["zhangbao_ult_beans","大招「撒豆成兵」","撒豆成兵，起！"],["zhangbao_ult_bolt","大招「妖雷」","妖雷，落！"],["zhangbao_death","阵亡","地公……也会死么……"]]},{"id":"zhangjiao","name":"张角","title":"天公将军 · 大贤良师","lines":[["zhangjiao_enter","登场","苍天已死，黄天当立！"],["zhangjiao_rage","半血暴怒","天雷，来！"],["zhangjiao_ult_thunder","大招「天公雷罚」","天公雷罚，降！"],["zhangjiao_ult_host","大招「黄天当立」","黄天当立，众生听令！"],["zhangjiao_ult_pool","大招「雷池」","雷池之中，寸步难行！"],["zhangjiao_death","阵亡","黄天……终究未立……"]]},{"id":"huaxiong","name":"华雄","title":"董卓帐下骁将","lines":[["huaxiong_enter","登场","鼠辈也敢来犯？"],["huaxiong_rage","半血暴怒","有点本事！"],["huaxiong_ult_leap","大招「斩将刀」","斩将刀下，不留全尸！"],["huaxiong_ult_whirl","大招「西凉狂刃」","西凉狂刃，看你往哪逃！"],["huaxiong_death","阵亡","关外……竟有此等人物……"]]},{"id":"lubu","name":"吕布","title":"人中吕布 · 马中赤兔","lines":[["lubu_enter","登场","三姓家奴？谁敢再说！"],["lubu_rage","半血暴怒","今日教你见识天下无双！"],["lubu_ult_chitu","大招「赤兔奔袭」","赤兔，随我踏平此阵！"],["lubu_ult_yuanmen","大招「辕门射戟」","辕门射戟，一箭定乾坤！"],["lubu_ult_wushuang","大招「天下无双」","画戟所向，片甲不留！"],["lubu_death","阵亡","我……天下无双……"]]},{"id":"diaochan","name":"貂蝉","title":"闭月 · 倾城舞姬","lines":[["diaochan_enter","登场","将军，可愿看妾身一舞？"],["diaochan_rage","半血暴怒","花落……人亦断肠。"],["diaochan_ult_dance","大招「闭月舞」","闭月一舞，与君同醉。"],["diaochan_ult_charm","大招「倾城一顾」","将军，看着妾身。"],["diaochan_ult_lianhuan","大招「连环计」","一环扣一环，君已入局。"],["diaochan_death","阵亡","妾身……终是一场空……"]]},{"id":"zhenji","name":"甄姬","title":"洛神 · 凌波仙子","lines":[["zhenji_enter","登场","翩若惊鸿，婉若游龙。"],["zhenji_rage","半血暴怒","洛水寒，君可知？"],["zhenji_ult_lingbo","大招「凌波微步」","凌波微步，罗袜生尘。"],["zhenji_ult_frost","大招「洛水寒川」","洛水寒川，冻彻君骨。"],["zhenji_ult_icering","大招「冰封千里」","冰封千里，无处可逃。"],["zhenji_death","阵亡","洛水……好冷……"]]},{"id":"sunshangxiang","name":"孙尚香","title":"枭姬 · 江东郡主","lines":[["sunshangxiang_enter","登场","想过此关，先问问我的扇子！"],["sunshangxiang_rage","半血暴怒","我孙家儿女，岂是好惹的！"],["sunshangxiang_ult_feishan","大招「飞扇回旋」","扇去扇回，看你躲得几次！"],["sunshangxiang_ult_bingshu","大招「兵书万卷」","兵书万卷，一页一刃！"],["sunshangxiang_ult_xiaoji","大招「枭姬之怒」","枭姬之怒，你接得住吗！"],["sunshangxiang_death","阵亡","哥哥……尚香尽力了……"]]},{"id":"yanliang","name":"颜良","title":"河北名将 · 袁绍先锋","lines":[["yanliang_enter","登场","河北颜良在此，谁来送死！"],["yanliang_rage","半血暴怒","匹夫，吃我一刀！"],["yanliang_ult_baima","大招「白马冲阵」","白马冲阵，挡我者死！"],["yanliang_ult_sweep","大招「河北刀阵」","河北刀阵，一个不留！"],["yanliang_ult_flag","大招「斩旗夺帅」","斩你帅旗，夺你首级！"],["yanliang_death","阵亡","我……还未出刀……"]]},{"id":"wenchou","name":"文丑","title":"河北名将 · 颜良义弟","lines":[["wenchou_enter","登场","还我兄长命来！"],["wenchou_rage","半血暴怒","今日不死不休！"],["wenchou_ult_rain","大招「延津箭雨」","延津箭雨，万箭穿心！"],["wenchou_ult_pierce","大招「连环突刺」","连环突刺，看枪！"],["wenchou_ult_blood","大招「为兄报仇」","兄长之仇，以血来偿！"],["wenchou_death","阵亡","兄长……我来了……"]]},{"id":"zhangfei","name":"张飞","title":"万人敌 · 燕人张翼德","lines":[["zhangfei_enter","登场","燕人张翼德在此！谁敢决一死战！"],["zhangfei_rage","半血暴怒","哇呀呀呀！"],["zhangfei_ult_roar","大招「当阳怒吼」","当阳桥头，谁敢过来！"],["zhangfei_ult_lance","大招「丈八突刺」","丈八蛇矛，捅你个对穿！"],["zhangfei_ult_rage","大招「燕人血怒」","燕人在此，血战到底！"],["zhangfei_death","阵亡","大哥……二哥……"]]},{"id":"zhaoyun","name":"赵云","title":"常山赵子龙","lines":[["zhaoyun_enter","登场","吾乃常山赵子龙也！"],["zhaoyun_rage","半血暴怒","七进七出，何惧尔等！"],["zhaoyun_ult_seven","大招「七进七出」","七进七出，如入无人之境！"],["zhaoyun_ult_flurry","大招「百鸟朝凤」","百鸟朝凤，枪出如龙！"],["zhaoyun_death","阵亡","主公……子龙……去了……"]]},{"id":"dianwei","name":"典韦","title":"古之恶来","lines":[["dianwei_enter","登场","谁敢近主公一步！"],["dianwei_rage","半血暴怒","来！再来！"],["dianwei_ult_storm","大招「双戟旋风」","双戟旋风，近者皆死！"],["dianwei_ult_quake","大招「撼地」","给我——倒下！"],["dianwei_ult_elai","大招「恶来死战」","恶来在此，死战不退！"],["dianwei_death","阵亡","主公……快走……"]]},{"id":"guanyu","name":"关羽","title":"武圣 · 关云长","lines":[["guanyu_enter","登场","插标卖首耳！"],["guanyu_rage","半血暴怒","吃我一刀！"],["guanyu_ult_dragon","大招「青龙偃月」","青龙偃月，斩！"],["guanyu_ult_five","大招「过五关斩六将」","过五关，斩六将，谁能阻我！"],["guanyu_ult_spiral","大招「武圣降临」","青龙在天，忠义在心！"],["guanyu_death","阵亡","大哥……关某……去也……"]]},{"id":"zhugeliang","name":"诸葛亮","title":"卧龙 · 诸葛孔明","lines":[["zhugeliang_enter","登场","汝等已入我阵中。"],["zhugeliang_rage","半血暴怒","东风已至，火起！"],["zhugeliang_ult_fire","大招「火烧博望」","火烧博望，一个不留。"],["zhugeliang_ult_maze","大招「八阵图」","八阵已成，汝等插翅难飞。"],["zhugeliang_ult_wind","大招「借东风」","借来东风，助我火攻！"],["zhugeliang_death","阵亡","出师未捷……亮，尽力矣……"]]},{"id":"zhouyu","name":"周瑜","title":"江东美周郎 · 大都督","lines":[["zhouyu_enter","登场","东风既起，此战必胜。"],["zhouyu_rage","半血暴怒","樯橹灰飞烟灭！"],["zhouyu_ult_chibi","大招「火烧赤壁」","火烧赤壁，樯橹成灰！"],["zhouyu_ult_qu","大招「曲有误」","曲有误，周郎顾。"],["zhouyu_ult_chain","大招「铁索连环」","铁索连环，一火俱焚！"],["zhouyu_death","阵亡","江东……就托付给你们了……"]]}];
+const voicePrompt = g => `为《布衣三国》（三国题材的 2D 动作游戏）的角色录一组台词配音。\n角色：${g.name}（${g.title}）\n声音设定：${VOICE_CAST[g.id]}\n要求：${VOICE_STYLE}\n\n` +
+  g.lines.map(([file, when, text], i) => `${i + 1}. ${file}.mp3（${when}）：${text}`).join('\n');
+document.getElementById('copy-music').addEventListener('click', e => copyText(
+  `我要为一款三国题材的游戏制作 ${MUSIC11.length} 首背景音乐。请按序号逐首制作，做完一首告诉我序号和文件名，等我回复“继续”再做下一首。\n\n` +
+  MUSIC11.map((m, i) => `========== 第 ${i + 1} 首 ==========\n${musicPrompt(m)}`).join('\n\n'), e.currentTarget));
+document.getElementById('m11-buttons').innerHTML = MUSIC11.map(([, name], i) => `<button class="copy" data-m11="${i}">${i + 1}. ${name}</button>`).join('');
+document.querySelectorAll('[data-m11]').forEach(b => b.addEventListener('click', () => copyText(musicPrompt(MUSIC11[+b.dataset.m11]), b)));
+document.getElementById('copy-voice').addEventListener('click', e => copyText(
+  `我要为一款三国题材的游戏制作 ${VOICE11.length} 位名将的台词配音，共 ${VOICE11.reduce((n, g) => n + g.lines.length, 0)} 句。请一位名将一位名将地做，做完一位告诉我，等我回复“继续”再做下一位。每位名将的声音要和他的设定一致，同一位名将的几句话用同一个声音。\n\n` +
+  VOICE11.map((g, i) => `========== 第 ${i + 1} 位：${g.name} ==========\n${voicePrompt(g)}`).join('\n\n'), e.currentTarget));
+document.getElementById('v11-buttons').innerHTML = VOICE11.map((g, i) => `<button class="copy" data-v11="${i}">${g.name}</button>`).join('');
+document.querySelectorAll('[data-v11]').forEach(b => b.addEventListener('click', () => copyText(voicePrompt(VOICE11[+b.dataset.v11]), b)));
 // 第七批：1 张图（13 件神兵拼成 4×4，最后 3 格留空）
 document.getElementById('copy-batch7').addEventListener('click', e => copyText(
   `我要为一款三国题材的游戏画一张神兵图集。统一画风：\n${SHENBING_STYLE}\n\n` +
