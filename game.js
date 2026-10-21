@@ -866,7 +866,7 @@ function spawnEnemy(type, x, y) {
   const c = !S.endless && D.chapters[S.ch];
   if (c && c.swap && c.swap[type]) type = c.swap[type]; // 黄巾章：通用兵种换成黄巾军
   const def = D.enemies[type], st = D.stage;
-  let hpMul = (1 + S.t * st.hpGrowth) * lateBoost() * st.enemyHpMul;
+  let hpMul = Math.pow(1 + S.t * st.hpGrowth, st.minionHpExp) * lateBoost() * st.enemyHpMul; // 小兵血量随时间加速成长
   let dmgMul = (1 + S.t * st.dmgGrowth) * Math.sqrt(lateBoost());
   const elite = S.endless && Math.random() < Math.min(st.eliteMax, st.eliteChance + (S.t - S.endlessStart) / 6000);
   if (elite) { hpMul *= 6; dmgMul *= 1.5; }
@@ -1044,7 +1044,7 @@ function director(dt) {
   if (blds.length < st.buildingMax && S.buildingT <= 0) { placeBuilding(800, 1300); S.buildingT = st.buildingEvery; }
   let wave = c.waves[0];
   for (const w of c.waves) if (ct >= w.t) wave = w;
-  let mul = S.bossList.length ? st.bossRateMul : 1;
+  let mul = (S.bossList.length ? st.bossRateMul : 1) * st.spawnMul; // 小兵更耐打，数量稍微少一点
   if (S.endless) mul *= 1 + (S.t - S.endlessStart) / 90;
   if (S.enemies.length > 420 || S.chapterT) mul = 0; // 换章间隙喘口气
   for (const type in wave.rates) {
@@ -2206,8 +2206,16 @@ function updateEnemies(dt) {
       if (e.def.dragonTrail) recordTrail(e, e.x, e.y - e.r * 1.1, e.state === 'charge' || !!(e.ult && /Dash$/.test(e.ult.u.type) && e.ult.phase === 2), 22, 22);
     }
     else {
-      const dx = p.x - e.x, dy = p.y - e.y, d = Math.hypot(dx, dy) || 1;
-      if (d > farR) { const [x, y] = spawnPos(); e.x = x; e.y = y; continue; }
+      const d0 = Math.hypot(p.x - e.x, p.y - e.y) || 1;
+      if (d0 > farR) { const [x, y] = spawnPos(); e.x = x; e.y = y; continue; }
+      // 吸引仇恨：附近有比玩家更近的随从，就先去打随从
+      let tx = p.x, ty = p.y, d = d0;
+      if (S.allies.length) for (const a of S.allies) {
+        if (a.gone) continue;
+        const ad = Math.hypot(a.x - e.x, a.y - e.y);
+        if (ad < D.allyHp.aggroR && ad < d) { d = ad || 1; tx = a.x; ty = a.y; }
+      }
+      const dx = tx - e.x, dy = ty - e.y;
       const sp = (e.stunT > S.t ? 0 : e.speed) * (e.slowT > S.t ? e.slowF : 1);
       let mx = dx / d, my = dy / d;
       const rg = e.def.ranged;
@@ -2227,6 +2235,9 @@ function updateEnemies(dt) {
     e.kvx *= decay; e.kvy *= decay;
     const rr = e.r + p.r;
     if (!(e.stunT > S.t) && dist2(e.x, e.y, p.x, p.y) < rr * rr) hurtPlayer((e.boss || e.ai) && e.state === 'charge' ? e.dmg * 1.4 : e.dmg, e.boss && e.def.el || null, e);
+    if (S.allies.length && !(e.stunT > S.t)) for (const a of S.allies) { // 撞到随从：随从也会受伤
+      if (!a.gone && dist2(e.x, e.y, a.x, a.y) < (e.r + a.def.r) ** 2) hurtAlly(a, (e.boss || e.ai) && e.state === 'charge' ? e.dmg * 1.4 : e.dmg);
+    }
     atkEl = null; atkSrc = null;
   }
   // 互相挤开，避免叠成一团
@@ -2283,7 +2294,8 @@ function addAllies(type, n, temp) {
   for (let i = 0; i < n; i++) {
     if (!temp && S.allies.filter(a => !a.until).length >= D.allyCap) break;
     const a = rand(0, TAU), x = p.x + Math.cos(a) * 40, y = p.y + Math.sin(a) * 40;
-    S.allies.push({ id: nextId++, type, def: D.allies[type], x, y, cdT: rand(0, 0.5), fx: 1, moving: false, until: temp ? S.t + temp.life : 0, dmg: temp ? temp.dmg : 0 });
+    const mh = allyMaxHp(D.allies[type]);
+    S.allies.push({ id: nextId++, type, def: D.allies[type], x, y, cdT: rand(0, 0.5), fx: 1, moving: false, until: temp ? S.t + temp.life : 0, dmg: temp ? temp.dmg : 0, hp: mh, maxHp: mh, hitT: -99, iT: 0, flash: 0 });
     if (temp) smoke(x, y - 10, 3, '200,170,80', 10, 8, 0.5);
     added++;
   }
@@ -2295,10 +2307,30 @@ function addAllies(type, n, temp) {
   S.buildDirty = true;
   return added;
 }
+// 随从血量：随等级和随从强化成长
+const allyMaxHp = def => Math.round(def.hp * (1 + (S.player.level - 1) * D.allyHp.perLv) * (1 + S.allyPower));
+// 随从挨打：短暂无敌，打空就战死
+function hurtAlly(a, amount) {
+  if (a.gone || S.t < a.iT) return;
+  a.hp -= amount; a.iT = S.t + 0.5; a.hitT = S.t; a.flash = 0.12;
+  addNumber(a.x, a.y - a.def.h * 0.6, '-' + Math.round(amount), '#9cc4ff', 11);
+  if (a.hp <= 0) {
+    a.gone = true;
+    smoke(a.x, a.y - 10, 4, '40,40,60', 10, 10, 0.6);
+    for (let i = 0; i < 4; i++) particle(a.x, a.y - 12, a.def.look.robe, 180);
+    addNumber(a.x, a.y - a.def.h - 6, '阵亡', '#9cc4ff', 13);
+  }
+}
 function updateAllies(dt) {
   for (const a of S.allies) if (a.until && S.t > a.until) { a.gone = true; smoke(a.x, a.y - 10, 3, '200,170,80', 10, 8, 0.5); }
   if (S.allies.some(a => a.gone)) { S.allies = S.allies.filter(a => !a.gone); S.buildDirty = true; }
-  const p = S.player, n = S.allies.length;
+  const p = S.player, n = S.allies.length, AH = D.allyHp;
+  for (const a of S.allies) { // 升级后血量上限跟着涨；一段时间没挨打慢慢回血
+    const mh = allyMaxHp(a.def);
+    if (mh !== a.maxHp) { a.hp *= mh / a.maxHp; a.maxHp = mh; }
+    if (S.t - a.hitT > AH.regenDelay) a.hp = Math.min(a.maxHp, a.hp + a.maxHp * AH.regen * dt);
+    a.flash = Math.max(0, a.flash - dt);
+  }
   const power = (1 + (p.level - 1) * 0.06) * (1 + S.allyPower);
   S.allies.forEach((a, i) => {
     const d = a.def;
@@ -2408,6 +2440,7 @@ function updateProjectiles(dt) {
         hurtPlayer(h.dmg, h.el || null, h);
         if (h.ice && !was) S.pChillT = Math.max(S.pChillT, S.t + 1.6);
       }
+      for (const a of S.allies) if (!a.gone && dist2(h.x, h.y, a.x, a.y) < (h.r + a.def.r) ** 2) hurtAlly(a, h.dmg); // 落点也会砸到随从
       if (h.el) elBurst(h.el, h.x, h.y - 6, h.r * 1.3); // 属性名将的落点：炸开属性爆光
       S.effects.push({ kind: 'blast', x: h.x, y: h.y, r: h.r, life: 0.4, max: 0.4, enemy: true, rgb: h.rgb });
       fxTex('ring', h.x, h.y, { w: h.r * 2, h: h.r * 2, rgb: h.rgb || '255,140,60', under: true, life: 0.35, grow: 1.6, core: 0.4 });
@@ -2469,6 +2502,10 @@ function updateProjectiles(dt) {
     else if (b.kind === 'icicle' && Math.random() < 0.25) fxp({ type: 'snow', x: b.x, y: b.y, vx: 0, vy: 10, drag: 2, life: 0.5, size: rand(2.5, 4), rot: rand(0, TAU), spin: 2 });
     if (b.kind === 'dragon' && Math.random() < 0.9) fxp({ type: 'ember', x: b.x + rand(-b.r, b.r) * 0.6, y: b.y + rand(-b.r, b.r) * 0.6, vx: -b.vx * 0.15, vy: -b.vy * 0.15, drag: 2, life: 0.5, rgb: '110,240,170', size: rand(8, 14) });
     if (b.el && Math.random() < 0.45) elTrail(b);
+    if (S.allies.length) { // 敌方飞弹也会打中随从
+      const a = S.allies.find(a => !a.gone && dist2(b.x, b.y, a.x, a.y) < (b.r + a.def.r) ** 2);
+      if (a) { hurtAlly(a, b.dmg); if (!b.pierce) { b.dead = true; continue; } }
+    }
     if (b.kind === 'bigArrow' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: 0, vy: 0, drag: 2, life: 0.25, rgb: b.rgb, size: 6 });
     if (dist2(b.x, b.y, p.x, p.y) < (b.r + p.r) ** 2) {
       const was = p.iframes;
@@ -4035,10 +4072,11 @@ function drawAlly(a) {
   const d = a.def;
   ctx.strokeStyle = 'rgba(110,170,255,0.8)'; ctx.lineWidth = 1.8;
   ctx.beginPath(); ctx.ellipse(a.x, a.y + d.r * 0.6, d.r * 1.05, d.r * 0.4, 0, 0, TAU); ctx.stroke();
-  const spr = unitSprite(d.art || a.type, d.look, d.h, false, d.mount || '');
+  const spr = unitSprite(d.art || a.type, d.look, d.h, a.flash > 0, d.mount || '');
   if (a.until && a.until - S.t < 1) ctx.globalAlpha = Math.max(0.2, a.until - S.t); // 快散去时渐隐
-  drawUnit(spr, a.x, a.y, d.r, a.fx, walkBob(a.id, a.moving));
+  const top = drawUnit(spr, a.x, a.y, d.r, a.fx, walkBob(a.id, a.moving));
   ctx.globalAlpha = 1;
+  if (a.hp < a.maxHp) headBar(a.x, top - 6, 26, a.hp / a.maxHp, '#6fa8ff'); // 受伤了才显示血条
 }
 // 据点建筑：有美术图用图，否则用代码画的；靠近时显示奖励说明
 // 单个铁蒺藜贴图（有美术图就用图）

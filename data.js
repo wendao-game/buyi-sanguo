@@ -619,16 +619,18 @@ window.GAME_DATA = {
     },
   },
 
-  // 随从兵：摧毁据点后加入，跟在身边自动作战（伤害随等级提升）
+  // 随从兵：摧毁据点后加入，跟在身边自动作战（伤害、血量随等级提升）。
+  // 随从会被敌人打、会战死；附近的小兵会先去打离它更近的随从（吸引仇恨）
+  allyHp: { perLv: 0.05, regenDelay: 4, regen: 0.04, aggroR: 230 }, // 血量每级 +5%；4 秒没挨打开始回血（每秒 4%）；小兵在这个距离内会改打随从
   allies: {
-    ally_spear: { name: '随从枪兵', kind: 'melee', speed: 155, dmg: 12, range: 42, cd: 0.75, h: 40, r: 12,
+    ally_spear: { name: '随从枪兵', kind: 'melee', hp: 180, speed: 155, dmg: 12, range: 42, cd: 0.75, h: 40, r: 12,
       look: { skin: '#d9a878', robe: '#3a5a7a', trim: '#1e3248', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'cap', headColor: '#2f6fa8', weapon: 'spear' } },
-    ally_archer: { name: '随从弓手', kind: 'ranged', speed: 145, dmg: 9, range: 320, cd: 1.0, h: 40, r: 12,
+    ally_archer: { name: '随从弓手', kind: 'ranged', hp: 120, speed: 145, dmg: 9, range: 320, cd: 1.0, h: 40, r: 12,
       look: { skin: '#d9a878', robe: '#3a6a5a', trim: '#1e3a30', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'cap', headColor: '#2f8a6a', weapon: 'bow' } },
-    ally_cavalry: { name: '随从骑兵', kind: 'melee', speed: 215, dmg: 20, range: 48, cd: 0.85, h: 52, r: 15, mount: '#e8e0d0',
+    ally_cavalry: { name: '随从骑兵', kind: 'melee', hp: 280, speed: 215, dmg: 20, range: 48, cd: 0.85, h: 52, r: 15, mount: '#e8e0d0',
       look: { skin: '#d0a070', robe: '#2f4f7a', trim: '#c9a046', armor: true, armorColor: '#5a6f8a', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#8a9aaa', plume: '#2f6fa8', weapon: 'spear' } },
     // 黄巾号令召来的临时降卒（不占随从名额，沿用黄巾兵的小人图）
-    ally_yt: { name: '黄巾降卒', kind: 'melee', speed: 165, dmg: 14, range: 40, cd: 0.7, h: 40, r: 12, art: 'yt_foot', temp: true,
+    ally_yt: { name: '黄巾降卒', kind: 'melee', hp: 90, speed: 165, dmg: 14, range: 40, cd: 0.7, h: 40, r: 12, art: 'yt_foot', temp: true,
       look: { skin: '#c99a68', robe: '#8a7a52', trim: '#5e5040', armor: false, beard: 'stubble', beardColor: '#2a2018', eyes: 'normal', brows: 'sharp', head: 'band', bandColor: '#e0b020', weapon: 'spear' } },
   },
   allyCap: 8,
@@ -1094,6 +1096,8 @@ window.GAME_DATA = {
     bossLateMul: 0.5,      // 7 分钟后的平方加成，战役里的武将只吃一半
     bossHpMul: 1.5,        // 武将血量整体倍率
     enemyHpMul: 1.35,      // 小兵、精英、据点血量整体倍率
+    minionHpExp: 1.5,      // 小兵血量 = 基础 × (1 + 秒数×hpGrowth)^minionHpExp：越往后长得越快
+    spawnMul: 1,           // 小兵刷新数量倍率（想让场面松一点就调小）
     bossGap: 10,            // 两名武将之间至少隔几秒
     chapterGap: 5,          // 章末武将倒下后几秒进入下一章
     hpGrowth: 1 / 95,       // 每过 95 秒小兵血量 +100%
