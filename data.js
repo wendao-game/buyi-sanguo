@@ -11,12 +11,17 @@ window.GAME_DATA = {
 
   // 无限成长：武器 / 技能满 5 级后的“突破”规则
   breakthrough: {
-    dmgPerLevel: 0.15,   // 每突破一级伤害 +15%
-    areaPerLevel: 0.03,  // 范围 +3%
-    cdPerLevel: 0.97,    // 冷却 ×0.97
-    minCdMul: 0.55,      // 冷却最多缩到满级时的 55%
-    countEvery: 3,       // 每 3 级数量 / 穿透 / 画戟 +1
+    dmgPerLevel: 0.12,   // 每突破一级伤害 +12%
+    areaPerLevel: 0.02,  // 范围 +2%
+    cdPerLevel: 0.98,    // 冷却 ×0.98
+    minCdMul: 0.7,       // 冷却最多缩到满级时的 70%
+    countEvery: 3,       // 每 3 级数量 / 穿透 / 画戟 +1（到上限为止）
+    countCap: 5,         // 箭矢、文气、火球、飞戟、画戟等一次最多 5 个（连珠箭也算在内）
+    pierceCap: 5,        // 穿透最多 5 个
   },
+
+  // 升级所需经验：base + (等级-1)×perLv + (等级-midFrom)×mid + (等级-lateFrom)²×late
+  xpCurve: { base: 5, perLv: 5, midFrom: 15, mid: 4, lateFrom: 30, late: 0.3 },
 
   // 军衔：随等级晋升，体现“从布衣到名将”
   ranks: [
@@ -230,22 +235,22 @@ window.GAME_DATA = {
       name: '文丑连弩', icon: '弩', type: 'projectile', general: '文丑', tags: ['bow'],
       desc: '文丑的连弩。一次扇形射出一排弩箭，近身时几乎箭箭命中。',
       levels: [
-        { dmg: 16, cd: 0.9, count: 4, speed: 640, pierce: 1, fan: 0.22 },
-        { dmg: 20, cd: 0.85, count: 4, speed: 660, pierce: 1, fan: 0.22, note: '伤害 +4' },
-        { dmg: 22, cd: 0.8, count: 5, speed: 680, pierce: 2, fan: 0.22, note: '弩箭 +1，穿透 2 个' },
-        { dmg: 27, cd: 0.75, count: 6, speed: 700, pierce: 2, fan: 0.21, note: '弩箭 +1，伤害 +5' },
-        { dmg: 33, cd: 0.65, count: 7, speed: 740, pierce: 3, fan: 0.2, note: '弩箭 +1，穿透 3 个' },
+        { dmg: 18, cd: 0.9, count: 3, speed: 640, pierce: 1, fan: 0.22 },
+        { dmg: 22, cd: 0.85, count: 3, speed: 660, pierce: 1, fan: 0.22, note: '伤害 +4' },
+        { dmg: 25, cd: 0.8, count: 4, speed: 680, pierce: 2, fan: 0.22, note: '弩箭 +1，穿透 2 个' },
+        { dmg: 31, cd: 0.75, count: 4, speed: 700, pierce: 2, fan: 0.21, note: '伤害 +6，射得更快' },
+        { dmg: 38, cd: 0.65, count: 5, speed: 740, pierce: 3, fan: 0.2, note: '弩箭 +1，穿透 3 个' },
       ],
     },
     luoying: {
       name: '落樱', icon: '樱', type: 'homing', general: '貂蝉', tags: ['spell'], pkind: 'petal',
       desc: '貂蝉的花扇。扇出一簇樱花瓣，追着敌人飞去。',
       levels: [
-        { dmg: 15, cd: 0.9, count: 3, speed: 330 },
-        { dmg: 19, cd: 0.9, count: 3, speed: 340, note: '伤害 +4' },
-        { dmg: 21, cd: 0.8, count: 4, speed: 350, note: '花瓣 +1，更快' },
-        { dmg: 25, cd: 0.75, count: 5, speed: 360, note: '花瓣 +1，伤害 +4' },
-        { dmg: 31, cd: 0.65, count: 6, speed: 380, note: '花瓣 +1，落英缤纷' },
+        { dmg: 16, cd: 0.9, count: 3, speed: 330 },
+        { dmg: 20, cd: 0.9, count: 3, speed: 340, note: '伤害 +4' },
+        { dmg: 23, cd: 0.8, count: 4, speed: 350, note: '花瓣 +1，更快' },
+        { dmg: 28, cd: 0.75, count: 4, speed: 360, note: '伤害 +5，更快' },
+        { dmg: 35, cd: 0.65, count: 5, speed: 380, note: '花瓣 +1，落英缤纷' },
       ],
     },
     yudi: {
@@ -491,7 +496,7 @@ window.GAME_DATA = {
     lianti: { tags: ['body'], name: '炼体', icon: '体', max: 5, desc: '生命上限 +10%，每秒回复 +0.2', effects: { maxHpMul: 0.1, regen: 0.2 } },
     tiebu: { tags: ['body'], name: '铁布衫', icon: '衫', max: 5, desc: '护甲 +1，生命上限 +15', effects: { armor: 1, maxHp: 15 } },
     // 猎户 · 弓箭（对猎弓、连弩生效）
-    lianzhu: { tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每次多射 1 支箭', effects: { arrowCount: 1 } },
+    lianzhu: { tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每次多射 1 支箭（一次最多 5 支，射满后改为伤害 +12%）', effects: { arrowCount: 1 } },
     chuanyang: { tags: ['bow'], name: '百步穿杨', icon: '杨', max: 5, desc: '弓弩伤害 +15%，穿透 +1', effects: { arrowDmg: 0.15, arrowPierce: 1 } },
     // 书生 · 计策（对竹简、羽扇、符咒、法杖、古琴、火把和所有技能生效）
     qimou: { tags: ['spell'], name: '奇谋', icon: '谋', max: 5, desc: '计策与技能伤害 +15%', effects: { spellDmg: 0.15 } },
@@ -511,6 +516,62 @@ window.GAME_DATA = {
     luoshenfu: { name: '《洛神赋》', icon: '洛', max: 1, unique: true, general: '甄姬', desc: '“翩若惊鸿”：冷却 -10%，攻击范围 +10%，每秒回复 +0.5', effects: { cdMul: -0.1, areaMul: 0.1, regen: 0.5 } },
     jindai: { name: '吴宫锦带', icon: '锦', max: 1, unique: true, general: '孙尚香', desc: '孙夫人的锦带：移动速度 +10%，伤害 +12%，暴击率 +4%', effects: { speedMul: 0.1, dmgMul: 0.12, crit: 0.04 } },
     guqu: { name: '曲有误', icon: '曲', max: 1, unique: true, general: '周瑜', desc: '“曲有误，周郎顾”：冷却 -10%，暴击率 +8%，攻击范围 +10%', effects: { cdMul: -0.1, crit: 0.08, areaMul: 0.1 } },
+  },
+
+  // 属性：冰火雷风。升级时有几率刷到（Lv 3 起），每种最高 5 级，四种都能学。
+  // 学会以后，你的武器每次出手都会随机带上一种已学的属性（属性等级越高，抽到的几率越大）：
+  // 箭矢、文气、火球、飞戟、刀光都会变成这种属性的样子，命中时只触发这一种属性的效果。
+  // 技能、神兵和随从不带属性。Lv 5 解锁一个额外效果（awaken）。
+  elementFrom: 3,  // 第几级开始在升级选项里出现
+  elements: {
+    fire: {
+      name: '烈火', icon: '火', rgb: '255,130,50', core: '255,225,150', color: '#e8743a',
+      desc: '攻击有几率化作火焰：命中点燃敌人，3 秒内持续灼烧。',
+      awaken: '焚身：燃烧中的敌人倒下时爆炸，把火引到周围的敌人身上。',
+      levels: [
+        { burn: 0.15, dur: 3 },
+        { burn: 0.2, dur: 3, note: '灼烧伤害提高' },
+        { burn: 0.25, dur: 3, note: '灼烧伤害提高' },
+        { burn: 0.3, dur: 3, note: '灼烧伤害提高' },
+        { burn: 0.36, dur: 3, explode: 5, radius: 90, note: '焚身：燃烧的敌人倒下时爆炸' }, // 爆炸伤害 = 每秒灼烧 × 5，并把火引到周围敌人身上
+      ],
+    },
+    ice: {
+      name: '寒冰', icon: '冰', rgb: '150,210,255', core: '235,250,255', color: '#6ea8d8',
+      desc: '攻击有几率化作寒冰：命中让敌人减速 2 秒，还可能把它冻住（名将和精英不会被冻住，只会变慢）。',
+      awaken: '碎冰：减速中的敌人受到的伤害 +20%。',
+      levels: [
+        { slow: 0.3, freeze: 0.05 },
+        { slow: 0.35, freeze: 0.07, note: '减速更强，更容易冻住' },
+        { slow: 0.4, freeze: 0.09, note: '减速更强，更容易冻住' },
+        { slow: 0.45, freeze: 0.11, note: '减速更强，更容易冻住' },
+        { slow: 0.5, freeze: 0.14, shatter: 0.2, note: '碎冰：减速的敌人受伤 +20%' },
+      ],
+    },
+    thunder: {
+      name: '雷霆', icon: '雷', rgb: '170,170,255', core: '240,240,255', color: '#8a8ad8',
+      desc: '攻击有几率化作雷霆：命中时可能引来一道雷电，在附近的敌人之间跳跃。',
+      awaken: '雷殛：雷电会让敌人麻痹片刻。',
+      levels: [
+        { chance: 0.2, jumps: 2, pct: 0.55 },
+        { chance: 0.25, jumps: 2, pct: 0.65, note: '更容易引雷，雷电更强' },
+        { chance: 0.3, jumps: 3, pct: 0.7, note: '多跳一个敌人' },
+        { chance: 0.35, jumps: 3, pct: 0.8, note: '更容易引雷，雷电更强' },
+        { chance: 0.4, jumps: 4, pct: 0.9, stun: 0.4, note: '雷殛：多跳一个，并麻痹敌人' },
+      ],
+    },
+    wind: {
+      name: '疾风', icon: '风', rgb: '140,235,185', core: '230,255,240', color: '#5aa88a',
+      desc: '攻击有几率化作疾风：伤害更高、击退更强，箭矢和飞弹飞得更快、多穿透 1 个。Lv 3 起每隔几秒卷起一阵旋风。',
+      awaken: '风卷残云：旋风更大、更频繁。',
+      levels: [
+        { dmg: 0.1, kb: 0.5, pierce: 1 },
+        { dmg: 0.15, kb: 0.6, pierce: 1, note: '风刃更利' },
+        { dmg: 0.2, kb: 0.7, pierce: 1, gust: { every: 6, radius: 150, dmg: 40 }, note: '卷起旋风' },
+        { dmg: 0.25, kb: 0.85, pierce: 1, gust: { every: 5, radius: 165, dmg: 55 }, note: '风刃更利，旋风更强' },
+        { dmg: 0.3, kb: 1.0, pierce: 2, gust: { every: 3.5, radius: 200, dmg: 75 }, note: '风卷残云：旋风更大更频繁，多穿透 1 个' },
+      ],
+    },
   },
 
   enemies: {
@@ -594,7 +655,7 @@ window.GAME_DATA = {
   generals: {
     // —— 第一章 · 黄巾之乱 ——
     chengyuanzhi: {
-      name: '程远志', title: '黄巾渠帅 · 涿郡先锋', icon: '程', hp: 1000, speed: 82, dmg: 11, r: 30, color: '#8a6a2a',
+      name: '程远志', title: '黄巾渠帅 · 涿郡先锋', icon: '程', hp: 1300, speed: 82, dmg: 11, r: 30, color: '#8a6a2a',
       attacks: ['charge', 'cleave', 'summon'], interval: 3.2, cleaveR: 170, chargeSpeed: 580, summon: 4, summonType: 'foot',
       rewards: ['kaishan', 'haoling', 'huangjin'],
       ultRgb: '240,200,60', ultEvery: 12,
@@ -808,7 +869,7 @@ window.GAME_DATA = {
       look: { skin: '#efd6b4', skinShade: '#cfb08a', robe: '#e8e4d8', trim: '#2c3440', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#2c3440', weapon: 'fan', aura: '#3e5a6b', artFace: [0.52, 0.235, 0.36] },
     },
     zhouyu: {
-      name: '周瑜', title: '江东美周郎 · 大都督', icon: '周', hp: 9000, speed: 96, dmg: 22, r: 33, color: '#a8322a',
+      name: '周瑜', title: '江东美周郎 · 大都督', icon: '周', hp: 7000, speed: 96, dmg: 22, r: 33, color: '#a8322a',
       attacks: ['meteor', 'volley', 'summon', 'meteor', 'cleave'], interval: 2.5, kite: 240, cleaveR: 190, summon: 7, summonType: 'archer',
       meteor: { count: 6, radius: 72, delay: 1.1, dmg: 30 },
       volley: { count: 9, spread: 1.2, speed: 300, dmg: 14 },
@@ -919,7 +980,7 @@ window.GAME_DATA = {
   // 武器和护甲的阶段（1–3 / 4–6 / 7–9 级）决定人物小人的造型（sprites/<出身>_w<武器阶段>a<护甲阶段>.png）；饰品显示为身边的护身光珠。
   // 价格：base × growth^当前等级（向上取整到 5）。effects 是每级的加成；startDmg 是起手武器伤害，startLvEvery 是每几级起手武器开局 +1 级。
   meta: {
-    gold: { minion: 0.02, elite: [4, 8], building: 10, general: 18, generalPerChapter: 8, chapterClear: 30 },
+    gold: { minion: 0.012, elite: [2, 5], building: 6, general: 12, generalPerChapter: 5, chapterClear: 20, eliteSoldier: 2 },
     costBase: 30, costGrowth: 1.5, maxLv: 9,
     rarity: [
       { name: '普通', color: '#b08a5a', rgb: '210,170,120' },  // 1–3 级
@@ -1025,11 +1086,13 @@ window.GAME_DATA = {
   // 全局节奏
   stage: {
     bossRateMul: 0.35,     // 武将在场时小兵刷新倍率
+    bossHpExp: 1.4,        // 武将血量 = 基础血量 × (1 + 秒数/240)^bossHpExp
+    bossLateMul: 0.5,      // 7 分钟后的平方加成，战役里的武将只吃一半
     bossGap: 10,            // 两名武将之间至少隔几秒
     chapterGap: 5,          // 章末武将倒下后几秒进入下一章
     hpGrowth: 1 / 95,       // 每过 95 秒小兵血量 +100%
     lateStart: 420,         // 7 分钟后，敌人强度开始按平方额外增长
-    lateDiv: 480,
+    lateDiv: 650,
     endlessDiv: 300,        // 进入无尽征途后，再按平方加速增长
     endlessBossHp: 6000,    // 无尽征途里武将的最低基础血量
     xpGrowthStart: 240,     // 4 分钟后小兵经验开始增长

@@ -9,6 +9,7 @@
 //   props/caltrop.png        铁蒺藜（单个，俯视）
 //   cutins/<武将id>.png      大招特写横幅（眼部特写，宽 3:1）；sprites/lubu_mounted.png 吕布骑赤兔
 //   fx/dragon_white.png、fx/dragon_azure.png  白龙 / 青龙龙首（朝右）；mounts/white.png 白龙驹（不带骑手，朝右）
+//   icons/el_fire.png 等  属性图标；fx/el_arrow_fire.png、fx/el_orb_fire.png、fx/el_hit_fire.png 等  属性箭、属性弹、属性命中（黑底发光）
 // id 就是 data.js 里的英文名。
 
 // 素材文件夹：和 index.html 放在一起的 assets/。整个游戏文件夹搬到哪里都能用。
@@ -32,6 +33,12 @@ window.Assets = (() => {
     for (const o of D.origins) load('origin:' + o.id, `${ASSET_BASE}origins/${o.id}.png`);
     for (const group of [D.weapons, D.skills, D.passives]) {
       for (const id in group) load('icon:' + id, `${ASSET_BASE}icons/${id}.png`);
+    }
+    // 属性：图标 icons/el_<属性>.png；属性箭 fx/el_arrow_<属性>.png（黑底、箭头朝右）、
+    // 属性弹 fx/el_orb_<属性>.png（黑底）、属性命中 fx/el_hit_<属性>.png（黑底）。属性 = fire / ice / thunder / wind
+    for (const id in D.elements || {}) {
+      load('icon:el_' + id, `${ASSET_BASE}icons/el_${id}.png`);
+      for (const k of ['arrow', 'orb', 'hit']) load(`elfx:${k}_${id}`, `${ASSET_BASE}fx/el_${k}_${id}.png`);
     }
     // 局外装备图标
     // 局外装备：每件 9 个形态的图标（icons/<装备>_<级>.png），以及每个出身 9 种造型的小人（sprites/<出身>_w<武器阶段>a<护甲阶段>.png）

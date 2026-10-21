@@ -166,7 +166,9 @@ const endJoy = e => { if (e.pointerId === joy.id) joy.on = false; };
 cv.addEventListener('pointerup', endJoy);
 cv.addEventListener('pointercancel', endJoy);
 
+let botMove = null; // 调试：测试脚本接管走位
 function moveInput() {
+  if (botMove) return botMove(S);
   let x = 0, y = 0;
   for (const k of keys) { const v = MOVE_KEYS[k]; if (v) { x += v[0]; y += v[1]; } }
   if (joy.on) {
@@ -216,11 +218,13 @@ function nearest(x, y, maxR) {
 let S = null;
 let nextId = 1;
 
-function xpFor(lv) { const a = Math.max(0, lv - 40); return Math.round(4 + (lv - 1) * 2.5 + Math.max(0, lv - 20) * 3 + a * a * 0.4); }
+// 升级所需经验（数值在 data.js 的 xpCurve）
+function xpFor(lv) { const X = D.xpCurve, a = Math.max(0, lv - X.lateFrom); return Math.round(X.base + (lv - 1) * X.perLv + Math.max(0, lv - X.midFrom) * X.mid + a * a * X.late); }
 function rankOf(lv) { let r = D.ranks[0].name; for (const k of D.ranks) if (lv >= k.lv) r = k.name; return r; }
 
-// 无限成长：武器 / 技能满 5 级后继续“突破”，每级伤害 +15%，每 3 级数量 +1
+// 无限成长：武器 / 技能满 5 级后继续“突破”，每级伤害 +10%，每 3 级数量 +1，但数量最多 5 个
 const BREAK = D.breakthrough;
+const growTo = (v, step, cap) => v >= cap ? v : Math.min(cap, v + step); // 满级时已经超过上限的技能（如撒豆成兵）保持原样，不再增加
 function statsOf(def, lv) {
   const N = def.levels.length;
   if (lv <= N) return def.levels[lv - 1];
@@ -231,21 +235,18 @@ function statsOf(def, lv) {
   if (b.cd) s.cd = b.cd * faster;
   if (b.tick) s.tick = b.tick * faster;
   for (const k of ['range', 'radius', 'ringR', 'len']) if (b[k]) s[k] = b[k] * (1 + BREAK.areaPerLevel * x);
-  if (b.count) s.count = b.count + step;
-  if (b.pierce) s.pierce = b.pierce + step;
-  if (b.blades) s.blades = Math.min(8, b.blades + step);
+  if (b.count) s.count = growTo(b.count, step, BREAK.countCap);
+  if (b.pierce) s.pierce = growTo(b.pierce, step, BREAK.pierceCap);
+  if (b.blades) s.blades = growTo(b.blades, step, BREAK.countCap);
   if (b.bonus) s.bonus = b.bonus + 0.05 * x;
   if (def.type === 'trample') s.speed = b.speed + Math.min(0.3, 0.02 * x);
   return s;
 }
 function breakNote(def, nextLv) {
-  const x = nextLv - def.levels.length, b = def.levels[def.levels.length - 1];
-  const pct = Math.round(BREAK.dmgPerLevel * 100);
-  if (x % BREAK.countEvery === 0) {
-    if (b.blades && b.blades + x / BREAK.countEvery <= 8) return `突破：画戟 +1，伤害 +${pct}%`;
-    if (b.count) return `突破：数量 +1，伤害 +${pct}%`;
-    if (b.pierce) return `突破：穿透 +1，伤害 +${pct}%`;
-  }
+  const pct = Math.round(BREAK.dmgPerLevel * 100), a = statsOf(def, nextLv - 1), b = statsOf(def, nextLv);
+  if (b.blades > a.blades) return `突破：画戟 +1，伤害 +${pct}%`;
+  if (b.count > a.count) return `突破：数量 +1（上限 ${BREAK.countCap}），伤害 +${pct}%`;
+  if (b.pierce > a.pierce) return `突破：穿透 +1，伤害 +${pct}%`;
   return `突破：伤害 +${pct}%，冷却与范围小幅提升`;
 }
 // 带出身专精加成的数值：弓弩吃“弓箭”物品，计策兵器和所有技能吃“计策”物品
@@ -253,8 +254,10 @@ function wStats(def, lv) {
   let L = statsOf(def, lv);
   const p = S.player, t = def.tags || [];
   if (S.startDmg && def.id === S.origin.weapon) L = Object.assign({}, L, { dmg: L.dmg * (1 + S.startDmg) }); // 局外装备：起手武器
-  if (t.includes('bow') && (p.arrowCount || p.arrowDmg || p.arrowPierce))
-    return Object.assign({}, L, { count: (L.count || 1) + p.arrowCount, dmg: L.dmg * (1 + p.arrowDmg), pierce: (L.pierce || 1) + p.arrowPierce });
+  if (t.includes('bow') && (p.arrowCount || p.arrowDmg || p.arrowPierce)) { // 箭数到上限后，多出来的连珠箭改成伤害 +12%
+    const n = (L.count || 1) + p.arrowCount, over = Math.max(0, n - BREAK.countCap);
+    return Object.assign({}, L, { count: Math.min(BREAK.countCap, n), dmg: L.dmg * (1 + p.arrowDmg) * (1 + 0.12 * over), pierce: Math.min(BREAK.pierceCap, (L.pierce || 1) + p.arrowPierce) });
+  }
   if (t.includes('spell') && (p.spellDmg || p.spellArea || p.skillCd)) {
     const o = Object.assign({}, L);
     if (o.dmg) o.dmg *= 1 + p.spellDmg;
@@ -282,7 +285,7 @@ function newState(originId) {
     origin, t: 0, kills: 0,
     paused: false, modal: false, over: false, won: false, endless: false, endlessStart: 0, endlessT: 0,
     player: { x: 0, y: 0, r: 14, hp: 0, maxHp: 0, facing: 0, level: 1, xp: 0, xpNext: xpFor(1), iframes: 0, moving: false, kvx: 0, kvy: 0 },
-    weapons: [], skills: [], passives: {},
+    weapons: [], skills: [], passives: {}, elements: {}, boltBudget: 6, gustT: 0,
     enemies: [], bossList: [], proj: [], eproj: [], zones: [], effects: [], rings: [], pickups: [], numbers: [], particles: [], hazards: [],
     rampageT: 0, thornsT: 0, seen: {},
     decals: [], ghosts: [], hurtFlash: 0, ghostT: 0,
@@ -343,10 +346,14 @@ const ctime = () => S.t - S.chStart;
 function hitEnemy(e, base, opts) {
   if (e.dead) return;
   const p = S.player;
+  // 这一击带的属性：飞弹 / 落石 / 音波自己记着；刀光、直刺、火圈等当场命中的，用这次出手抽到的属性
+  const el = opts && opts.el !== undefined ? opts.el : curEl, W = el === 'wind' && elStats('wind');
   let dmg = base * p.dmgMul * (1 + S.wsb) * (1 + S.lust * (S.lustPer || 0)) * (e.frenzyT > S.t ? 0.5 : 1); // 狂暴中的武将受伤减半
-  const crit = Math.random() < p.crit;
+  if (W) dmg *= 1 + W.dmg; // 疾风：风刃加伤
+  const crit = !(opts && opts.noCrit) && Math.random() < p.crit;
   if (crit) dmg *= p.critMul;
   if (e.vulnT > S.t) dmg *= 1 + D.champion.breakVuln; // 破甲后易伤
+  if (S.elements.ice >= 5 && e.slowT > S.t) dmg *= 1 + D.elements.ice.levels[4].shatter; // 寒冰 Lv5 碎冰：减速中的敌人受伤更多
   if (e.dr) dmg *= 1 - e.dr;                          // 名将半血 / 濒死减伤
   dmg = Math.max(1, Math.round(dmg * rand(0.92, 1.08)));
   // 护甲护体：先扣护甲，打空了才伤到血；护甲在时几乎推不动
@@ -363,16 +370,123 @@ function hitEnemy(e, base, opts) {
   e.flash = 0.09;
   const ha = opts && opts.kbAngle !== undefined ? opts.kbAngle : angleTo(p.x, p.y, e.x, e.y);
   if (opts && opts.kb) {
-    const k = opts.kb * (1 - (e.def.kbResist || 0)) * (e.boss ? 0.04 : 1) * (armored ? 0.3 : 1);
+    const k = opts.kb * (W ? 1 + W.kb : 1) * (1 - (e.def.kbResist || 0)) * (e.boss ? 0.04 : 1) * (armored ? 0.3 : 1);
     e.kvx += Math.cos(ha) * k; e.kvy += Math.sin(ha) * k;
   }
   // 命中火花：从敌人身上沿打击方向迸出，暴击更多、带金色闪光
   const hx = e.x - Math.cos(ha) * e.r * 0.4, hy = e.y - e.r * 0.5 - Math.sin(ha) * e.r * 0.4;
   if (crit) { sparks(hx, hy, ha, 7, '255,210,110', 520, 0.8, 2.6); glint(hx, hy, 18, '255,225,150'); }
   else if (!(opts && opts.quiet)) sparks(hx, hy, ha, 2, '255,238,210', 380, 0.6, 1.8);
-  addNumber(e.x + rand(-6, 6), e.y - e.r, String(dmg), crit ? '#ffcf5a' : armored ? '#a9c8ff' : '#f3ead6', crit ? 20 : 14);
+  addNumber(e.x + rand(-6, 6), e.y - e.r, String(dmg), crit ? '#ffcf5a' : opts && opts.color || (armored ? '#a9c8ff' : '#f3ead6'), crit ? 20 : opts && opts.color ? 12 : 14);
   if (armored && Math.random() < 0.5) sparks(hx, hy, ha + Math.PI, 2, '170,200,255', 300, 0.9, 1.6); // 打在护甲上：蓝白火花
-  if (e.hp <= 0) killEnemy(e);
+  if (el && !(opts && opts.noEl)) applyElement(e, base, el, hx, hy);
+  if (e.hp <= 0 && !e.dead) killEnemy(e);
+}
+
+// ============ 属性：冰火雷风 ============
+// 命中时只触发这一击带的那一种属性（灼烧、雷电、旋风造成的伤害带 noEl，不会再连锁触发）
+const elStats = id => S.elements[id] ? D.elements[id].levels[S.elements[id] - 1] : null;
+// 命中处迸出属性的光点：火星 / 冰晶 / 电火花 / 风痕
+function elSpark(el, x, y) {
+  const c = D.elements[el].rgb;
+  if (el === 'fire') embers(x, y, 3, c, 70, 50, 5, 0.45);
+  else if (el === 'ice') { fxp({ type: 'snow', x, y, vx: rand(-40, 40), vy: rand(-40, 10), drag: 3, life: 0.5, size: rand(3, 5), rot: rand(0, TAU), spin: 3 }); sparks(x, y, rand(0, TAU), 2, c, 220, Math.PI, 1.6); }
+  else if (el === 'thunder') sparks(x, y, rand(0, TAU), 4, c, 420, Math.PI, 1.8);
+  else for (let k = 0; k < 2; k++) { const a = rand(0, TAU); fxp({ type: 'spark', x, y, vx: -Math.sin(a) * 300, vy: Math.cos(a) * 220, drag: 4, life: 0.3, rgb: c, size: 1.6 }); }
+}
+// 带属性的爆炸 / 落石：一圈属性色的冲击，有 GPT 画的属性命中图就叠上
+function elBurst(el, x, y, R) {
+  const E = D.elements[el], art = window.Assets.get('elfx:hit_' + el);
+  if (art) S.effects.push({ kind: 'elhit', img: art, x, y, r: R, life: 0.32, max: 0.32, rot: rand(0, TAU) });
+  else fxTex('burst', x, y, { w: R, h: R, rgb: E.rgb, life: 0.3, grow: 1.4, rot: rand(0, TAU), core: 0.3, a: 0.7 });
+  if (el === 'ice') shards(x, y, 6, R * 2.4, 6);
+  else if (el === 'thunder') sparks(x, y, -Math.PI / 2, 8, E.rgb, R * 5, Math.PI, 2);
+  else if (el === 'fire') embers(x, y, 8, E.rgb, R * 1.6, 40, 7, 0.55);
+  else fxTex('whirl', x, y, { w: R, h: R, rgb: E.rgb, life: 0.3, spin: 9, flat: 0.6, a: 0.7 });
+}
+// 属性飞弹的拖尾：火星、雪花、电光、风痕
+function elTrail(b) {
+  const c = D.elements[b.el].rgb;
+  if (b.el === 'fire') fxp({ type: 'ember', x: b.x + rand(-3, 3), y: b.y + rand(-3, 3), vx: rand(-20, 20), vy: rand(-40, -10), drag: 2, life: 0.4, rgb: Math.random() < 0.5 ? c : '255,210,100', size: rand(5, 8) });
+  else if (b.el === 'ice') fxp({ type: 'snow', x: b.x, y: b.y, vx: -b.vx * 0.05, vy: -b.vy * 0.05 + 12, drag: 2, life: 0.5, size: rand(2.5, 4), rot: rand(0, TAU), spin: 3 });
+  else if (b.el === 'thunder') fxp({ type: 'spark', x: b.x, y: b.y, vx: rand(-160, 160), vy: rand(-160, 160), drag: 6, life: 0.18, rgb: c, size: 1.6 });
+  else fxp({ type: 'spark', x: b.x, y: b.y, vx: -b.vx * 0.25 + rand(-40, 40), vy: -b.vy * 0.25 + rand(-40, 40), drag: 3, life: 0.3, rgb: c, size: 1.5 });
+}
+function applyElement(e, base, el, hx, hy) {
+  if (Math.random() < 0.35) elSpark(el, hx, hy);
+  const hitArt = window.Assets.get('elfx:hit_' + el); // 有属性命中图：偶尔在敌人身上炸开一朵小的
+  if (hitArt && Math.random() < 0.3 && S.effects.length < 260) S.effects.push({ kind: 'elhit', img: hitArt, x: hx, y: hy, r: e.r * 1.3, life: 0.22, max: 0.22, rot: rand(0, TAU) });
+  if (el === 'fire') { // 烈火：点燃，持续灼烧（取这几秒里最重的一次命中来算）
+    const L = elStats('fire'), dps = base * L.burn;
+    if (!(e.burnT > S.t)) { e.burnBase = dps; e.burnTick = S.t + 0.5; }
+    else e.burnBase = Math.max(e.burnBase, dps);
+    e.burnT = S.t + L.dur;
+  } else if (el === 'ice' && !e.building) { // 寒冰：减速，有几率冻住（名将、精英只减速）
+    const L = elStats('ice'), f = 1 - L.slow * (e.boss || e.ai ? 0.6 : 1);
+    e.slowF = e.slowT > S.t ? Math.min(e.slowF, f) : f;
+    e.slowT = Math.max(e.slowT, S.t + 2);
+    if (!e.boss && !e.ai && !(e.frozenT > S.t) && Math.random() < L.freeze) {
+      e.frozenT = S.t + 0.9; e.stunT = Math.max(e.stunT || 0, e.frozenT);
+      shards(e.x, e.y - e.r, 4, 140, 6);
+    }
+  } else if (el === 'thunder' && S.boltBudget >= 1) { // 雷霆：引雷，在附近敌人之间跳跃
+    const L = elStats('thunder');
+    if (Math.random() < L.chance) {
+      S.boltBudget--;
+      const pts = [[e.x + rand(-30, 30), e.y - 170], [e.x, e.y - e.r * 0.6]], hit = new Set([e.id]);
+      let cur = e;
+      for (let k = 0; k < L.jumps; k++) {
+        let best = null, bd = 170 * 170;
+        near(cur.x, cur.y, 218, o => { if (o.dead || hit.has(o.id)) return; const dd = dist2(cur.x, cur.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
+        if (!best) break;
+        hit.add(best.id); pts.push([best.x, best.y - best.r * 0.6]);
+        hitEnemy(best, base * L.pct, { kb: 20, quiet: true, noEl: true, color: '#c8d8ff' });
+        if (L.stun && !best.boss && !best.building) best.stunT = Math.max(best.stunT || 0, S.t + L.stun);
+        cur = best;
+      }
+      S.effects.push({ kind: 'bolt', pts: zigzag(pts, 12), life: 0.18, max: 0.18, rgb: D.elements.thunder.rgb });
+      sparks(e.x, e.y - e.r * 0.6, rand(0, TAU), 3, '210,225,255', 260, Math.PI, 1.6);
+    }
+  }
+}
+// 每帧：灼烧跳伤害、雷电额度恢复、疾风旋风
+function updateElements(dt) {
+  const p = S.player, E = S.elements;
+  S.boltBudget = Math.min(6, (S.boltBudget || 0) + dt * 10); // 同屏雷电最多每秒约 10 道，免得满屏闪
+  if (E.fire) {
+    const L = elStats('fire');
+    for (const e of S.enemies) {
+      if (e.dead || !(e.burnT > S.t) || S.t < e.burnTick) continue;
+      e.burnTick = S.t + 0.5;
+      if (Math.random() < 0.6) embers(e.x, e.y - e.r, 2, '255,140,60', 30, 50, 4, 0.5);
+      hitEnemy(e, e.burnBase * 0.5, { quiet: true, noEl: true, noCrit: true, color: '#ff9a4a' });
+      if (e.dead && L.explode && !e.building) { // 焚身：燃烧的敌人倒下时爆炸，把火引到周围
+        const x = e.x, y = e.y, R = L.radius * p.areaMul, bb = e.burnBase;
+        later(0.05, () => {
+          explosion(x, y - 10, R * 0.5, false);
+          S.effects.push({ kind: 'wave', x, y, r: R, life: 0.3, max: 0.3, color: '#ff8a3a' });
+          near(x, y, R + 48, o => {
+            if (dist2(x, y, o.x, o.y) > (R + o.r) ** 2) return;
+            if (!(o.burnT > S.t)) { o.burnBase = bb; o.burnTick = S.t + 0.5; } else o.burnBase = Math.max(o.burnBase, bb);
+            o.burnT = S.t + L.dur;
+            hitEnemy(o, bb * L.explode, { kb: 120, kbAngle: angleTo(x, y, o.x, o.y), quiet: true, noEl: true, color: '#ff9a4a' });
+          });
+        });
+      }
+    }
+  }
+  const W = elStats('wind');
+  if (W && W.gust) { // 疾风：每隔几秒一阵旋风，吹开并割伤身边的敌人
+    S.gustT = (S.gustT || 0) - dt;
+    const R = W.gust.radius * p.areaMul;
+    if (S.gustT <= 0 && nearest(p.x, p.y, R)) {
+      S.gustT = W.gust.every * p.cdMul;
+      near(p.x, p.y, R + 48, e => { if (dist2(p.x, p.y, e.x, e.y) < (R + e.r) ** 2) hitEnemy(e, W.gust.dmg, { kb: 300, quiet: true, noEl: true, color: '#b8f0d0' }); });
+      fxTex('whirl', 0, 0, { follow: p, oy: -10, w: R * 2.4, h: R * 2.4, rgb: '170,240,200', life: 0.45, spin: 9, flat: 0.6, a: 0.8 });
+      S.effects.push({ kind: 'wave', x: p.x, y: p.y, r: R, life: 0.35, max: 0.35, color: '#9ad8b8' });
+      for (let k = 0; k < 10; k++) { const a = rand(0, TAU); fxp({ type: 'spark', x: p.x + Math.cos(a) * R * 0.4, y: p.y + Math.sin(a) * R * 0.3, vx: -Math.sin(a) * 320, vy: Math.cos(a) * 240, drag: 2, life: 0.4, rgb: '200,250,225', size: 1.6 }); }
+    }
+  }
 }
 // 护甲被打空：僵直 + 易伤，碎片四溅
 function breakShield(e) {
@@ -440,7 +554,7 @@ function killEnemy(e) {
   }
   // 经验随时间增长，保证后期也能持续升级
   dropXp(e.x, e.y, Math.max(1, Math.round(e.def.xp * (1 + Math.max(0, S.t - D.stage.xpGrowthStart) / D.stage.xpGrowthSec) * (e.elite ? 5 : 1))));
-  if (Math.random() < (e.elite ? 0.6 : D.meta.gold.minion)) dropGold(e.x, e.y, e.elite ? 3 : 1);
+  if (Math.random() < (e.elite ? 0.5 : D.meta.gold.minion)) dropGold(e.x, e.y, e.elite ? D.meta.gold.eliteSoldier : 1);
   if (Math.random() < (e.elite ? 0.25 : 0.012)) S.pickups.push({ kind: 'heal', x: e.x, y: e.y, v: 25, mag: false, vel: 0 });
   else if (Math.random() < (e.elite ? 0.15 : 0.002)) S.pickups.push({ kind: 'vacuum', x: e.x, y: e.y, v: 0, mag: false, vel: 0 });
   // 倒下：一团墨烟 + 几块碎屑；精英多一道金光
@@ -794,7 +908,8 @@ function addShield(e, frac) { e.shieldMax = e.shield = e.maxHp * frac * (0.35 + 
 function spawnBoss(gid, final) {
   const g = championDef('g:' + gid, D.generals[gid]);
   const [x, y] = spawnPos(-80);
-  const mul = Math.pow(1 + S.t / 240, 1.6) * lateBoost(); // 玩家成长是加速的，武将血量也要加速
+  // 玩家成长是加速的，武将血量也要加速；战役里后期的平方加成只算一半（无尽征途全额）
+  const lb = lateBoost(), mul = Math.pow(1 + S.t / 240, D.stage.bossHpExp) * (S.endless ? lb : 1 + (lb - 1) * D.stage.bossLateMul);
   const hp = (S.endless ? Math.max(g.hp, D.stage.endlessBossHp) : g.hp) * mul;
   const e = {
     id: nextId++, gid, def: g, x, y, r: g.r, hp, maxHp: hp, final: !!final,
@@ -972,10 +1087,12 @@ function swing(a, range, L, def) {
     hitEnemy(e, L.dmg, { kb: L.kb, kbAngle: ea });
   });
   // 刀光颜色：锄头土白、大刀金、青龙刀青、开山斧黄
-  const rgb = { hoe: '240,228,196', dadao: '255,200,100', qinglong: '130,240,185', kaishan: '255,215,80' }[def.id] || (def.general ? '255,210,122' : '240,228,196');
+  // 带属性的刀光换成属性色（火红、冰蓝、雷紫、风青），并叠一层刀光贴图
+  const rgb = curEl ? D.elements[curEl].rgb : { hoe: '240,228,196', dadao: '255,200,100', qinglong: '130,240,185', kaishan: '255,215,80' }[def.id] || (def.general ? '255,210,122' : '240,228,196');
   S.effects.push({ kind: 'arc', x: p.x, y: p.y - 10, a, range, half, life: 0.26, max: 0.26, rgb });
+  if (curEl) for (let k = 0; k < 4; k++) { const t = a + rand(-half, half), rr = range * rand(0.6, 1); elSpark(curEl, p.x + Math.cos(t) * rr, p.y - 10 + Math.sin(t) * rr); }
   // 武将兵器：叠一层刀光贴图，更厚重
-  if (def.general) fxTex('slash', p.x + Math.cos(a) * range * 0.55, p.y - 10 + Math.sin(a) * range * 0.55, { w: range * 2 * Math.min(1, Math.sin(Math.min(half, 1.5)) + 0.2), h: range * 0.75, rot: a + Math.PI / 2, rgb, life: 0.24, grow: 1.1, a: 0.75, core: 0.5 });
+  if (def.general || curEl) fxTex('slash', p.x + Math.cos(a) * range * 0.55, p.y - 10 + Math.sin(a) * range * 0.55, { w: range * 2 * Math.min(1, Math.sin(Math.min(half, 1.5)) + 0.2), h: range * 0.75, rot: a + Math.PI / 2, rgb, life: 0.24, grow: 1.1, a: 0.75, core: 0.5 });
   if (L.wave) fireCrescent(a, L.dmg * L.wave, 18);
 }
 // 贯穿全场的刀气（青龙偃月刀、武圣）
@@ -993,15 +1110,49 @@ function thrust(a, L, def) {
     if (along < -e.r || along > len + e.r || side > hw + e.r) return;
     hitEnemy(e, L.dmg, { kb: L.kb, kbAngle: a });
   });
-  const rgb = def.id === 'longdan' ? '220,235,255' : '235,215,170';
+  const rgb = curEl ? D.elements[curEl].rgb : def.id === 'longdan' ? '220,235,255' : '235,215,170';
   S.effects.push({ kind: 'thrust', x: p.x, y: p.y - 10, a, len, w: L.width, life: 0.18, max: 0.18, rgb });
+  if (curEl) fxTex('thrust', p.x + ux * len * 0.5, p.y - 10 + uy * len * 0.5, { w: len, h: L.width * 1.6, rot: a, rgb, life: 0.2, a: 0.8, core: 0.4 });
   glint(p.x + ux * len, p.y - 10 + uy * len, 14, rgb, 0.12);
 }
 
+// 属性：每次出手随机抽一种已学的属性（等级越高越容易抽到）。没学属性时为 null
+let curEl = null;
+function rollEl() {
+  let tot = 0;
+  for (const id in S.elements) tot += S.elements[id];
+  if (!tot) return null;
+  let r = Math.random() * tot;
+  for (const id in S.elements) { r -= S.elements[id]; if (r <= 0) return id; }
+  return null;
+}
+// 本次出手放出的飞弹、落石、音波都记下属性；疾风的飞弹更快、多穿透
+function tagEl(list, from) {
+  if (!curEl) return;
+  const W = curEl === 'wind' && elStats('wind');
+  for (let i = from; i < list.length; i++) {
+    const o = list[i];
+    if (o.el !== undefined) continue;
+    o.el = curEl;
+    if (W && o.vx !== undefined) {
+      if (o.pierce < 999) o.pierce += W.pierce;
+      if (!o.boom) { o.vx *= 1.25; o.vy *= 1.25; if (o.speed) o.speed *= 1.25; }
+    }
+  }
+}
 function updateWeapons(dt) {
   const p = S.player;
   for (const w of S.weapons) {
     const def = D.weapons[w.id], L = wStats(def, w.lv);
+    curEl = rollEl();
+    const n0 = S.proj.length, s0 = S.strikes.length, r0 = S.rings.length;
+    weaponTick(w, def, L, dt, p);
+    tagEl(S.proj, n0); tagEl(S.strikes, s0); tagEl(S.rings, r0);
+  }
+  curEl = null;
+}
+function weaponTick(w, def, L, dt, p) {
+  {
     switch (def.type) {
       case 'arc': {
         w.t -= dt; if (w.t > 0) break;
@@ -1056,7 +1207,7 @@ function updateWeapons(dt) {
           near(from.x, from.y, L.jump * p.areaMul + 48, o => { if (o.dead || hit.has(o.id)) return; const dd = dist2(from.x, from.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
           cur = best;
         }
-        S.effects.push({ kind: 'bolt', pts: zigzag(pts, 14), life: 0.2, max: 0.2, rgb: '170,200,255' });
+        S.effects.push({ kind: 'bolt', pts: zigzag(pts, 14), life: 0.2, max: 0.2, rgb: curEl ? D.elements[curEl].rgb : '170,200,255' });
         break;
       }
       case 'spin': { // 河北大刀：原地回旋，连斩数圈
@@ -1365,13 +1516,13 @@ function updateSkills(dt) {
     for (let k = 0; k < (r.rgb ? 2 : 4); k++) {
       const a = rand(0, TAU);
       if (r.ice) { if (Math.random() < 0.4) fxp({ type: 'snow', x: r.x + Math.cos(a) * r.r, y: r.y + Math.sin(a) * r.r, vx: Math.cos(a) * 60, vy: Math.sin(a) * 60, drag: 3, life: 0.5, size: rand(3, 5), rot: rand(0, TAU), spin: 3 }); continue; }
-      fxp({ type: 'spark', x: r.x + Math.cos(a) * r.r, y: r.y + Math.sin(a) * r.r, vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, drag: 6, life: 0.2, rgb: r.rgb || '255,80,60', size: 2.4 });
+      fxp({ type: 'spark', x: r.x + Math.cos(a) * r.r, y: r.y + Math.sin(a) * r.r, vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, drag: 6, life: 0.2, rgb: r.el ? D.elements[r.el].rgb : r.rgb || '255,80,60', size: 2.4 });
     }
     near(r.x, r.y, r.r + 48, e => {
       if (r.hit.has(e.id)) return;
       const d = Math.sqrt(dist2(r.x, r.y, e.x, e.y));
       if (Math.abs(d - r.r) < 22 + e.r) {
-        r.hit.add(e.id); hitEnemy(e, r.dmg, { kb: r.kb || 240, kbAngle: angleTo(r.x, r.y, e.x, e.y), quiet: !!r.rgb });
+        r.hit.add(e.id); hitEnemy(e, r.dmg, { kb: r.kb || 240, kbAngle: angleTo(r.x, r.y, e.x, e.y), quiet: !!r.rgb, el: r.el || null });
         if (r.ice && !e.building) { e.slowT = S.t + 1.6; e.slowF = 0.45; if (Math.random() < 0.3) shards(e.x, e.y - e.r, 2, 120, 5); }
       }
     });
@@ -2129,9 +2280,9 @@ function updateAllies(dt) {
         a.cdT = d.cd;
         const ang = angleTo(a.x, a.y, tgt.x, tgt.y);
         if (d.kind === 'ranged') {
-          S.proj.push({ kind: 'arrow', x: a.x, y: a.y - 10, vx: Math.cos(ang) * 560, vy: Math.sin(ang) * 560, r: 5, dmg: d.dmg * power, pierce: 1, life: 0.9, hit: new Set(), kb: 50 });
+          S.proj.push({ kind: 'arrow', x: a.x, y: a.y - 10, vx: Math.cos(ang) * 560, vy: Math.sin(ang) * 560, r: 5, dmg: d.dmg * power, pierce: 1, life: 0.9, hit: new Set(), kb: 50, ally: true });
         } else {
-          hitEnemy(tgt, a.dmg || d.dmg * power, { kb: 90, kbAngle: ang });
+          hitEnemy(tgt, a.dmg || d.dmg * power, { kb: 90, kbAngle: ang, noEl: true });
           S.effects.push({ kind: 'thrust', x: a.x, y: a.y - 10, a: ang, len: d.range + 14, w: 16, life: 0.14, max: 0.14, rgb: '170,210,255' });
         }
         a.fx = Math.cos(ang) >= 0 ? 1 : -1;
@@ -2180,6 +2331,7 @@ function updateProjectiles(dt) {
     if (b.spin !== undefined && !b.boom) b.spin += dt * (b.kind === 'page' ? 4 : 6);
     if (b.curl) { b.a += b.curl * dt; b.vx = Math.cos(b.a) * b.speed; b.vy = Math.sin(b.a) * b.speed; } // 花扇的花瓣：打着旋飞出去
     if (b.kind === 'petal' && Math.random() < 0.3) fxp({ type: 'petal', x: b.x, y: b.y, vx: -b.vx * 0.1, vy: -b.vy * 0.1 + 10, drag: 2, life: 0.55, rgb: '255,180,215', size: rand(3, 4.5), rot: rand(0, TAU), spin: rand(-6, 6), seed: rand(0, 9) });
+    else if (b.el) { if (Math.random() < 0.5) elTrail(b); }
     else if (b.kind === 'orb' && Math.random() < 0.6) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-15, 15), vy: rand(-15, 15), drag: 3, life: 0.35, rgb: '140,240,200', size: rand(5, 8) });
     else if (b.kind === 'bean' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-10, 10), vy: rand(-20, 0), drag: 3, life: 0.3, rgb: '255,210,90', size: rand(4, 6) });
     else if (b.kind === 'fire') {
@@ -2192,15 +2344,16 @@ function updateProjectiles(dt) {
         b.hit.add(e.id);
         if (b.blast) { // 羽扇火球：命中后爆炸
           const R = b.blast;
-          near(b.x, b.y, R + 48, o => { if (dist2(b.x, b.y, o.x, o.y) < (R + o.r) ** 2) hitEnemy(o, b.dmg, { kb: 120, kbAngle: angleTo(b.x, b.y, o.x, o.y), quiet: true }); });
-          S.effects.push({ kind: 'blast', x: b.x, y: b.y, r: R, life: 0.34, max: 0.34, rgb: b.rgb });
+          near(b.x, b.y, R + 48, o => { if (dist2(b.x, b.y, o.x, o.y) < (R + o.r) ** 2) hitEnemy(o, b.dmg, { kb: 120, kbAngle: angleTo(b.x, b.y, o.x, o.y), quiet: true, el: b.el || null }); });
+          S.effects.push({ kind: 'blast', x: b.x, y: b.y, r: R, life: 0.34, max: 0.34, rgb: b.el ? D.elements[b.el].rgb : b.rgb });
+          if (b.el) elBurst(b.el, b.x, b.y, R * 1.6);
           if (b.kind === 'bean') { sparks(b.x, b.y, 0, 10, '255,220,120', R * 6, Math.PI, 2.2); embers(b.x, b.y, 8, '255,200,90', R * 2, 30, 7, 0.5); }
           else if (b.kind === 'page') { pages(b.x, b.y, 6, R * 3, 6); sparks(b.x, b.y, 0, 8, '255,225,160', R * 5, Math.PI, 2); }
           else explosion(b.x, b.y, R, false);
           b.dead = true;
           return;
         }
-        hitEnemy(e, b.dmg, { kb: b.kb, kbAngle: Math.atan2(b.vy, b.vx) });
+        hitEnemy(e, b.dmg, { kb: b.kb, kbAngle: Math.atan2(b.vy, b.vx), el: b.el || null });
         if (--b.pierce <= 0) b.dead = true;
       }
     });
@@ -2354,7 +2507,8 @@ function updateStrikes(dt) {
       explosion(s.x, s.y, s.r * 0.6, false);
       continue;
     }
-    near(s.x, s.y, s.r + 48, e => { if (dist2(s.x, s.y, e.x, e.y) < (s.r + e.r) ** 2) hitEnemy(e, s.dmg, { kb: s.kind === 'rock' ? 160 : 60, kbAngle: angleTo(s.x, s.y, e.x, e.y), quiet: true }); });
+    near(s.x, s.y, s.r + 48, e => { if (dist2(s.x, s.y, e.x, e.y) < (s.r + e.r) ** 2) hitEnemy(e, s.dmg, { kb: s.kind === 'rock' ? 160 : 60, kbAngle: angleTo(s.x, s.y, e.x, e.y), quiet: true, el: s.el || null }); });
+    if (s.el) elBurst(s.el, s.x, s.y - 8, s.r * 1.4);
     if (s.kind === 'rock') {
       groundImpact(s.x, s.y, s.r, '140,120,90');
       for (let i = 0; i < 7; i++) particle(s.x, s.y - 6, i % 2 ? '#7a6a58' : '#5a4e42', 320);
@@ -2639,6 +2793,7 @@ function update(dt) {
   updateSkills(dt);
   updateShenbing(dt);
   updateEnemies(dt);
+  updateElements(dt);
   gridBuild();
   updateAllies(dt);
   updateProjectiles(dt);
@@ -2660,12 +2815,13 @@ function update(dt) {
 
 // ============ 升级 / 武将奖励 ============
 function defOf(kind, id) {
-  return kind === 'weapon' ? D.weapons[id] : kind === 'skill' ? D.skills[id] : kind === 'passive' ? D.passives[id] : kind === 'shenbing' ? D.shenbing[id] : null;
+  return kind === 'weapon' ? D.weapons[id] : kind === 'skill' ? D.skills[id] : kind === 'passive' ? D.passives[id] : kind === 'shenbing' ? D.shenbing[id] : kind === 'element' ? D.elements[id] : null;
 }
 function maxLv(kind, def) { return kind === 'passive' ? def.max : kind === 'shenbing' ? 99 : def.levels.length; }
 function ownedLv(kind, id) {
   if (kind === 'weapon') { const w = S.weapons.find(x => x.id === id); return w ? w.lv : 0; }
   if (kind === 'skill') { const s = S.skills.find(x => x.id === id); return s ? s.lv : 0; }
+  if (kind === 'element') return S.elements[id] || 0;
   return S.passives[id] || 0;
 }
 function kindOf(id) { return D.weapons[id] ? 'weapon' : D.skills[id] ? 'skill' : 'passive'; }
@@ -2705,10 +2861,17 @@ function levelOptions() {
     if (!lv && ownedPassives >= D.player.passiveSlots) continue;
     pool.push({ kind: 'passive', id, cur: lv, w: (!lv ? 1.0 : lv < def.max ? 2.0 : 0.8) * focusMul(def, 'passive') });
   }
+  // 属性：冰火雷风，Lv 3 起出现，每种最高 5 级；已经修了的更容易接着出现
+  if (S.player.level >= D.elementFrom) {
+    for (const id in D.elements) {
+      const lv = S.elements[id] || 0;
+      if (lv < D.elements[id].levels.length) pool.push({ kind: 'element', id, cur: lv, w: lv ? 2.2 : 1.3 });
+    }
+  }
   const res = pickWeighted(pool, 3);
   // 保证至少有一张武器或技能：物品种类多，不保底的话兵器容易一直升不上去
   const arms = pool.filter(o => (o.kind === 'weapon' || o.kind === 'skill') && !res.includes(o));
-  if (res.length === 3 && arms.length && !res.some(o => o.kind !== 'passive')) res[2] = pickWeighted(arms, 1)[0];
+  if (res.length === 3 && arms.length && !res.some(o => o.kind === 'weapon' || o.kind === 'skill')) res[2] = pickWeighted(arms, 1)[0];
   if (!res.length) res.push(healOpt());
   return res;
 }
@@ -2730,11 +2893,11 @@ function nextModal() {
 }
 
 function openChoices(mode, gid, legend) {
-  S.choice = { mode, gid };
   const p = S.player;
   const opts = mode === 'reward' ? rewardOptions(gid, legend)
     : mode === 'forge' ? pickWeighted(S.weapons.map(w => ({ kind: 'weapon', id: w.id, cur: w.lv, w: 1 })), 3)
     : levelOptions();
+  S.choice = { mode, gid, opts };
   $('lu-portrait').hidden = mode !== 'reward';
   if (mode === 'reward') {
     const g = D.generals[gid];
@@ -2759,6 +2922,14 @@ function openChoices(mode, gid, legend) {
   $('lu-crit').innerHTML = critLine();
   $('levelup').hidden = false;
 }
+// 属性卡上的具体数值
+function elementLine(id, lv) {
+  const L = D.elements[id].levels[lv - 1], pc = v => Math.round(v * 100) + '%';
+  if (id === 'fire') return `每秒灼烧 = 命中伤害的 ${pc(L.burn)}，持续 ${L.dur} 秒`;
+  if (id === 'ice') return `减速 ${pc(L.slow)} · 冻住几率 ${pc(L.freeze)}`;
+  if (id === 'thunder') return `引雷几率 ${pc(L.chance)} · 跳 ${L.jumps} 个 · 每跳 ${pc(L.pct)} 伤害`;
+  return `风刃伤害 +${pc(L.dmg)} · 击退 +${pc(L.kb)} · 穿透 +${L.pierce}${L.gust ? ` · 旋风每 ${L.gust.every} 秒` : ''}`;
+}
 // 当前暴击率与暴击伤害（选择栏右上角）
 const critLine = () => `暴击 <b>${Math.round(S.player.crit * 100)}%</b> · 爆伤 <b>${Math.round(S.player.critMul * 100)}%</b>`;
 
@@ -2769,6 +2940,13 @@ function makeCard(o, i) {
   let icon, name, kind, lvl, desc, sealCls = '';
   if (o.kind === 'heal') {
     icon = o.icon; name = o.name; kind = '补给'; lvl = `回复 ${o.amount} 生命`; desc = '此物已臻化境，换一壶庆功酒。';
+  } else if (o.kind === 'element') { // 属性：冰火雷风，卡片带属性色
+    const def = D.elements[o.id], L = def.levels;
+    btn.className = `card el el-${o.id}`; sealCls = ` el el-${o.id}`;
+    icon = window.Assets.icon('el_' + o.id, def.icon, def.name); name = def.name;
+    kind = '属性' + (o.cur + 1 >= L.length ? ' · 觉醒' : '');
+    lvl = o.cur ? `Lv ${o.cur} → ${o.cur + 1}` : '新属性';
+    desc = (o.cur ? L[o.cur].note : def.desc) + `<br><b class="eln">${elementLine(o.id, o.cur + 1)}</b>`;
   } else if (o.kind === 'shenbing') { // 神兵：金色卡
     const def = D.shenbing[o.id];
     btn.className = 'card legend';
@@ -2823,6 +3001,11 @@ function applyChoice(o) {
   } else if (o.kind === 'skill') {
     const s = S.skills.find(x => x.id === o.id);
     if (s) s.lv++; else S.skills.push({ id: o.id, lv: 1, t: 1.5 });
+  } else if (o.kind === 'element') {
+    const def = D.elements[o.id];
+    S.elements[o.id] = Math.min(def.levels.length, (S.elements[o.id] || 0) + 1);
+    if (S.elements[o.id] === def.levels.length) banner(`${def.name} · 觉醒`, def.awaken);
+    fxTex('pillar', 0, 0, { follow: p, oy: -90, w: 80, h: 260, rgb: def.rgb, life: 0.8, sx: 0.5, core: 0.7 });
   } else {
     S.passives[o.id] = (S.passives[o.id] || 0) + 1;
   }
@@ -2877,6 +3060,7 @@ function sbIconHtml(gid) {
 function slotHtml(kind, id, lv) {
   const def = defOf(kind, id);
   if (kind === 'shenbing') return `<div class="slot sb" title="神兵 · ${def.name} Lv${lv}">${sbIconHtml(id)}<i>${lv}</i></div>`;
+  if (kind === 'element') return `<div class="slot el el-${id}" title="属性 · ${def.name} Lv${lv}">${window.Assets.icon('el_' + id, def.icon, def.name)}<i>${lv}</i></div>`;
   const cls = kind === 'skill' ? ' skill' : kind === 'passive' ? ' passive' : '';
   const max = maxLv(kind, def);
   const badge = max > 1 ? `<i${lv > max ? ' class="brk"' : ''}>${lv}</i>` : '';
@@ -2888,6 +3072,7 @@ function buildList() {
   for (const w of S.weapons) out.push(['weapon', w.id, w.lv]);
   for (const s of S.skills) out.push(['skill', s.id, s.lv]);
   for (const id in S.passives) out.push(['passive', id, S.passives[id]]);
+  for (const id in S.elements) out.push(['element', id, S.elements[id]]);
   return out;
 }
 function buildChips() {
@@ -3036,7 +3221,7 @@ function snapshot() {
     endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss,
     player: { level: p.level, xp: p.xp, hp: p.hp },
     weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
-    passives: S.passives, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
+    passives: S.passives, elements: S.elements, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
     bonus: S.bonus, blessings: S.blessings, allies: S.allies.filter(a => !a.until).map(a => a.type), allyPower: S.allyPower,
     defeated: S.defeated, seen: S.seen, sbPity: S.sbPity, goldRun: S.goldRun, startDmg: S.startDmg, xpMul: S.xpMul,
     forgeReady: S.forgeReady + (ch && ch.mode === 'forge' ? 1 : 0),
@@ -3061,7 +3246,7 @@ function continueRun() {
   newState(r.origin);
   const p = S.player;
   for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
-    'passives', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT']) if (r[k] !== undefined) S[k] = r[k];
+    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT']) if (r[k] !== undefined) S[k] = r[k];
   S.weapons = r.weapons.map(w => ({ id: w.id, lv: w.lv, t: 0.3 }));
   S.skills = r.skills.map(s => ({ id: s.id, lv: s.lv, t: 1 }));
   S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0 }));
@@ -3872,7 +4057,10 @@ function drawEnemies() {
     const spr = unitSprite(e.type, d.look, h, e.flash > 0, d.mount || '');
     const moving = !stunned && !(d.ranged && Math.hypot(p.x - e.x, p.y - e.y) < d.ranged.range);
     const top = drawUnit(spr, e.x, e.y, e.r, faceToward(e, p.x), walkBob(e.id, moving));
-    if (stunned) { // 被咆哮定身：头顶转圈
+    if (e.frozenT > S.t) { // 寒冰冻住：罩一层冰
+      ctx.fillStyle = 'rgba(170,220,255,0.38)'; ctx.strokeStyle = 'rgba(225,245,255,0.8)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(e.x, (top + e.y) / 2 + e.r * 0.3, e.r * 1.05, (e.y - top) / 2 + e.r * 0.4, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    } else if (stunned) { // 被咆哮定身：头顶转圈
       ctx.strokeStyle = 'rgba(255,220,120,0.85)'; ctx.lineWidth = 1.8;
       const a = S.t * 6;
       ctx.beginPath(); ctx.ellipse(e.x, top - 3, 9, 3.5, 0, a, a + 4.5); ctx.stroke();
@@ -3926,9 +4114,53 @@ function drawEnemies() {
   }
 }
 
+// 带属性的飞弹：箭矢、文气整个换成属性的样子（有 GPT 画的属性箭 / 属性弹就用图）；其他飞弹外面裹一层属性光
+function drawElProj(b) {
+  const E = D.elements[b.el], sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp, uy = b.vy / sp, ang = Math.atan2(uy, ux);
+  if (b.kind === 'arrow') {
+    const img = window.Assets.get('elfx:arrow_' + b.el);
+    if (img) { // 图里箭尖在最右边、箭杆在正中：箭尖对准飞弹位置稍前一点
+      const w = 104, h = w * img.height / img.width;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(b.x + ux * 8, b.y + uy * 8); ctx.rotate(ang);
+      ctx.drawImage(img, -w, -h / 2, w, h); ctx.restore(); ctx.globalAlpha = 1;
+      return true;
+    }
+    FX.sprite(ctx, 'thrust', E.rgb, b.x - ux * 38, b.y - uy * 38, 100, 20, ang, 0.95, 0.55);
+    ctx.strokeStyle = `rgb(${E.core})`; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.moveTo(b.x - ux * 18, b.y - uy * 18); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.fillStyle = `rgb(${E.core})`;
+    ctx.beginPath(); ctx.moveTo(b.x + ux * 8, b.y + uy * 8); ctx.lineTo(b.x - uy * 3.5, b.y + ux * 3.5); ctx.lineTo(b.x + uy * 3.5, b.y - ux * 3.5); ctx.fill();
+    ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, b.x, b.y, 12, E.rgb, 0.8); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    return true;
+  }
+  if (b.kind === 'orb') {
+    const img = window.Assets.get('elfx:orb_' + b.el), s = b.r * 5.5;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    if (img) { ctx.translate(b.x, b.y); ctx.rotate(S.t * 4 + b.x * 0.01); ctx.drawImage(img, -s / 2, -s / 2, s, s); }
+    else {
+      FX.glow(ctx, b.x, b.y, b.r * 3.4, E.rgb, 0.85);
+      FX.glow(ctx, b.x, b.y, b.r * 1.3, E.core, 1);
+      if (b.el === 'thunder') { // 雷：外面绕几道小电弧
+        ctx.strokeStyle = `rgba(${E.core},0.9)`; ctx.lineWidth = 1.4; ctx.beginPath();
+        for (let k = 0; k < 3; k++) { const a = rand(0, TAU); ctx.moveTo(b.x + Math.cos(a) * 4, b.y + Math.sin(a) * 4); ctx.lineTo(b.x + Math.cos(a + 0.4) * 10, b.y + Math.sin(a + 0.4) * 10); ctx.lineTo(b.x + Math.cos(a - 0.2) * 15, b.y + Math.sin(a - 0.2) * 15); }
+        ctx.stroke();
+      } else if (b.el === 'wind') { // 风：一圈旋转的气流
+        ctx.strokeStyle = `rgba(${E.rgb},0.7)`; ctx.lineWidth = 2;
+        for (let k = 0; k < 2; k++) { const a = S.t * 10 + k * Math.PI; ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2, a, a + 1.8); ctx.stroke(); }
+      } else if (b.el === 'ice') FX.snowflake && FX.snowflake(ctx, b.x, b.y, b.r * 1.4, S.t * 2, 0.9);
+    }
+    ctx.restore(); ctx.globalAlpha = 1;
+    return true;
+  }
+  ctx.globalCompositeOperation = 'lighter'; // 其他飞弹：外裹属性光
+  FX.glow(ctx, b.x, b.y, Math.max(16, b.r * 3), E.rgb, 0.55);
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  return false;
+}
 function drawProjectiles() {
   ctx.lineCap = 'round';
   for (const b of S.proj) {
+    if (b.el && drawElProj(b)) continue;
     if (b.kind === 'arrow') {
       const sp = Math.hypot(b.vx, b.vy), ux = b.vx / sp, uy = b.vy / sp;
       if (b.glow) FX.sprite(ctx, 'thrust', b.glow, b.x - ux * 40, b.y - uy * 40, 110, 22, Math.atan2(uy, ux), 0.9, 0.6); // 神弩光箭
@@ -4191,6 +4423,11 @@ function drawEffects() {
   for (const f of S.effects) {
     const t = f.life / f.max;
     if (f.kind === 'tex') { if (!f.under) drawTexFx(f); }
+    else if (f.kind === 'elhit') { // GPT 画的属性命中图（黑底发光，叠加着画）
+      const s = f.r * 2 * (1 + (1 - t) * 0.4);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, t * 1.6) * 0.85;
+      ctx.translate(f.x, f.y); ctx.rotate(f.rot); ctx.drawImage(f.img, -s / 2, -s / 2, s, s); ctx.restore();
+    }
     else if (f.kind === 'arc') FX.slash(ctx, f.rgb ? f : Object.assign(f, { rgb: rgbOf(f.color) }));
     else if (f.kind === 'wave') FX.shock(ctx, f.rgb ? f : Object.assign(f, { rgb: rgbOf(f.color) }));
     else if (f.kind === 'thrust') { // 枪矛直刺：一道由暗到亮的枪芒
@@ -4409,13 +4646,16 @@ window.BUYI = {
   shenbing(gid) { if (S) { applyChoice({ kind: 'shenbing', id: gid }); } }, // 直接拿到一件神兵（测试用）
   xp(v) { if (S) addXp(v); },
   god(on = true) { if (S) S.god = on; },
-  // 快进模拟：autoPick 为 true 时自动选择第一张卡
+  bot(fn) { botMove = fn || null; },
+  start(originId) { startGame(originId); },
+  // 快进模拟：autoPick 为 true 时自动选择第一张卡；也可以传一个函数 (opts) => 第几张
   step(sec, autoPick) {
     const n = Math.round(sec * 60);
     for (let i = 0; i < n && S && !S.over; i++) {
       if (S.modal) break;
       if (S.choice && autoPick) {
-        const c = $('lu-cards').querySelector('.card');
+        const k = typeof autoPick === 'function' ? autoPick(S.choice.opts, S) : 0;
+        const c = $('lu-cards').children[k] || $('lu-cards').querySelector('.card');
         if (c) { $('lu-cards').style.pointerEvents = ''; c.click(); }
       }
       update(1 / 60);
