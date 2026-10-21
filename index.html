@@ -178,14 +178,15 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 #bossfill { height: 100%; width: 100%; background: linear-gradient(90deg, #7d1a13, var(--seal)); transition: width .1s; }
 
 #banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; pointer-events: none; opacity: 0; }
-/* 武将大招演出：压暗 + 发光横幅 + 眼部特写 + 速度线 + 招式名 */
+/* 武将大招演出：从左侧切进来的发光横幅 + 眼部特写 + 速度线 + 招式名；游戏不暂停，只压暗左边一小块，战场照样看得清 */
 #ult { position: absolute; inset: 0; pointer-events: none; opacity: 0; --uc: 255,60,40; }
 #ult.show { animation: ultAll 1.45s linear forwards; }
-#ult::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,.35), rgba(0,0,0,.82)); }
-.ult-flash { position: absolute; inset: 0; background: rgb(var(--uc)); mix-blend-mode: screen; opacity: 0; }
+#ult::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,.2) 32%, rgba(0,0,0,0) 55%); }
+.ult-flash { position: absolute; inset: 0; background: linear-gradient(90deg, rgb(var(--uc)), transparent 50%); mix-blend-mode: screen; opacity: 0; }
 #ult.show .ult-flash { animation: ultFlash .35s ease-out; }
-.ult-band { position: absolute; left: -5%; right: -5%; top: 50%; height: clamp(140px, 30vh, 260px); transform: translateY(-50%) skewY(-3deg) scaleY(0);
-  overflow: hidden; background: #07060a; }
+.ult-band { position: absolute; left: 0; width: min(620px, 78vw); top: 42%; height: clamp(104px, 20vh, 176px); transform: translate(-105%, -50%) skewY(-4deg);
+  overflow: hidden; background: #07060a; box-shadow: 0 8px 24px rgba(0,0,0,.55);
+  -webkit-mask-image: linear-gradient(90deg, #000 72%, transparent); mask-image: linear-gradient(90deg, #000 72%, transparent); }
 #ult.show .ult-band { animation: ultBand 1.45s cubic-bezier(.2,.9,.2,1) forwards; }
 .ult-art { position: absolute; inset: -10% 0; background-repeat: no-repeat; filter: contrast(1.15) saturate(1.15); }
 #ult.show .ult-art { animation: ultPan 1.45s linear forwards; }
@@ -196,14 +197,14 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .ult-edge { position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, rgb(var(--uc)) 20%, #fff 50%, rgb(var(--uc)) 80%, transparent);
   box-shadow: 0 0 12px 3px rgba(var(--uc),.9), 0 0 30px 8px rgba(var(--uc),.45); }
 .ult-edge.top { top: 0; } .ult-edge.bottom { bottom: 0; }
-.ult-text { position: absolute; left: 0; right: 0; top: calc(50% + clamp(70px, 15vh, 130px)); display: flex; flex-direction: column; align-items: center; gap: 2px; opacity: 0; }
+.ult-text { position: absolute; left: max(18px, env(safe-area-inset-left, 0px)); top: calc(42% + clamp(58px, 10.5vh, 96px)); display: flex; flex-direction: column; align-items: flex-start; gap: 2px; opacity: 0; transform-origin: left center; }
 #ult.show .ult-text { animation: ultText 1.45s cubic-bezier(.2,1.4,.3,1) forwards; }
-#ult-name { font-family: var(--display); font-weight: 400; font-size: clamp(40px, 9vw, 84px); line-height: 1; color: #fff; letter-spacing: .12em;
+#ult-name { font-family: var(--display); font-weight: 400; font-size: clamp(34px, 6vw, 64px); line-height: 1; color: #fff; letter-spacing: .12em;
   text-shadow: 0 0 10px rgba(var(--uc),1), 0 0 26px rgba(var(--uc),.85), 0 4px 0 #000; }
 #ult-gen { font-size: 14px; letter-spacing: .4em; color: rgb(var(--uc)); text-shadow: 0 1px 2px #000; }
 @keyframes ultAll { 0% { opacity: 0; } 6% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes ultFlash { 0% { opacity: .7; } 100% { opacity: 0; } }
-@keyframes ultBand { 0% { transform: translateY(-50%) skewY(-3deg) scaleY(0); } 12% { transform: translateY(-50%) skewY(-3deg) scaleY(1.08); } 18% { transform: translateY(-50%) skewY(-3deg) scaleY(1); } 86% { transform: translateY(-50%) skewY(-3deg) scaleY(1); } 100% { transform: translateY(-50%) skewY(-3deg) scaleY(0); } }
+@keyframes ultFlash { 0% { opacity: .45; } 100% { opacity: 0; } }
+@keyframes ultBand { 0% { transform: translate(-105%, -50%) skewY(-4deg); } 13% { transform: translate(3%, -50%) skewY(-4deg); } 19% { transform: translate(0, -50%) skewY(-4deg); } 86% { transform: translate(0, -50%) skewY(-4deg); } 100% { transform: translate(-105%, -50%) skewY(-4deg); } }
 @keyframes ultPan { 0% { transform: translateX(7%) scale(1.12); } 100% { transform: translateX(-4%) scale(1.02); } }
 @keyframes ultLines { 0% { background-position: 0 0, 0 0; } 100% { background-position: 0 24px, 0 0; } }
 @keyframes ultText { 0%, 14% { opacity: 0; transform: scale(2.2); letter-spacing: .6em; } 24% { opacity: 1; transform: scale(1); letter-spacing: .12em; } 86% { opacity: 1; transform: scale(1.04); } 100% { opacity: 0; transform: scale(1.1); } }
@@ -334,7 +335,9 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
   #toast-title { font-size: 14px; }
   #cutin { height: 108px; bottom: calc(env(safe-area-inset-bottom, 0px) + 100px); }
   #cut-line { font-size: 13px; }
-  #ult-name { font-size: clamp(32px, 11vw, 54px); }
+  #ult-name { font-size: clamp(28px, 9vw, 44px); }
+  .ult-band { width: 88vw; height: clamp(88px, 14vh, 120px); top: 27%; } /* 竖屏：放到上方，让开屏幕中间的人物 */
+  .ult-text { top: calc(27% + clamp(48px, 7.5vh, 66px)); }
   #ult-gen { font-size: 12px; letter-spacing: .25em; }
   .overlay h2 { font-size: clamp(28px, 8vw, 40px); }
   #title .lede { font-size: 14px; }

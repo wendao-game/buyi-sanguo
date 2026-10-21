@@ -1770,18 +1770,17 @@ function showUltCutin(e, u) {
   if (cut) { // 专门画的特写横幅
     artEl.style.backgroundImage = `url("${cut.src}")`;
     artEl.style.backgroundSize = 'cover'; artEl.style.backgroundPosition = 'center 55%';
-  } else { // 用立绘放大到眼部
-    const W = innerWidth * 1.1, Hb = Math.min(260, Math.max(140, innerHeight * 0.3)) * 1.2;
+  } else { // 用立绘放大到眼部（按左侧横幅的实际大小对准脸）
+    const band = artEl.parentElement, W = band.offsetWidth || innerWidth * 0.7, Hb = (band.offsetHeight || 160) * 1.2;
     const [cx, cy] = window.Portrait.faceOf('general', e.gid);
-    const iw = W * 0.75, ih = iw * 1.5;
+    const iw = W * 0.9, ih = iw * 1.5;
     artEl.style.backgroundImage = `url("${window.Portrait.src('general', e.gid)}")`;
     artEl.style.backgroundSize = `${iw}px ${ih}px`;
     artEl.style.backgroundPosition = `${W / 2 - cx * iw}px ${Hb / 2 - (cy + 0.04) * ih}px`;
   }
   $('ult-name').textContent = u.name;
   $('ult-gen').textContent = `${g.name} · 大招`;
-  box.classList.remove('show'); void box.offsetWidth; box.classList.add('show');
-  S.ultFreeze = 1.25;   // 画面近乎定格，突出压迫感
+  box.classList.remove('show'); void box.offsetWidth; box.classList.add('show'); // 演出叠在画面左侧，游戏照常进行（不再定格）
   const vl = D.voice[e.gid];
   if (vl && vl.ult[u.id]) speak(e.gid, 'ult_' + u.id, `“${vl.ult[u.id]}”`);
   // 蓄力：脚下展开专属色的法阵，身上冲起一道光柱
