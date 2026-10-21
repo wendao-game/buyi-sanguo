@@ -218,7 +218,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
       </div>
       <div class="anchor">
         <h3>用 MiniMax 配音：一位名将一段</h3>
-        <p>点名将名字，复制他的全部台词，句与句之间已经插好 1.5 秒停顿（<code>&lt;#1.5#&gt;</code>），直接粘贴进 MiniMax 的「文字转语音」，整段生成一个文件就行，不用一句一句导出。台词顺序不要改，Claude 会按停顿切开。</p>
+        <p>点名将名字，复制他的全部台词：只有台词本身，一句一行，直接粘贴进 MiniMax 的「文字转语音」，整段生成一个文件就行，不用一句一句导出。台词顺序不要改，Claude 会按顺序切开。想让句与句之间停得更久，可以用 MiniMax 自带的「停顿」按钮在句子之间插一下（可选）。</p>
         <p>情绪建议：登场、暴怒、大招选「生气」，阵亡选「悲伤」；貂蝉、甄姬、诸葛亮、周瑜这类从容的角色，登场和大招可以用「中性」。每位名将挑一个合适的音色，几句话都用同一个。导出后按名将的英文名保存，比如 <code>chengyuanzhi.mp3</code>。</p>
         <div id="mm11-buttons" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
@@ -972,9 +972,9 @@ document.getElementById('copy-voice').addEventListener('click', e => copyText(
   VOICE11.map((g, i) => `========== 第 ${i + 1} 位：${g.name} ==========\n${voicePrompt(g)}`).join('\n\n'), e.currentTarget));
 document.getElementById('v11-buttons').innerHTML = VOICE11.map((g, i) => `<button class="copy" data-v11="${i}">${g.name}</button>`).join('');
 document.querySelectorAll('[data-v11]').forEach(b => b.addEventListener('click', () => copyText(voicePrompt(VOICE11[+b.dataset.v11]), b)));
-// MiniMax：一位名将的台词连成一段，句间 1.5 秒停顿，生成一个文件后由 Claude 按停顿切开
+// MiniMax：一位名将的台词，只有句子本身，一句一行（纯文本会被全部读出来，所以不加任何说明或标记）
 document.getElementById('mm11-buttons').innerHTML = VOICE11.map((g, i) => `<button class="copy" data-mm11="${i}">${g.name}（${g.id}.mp3）</button>`).join('');
-document.querySelectorAll('[data-mm11]').forEach(b => b.addEventListener('click', () => copyText(VOICE11[+b.dataset.mm11].lines.map(l => l[2]).join('<#1.5#>'), b)));
+document.querySelectorAll('[data-mm11]').forEach(b => b.addEventListener('click', () => copyText(VOICE11[+b.dataset.mm11].lines.map(l => l[2]).join('\n'), b)));
 // 第七批：1 张图（13 件神兵拼成 4×4，最后 3 格留空）
 document.getElementById('copy-batch7').addEventListener('click', e => copyText(
   `我要为一款三国题材的游戏画一张神兵图集。统一画风：\n${SHENBING_STYLE}\n\n` +
