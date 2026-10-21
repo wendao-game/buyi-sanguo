@@ -20,8 +20,9 @@ window.GAME_DATA = {
     pierceCap: 5,        // 穿透最多 5 个
   },
 
-  // 升级所需经验：base + (等级-1)×perLv + (等级-midFrom)×mid + (等级-lateFrom)²×late
-  xpCurve: { base: 5, perLv: 5, midFrom: 15, mid: 4, lateFrom: 30, late: 0.3 },
+  // 升级所需经验：前期很快，越往后越慢（指数增长，到 capLv 级后改为每级固定多加 latePerLv）
+  // = base + (等级-1)×perLv + expA×(expG^(等级-1) - 1)
+  xpCurve: { base: 2, perLv: 1, expA: 3.5, expG: 1.15, capLv: 45, latePerLv: 30 },
 
   // 军衔：随等级晋升，体现“从布衣到名将”
   ranks: [
@@ -655,7 +656,7 @@ window.GAME_DATA = {
   generals: {
     // —— 第一章 · 黄巾之乱 ——
     chengyuanzhi: {
-      name: '程远志', title: '黄巾渠帅 · 涿郡先锋', icon: '程', hp: 1300, speed: 82, dmg: 11, r: 30, color: '#8a6a2a',
+      name: '程远志', title: '黄巾渠帅 · 涿郡先锋', icon: '程', hp: 2000, speed: 82, dmg: 11, r: 30, color: '#8a6a2a',
       attacks: ['charge', 'cleave', 'summon'], interval: 3.2, cleaveR: 170, chargeSpeed: 580, summon: 4, summonType: 'foot',
       rewards: ['kaishan', 'haoling', 'huangjin'],
       ultRgb: '240,200,60', ultEvery: 12,
@@ -1086,7 +1087,7 @@ window.GAME_DATA = {
   // 全局节奏
   stage: {
     bossRateMul: 0.35,     // 武将在场时小兵刷新倍率
-    bossHpExp: 1.4,        // 武将血量 = 基础血量 × (1 + 秒数/240)^bossHpExp
+    bossHpExp: 1.25,       // 武将血量 = 基础血量 × (1 + 秒数/240)^bossHpExp
     bossLateMul: 0.5,      // 7 分钟后的平方加成，战役里的武将只吃一半
     bossGap: 10,            // 两名武将之间至少隔几秒
     chapterGap: 5,          // 章末武将倒下后几秒进入下一章

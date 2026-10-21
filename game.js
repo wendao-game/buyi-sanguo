@@ -219,7 +219,10 @@ let S = null;
 let nextId = 1;
 
 // 升级所需经验（数值在 data.js 的 xpCurve）
-function xpFor(lv) { const X = D.xpCurve, a = Math.max(0, lv - X.lateFrom); return Math.round(X.base + (lv - 1) * X.perLv + Math.max(0, lv - X.midFrom) * X.mid + a * a * X.late); }
+function xpFor(lv) {
+  const X = D.xpCurve, k = Math.min(lv, X.capLv) - 1;
+  return Math.round(X.base + (lv - 1) * X.perLv + X.expA * (Math.pow(X.expG, k) - 1) + Math.max(0, lv - X.capLv) * X.latePerLv);
+}
 function rankOf(lv) { let r = D.ranks[0].name; for (const k of D.ranks) if (lv >= k.lv) r = k.name; return r; }
 
 // 无限成长：武器 / 技能满 5 级后继续“突破”，每级伤害 +10%，每 3 级数量 +1，但数量最多 5 个
