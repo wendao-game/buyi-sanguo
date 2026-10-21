@@ -1119,24 +1119,20 @@ function thrust(a, L, def) {
   glint(p.x + ux * len, p.y - 10 + uy * len, 14, rgb, 0.12);
 }
 
-// 属性：每次出手随机抽一种已学的属性（等级越高越容易抽到）。没学属性时为 null
+// 属性：已学的属性全部保留，每次随机抽一种（几种属性机会均等，等级只决定效果强弱）。没学属性时为 null
 let curEl = null;
 function rollEl() {
-  let tot = 0;
-  for (const id in S.elements) tot += S.elements[id];
-  if (!tot) return null;
-  let r = Math.random() * tot;
-  for (const id in S.elements) { r -= S.elements[id]; if (r <= 0) return id; }
-  return null;
+  const ids = Object.keys(S.elements).filter(id => S.elements[id] > 0);
+  return ids.length ? ids[Math.floor(Math.random() * ids.length)] : null;
 }
-// 本次出手放出的飞弹、落石、音波都记下属性；疾风的飞弹更快、多穿透
+// 这次出手放出的每一支箭、每一颗法球、每一块落石、每一圈音波各自重新抽属性；疾风的飞弹更快、多穿透
 function tagEl(list, from) {
   if (!curEl) return;
-  const W = curEl === 'wind' && elStats('wind');
   for (let i = from; i < list.length; i++) {
     const o = list[i];
     if (o.el !== undefined) continue;
-    o.el = curEl;
+    o.el = rollEl();
+    const W = o.el === 'wind' && elStats('wind');
     if (W && o.vx !== undefined) {
       if (o.pierce < 999) o.pierce += W.pierce;
       if (!o.boom) { o.vx *= 1.25; o.vy *= 1.25; if (o.speed) o.speed *= 1.25; }
@@ -2950,6 +2946,8 @@ function makeCard(o, i) {
     kind = '属性' + (o.cur + 1 >= L.length ? ' · 觉醒' : '');
     lvl = o.cur ? `Lv ${o.cur} → ${o.cur + 1}` : '新属性';
     desc = (o.cur ? L[o.cur].note : def.desc) + `<br><b class="eln">${elementLine(o.id, o.cur + 1)}</b>`;
+    const others = Object.keys(S.elements).filter(id => id !== o.id && S.elements[id] > 0).map(id => D.elements[id].name);
+    if (!o.cur && others.length) desc += `<br>与${others.join('、')}并存，每次出手随机其一`;
   } else if (o.kind === 'shenbing') { // 神兵：金色卡
     const def = D.shenbing[o.id];
     btn.className = 'card legend';
