@@ -323,7 +323,7 @@ function speak(gid, key, text, subtitle = true) {
       c.connect(actx.destination); speak.out = c;
     }
     const s = actx.createBufferSource(), g = actx.createGain();
-    s.buffer = buf; g.gain.value = 0.95 * (clip.gain || 1);
+    s.buffer = buf; g.gain.value = 0.95 * (clip.gain || 1) * (clip.t && clip.t[2] || 1); // 时间段后面可以跟第三个数：这一句单独的音量倍数
     s.connect(g).connect(speak.out); s.start(0, t0, dur);
     vClip = s; vUntil = performance.now() + dur * 1000;
     Music.duck(dur + 0.2);
