@@ -986,7 +986,7 @@ window.GAME_DATA = {
   // 武器和护甲的阶段（1–3 / 4–6 / 7–9 级）决定人物小人的造型（sprites/<出身>_w<武器阶段>a<护甲阶段>.png）；饰品显示为身边的护身光珠。
   // 价格：base × growth^当前等级（向上取整到 5）。effects 是每级的加成；startDmg 是起手武器伤害，startLvEvery 是每几级起手武器开局 +1 级。
   meta: {
-    gold: { minion: 0.012, elite: [2, 5], building: 6, general: 12, generalPerChapter: 5, chapterClear: 20, eliteSoldier: 2 },
+    gold: { minion: 0.008, elite: [1, 4], building: 4, general: 8, generalPerChapter: 3, chapterClear: 14, eliteSoldier: 1 }, // 约为原来的 2/3
     costBase: 30, costGrowth: 1.5, maxLv: 9,
     rarity: [
       { name: '普通', color: '#b08a5a', rgb: '210,170,120' },  // 1–3 级
@@ -1094,13 +1094,14 @@ window.GAME_DATA = {
     bossRateMul: 0.35,     // 武将在场时小兵刷新倍率
     bossHpExp: 1.25,       // 武将血量 = 基础血量 × (1 + 秒数/240)^bossHpExp
     bossLateMul: 0.5,      // 7 分钟后的平方加成，战役里的武将只吃一半
-    bossHpMul: 1.5,        // 武将血量整体倍率
+    bossHpMul: 3,          // 武将血量整体倍率（真人试玩后翻倍）
     enemyHpMul: 1.35,      // 小兵、精英、据点血量整体倍率
-    minionHpExp: 1.5,      // 小兵血量 = 基础 × (1 + 秒数×hpGrowth)^minionHpExp：越往后长得越快
+    minionHpExp: 1.6,      // 小兵血量 = 基础 × (1 + 秒数×hpGrowth)^minionHpExp：越往后长得越快
+    xpGain: 0.75,          // 所有经验获取倍率（真人试玩后调低）
     spawnMul: 1,           // 小兵刷新数量倍率（想让场面松一点就调小）
     bossGap: 10,            // 两名武将之间至少隔几秒
     chapterGap: 5,          // 章末武将倒下后几秒进入下一章
-    hpGrowth: 1 / 95,       // 每过 95 秒小兵血量 +100%
+    hpGrowth: 1 / 75,       // 每过 75 秒，血量公式里的底数 +1（小兵按上面的指数再放大）
     lateStart: 420,         // 7 分钟后，敌人强度开始按平方额外增长
     lateDiv: 650,
     endlessDiv: 300,        // 进入无尽征途后，再按平方加速增长

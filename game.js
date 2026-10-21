@@ -811,7 +811,7 @@ function dropXp(x, y, v) {
 }
 function addXp(v) {
   const p = S.player;
-  p.xp += v * (1 + (S.xpMul || 0));
+  p.xp += v * (1 + (S.xpMul || 0)) * (D.stage.xpGain || 1);
   while (p.xp >= p.xpNext) {
     p.xp -= p.xpNext;
     const before = rankOf(p.level);
