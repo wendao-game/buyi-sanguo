@@ -148,7 +148,10 @@ fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
   if (!m) return;
   for (const id of m.bgm || []) AUDIO.bgm[id] = `${ASSET_BASE}bgm/${id}.mp3`;
   Object.assign(AUDIO.loop, m.loop || {}); // 每首的循环长度（采样帧，44.1 kHz），用来做无缝循环
-  for (const id of m.voice || []) AUDIO.voice[id] = `${ASSET_BASE}voice/${id}.mp3`;
+  // 配音两种写法：["lubu_enter", …]（一句一个文件），或 { lubu: { file: "lubu.mp3", clips: { enter: [起, 止], … } } }（一位名将一个文件，按时间段取每一句）
+  const v = m.voice || [];
+  if (Array.isArray(v)) for (const id of v) AUDIO.voice[id] = { src: `${ASSET_BASE}voice/${id}.mp3` };
+  else for (const gid in v) for (const k in v[gid].clips) AUDIO.voice[`${gid}_${k}`] = { src: `${ASSET_BASE}voice/${v[gid].file}`, t: v[gid].clips[k] };
   Music.refresh();
 }).catch(() => { /* 没有清单：用合成音乐 */ });
 
@@ -294,6 +297,9 @@ function musicTrack() {
 // 名将语音：同时只说一句，重要的（阵亡 > 大招 > 登场 > 暴怒）可以打断不重要的；有字幕，有配音就播放
 const VOICE_PRI = { death: 4, ult: 3, enter: 2, rage: 1 };
 let vClip = null, vPri = 0, vUntil = 0;
+const voiceBufs = new Map(); // 解码好的配音文件（每位名将一个，很小）
+const voiceBuf = src => { if (!voiceBufs.has(src)) { const p = fetch(src).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => actx.decodeAudioData(b, ok, no))); p.catch(() => voiceBufs.delete(src)); voiceBufs.set(src, p); } return voiceBufs.get(src); };
+function stopVoice() { if (vClip) { try { vClip.stop(); } catch (e) { /* 已经停了 */ } vClip = null; } }
 function speak(gid, key, text, subtitle = true) {
   const g = D.generals[gid];
   if (!g || !text) return;
@@ -304,14 +310,21 @@ function speak(gid, key, text, subtitle = true) {
     $('vl-name').textContent = g.name; $('vl-text').textContent = text;
     const b = $('vline'); b.classList.remove('show'); void b.offsetWidth; b.classList.add('show');
   }
-  if (vClip) { vClip.pause(); vClip = null; }
-  const src = AUDIO.voice[`${gid}_${key}`];
-  if (!src || !voiceOn || muted) return;
-  const a = vClip = new Audio(src);
-  a.volume = 0.95;
-  a.addEventListener('loadedmetadata', () => { Music.duck(a.duration + 0.2); vUntil = now + a.duration * 1000; });
-  a.play().catch(() => { /* 浏览器不让播：只留字幕 */ });
+  stopVoice();
+  const clip = AUDIO.voice[`${gid}_${key}`];
+  if (!clip || !voiceOn || muted || !actx) return;
+  const ask = ++speak.n;
+  voiceBuf(clip.src).then(buf => {
+    if (ask !== speak.n || !voiceOn || muted) return; // 等解码的时候又说了别的
+    const [t0, t1] = clip.t || [0, buf.duration], dur = Math.max(0.1, Math.min(buf.duration, t1) - t0);
+    const s = actx.createBufferSource(), g = actx.createGain();
+    s.buffer = buf; g.gain.value = 0.95;
+    s.connect(g).connect(actx.destination); s.start(0, t0, dur);
+    vClip = s; vUntil = performance.now() + dur * 1000;
+    Music.duck(dur + 0.2);
+  }).catch(() => { /* 文件坏了：只留字幕 */ });
 }
+speak.n = 0;
 
 // ============ 输入 ============
 const keys = new Set();
@@ -3730,13 +3743,13 @@ $('btn-sound').addEventListener('click', () => {
   try { localStorage.setItem('buyi-muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
   audio();
   Music.refresh();
-  if (muted && vClip) vClip.pause();
+  if (muted) stopVoice();
 });
 $('btn-sound').textContent = muted ? '静' : '声';
 // 暂停菜单里分别开关音乐和语音
 const audioLabels = () => { $('btn-music').textContent = `音乐：${musicOn ? '开' : '关'}`; $('btn-voice').textContent = `语音：${voiceOn ? '开' : '关'}`; };
 $('btn-music').addEventListener('click', () => { musicOn = !musicOn; try { localStorage.setItem('buyi-music', musicOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); Music.refresh(); });
-$('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; try { localStorage.setItem('buyi-voice', voiceOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); if (!voiceOn && vClip) vClip.pause(); });
+$('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; try { localStorage.setItem('buyi-voice', voiceOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); if (!voiceOn) stopVoice(); });
 audioLabels();
 // 浏览器要求先有一次点击 / 按键才能出声：标题界面第一次操作时就把音乐放起来
 for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => audio(), { once: true, capture: true });
@@ -4952,7 +4965,7 @@ window.BUYI = {
   xp(v) { if (S) addXp(v); },
   god(on = true) { if (S) S.god = on; },
   bot(fn) { botMove = fn || null; },
-  get audio() { return { track: Music.current, playing: Music.playing, ctx: actx && actx.state, musicOn, voiceOn, muted, files: AUDIO }; }, // 调试：现在放的是哪首
+  get audio() { return { track: Music.current, playing: Music.playing, voice: vClip && vClip.buffer ? +vClip.buffer.duration.toFixed(2) : null, ctx: actx && actx.state, musicOn, voiceOn, muted, files: AUDIO }; }, // 调试：现在放的是哪首
   start(originId) { startGame(originId); },
   // 快进模拟：autoPick 为 true 时自动选择第一张卡；也可以传一个函数 (opts) => 第几张
   step(sec, autoPick) {
