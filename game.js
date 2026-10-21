@@ -256,6 +256,7 @@ function breakNote(def, nextLv) {
 function wStats(def, lv) {
   let L = statsOf(def, lv);
   const p = S.player, t = def.tags || [];
+  if (L.count > BREAK.countCap) L = Object.assign({}, L, { count: BREAK.countCap }); // 武器一次放出的数量不超过上限
   if (S.startDmg && def.id === S.origin.weapon) L = Object.assign({}, L, { dmg: L.dmg * (1 + S.startDmg) }); // 局外装备：起手武器
   if (t.includes('bow') && (p.arrowCount || p.arrowDmg || p.arrowPierce)) { // 箭数到上限后，多出来的连珠箭改成伤害 +12%
     const n = (L.count || 1) + p.arrowCount, over = Math.max(0, n - BREAK.countCap);
@@ -292,7 +293,7 @@ function newState(originId) {
     enemies: [], bossList: [], proj: [], eproj: [], zones: [], effects: [], rings: [], pickups: [], numbers: [], particles: [], hazards: [],
     rampageT: 0, thornsT: 0, seen: {},
     decals: [], ghosts: [], hurtFlash: 0, ghostT: 0,
-    teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0,
+    teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0, pBurnT: 0, pBurnDps: 0,
     pChillT: 0, frozenT: 0, charm: null, // 女将：冰冻减速、冻住不能动、被貂蝉迷住往她身边走
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
     spawnAcc: {}, evIdx: 0, defeated: [],
@@ -509,11 +510,14 @@ function breakShield(e) {
   sfx('slam');
 }
 
-function hurtPlayer(amount) {
+// 名将的属性攻击：这一击是谁打的、带什么属性（武将出招时由 updateEnemies 设好；飞弹、落点、火地带自己记着）
+let atkEl = null, atkSrc = null;
+function hurtPlayer(amount, el = atkEl, src = atkSrc) {
   const p = S.player;
   if (p.iframes > 0 || S.over || S.god || S.t < S.rampageT) return;
   const dmg = Math.max(1, Math.round(amount - p.armor));
   p.hp -= dmg;
+  if (el && D.bossElement[el]) playerEl(el, dmg, src);
   p.iframes = 0.45;
   S.shake = Math.max(S.shake, 5);
   S.hurtFlash = 0.3;
@@ -531,6 +535,28 @@ function hurtPlayer(amount) {
     sparks(p.x, p.y, 0, 14, '255,180,100', 420, Math.PI, 2.4);
   }
   if (p.hp <= 0) { p.hp = 0; gameOver(); }
+}
+// 被名将的属性攻击打中：火灼烧、冰减速、雷麻痹、风吹飞
+function playerEl(el, dmg, src) {
+  const p = S.player, B = D.bossElement[el], E = D.elements[el];
+  elSpark(el, p.x, p.y - 16); elSpark(el, p.x, p.y - 16);
+  if (el === 'fire') {
+    if (!(S.t < S.pBurnT)) S.pBurnDps = 0;
+    S.pBurnDps = Math.max(S.pBurnDps, dmg * B.burn); S.pBurnT = S.t + B.dur;
+    addNumber(p.x, p.y - 40, '灼烧', `rgb(${E.rgb})`, 13);
+  } else if (el === 'ice') {
+    S.pChillT = Math.max(S.pChillT, S.t + B.chill);
+    addNumber(p.x, p.y - 40, '冰寒', `rgb(${E.rgb})`, 13);
+  } else if (el === 'thunder') {
+    S.pSlowT = Math.max(S.pSlowT, S.t + B.stun);
+    S.effects.push({ kind: 'bolt', pts: zigzag([[p.x + rand(-30, 30), p.y - 220], [p.x, p.y - 10]], 14), life: 0.2, max: 0.2, rgb: E.rgb, w: 4 });
+    addNumber(p.x, p.y - 40, '麻痹', `rgb(${E.rgb})`, 13);
+  } else if (el === 'wind' && src) {
+    const sp = Math.hypot(src.vx || 0, src.vy || 0);
+    const a = sp > 1 ? Math.atan2(src.vy, src.vx) : angleTo(src.x, src.y, p.x, p.y);
+    p.kvx += Math.cos(a) * B.push; p.kvy += Math.sin(a) * B.push;
+    fxTex('whirl', 0, 0, { follow: p, oy: -10, w: 120, h: 120, rgb: E.rgb, life: 0.35, spin: 10, flat: 0.6, a: 0.7 });
+  }
 }
 
 function killEnemy(e) {
@@ -840,7 +866,7 @@ function spawnEnemy(type, x, y) {
   const c = !S.endless && D.chapters[S.ch];
   if (c && c.swap && c.swap[type]) type = c.swap[type]; // 黄巾章：通用兵种换成黄巾军
   const def = D.enemies[type], st = D.stage;
-  let hpMul = (1 + S.t * st.hpGrowth) * lateBoost();
+  let hpMul = (1 + S.t * st.hpGrowth) * lateBoost() * st.enemyHpMul;
   let dmgMul = (1 + S.t * st.dmgGrowth) * Math.sqrt(lateBoost());
   const elite = S.endless && Math.random() < Math.min(st.eliteMax, st.eliteChance + (S.t - S.endlessStart) / 6000);
   if (elite) { hpMul *= 6; dmgMul *= 1.5; }
@@ -913,7 +939,7 @@ function spawnBoss(gid, final) {
   const [x, y] = spawnPos(-80);
   // 玩家成长是加速的，武将血量也要加速；战役里后期的平方加成只算一半（无尽征途全额）
   const lb = lateBoost(), mul = Math.pow(1 + S.t / 240, D.stage.bossHpExp) * (S.endless ? lb : 1 + (lb - 1) * D.stage.bossLateMul);
-  const hp = (S.endless ? Math.max(g.hp, D.stage.endlessBossHp) : g.hp) * mul;
+  const hp = (S.endless ? Math.max(g.hp, D.stage.endlessBossHp) : g.hp) * mul * D.stage.bossHpMul;
   const e = {
     id: nextId++, gid, def: g, x, y, r: g.r, hp, maxHp: hp, final: !!final,
     speed: g.speed, dmg: g.dmg * (S.endless ? (1 + S.t / 700) * Math.sqrt(lateBoost()) : 1 + S.t / 1000),
@@ -933,7 +959,7 @@ function spawnBoss(gid, final) {
 function spawnElite(type, x, y) {
   const def = championDef('e:' + type, D.enemies[type]), st = D.stage;
   if (x === undefined) [x, y] = spawnPos(-40);
-  const hpMul = (1 + S.t * st.hpGrowth) * lateBoost(), dmgMul = (1 + S.t * st.dmgGrowth) * Math.sqrt(lateBoost());
+  const hpMul = (1 + S.t * st.hpGrowth) * lateBoost() * st.enemyHpMul, dmgMul = (1 + S.t * st.dmgGrowth) * Math.sqrt(lateBoost());
   const e = {
     id: nextId++, type, def, x, y, r: def.r, hp: def.hp * hpMul, maxHp: def.hp * hpMul,
     speed: def.speed, dmg: def.dmg * dmgMul, kvx: 0, kvy: 0, flash: 0, slowT: 0, slowF: 1, boss: false, ai: true,
@@ -948,7 +974,7 @@ function spawnElite(type, x, y) {
 // 据点：固定在地图上，派兵防守；摧毁后获得奖励
 function spawnBuilding(bid, x, y) {
   const def = D.buildings[bid], st = D.stage;
-  const hpMul = (1 + S.t * st.hpGrowth) * lateBoost();
+  const hpMul = (1 + S.t * st.hpGrowth) * lateBoost() * st.enemyHpMul;
   const e = {
     id: nextId++, type: 'bld_' + bid, bid, def, x, y, r: def.r, hp: def.hp * hpMul, maxHp: def.hp * hpMul,
     kvx: 0, kvy: 0, flash: 0, slowT: 0, slowF: 1, boss: false, building: true,
@@ -1072,6 +1098,11 @@ function updatePlayer(dt) {
     if (D2.t <= 0) S.dash = null;
   }
   p.hp = Math.min(p.maxHp, p.hp + p.regen * dt);
+  if (S.t < S.pBurnT && !S.god) { // 被火属性名将点着：持续掉血
+    p.hp -= S.pBurnDps * dt;
+    if (Math.random() < 0.4) embers(p.x + rand(-8, 8), p.y - 14, 1, D.elements.fire.rgb, 30, 50, 5, 0.45);
+    if (p.hp <= 0 && !S.over) { p.hp = 0; gameOver(); }
+  }
   p.iframes = Math.max(0, p.iframes - dt);
   recordTrail(p, p.x, p.y - 22, S.t < S.rampageT, 14, 22); // 七进七出：身后一条白龙
   const ws = S.skills.find(s => s.id === 'wushuang');
@@ -2162,7 +2193,16 @@ function updateEnemies(dt) {
         e.shield = Math.min(e.shieldMax, e.shield + e.shieldMax / D.champion.shieldRegenTime * dt);
       // 武将、精英被甩得太远时重新出现在屏幕边缘
       if (!e.ult && dist2(e.x, e.y, p.x, p.y) > farR * farR) { const [x, y] = spawnPos(-80); e.x = x; e.y = y; e.state = 'chase'; }
+      // 属性名将：出招时打中带属性；放出的飞弹、落点、火地带、音波也记下属性
+      atkEl = e.boss && e.def.el || null; atkSrc = e;
+      const q = [[S.eproj, S.eproj.length], [S.hazards, S.hazards.length], [S.ezones, S.ezones.length], [S.erings, S.erings.length]];
       updateBoss(e, dt);
+      if (atkEl) for (const [list, n0] of q) for (let i = n0; i < list.length; i++) {
+        const o = list[i];
+        if (o.el !== undefined) continue;
+        o.el = atkEl;
+        if (list === S.hazards && !o.ice && !o.petal && !o.page) o.rgb = D.elements[atkEl].rgb; // 落点换成属性色
+      }
       if (e.def.dragonTrail) recordTrail(e, e.x, e.y - e.r * 1.1, e.state === 'charge' || !!(e.ult && /Dash$/.test(e.ult.u.type) && e.ult.phase === 2), 22, 22);
     }
     else {
@@ -2186,7 +2226,8 @@ function updateEnemies(dt) {
     e.x += e.kvx * dt; e.y += e.kvy * dt;
     e.kvx *= decay; e.kvy *= decay;
     const rr = e.r + p.r;
-    if (!(e.stunT > S.t) && dist2(e.x, e.y, p.x, p.y) < rr * rr) hurtPlayer((e.boss || e.ai) && e.state === 'charge' ? e.dmg * 1.4 : e.dmg);
+    if (!(e.stunT > S.t) && dist2(e.x, e.y, p.x, p.y) < rr * rr) hurtPlayer((e.boss || e.ai) && e.state === 'charge' ? e.dmg * 1.4 : e.dmg, e.boss && e.def.el || null, e);
+    atkEl = null; atkSrc = null;
   }
   // 互相挤开，避免叠成一团
   for (const e of S.enemies) {
@@ -2364,9 +2405,10 @@ function updateProjectiles(dt) {
     if (h.t <= 0) {
       if (dist2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) {
         const was = p.iframes;
-        hurtPlayer(h.dmg);
+        hurtPlayer(h.dmg, h.el || null, h);
         if (h.ice && !was) S.pChillT = Math.max(S.pChillT, S.t + 1.6);
       }
+      if (h.el) elBurst(h.el, h.x, h.y - 6, h.r * 1.3); // 属性名将的落点：炸开属性爆光
       S.effects.push({ kind: 'blast', x: h.x, y: h.y, r: h.r, life: 0.4, max: 0.4, enemy: true, rgb: h.rgb });
       fxTex('ring', h.x, h.y, { w: h.r * 2, h: h.r * 2, rgb: h.rgb || '255,140,60', under: true, life: 0.35, grow: 1.6, core: 0.4 });
       if (h.petal || h.ice || h.page) { // 女将的落点：樱花绽开 / 冰棱破地 / 书页炸散
@@ -2426,10 +2468,11 @@ function updateProjectiles(dt) {
     if (b.kind === 'petal' && Math.random() < 0.25) fxp({ type: 'petal', x: b.x, y: b.y, vx: -b.vx * 0.1, vy: -b.vy * 0.1 + 10, drag: 2, life: 0.6, rgb: '255,175,210', size: rand(3, 5), rot: rand(0, TAU), spin: rand(-6, 6), seed: rand(0, 9) });
     else if (b.kind === 'icicle' && Math.random() < 0.25) fxp({ type: 'snow', x: b.x, y: b.y, vx: 0, vy: 10, drag: 2, life: 0.5, size: rand(2.5, 4), rot: rand(0, TAU), spin: 2 });
     if (b.kind === 'dragon' && Math.random() < 0.9) fxp({ type: 'ember', x: b.x + rand(-b.r, b.r) * 0.6, y: b.y + rand(-b.r, b.r) * 0.6, vx: -b.vx * 0.15, vy: -b.vy * 0.15, drag: 2, life: 0.5, rgb: '110,240,170', size: rand(8, 14) });
+    if (b.el && Math.random() < 0.45) elTrail(b);
     if (b.kind === 'bigArrow' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: 0, vy: 0, drag: 2, life: 0.25, rgb: b.rgb, size: 6 });
     if (dist2(b.x, b.y, p.x, p.y) < (b.r + p.r) ** 2) {
       const was = p.iframes;
-      hurtPlayer(b.dmg);
+      hurtPlayer(b.dmg, b.el || null, b);
       if (b.chill && !was) S.pChillT = Math.max(S.pChillT, S.t + b.chill); // 冰棱：打中就被冻得走不快
       if (!b.pierce) {
         b.dead = true;
@@ -2444,7 +2487,7 @@ function updateProjectiles(dt) {
     z.life -= dt; z.tt -= dt;
     if (z.ice) { if (Math.random() < 0.08) fxp({ type: 'snow', x: z.x + rand(-z.r, z.r) * 0.6, y: z.y + rand(-z.r, z.r) * 0.4, vx: 0, vy: rand(-25, -10), drag: 1, life: 0.6, size: rand(3, 5), rot: rand(0, TAU), spin: 2 }); }
     else if (Math.random() < 0.35) fxp({ type: 'ember', x: z.x + rand(-z.r, z.r) * 0.6, y: z.y + rand(-z.r, z.r) * 0.4, vx: rand(-10, 10), vy: rand(-60, -30), drag: 1, life: 0.45, rgb: Math.random() < 0.5 ? '255,120,40' : '255,190,80', size: rand(5, 9) });
-    if (z.tt <= 0 && dist2(z.x, z.y, p.x, p.y) < (z.r + p.r) ** 2) { z.tt = z.tick; hurtPlayer(z.dmg); if (z.ice) S.pChillT = Math.max(S.pChillT, S.t + 1); }
+    if (z.tt <= 0 && dist2(z.x, z.y, p.x, p.y) < (z.r + p.r) ** 2) { z.tt = z.tick; hurtPlayer(z.dmg, z.el || null, z); if (z.ice) S.pChillT = Math.max(S.pChillT, S.t + 1); }
   }
   S.ezones = S.ezones.filter(z => z.life > 0);
 
@@ -2452,7 +2495,7 @@ function updateProjectiles(dt) {
     r.r += r.speed * dt;
     if (!r.hit) {
       const d = Math.sqrt(dist2(r.x, r.y, p.x, p.y));
-      if (Math.abs(d - r.r) < 12 + p.r && Math.abs(angDiff(r.gapA, angleTo(r.x, r.y, p.x, p.y))) > r.gap) { r.hit = true; hurtPlayer(r.dmg); }
+      if (Math.abs(d - r.r) < 12 + p.r && Math.abs(angDiff(r.gapA, angleTo(r.x, r.y, p.x, p.y))) > r.gap) { r.hit = true; hurtPlayer(r.dmg, r.el || null, r); }
     }
     if (r.r > r.maxR) r.dead = true;
   }
@@ -3103,7 +3146,7 @@ function updateHud() {
     $('bosstitle').textContent = boss.def.title;
     $('bossfill').style.width = Math.max(0, boss.hp / boss.maxHp * 100).toFixed(1) + '%';
     $('bossshield').style.width = (boss.shieldMax ? Math.max(0, boss.shield / boss.shieldMax * 100) : 0).toFixed(1) + '%';
-    $('bossname').textContent = boss.def.name + (boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '');
+    $('bossname').textContent = boss.def.name + (boss.def.el ? ` · ${D.elements[boss.def.el].icon}` : '') + (boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '');
   }
   if (S.buildDirty) {
     S.buildDirty = false;
@@ -4076,6 +4119,15 @@ function drawEnemies() {
     }
     ctx.strokeStyle = 'rgba(207,163,74,0.9)'; ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.6, e.r * 1.1, e.r * 0.4, 0, 0, TAU); ctx.stroke();
+    if (g.el) { // 属性名将：周身一层属性光，不时迸出属性光点
+      const ergb = D.elements[g.el].rgb;
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, e.x, e.y - h * 0.3, h * 0.75, ergb, 0.22 + 0.08 * Math.sin(S.t * 5));
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+      ctx.strokeStyle = `rgba(${ergb},0.8)`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.6, e.r * 1.3, e.r * 0.48, 0, 0, TAU); ctx.stroke();
+      if (Math.random() < 0.25) elSpark(g.el, e.x + rand(-e.r, e.r), e.y - rand(0, h));
+    }
     const U = e.ult, dashing = U && U.phase === 2 && /Dash$/.test(U.u.type);
     const moving = e.state === 'chase' || e.state === 'charge' || dashing || (U && U.u.type === 'whirl');
     const urgb = g.ultRgb || '255,80,60';
@@ -4255,6 +4307,11 @@ function drawProjectiles() {
   }
   for (const b of S.eproj) {
     const sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp, uy = b.vy / sp;
+    if (b.el) { // 属性名将的飞弹：外裹一层属性光
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, b.x, b.y, Math.max(20, b.r * 3.4), D.elements[b.el].rgb, 0.65);
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    }
     if (b.kind === 'bigArrow') { // 吕布、诸葛亮的大箭：拖着一道枪芒般的长光
       const a = Math.atan2(uy, ux), L = b.r * 16;
       FX.sprite(ctx, 'thrust', b.rgb, b.x - ux * L * 0.45, b.y - uy * L * 0.45, L, b.r * 4.5, a, 0.9, 0.6);

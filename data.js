@@ -16,8 +16,8 @@ window.GAME_DATA = {
     cdPerLevel: 0.98,    // 冷却 ×0.98
     minCdMul: 0.7,       // 冷却最多缩到满级时的 70%
     countEvery: 3,       // 每 3 级数量 / 穿透 / 画戟 +1（到上限为止）
-    countCap: 5,         // 箭矢、文气、火球、飞戟、画戟等一次最多 5 个（连珠箭也算在内）
-    pierceCap: 5,        // 穿透最多 5 个
+    countCap: 4,         // 箭矢、文气、火球、飞戟、画戟等一次最多 4 个（连珠箭也算在内）
+    pierceCap: 4,        // 穿透最多 4 个
   },
 
   // 升级所需经验：前期很快，越往后越慢（指数增长，到 capLv 级后改为每级固定多加 latePerLv）
@@ -240,7 +240,7 @@ window.GAME_DATA = {
         { dmg: 22, cd: 0.85, count: 3, speed: 660, pierce: 1, fan: 0.22, note: '伤害 +4' },
         { dmg: 25, cd: 0.8, count: 4, speed: 680, pierce: 2, fan: 0.22, note: '弩箭 +1，穿透 2 个' },
         { dmg: 31, cd: 0.75, count: 4, speed: 700, pierce: 2, fan: 0.21, note: '伤害 +6，射得更快' },
-        { dmg: 38, cd: 0.65, count: 5, speed: 740, pierce: 3, fan: 0.2, note: '弩箭 +1，穿透 3 个' },
+        { dmg: 42, cd: 0.65, count: 4, speed: 740, pierce: 3, fan: 0.2, note: '伤害 +11，穿透 3 个' },
       ],
     },
     luoying: {
@@ -251,7 +251,7 @@ window.GAME_DATA = {
         { dmg: 20, cd: 0.9, count: 3, speed: 340, note: '伤害 +4' },
         { dmg: 23, cd: 0.8, count: 4, speed: 350, note: '花瓣 +1，更快' },
         { dmg: 28, cd: 0.75, count: 4, speed: 360, note: '伤害 +5，更快' },
-        { dmg: 35, cd: 0.65, count: 5, speed: 380, note: '花瓣 +1，落英缤纷' },
+        { dmg: 38, cd: 0.65, count: 4, speed: 380, note: '伤害 +10，落英缤纷' },
       ],
     },
     yudi: {
@@ -497,7 +497,7 @@ window.GAME_DATA = {
     lianti: { tags: ['body'], name: '炼体', icon: '体', max: 5, desc: '生命上限 +10%，每秒回复 +0.2', effects: { maxHpMul: 0.1, regen: 0.2 } },
     tiebu: { tags: ['body'], name: '铁布衫', icon: '衫', max: 5, desc: '护甲 +1，生命上限 +15', effects: { armor: 1, maxHp: 15 } },
     // 猎户 · 弓箭（对猎弓、连弩生效）
-    lianzhu: { tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每次多射 1 支箭（一次最多 5 支，射满后改为伤害 +12%）', effects: { arrowCount: 1 } },
+    lianzhu: { tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每次多射 1 支箭（一次最多 4 支，射满后改为伤害 +12%）', effects: { arrowCount: 1 } },
     chuanyang: { tags: ['bow'], name: '百步穿杨', icon: '杨', max: 5, desc: '弓弩伤害 +15%，穿透 +1', effects: { arrowDmg: 0.15, arrowPierce: 1 } },
     // 书生 · 计策（对竹简、羽扇、符咒、法杖、古琴、火把和所有技能生效）
     qimou: { tags: ['spell'], name: '奇谋', icon: '谋', max: 5, desc: '计策与技能伤害 +15%', effects: { spellDmg: 0.15 } },
@@ -524,6 +524,9 @@ window.GAME_DATA = {
   // 箭矢、文气、火球、飞戟、刀光都会变成这种属性的样子，命中时只触发这一种属性的效果。
   // 技能、神兵和随从不带属性。Lv 5 解锁一个额外效果（awaken）。
   elementFrom: 3,  // 第几级开始在升级选项里出现
+  // 名将的属性攻击（generals 里的 el）：被打中时附带的效果
+  //   火：灼烧 dur 秒，每秒掉这一击伤害的 burn；冰：减速 chill 秒；雷：麻痹（移动大减）stun 秒；风：被吹飞 push
+  bossElement: { fire: { burn: 0.12, dur: 3 }, ice: { chill: 1.6 }, thunder: { stun: 0.7 }, wind: { push: 520 } },
   elements: {
     fire: {
       name: '烈火', icon: '火', rgb: '255,130,50', core: '255,225,150', color: '#e8743a',
@@ -668,7 +671,7 @@ window.GAME_DATA = {
       look: { skin: '#c48a58', skinShade: '#9c6a40', robe: '#8a6a2a', trim: '#e0b020', armor: true, armorColor: '#6b5a3a', beard: 'short', eyes: 'round', brows: 'bushy', head: 'band', bandColor: '#e0b020', weapon: 'axe', aura: '#a88a2a', scar: true, artFace: [0.53, 0.26, 0.34] },
     },
     zhangbao: {
-      name: '张宝', title: '地公将军', icon: '宝', hp: 2200, speed: 80, dmg: 14, r: 31, color: '#a88a2a',
+      name: '张宝', el: 'wind', title: '地公将军', icon: '宝', hp: 2200, speed: 80, dmg: 14, r: 31, color: '#a88a2a',
       attacks: ['meteor', 'summon', 'volley', 'meteor'], interval: 2.8, kite: 260, summon: 6, summonType: 'foot',
       meteor: { count: 4, radius: 66, delay: 1.2, dmg: 22 },
       volley: { count: 5, spread: 0.8, speed: 260, dmg: 12 },
@@ -682,7 +685,7 @@ window.GAME_DATA = {
       look: { skin: '#d6a77a', skinShade: '#b07f56', robe: '#c9a83a', trim: '#6b4a1a', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#d8a820', weapon: 'staff', aura: '#a8a83a', artFace: [0.54, 0.23, 0.34] },
     },
     zhangjiao: {
-      name: '张角', title: '天公将军 · 大贤良师', icon: '角', hp: 4500, speed: 78, dmg: 16, r: 33, color: '#c9a83a',
+      name: '张角', el: 'thunder', title: '天公将军 · 大贤良师', icon: '角', hp: 4500, speed: 78, dmg: 16, r: 33, color: '#c9a83a',
       attacks: ['meteor', 'summon', 'volley', 'meteor', 'summon'], interval: 2.6, kite: 300, summon: 7, summonType: 'foot',
       meteor: { count: 5, radius: 64, delay: 1.0, dmg: 24, rgb: '190,215,255', bolt: true },
       volley: { count: 7, spread: 1.1, speed: 270, dmg: 13 },
@@ -699,7 +702,7 @@ window.GAME_DATA = {
 
     // —— 第二章 · 讨董之战 ——
     huaxiong: {
-      name: '华雄', title: '董卓帐下骁将', icon: '华', hp: 3500, speed: 88, dmg: 18, r: 30, color: '#4f2a1c',
+      name: '华雄', el: 'fire', title: '董卓帐下骁将', icon: '华', hp: 3500, speed: 88, dmg: 18, r: 30, color: '#4f2a1c',
       attacks: ['charge', 'charge', 'slam'], interval: 3.4, slamR: 135, chargeSpeed: 620,
       rewards: ['dadao', 'xiaoyong', 'xiliang'],
       ultRgb: '255,170,80', ultEvery: 12,
@@ -711,7 +714,7 @@ window.GAME_DATA = {
       look: { skin: '#d6a77a', skinShade: '#b07f56', robe: '#4f2a1c', trim: '#c9a046', armor: true, armorColor: '#6b4a2e', beard: 'short', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#7a5a3a', plume: '#2b2622', weapon: 'dao', aura: '#7a3a22', artFace: [0.53, 0.24, 0.36], scar: true },
     },
     lubu: {
-      name: '吕布', title: '人中吕布 · 马中赤兔', icon: '吕', hp: 6500, speed: 108, dmg: 24, r: 36, color: '#6e1510',
+      name: '吕布', el: 'fire', title: '人中吕布 · 马中赤兔', icon: '吕', hp: 6500, speed: 108, dmg: 24, r: 36, color: '#6e1510',
       attacks: ['charge3', 'slam', 'summon', 'charge3', 'slam'], interval: 2.9, slamR: 185, chargeSpeed: 700, summon: 6,
       rewards: ['halberd', 'wushuang', 'chitu'],
       ultRgb: '255,60,40', ultEvery: 10,
@@ -740,7 +743,7 @@ window.GAME_DATA = {
       look: { skin: '#f6dcc4', skinShade: '#dcb498', robe: '#e07aa6', trim: '#f6e2ea', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#1c1218', pin: '#ff9ac8', weapon: 'ribbon', ribbon: '#ff9ac8', aura: '#d86a9a', female: true, artFace: [0.53, 0.29, 0.34] },
     },
     zhenji: {
-      name: '甄姬', title: '洛神 · 凌波仙子', icon: '甄', hp: 6000, speed: 106, dmg: 22, r: 29, color: '#5a8ac0',
+      name: '甄姬', el: 'ice', title: '洛神 · 凌波仙子', icon: '甄', hp: 6000, speed: 106, dmg: 22, r: 29, color: '#5a8ac0',
       attacks: ['volley', 'meteor', 'charge', 'meteor', 'volley'], interval: 2.5, kite: 240, chargeSpeed: 680,
       volley: { count: 8, spread: 1.1, speed: 330, dmg: 13, ice: true },
       meteor: { count: 5, radius: 66, delay: 1.0, dmg: 22, rgb: '170,220,255', ice: true },
@@ -755,7 +758,7 @@ window.GAME_DATA = {
       look: { skin: '#f4e0cc', skinShade: '#d6b8a0', robe: '#7aa8d8', trim: '#e6f2fa', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#141820', pin: '#bfe6ff', weapon: 'flute', aura: '#5a8ac0', female: true, artFace: [0.56, 0.29, 0.34] },
     },
     sunshangxiang: {
-      name: '孙尚香', title: '枭姬 · 江东郡主', icon: '香', hp: 7000, speed: 114, dmg: 22, r: 29, color: '#c8463a',
+      name: '孙尚香', el: 'fire', title: '枭姬 · 江东郡主', icon: '香', hp: 7000, speed: 114, dmg: 22, r: 29, color: '#c8463a',
       attacks: ['volley', 'charge3', 'meteor', 'volley'], interval: 2.4, chargeSpeed: 720,
       volley: { count: 6, spread: 0.9, speed: 380, dmg: 14, fan: true },
       meteor: { count: 5, radius: 66, delay: 1.0, dmg: 22, rgb: '255,205,130', page: true },
@@ -801,7 +804,7 @@ window.GAME_DATA = {
 
     // —— 长坂坡、宛城、过五关、博望坡、赤壁（各章的出场顺序见下面的 chapters） ——
     zhangfei: {
-      name: '张飞', title: '万人敌 · 燕人张翼德', icon: '张', hp: 6500, speed: 100, dmg: 24, r: 34, color: '#2b2622',
+      name: '张飞', el: 'thunder', title: '万人敌 · 燕人张翼德', icon: '张', hp: 6500, speed: 100, dmg: 24, r: 34, color: '#2b2622',
       attacks: ['roar', 'charge3', 'roar', 'summon'], interval: 2.8, roarR: 240, chargeSpeed: 680, summon: 8, summonType: 'foot',
       rewards: ['shemao', 'paoxiao', 'jiutan'],
       ultRgb: '255,210,80', ultEvery: 11,
@@ -814,7 +817,7 @@ window.GAME_DATA = {
       look: { skin: '#6b5242', skinShade: '#4a382c', robe: '#2b2622', trim: '#8a7a5a', armor: true, armorColor: '#3a3430', beard: 'tiger', eyes: 'round', brows: 'bushy', head: 'helmet', headColor: '#2b2622', plume: '#b5372a', weapon: 'snake', aura: '#4a4038', artFace: [0.55, 0.31, 0.36] },
     },
     zhaoyun: {
-      name: '赵云', title: '常山赵子龙', icon: '赵', hp: 6000, speed: 125, dmg: 22, r: 32, color: '#6f7d8a',
+      name: '赵云', el: 'ice', title: '常山赵子龙', icon: '赵', hp: 6000, speed: 125, dmg: 22, r: 32, color: '#6f7d8a',
       attacks: ['charge3', 'volley', 'charge3', 'volley'], interval: 2.4, chargeSpeed: 760,
       homing: 2.2, rideCharge: true, mount: '#eef0f2', dragonTrail: true, // 赵云：骑白龙驹追着玩家冲，身后一条白龙
       volley: { count: 7, spread: 0.9, speed: 380, dmg: 14 },
@@ -842,7 +845,7 @@ window.GAME_DATA = {
       look: { skin: '#a8754e', skinShade: '#80583a', robe: '#5a3b28', trim: '#8a6a3a', armor: false, beard: 'short', eyes: 'round', brows: 'bushy', head: 'band', weapon: 'twinji', aura: '#6b4a2e', scar: true, artFace: [0.61, 0.27, 0.36] },
     },
     guanyu: {
-      name: '关羽', title: '武圣 · 关云长', icon: '关', hp: 8000, speed: 95, dmg: 30, r: 36, color: '#2f5d45',
+      name: '关羽', el: 'wind', title: '武圣 · 关云长', icon: '关', hp: 8000, speed: 95, dmg: 30, r: 36, color: '#2f5d45',
       attacks: ['cleave', 'charge', 'cleave', 'slam'], interval: 2.8, cleaveR: 210, slamR: 160, chargeSpeed: 680,
       rewards: ['qinglong', 'wusheng', 'chunqiu'],
       ultRgb: '90,240,170', ultEvery: 11,
@@ -855,7 +858,7 @@ window.GAME_DATA = {
       look: { skin: '#b8433a', skinShade: '#8e2e26', robe: '#2f6b4a', trim: '#c9a046', armor: false, beard: 'long', eyes: 'phoenix', brows: 'silkworm', head: 'hood', headColor: '#2f6b4a', weapon: 'guandao', aura: '#2f6b4a', artFace: [0.55, 0.26, 0.36] },
     },
     zhugeliang: {
-      name: '诸葛亮', title: '卧龙 · 诸葛孔明', icon: '诸', hp: 6000, speed: 85, dmg: 18, r: 32, color: '#5b6a74',
+      name: '诸葛亮', el: 'fire', title: '卧龙 · 诸葛孔明', icon: '诸', hp: 6000, speed: 85, dmg: 18, r: 32, color: '#5b6a74',
       attacks: ['meteor', 'summon', 'meteor', 'volley'], interval: 2.6, kite: 300,
       meteor: { count: 5, radius: 75, delay: 1.1, dmg: 30 }, summon: 6, summonType: 'archer',
       volley: { count: 9, spread: 1.4, speed: 260, dmg: 12 },
@@ -870,7 +873,7 @@ window.GAME_DATA = {
       look: { skin: '#efd6b4', skinShade: '#cfb08a', robe: '#e8e4d8', trim: '#2c3440', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#2c3440', weapon: 'fan', aura: '#3e5a6b', artFace: [0.52, 0.235, 0.36] },
     },
     zhouyu: {
-      name: '周瑜', title: '江东美周郎 · 大都督', icon: '周', hp: 7000, speed: 96, dmg: 22, r: 33, color: '#a8322a',
+      name: '周瑜', el: 'fire', title: '江东美周郎 · 大都督', icon: '周', hp: 7000, speed: 96, dmg: 22, r: 33, color: '#a8322a',
       attacks: ['meteor', 'volley', 'summon', 'meteor', 'cleave'], interval: 2.5, kite: 240, cleaveR: 190, summon: 7, summonType: 'archer',
       meteor: { count: 6, radius: 72, delay: 1.1, dmg: 30 },
       volley: { count: 9, spread: 1.2, speed: 300, dmg: 14 },
@@ -990,7 +993,7 @@ window.GAME_DATA = {
     ],
     gear: {
       farmer: [
-        { id: 'g_hoe', name: '锄', icon: '锄', slot: '武器', effects: { startDmg: 0.13 }, startLvEvery: 3, desc: '锄头伤害 +13%/级；每 3 级开局锄头 +1 级',
+        { id: 'g_hoe', name: '锄', icon: '锄', slot: '武器', effects: { startDmg: 0.1 }, startLvEvery: 3, desc: '锄头伤害 +10%/级；每 3 级开局锄头 +1 级',
           look: '农家锄头，长柄、宽刃', tiers: ['木柄锄', '精铁锄', '开垦宝锄', '百炼锄', '镔铁开山锄', '青铜兽首锄', '寒铁裂地锄', '鎏金神农锄', '神农开天锄'] },
         { id: 'g_baina', name: '甲', icon: '甲', slot: '护甲', effects: { maxHp: 16 }, armorEvery: 3, desc: '生命上限 +16/级；每 3 级护甲 +1',
           look: '庄稼汉穿的护身衣甲，从粗布到重铠', tiers: ['粗布短褐', '百衲布衣', '牛皮护胸', '镶铁皮甲', '百衲铁甲', '鱼鳞铁甲', '明光铠', '玄铁重铠', '不动山岳铠'] },
@@ -998,7 +1001,7 @@ window.GAME_DATA = {
           look: '农家祈福的小饰物', tiers: ['五谷福袋', '铜钱平安符', '桃木护身符', '稻穗玉坠', '社稷红绳', '后土玉佩', '丰年金铃', '神农药囊', '五谷神珠'] },
       ],
       hunter: [
-        { id: 'g_zhegong', name: '弓', icon: '弓', slot: '武器', effects: { startDmg: 0.13 }, startLvEvery: 3, desc: '猎弓伤害 +13%/级；每 3 级开局猎弓 +1 级',
+        { id: 'g_zhegong', name: '弓', icon: '弓', slot: '武器', effects: { startDmg: 0.1 }, startLvEvery: 3, desc: '猎弓伤害 +10%/级；每 3 级开局猎弓 +1 级',
           look: '猎人的长弓', tiers: ['竹弓', '桑木弓', '柘木长弓', '牛角弓', '犀角强弓', '铁胎弓', '鹊画雕弓', '落日弓', '射日神弓'] },
         { id: 'g_luxue', name: '猎装', icon: '装', slot: '护甲', effects: { speedMul: 0.035, maxHp: 7 }, desc: '移动速度 +3.5%、生命上限 +7/级',
           look: '猎人的轻便衣甲和靴子，从兽皮到轻铠', tiers: ['兽皮短衣', '麻编猎装', '鹿皮快装', '狼皮猎甲', '云纹轻甲', '踏雪轻铠', '追风劲装', '飞羽轻铠', '山君神行铠'] },
@@ -1006,7 +1009,7 @@ window.GAME_DATA = {
           look: '猎人挂在身上的兽牙护符', tiers: ['兽骨坠', '狼牙护符', '熊爪护符', '鹰羽护符', '虎齿项链', '豹纹玉坠', '白狼王牙', '金雕羽坠', '山君神符'] },
       ],
       scholar: [
-        { id: 'g_zhujian', name: '书', icon: '简', slot: '武器', effects: { startDmg: 0.13 }, startLvEvery: 3, desc: '竹简伤害 +13%/级；每 3 级开局竹简 +1 级',
+        { id: 'g_zhujian', name: '书', icon: '简', slot: '武器', effects: { startDmg: 0.1 }, startLvEvery: 3, desc: '竹简伤害 +10%/级；每 3 级开局竹简 +1 级',
           look: '书生的书卷（竹简、帛书、天书）', tiers: ['旧竹简', '青竹简册', '漆书竹简', '帛书卷', '兵法竹简', '太公阴符', '黄石天书', '遁甲天书', '河图洛书'] },
         { id: 'g_fangjin', name: '衣冠', icon: '巾', slot: '护甲', effects: { cdMul: -0.022, maxHp: 7 }, desc: '所有冷却 -2.2%、生命上限 +7/级',
           look: '书生的衣冠，从布巾长衫到羽衣', tiers: ['布巾长衫', '儒生方巾', '青衿深衣', '进贤冠服', '纶巾鹤氅', '云纹道袍', '鹤羽道袍', '八卦道袍', '卧龙羽衣'] },
@@ -1064,7 +1067,7 @@ window.GAME_DATA = {
     breakVuln: 0.3,                       // 破甲后易伤（受伤 +30%）
     breakVulnTime: 5,
     speed: 1.35, charge: 1.3,             // 移动、冲锋速度倍率
-    interval: 0.62, ultEvery: 0.65,       // 出招间隔、大招冷却倍率（越小越频繁）
+    interval: 0.5, ultEvery: 0.52,        // 出招间隔、大招冷却倍率（越小越频繁）
     area: 1.4, ultArea: 1.25,             // 普通招式、大招的范围倍率
     // 名将（武将）在上面的基础上再加强：招式范围翻倍、跑得比玩家还快，没法随便放风筝
     general: {
@@ -1089,6 +1092,8 @@ window.GAME_DATA = {
     bossRateMul: 0.35,     // 武将在场时小兵刷新倍率
     bossHpExp: 1.25,       // 武将血量 = 基础血量 × (1 + 秒数/240)^bossHpExp
     bossLateMul: 0.5,      // 7 分钟后的平方加成，战役里的武将只吃一半
+    bossHpMul: 1.5,        // 武将血量整体倍率
+    enemyHpMul: 1.35,      // 小兵、精英、据点血量整体倍率
     bossGap: 10,            // 两名武将之间至少隔几秒
     chapterGap: 5,          // 章末武将倒下后几秒进入下一章
     hpGrowth: 1 / 95,       // 每过 95 秒小兵血量 +100%
