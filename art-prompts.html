@@ -76,7 +76,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
 <div class="wrap">
   <header>
     <h1>布衣三国 · <em>美术提示词</em></h1>
-    <p class="lede">一共 206 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵），第五批 11 张（白龙、青龙龙首，白龙驹，8 个新物品图标），第六批 9 种招式特效贴图（拼在一张图里），第七批 13 件神兵（拼在一张图里），第八批 12 张拼图（9 件军需装备各 9 个形态的图标、3 个出身各 9 种换装小人），第九批 4 张拼图（貂蝉、甄姬、孙尚香三位女将的立绘、小人、神兵、特写和 9 个图标），第十批 4 张拼图（冰火雷风四种属性的图标、属性箭、属性弹、命中爆光），另外第十一批是声音：7 首背景音乐和 92 句名将配音。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
+    <p class="lede">一共 207 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵），第五批 11 张（白龙、青龙龙首，白龙驹，8 个新物品图标），第六批 9 种招式特效贴图（拼在一张图里），第七批 13 件神兵（拼在一张图里），第八批 12 张拼图（9 件军需装备各 9 个形态的图标、3 个出身各 9 种换装小人），第九批 4 张拼图（貂蝉、甄姬、孙尚香三位女将的立绘、小人、神兵、特写和 9 个图标），第十批 4 张拼图（冰火雷风四种属性的图标、属性箭、属性弹、命中爆光），第十二批 1 张赤兔马；另外第十一批是声音：7 首背景音乐和 92 句名将配音。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
     <div class="progress"><span>已完成 <span id="count">0 / 45</span></span><div class="bar"><i id="bar"></i></div></div>
   </header>
 
@@ -184,6 +184,18 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
           <button class="copy" data-lite="3">④ 图标图集：兵器 + 宝物</button>
           <button class="copy" data-lite="4">⑤ 图标图集：技能 + 宝物</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>第十二批新增<span class="folder">赤兔马</span></h2>
+    <p class="section-note">拿到技能「赤兔」后你会骑上赤兔马。现在用的是代码画的红马，比较简陋。这一批只要 1 张：一匹不带骑手的 Q 版赤兔马，和第五批的白龙驹同样构图（马朝右，马鞍空着放在马背正中），游戏会把你当前的角色小人坐到马鞍上，换装后也跟着变。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>复制第十二批（1 张）</h3>
+        <p>画的时候把白龙驹（<code>assets\mounts\white.png</code>）一起发给 GPT 当参考，大小和构图才一致。背景透明。画好后发给 Claude，由 Claude 裁边放进 <code>assets\mounts</code>。</p>
+        <button class="copy primary" id="copy-batch12">复制赤兔马提示词</button>
       </div>
     </div>
   </section>
@@ -701,6 +713,15 @@ const GROUPS = [
       ['el_hit_wind', '风刃斩开', '一圈风刃向外斩开：几道青绿色的弧形刀风绕着中心旋转着向外扩散，带细小的叶片和尘屑。'],
     ],
   },
+
+  // —— 第十二批：赤兔马（玩家拿到技能「赤兔」后骑的马，游戏把玩家的小人放到马鞍上） ——
+  {
+    title: '第十二批 · 赤兔马', folder: 'assets/mounts/', style: SPRITE_STYLE,
+    note: '只画马，不要骑手。和第五批的白龙驹同样的构图：马朝右、马鞍空着放在马背正中，游戏会把你当前的角色小人坐上去。画的时候把白龙驹那张图一起发给 GPT 当参考。',
+    items: [
+      ['chitu', '赤兔马', '一匹 Q 版的赤兔马：通体火红如炭火的骏马，毛色从深红到橙红有光泽，鬃毛和马尾像火焰一样向后飘扬，尖端带一点金色火星；配金色兽纹马鞍、红色缨穗和金色马具；四蹄腾空奔跑的姿态，朝向画面右侧，神情桀骜；马背上不要骑手，马鞍空着、放在马背正中；和白龙驹同样的 Q 版比例和构图，大小一致。'],
+    ],
+  },
 ];
 
 // —— 第八批：军需装备（和 data.js 里 meta.gear 的名字一致） ——
@@ -896,6 +917,11 @@ document.getElementById('copy-batch10').addEventListener('click', e => copyText(
   B10.map(([t, f], i) => `========== 第 ${i + 1} 张：${t} ==========\n${f()}`).join('\n\n'), e.currentTarget));
 document.getElementById('b10-buttons').innerHTML = B10.map(([t], i) => `<button class="copy" data-b10="${i}">${i + 1}. ${t}</button>`).join('');
 document.querySelectorAll('[data-b10]').forEach(b => b.addEventListener('click', () => copyText(B10[+b.dataset.b10][1](), b)));
+// 第十二批：赤兔马（1 张）
+document.getElementById('copy-batch12').addEventListener('click', e => {
+  const g = GROUPS.find(x => x.title === '第十二批 · 赤兔马'), it = g.items[0];
+  copyText(`我要为一款三国题材的游戏画一匹坐骑。我会附上同一套游戏里的白龙驹，请照它的画风、Q 版比例、构图和大小来画。统一画风：\n${g.style}\n\n画面内容：${it[2]}\n文件名：${it[0]}.png`, e.currentTarget);
+});
 // 第十一批：背景音乐与名将配音（台词和 data.js 里的 voice / line / rage 一致）
 const MUSIC_STYLE = '纯器乐，不要人声唱词（最多一点很轻的无词吟唱）；中国古风配器：古筝、琵琶、竹笛、二胡、编钟、大鼓和锣，可以加一点低沉的弦乐铺底；混音干净，低频不要轰头，适合在游戏里长时间循环；时长 1.5–2 分钟，开头和结尾能无缝衔接循环，不要渐弱收尾；导出 MP3。';
 const MUSIC11 = [

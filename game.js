@@ -3634,7 +3634,7 @@ function showEnd() {
   btns.innerHTML = '';
   const mk = (text, primary, fn) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = text; b.addEventListener('click', fn); btns.appendChild(b); return b; };
   mk('再来一局', true, () => startGame(S.origin.id)).focus();
-  mk('换个出身', false, toTitle);
+  mk('回到标题', false, toTitle); // 标题界面可以换出身、逛军需、看图鉴
   $('end').hidden = false;
 }
 
@@ -3858,25 +3858,36 @@ function drawSprite(s, x, y) { ctx.drawImage(s.c, x - s.cx, y - s.cy, s.w, s.h);
 // ---------- 战场小人 ----------
 // 有美术小人图（assets/sprites/<id>.png，脚底贴着图片下沿）就用图，否则用 sprites.js 画的 Q 版小人。
 // 白龙驹（赵云、玩家七进七出、颜良的白马）：有美术图就用图
-const WHITE_HORSE = '#eef0f2';
+const WHITE_HORSE = '#eef0f2', CHITU = '#a3261b';
+const HORSE_ART = { [WHITE_HORSE]: 'mount:white', [CHITU]: 'mount:chitu' }; // 美术画的坐骑（不带骑手，马鞍在马背正中）
+const SEAT = { x: 0.45, y: 0.38, cut: 0.74, sink: 0.05 }; // 马鞍在马图里的位置；骑手只画上半身（cut），往马鞍里坐进去一点（sink）
 function unitSprite(id, look, hWorld, flash, mount) {
   const art = window.Assets.get('sprite:' + id);
   const riderArt = !art && id.endsWith('_mounted') && window.Assets.get('sprite:' + id.replace('_mounted', ''));
-  const horseArt = riderArt && mount === WHITE_HORSE && window.Assets.get('mount:white');
+  const horseArt = riderArt && HORSE_ART[mount] && window.Assets.get(HORSE_ART[mount]);
   const ck = `unit|${id}|${hWorld}|${flash ? 1 : 0}|${art ? 'a' : 'c'}|${mount || ''}|${horseArt ? 'h' : ''}`;
   let s = spriteCache.get(ck);
   if (s) return s;
-  const sc = DPR * ZOOM, h = hWorld;
-  const w = art ? h * art.naturalWidth / art.naturalHeight : horseArt ? h * 1.15 : h * Sprites.BOX_W / Sprites.BOX_H;
+  const sc = DPR * ZOOM;
+  const w = art ? hWorld * art.naturalWidth / art.naturalHeight : horseArt ? hWorld * 1.15 : hWorld * Sprites.BOX_W / Sprites.BOX_H;
+  const horseH = horseArt ? w * horseArt.naturalHeight / horseArt.naturalWidth : 0;
+  const riderH = hWorld * 0.8; // 骑手和平时站着差不多大
+  const h = horseArt ? Math.max(hWorld, horseH * (1 - SEAT.y) + riderH * (SEAT.cut - SEAT.sink) + 2) : hWorld; // 画布加高，骑手的上半身露出马背
   const c = document.createElement('canvas');
   c.width = Math.ceil(w * sc); c.height = Math.ceil(h * sc);
   const g = c.getContext('2d');
   if (art) g.drawImage(art, 0, 0, c.width, c.height);
-  else if (horseArt) { // 美术画的白龙驹 + 角色的美术小人骑在上面
-    const hw = c.width, hh = hw * horseArt.naturalHeight / horseArt.naturalWidth;
+  else if (horseArt) { // 美术画的坐骑 + 角色小人的上半身坐在马鞍上（腰下渐隐，像坐进马鞍里）
+    const hw = c.width, hh = horseH * sc;
     g.drawImage(horseArt, 0, c.height - hh, hw, hh);
-    const rh = c.height * 0.7, rw = rh * riderArt.naturalWidth / riderArt.naturalHeight;
-    g.drawImage(riderArt, c.width * 0.46 - rw / 2, c.height - hh * 0.55 - rh * 0.62, rw, rh);
+    const rh = riderH * sc, rw = rh * riderArt.naturalWidth / riderArt.naturalHeight, ch = rh * SEAT.cut;
+    const t = document.createElement('canvas'); t.width = Math.ceil(rw); t.height = Math.ceil(ch);
+    const tg = t.getContext('2d');
+    tg.drawImage(riderArt, 0, 0, riderArt.naturalWidth, riderArt.naturalHeight * SEAT.cut, 0, 0, t.width, t.height);
+    const fade = tg.createLinearGradient(0, 0, 0, t.height); fade.addColorStop(0.8, '#000'); fade.addColorStop(1, 'rgba(0,0,0,0)');
+    tg.globalCompositeOperation = 'destination-in'; tg.fillStyle = fade; tg.fillRect(0, 0, t.width, t.height);
+    const seatY = c.height - hh + hh * SEAT.y;
+    g.drawImage(t, hw * SEAT.x - rw / 2, seatY - ch + rh * SEAT.sink);
   }
   else if (riderArt) { // 还没有骑马美术图：代码画的马 + 角色原本的美术小人骑在上面
     g.save(); g.scale(c.width / Sprites.BOX_W, c.height / Sprites.BOX_H); Sprites.horse(g, mount || '#b5372a'); g.restore();
@@ -3920,7 +3931,7 @@ function drawPlayer() {
   const chitu = S.skills.some(s => s.id === 'chitu'); // 骑上赤兔马
   const seven = S.t < S.rampageT;                      // 七进七出：骑上白龙驹
   const ride = chitu || seven || S.dash;               // 冲阵时也骑马
-  const mount = seven || (S.dash && !chitu) ? WHITE_HORSE : chitu ? '#a3261b' : '';
+  const mount = seven || (S.dash && !chitu) ? WHITE_HORSE : chitu ? CHITU : '';
   // 人物造型跟着局外装备变：有对应的美术小人（武器阶段 × 护甲阶段）就用它，否则用出身原本的小人
   const L = S.gearLook || { w: 1, a: 1, c: 0 }, lookId = `${S.origin.id}_w${L.w}a${L.a}`;
   const sid = window.Assets.get('sprite:' + lookId) ? lookId : S.origin.id;
