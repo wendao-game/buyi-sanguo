@@ -4235,6 +4235,10 @@ function drawPickups() {
     // 铜钱：外圆内方
     const big = g.v >= 10, mid = g.v >= 3;
     const r = big ? 7 : mid ? 6 : 4.5;
+    // 身上一层淡淡的光，在地上能看出来就行（亮度慢慢起伏）
+    ctx.globalCompositeOperation = 'lighter';
+    FX.glow(ctx, g.x, g.y, Math.max(16, r * 3), big ? '255,205,90' : mid ? '200,215,235' : '240,170,95', (big || mid ? 0.2 : 0.28) + 0.06 * Math.sin(S.t * 3 + g.x * 0.05));
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     ctx.fillStyle = big ? '#e3b341' : mid ? '#c9ccd1' : '#b8743a';
     ctx.strokeStyle = 'rgba(20,16,10,0.8)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(g.x, g.y, r, 0, TAU); ctx.fill(); ctx.stroke();
