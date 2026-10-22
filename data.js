@@ -590,7 +590,7 @@ window.GAME_DATA = {
     jindai: { name: '吴宫锦带', icon: '锦', max: 1, unique: true, general: '孙尚香', desc: '孙夫人的锦带：移动速度 +10%，伤害 +12%，暴击率 +4%', effects: { speedMul: 0.1, dmgMul: 0.12, crit: 0.04 } },
     guqu: { name: '曲有误', icon: '曲', max: 1, unique: true, general: '周瑜', desc: '“曲有误，周郎顾”：冷却 -10%，暴击率 +8%，攻击范围 +10%', effects: { cdMul: -0.1, crit: 0.08, areaMul: 0.1 } },
     xiangyin: { name: '相国印绶', icon: '印', max: 1, unique: true, general: '董卓', desc: '董太师的金印紫绶：生命上限 +90，伤害 +15%，护甲 +2，但移动速度 -5%', effects: { maxHp: 90, dmgMul: 0.15, armor: 2, speedMul: -0.05 } },
-    guose: { name: '国色', icon: '国', max: 1, unique: true, general: '大乔', desc: '江东大乔的玉镜：生命上限 +50，每秒回复 +0.8，拾取范围 +25%', effects: { maxHp: 50, regen: 0.8, pickupMul: 0.25 } },
+    guose: { name: '国色', icon: '国', max: 1, unique: true, general: '大乔', desc: '江东大乔的玉镜：生命上限 +50，每秒回复 +0.8，拾取范围 +25%，闪现冷却 -25%', effects: { maxHp: 50, regen: 0.8, pickupMul: 0.25, blinkCd: 0.25 } },
     tongque: { name: '铜雀春深', icon: '雀', max: 1, unique: true, general: '小乔', desc: '小乔的铜雀步摇：移动速度 +12%，暴击率 +6%，闪现距离 +30%', effects: { speedMul: 0.12, crit: 0.06, blinkDist: 0.3 } },
   },
 
