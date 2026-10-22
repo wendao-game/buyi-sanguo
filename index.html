@@ -67,6 +67,12 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #goldhud { font-size: 13px; color: #ffd75a; font-variant-numeric: tabular-nums; }
 .hud-btns { display: flex; gap: 6px; pointer-events: auto; margin-top: 4px; }
 .iconbtn { width: 34px; height: 34px; border: 1px solid rgba(235,224,197,.3); background: rgba(21,18,13,.6); color: var(--text); border-radius: 3px; font-size: 14px; }
+/* 闪现按钮：右下角的圆钮，冷却时一圈暗色扇面慢慢退去 */
+#btn-blink { position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); width: 60px; height: 60px; border-radius: 50%;
+  pointer-events: auto; border: 2px solid rgba(190,215,255,.75); color: #eef4ff; font-family: var(--display); font-size: 26px; line-height: 1; padding: 0; --cd: 0;
+  background: conic-gradient(rgba(10,10,16,.78) calc(var(--cd) * 360deg), rgba(60,80,130,.55) 0); box-shadow: 0 0 10px rgba(150,190,255,.35); touch-action: none; }
+#btn-blink.ready { box-shadow: 0 0 14px rgba(170,205,255,.8); }
+#btn-blink span { position: absolute; left: 0; right: 0; bottom: 7px; font-family: var(--body); font-size: 11px; color: var(--muted); }
 
 #bossbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
   width: min(560px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; }
@@ -366,6 +372,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
         <div class="hud-btns">
           <button class="iconbtn" id="btn-sound" aria-label="声音开关">声</button>
           <button class="iconbtn" id="btn-pause" aria-label="暂停">停</button>
+          <button class="iconbtn" id="btn-aim" aria-label="攻击目标" title="攻击目标">近</button>
         </div>
       </div>
     </div>
@@ -390,6 +397,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     </div>
     <div id="toast"><div id="toast-face"></div><div class="toast-text"><b id="toast-title"></b><span id="toast-sub"></span></div></div>
     <div id="vline" aria-live="polite"><b id="vl-name"></b><span id="vl-text"></span></div>
+    <button id="btn-blink" aria-label="闪现（空格）" title="闪现：空格 / Shift"><b>闪</b><span id="blink-cd"></span></button>
     <div id="tip">攻击全自动 · 专心走位</div>
   </div>
 

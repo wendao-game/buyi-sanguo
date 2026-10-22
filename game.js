@@ -340,6 +340,7 @@ const MOVE_KEYS = {
 addEventListener('keydown', e => {
   if (MOVE_KEYS[e.code]) { keys.add(e.code); e.preventDefault(); }
   if ((e.code === 'Escape' || e.code === 'KeyP') && S && !S.over) togglePause();
+  if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (S && !S.over) { e.preventDefault(); S.blinkReq = true; } } // 闪现
   const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code);
   if (m && !$('levelup').hidden && $('lu-cards').style.pointerEvents !== 'none') { const el = $('lu-cards').children[+m[1] - 1]; if (el) el.click(); }
 });
@@ -412,6 +413,28 @@ function nearest(x, y, maxR) {
     if (d < bd) { bd = d; best = e; }
   }
   return best;
+}
+// 攻击目标：near 打最近的；random 在范围内随机挑一个；boss 名将 / 精英在范围内就先打它们，没有再打最近的
+const AIM_MODES = [['near', '近', '最近'], ['random', '随', '随机'], ['boss', '将', '名将优先']];
+let aimMode = 'near';
+try { aimMode = localStorage.getItem('buyi-aim') || 'near'; } catch (e) { /* 存储不可用时忽略 */ }
+if (!AIM_MODES.some(m => m[0] === aimMode)) aimMode = 'near';
+function pickTarget(x, y, maxR) {
+  if (aimMode === 'near') return nearest(x, y, maxR);
+  const r2 = maxR * maxR;
+  if (aimMode === 'boss') {
+    let best = null, bk = Infinity;
+    for (const e of S.enemies) {
+      if (e.dead || !(e.boss || e.ai)) continue;
+      const d = dist2(x, y, e.x, e.y);
+      const k = d + (e.boss ? 0 : 1e9); // 名将比精英优先，同类里挑最近的
+      if (d < r2 && k < bk) { bk = k; best = e; }
+    }
+    return best || nearest(x, y, maxR);
+  }
+  const pool = [];
+  for (const e of S.enemies) if (!e.dead && dist2(x, y, e.x, e.y) < r2) pool.push(e);
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
 // ============ 游戏状态 ============
@@ -493,7 +516,7 @@ function newState(originId) {
     enemies: [], bossList: [], proj: [], eproj: [], zones: [], effects: [], rings: [], pickups: [], numbers: [], particles: [], hazards: [],
     rampageT: 0, thornsT: 0, seen: {},
     decals: [], ghosts: [], hurtFlash: 0, ghostT: 0,
-    teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0, pBurnT: 0, pBurnDps: 0,
+    teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0, pBurnT: 0, pBurnDps: 0, blinkT: 0, blinkReq: false,
     pChillT: 0, frozenT: 0, charm: null, // 女将：冰冻减速、冻住不能动、被貂蝉迷住往她身边走
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
     spawnAcc: {}, evIdx: 0, defeated: [],
@@ -1286,6 +1309,23 @@ function updatePlayer(dt) {
   p.kvx *= kd; p.kvy *= kd;
   p.moving = !!(mx || my);
   if (p.moving) p.facing = Math.atan2(my, mx);
+  if (S.blinkReq) { // 闪现：朝移动方向（站着不动就朝面向）瞬移一段距离，短暂无敌
+    S.blinkReq = false;
+    const B = D.blink;
+    if (S.t >= S.blinkT && !(S.t < S.frozenT)) {
+      const a = p.facing || 0, ux = Math.cos(a), uy = Math.sin(a), x0 = p.x, y0 = p.y;
+      p.x += ux * B.dist; p.y += uy * B.dist;
+      p.iframes = Math.max(p.iframes, B.iframes);
+      S.blinkT = S.t + B.cd;
+      // 起点一团残烟，路径上一道光，落点一圈气浪
+      smoke(x0, y0 - 12, 3, '60,55,70', 12, 10, 0.45);
+      fxTex('thrust', (x0 + p.x) / 2, (y0 + p.y) / 2 - 14, { w: B.dist * 1.1, h: 30, rot: a, rgb: '200,225,255', life: 0.22, core: 0.6 });
+      for (let k = 0; k < 8; k++) { const t = k / 7; fxp({ type: 'spark', x: x0 + ux * B.dist * t + rand(-6, 6), y: y0 + uy * B.dist * t - 14 + rand(-6, 6), vx: -ux * 120, vy: -uy * 120, drag: 4, life: 0.3, rgb: '210,230,255', size: 1.6 }); }
+      fxTex('ring', p.x, p.y + 4, { w: 70, h: 70, rgb: '190,215,255', flat: 0.5, under: true, life: 0.3, grow: 1.6, core: 0.4 });
+      glint(p.x, p.y - 14, 26, '225,240,255', 0.18);
+      sfx('swing');
+    }
+  }
   if (S.dash) { // 冲阵：突进中无敌，沿途敌人受伤并被撞开
     const D2 = S.dash, ux = Math.cos(D2.a), uy = Math.sin(D2.a);
     p.x += ux * D2.len / D2.dur * dt; p.y += uy * D2.len / D2.dur * dt;
@@ -1389,7 +1429,7 @@ function weaponTick(w, def, L, dt, p) {
       case 'arc': {
         w.t -= dt; if (w.t > 0) break;
         const range = L.range * p.areaMul;
-        const tgt = nearest(p.x, p.y, range * 1.35);
+        const tgt = pickTarget(p.x, p.y, range * 1.35);
         if (!tgt) { w.t = 0.08; break; }
         w.t = L.cd * p.cdMul;
         const a = angleTo(p.x, p.y, tgt.x, tgt.y);
@@ -1400,13 +1440,13 @@ function weaponTick(w, def, L, dt, p) {
       }
       case 'projectile': {
         w.t -= dt; if (w.t > 0) break;
-        const tgt = nearest(p.x, p.y, 620);
+        const tgt = pickTarget(p.x, p.y, D.aim.arrowRange);
         if (!tgt) { w.t = 0.08; break; }
         w.t = L.cd * p.cdMul;
         const a0 = angleTo(p.x, p.y, tgt.x, tgt.y);
         for (let i = 0; i < L.count; i++) {
           const a = a0 + (i - (L.count - 1) / 2) * (L.fan || 0.13);
-          S.proj.push({ kind: 'arrow', x: p.x, y: p.y, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, r: 5, dmg: L.dmg, pierce: L.pierce, life: 1.2, hit: new Set(), kb: 60 });
+          S.proj.push({ kind: 'arrow', x: p.x, y: p.y, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, r: 5, dmg: L.dmg, pierce: L.pierce, life: D.aim.arrowLife, hit: new Set(), kb: 60 });
         }
         if (L.fan) sfx('swing');
         break;
@@ -1425,7 +1465,7 @@ function weaponTick(w, def, L, dt, p) {
       }
       case 'chain': { // 九节杖：闪电在敌人之间跳跃
         w.t -= dt; if (w.t > 0) break;
-        let cur = nearest(p.x, p.y, L.range);
+        let cur = pickTarget(p.x, p.y, L.range);
         if (!cur) { w.t = 0.08; break; }
         w.t = L.cd * p.cdMul;
         const pts = [[p.x, p.y - 22]], hit = new Set();
@@ -1479,11 +1519,11 @@ function weaponTick(w, def, L, dt, p) {
       }
       case 'homing': {
         w.t -= dt; if (w.t > 0) break;
-        if (!nearest(p.x, p.y, 600)) { w.t = 0.1; break; }
+        if (!nearest(p.x, p.y, D.aim.orbRange)) { w.t = 0.1; break; }
         w.t = L.cd * p.cdMul;
         for (let i = 0; i < L.count; i++) {
           const a = rand(0, TAU);
-          S.proj.push({ kind: def.pkind || 'orb', x: p.x, y: p.y, a, speed: L.speed, vx: 0, vy: 0, r: 7, dmg: L.dmg, pierce: 1, life: 3.5, hit: new Set(), homing: true, target: null, kb: 40, spin: rand(0, TAU) });
+          S.proj.push({ kind: def.pkind || 'orb', x: p.x, y: p.y, a, speed: L.speed, vx: 0, vy: 0, r: 7, dmg: L.dmg, pierce: 1, life: D.aim.orbLife, hit: new Set(), homing: true, target: null, kb: 40, spin: rand(0, TAU) });
         }
         if (def.pkind === 'petal') petals(p.x, p.y - 14, 4, 90);
         break;
@@ -1522,7 +1562,7 @@ function weaponTick(w, def, L, dt, p) {
       }
       case 'thrust': {
         w.t -= dt; if (w.t > 0) break;
-        const tgt = nearest(p.x, p.y, L.len * p.areaMul + 30);
+        const tgt = pickTarget(p.x, p.y, L.len * p.areaMul + 30);
         if (!tgt) { w.t = 0.06; break; }
         w.t = L.cd * p.cdMul;
         const a0 = angleTo(p.x, p.y, tgt.x, tgt.y);
@@ -1532,7 +1572,7 @@ function weaponTick(w, def, L, dt, p) {
       }
       case 'boomerang': {
         w.t -= dt; if (w.t > 0) break;
-        const tgt = nearest(p.x, p.y, L.range * p.areaMul + 60);
+        const tgt = pickTarget(p.x, p.y, L.range * p.areaMul + 60);
         if (!tgt) { w.t = 0.1; break; }
         w.t = L.cd * p.cdMul;
         const a0 = angleTo(p.x, p.y, tgt.x, tgt.y);
@@ -1544,11 +1584,11 @@ function weaponTick(w, def, L, dt, p) {
       }
       case 'burst': {
         w.t -= dt; if (w.t > 0) break;
-        if (!nearest(p.x, p.y, 600)) { w.t = 0.1; break; }
+        if (!nearest(p.x, p.y, D.aim.orbRange)) { w.t = 0.1; break; }
         w.t = L.cd * p.cdMul;
         for (let i = 0; i < L.count; i++) {
           const a = rand(0, TAU);
-          S.proj.push({ kind: 'fire', x: p.x, y: p.y, a, speed: L.speed, vx: 0, vy: 0, r: 8, dmg: L.dmg, pierce: 1, life: 3.5, hit: new Set(), homing: true, target: null, kb: 60, blast: L.radius * p.areaMul });
+          S.proj.push({ kind: 'fire', x: p.x, y: p.y, a, speed: L.speed, vx: 0, vy: 0, r: 8, dmg: L.dmg, pierce: 1, life: D.aim.orbLife, hit: new Set(), homing: true, target: null, kb: 60, blast: L.radius * p.areaMul });
         }
         break;
       }
@@ -2023,9 +2063,10 @@ function runUlt(e, dt) {
     }
     // 青龙偃月：一道巨大的刀气直线推进
     case 'dragonWave': {
-      if (U.phase === 0) { U.ang = toP; tele({ kind: 'line', x: e.x, y: e.y, a: U.ang, len: 900, w: u.r * 2, life: 0.8, rgb }); U.t = 0.8; U.phase = 1; }
+      const nD = u.count || 1, angOf = i => U.ang + (nD > 1 ? (i / (nD - 1) - 0.5) * 2 * (u.spread || 0) : 0); // 几条青龙扇形排开
+      if (U.phase === 0) { U.ang = toP; for (let i = 0; i < nD; i++) tele({ kind: 'line', x: e.x, y: e.y, a: angOf(i), len: 900, w: u.r * 2, life: 0.8, rgb }); U.t = 0.8; U.phase = 1; }
       else if (U.t <= 0) {
-        S.eproj.push({ kind: 'dragon', x: e.x, y: e.y - 10, vx: Math.cos(U.ang) * u.speed, vy: Math.sin(U.ang) * u.speed, r: u.r, dmg: DMG(u.dmg), life: 3, pierce: true, rgb, seed: rand(0, 9) });
+        for (let i = 0; i < nD; i++) { const a = angOf(i); S.eproj.push({ kind: 'dragon', x: e.x, y: e.y - 10, vx: Math.cos(a) * u.speed, vy: Math.sin(a) * u.speed, r: u.r, dmg: DMG(u.dmg), life: 3, pierce: true, rgb, seed: rand(0, 9) }); }
         // 青龙出刀：一记巨大的刀光劈出，青光炸开
         fxTex('slash', e.x + Math.cos(U.ang) * 90, e.y - 20 + Math.sin(U.ang) * 90, { w: 360, h: 180, rot: U.ang + Math.PI / 2, rgb, life: 0.4, grow: 1.25, core: 0.6 });
         fxTex('burst', e.x + Math.cos(U.ang) * 50, e.y - 20 + Math.sin(U.ang) * 50, { w: 200, h: 200, rgb, life: 0.3, grow: 1.5, rot: rand(0, TAU) });
@@ -2587,7 +2628,7 @@ function updateProjectiles(dt) {
     b.life -= dt;
     if (b.life <= 0) { b.dead = true; continue; }
     if (b.homing) {
-      if (!b.target || b.target.dead) b.target = nearest(b.x, b.y, 520);
+      if (!b.target || b.target.dead) b.target = pickTarget(b.x, b.y, D.aim.orbSeek);
       if (b.target) b.a += clamp(angDiff(b.a, angleTo(b.x, b.y, b.target.x, b.target.y)), -6 * dt, 6 * dt);
       b.vx = Math.cos(b.a) * b.speed; b.vy = Math.sin(b.a) * b.speed;
     }
@@ -3375,6 +3416,10 @@ function updateHud() {
   $('hptext').textContent = `${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}`;
   $('time').textContent = fmtTime(S.t);
   $('kills').textContent = `斩敌 ${S.kills}`;
+  { const left = Math.max(0, S.blinkT - S.t), bb = $('btn-blink'); // 闪现冷却：暗色扇面 + 剩余秒数
+    bb.style.setProperty('--cd', (left / D.blink.cd).toFixed(3));
+    bb.classList.toggle('ready', left <= 0);
+    $('blink-cd').textContent = left > 0 ? left.toFixed(1) : matchMedia('(pointer: coarse)').matches ? '' : '空格'; }
   $('goldhud').textContent = `金 ${loadMeta().gold}（本局 +${S.goldRun}）`;
   const perm = S.allies.filter(a => !a.until).length, lust = Math.floor(S.lust);
   const info = [perm ? `随从 ${perm}/${D.allyCap}` : '', S.blessings.length ? `祝福 ${S.blessings.length}` : '', lust ? `战意 ${lust}` : ''].filter(Boolean);
@@ -3741,6 +3786,18 @@ $('btn-save-load').addEventListener('click', () => { $('save-msg').textContent =
 $('btn-codex-close').addEventListener('click', closeCodex);
 $('btn-pause').addEventListener('click', togglePause);
 $('btn-resume').addEventListener('click', togglePause);
+// 攻击目标：最近 → 随机 → 名将优先，记在这个浏览器里
+const aimLabel = () => { const m = AIM_MODES.find(x => x[0] === aimMode); $('btn-aim').textContent = m[1]; $('btn-aim').title = `攻击目标：${m[2]}（点一下切换）`; };
+$('btn-aim').addEventListener('click', () => {
+  const i = AIM_MODES.findIndex(x => x[0] === aimMode);
+  aimMode = AIM_MODES[(i + 1) % AIM_MODES.length][0];
+  try { localStorage.setItem('buyi-aim', aimMode); } catch (e) { /* ignore */ }
+  aimLabel();
+  if (S) toast('', '', `攻击目标：${AIM_MODES.find(x => x[0] === aimMode)[2]}`, aimMode === 'boss' ? '名将、精英在射程内时先打它们' : aimMode === 'random' ? '在射程内随机挑一个敌人' : '打离你最近的敌人');
+});
+aimLabel();
+// 闪现按钮（手机）：按下就闪，不触发摇杆
+$('btn-blink').addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); if (S && !S.over) S.blinkReq = true; });
 $('btn-quit').addEventListener('click', toTitle);
 $('btn-sound').addEventListener('click', () => {
   muted = !muted;

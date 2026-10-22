@@ -8,6 +8,10 @@ window.GAME_DATA = {
     weaponSlots: 6,
     passiveSlots: 6,
   },
+  // 箭矢、法球的射程：多远的敌人会被瞄准、飞多久消失（原来 620 / 1.2 秒、600 / 3.5 秒，太远了）
+  aim: { arrowRange: 420, arrowLife: 0.8, orbRange: 400, orbSeek: 380, orbLife: 2.2 },
+  // 闪现：空格 / Shift（手机点右下角「闪」），朝移动方向瞬移 5 个身位，冷却 5 秒，瞬移时短暂无敌
+  blink: { cd: 5, dist: 150, iframes: 0.3 },
 
   // 无限成长：武器 / 技能满 5 级后的“突破”规则
   breakthrough: {
@@ -737,9 +741,9 @@ window.GAME_DATA = {
       rewards: ['luoying', 'biyue', 'yuzan'],
       ultRgb: '255,140,200', ultEvery: 10,
       ults: [
-        { id: 'dance', name: '闭月舞', type: 'petalSpiral', arms: 5, waves: 16, gap: 0.09, speed: 250, dmg: 0.8 },
-        { id: 'charm', name: '倾城一顾', type: 'charm', radius: 150, tele: 1.0, pull: 300, dur: 1.6, dmg: 0.8 },
-        { id: 'lianhuan', name: '连环计', type: 'petalRain', hpBelow: 0.5, count: 22, dur: 3.2, r: 66, dmg: 1.2 },
+        { id: 'dance', name: '闭月舞', type: 'petalSpiral', arms: 7, waves: 20, gap: 0.09, speed: 290, dmg: 0.8 },
+        { id: 'charm', name: '倾城一顾', type: 'charm', radius: 230, tele: 1.0, pull: 300, dur: 1.6, dmg: 0.8 },
+        { id: 'lianhuan', name: '连环计', type: 'petalRain', hpBelow: 0.5, count: 30, dur: 3.2, r: 92, dmg: 1.2 },
       ],
       banner: '司徒府 · 貂蝉 起舞', line: '“将军，可愿看妾身一舞？”', rage: '“花落……人亦断肠。”',
       look: { skin: '#f6dcc4', skinShade: '#dcb498', robe: '#e07aa6', trim: '#f6e2ea', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#1c1218', pin: '#ff9ac8', weapon: 'ribbon', ribbon: '#ff9ac8', aura: '#d86a9a', female: true, artFace: [0.53, 0.29, 0.34] },
@@ -812,7 +816,7 @@ window.GAME_DATA = {
       ultRgb: '255,210,80', ultEvery: 11,
       ults: [
         { id: 'roar', name: '当阳怒吼', type: 'bigRoar', R: 440, dmg: 1.0, push: 900, slow: 2.2 },
-        { id: 'lance', name: '丈八突刺', type: 'lanceDash', count: 1, speed: 1350, len: 900, w: 46, tele: 0.85, dmg: 1.8 },
+        { id: 'lance', name: '丈八突刺', type: 'lanceDash', count: 3, speed: 1350, len: 900, w: 46, tele: 0.85, dmg: 1.8 },
         { id: 'rage', name: '燕人血怒', type: 'frenzy', hpBelow: 0.4, dur: 7 },
       ],
       banner: '长坂坡 · 张飞 断喝', line: '“燕人张翼德在此！谁敢决一死战！”', rage: '“哇呀呀呀！”',
@@ -826,8 +830,8 @@ window.GAME_DATA = {
       rewards: ['longdan', 'qijin', 'qinggang'],
       ultRgb: '150,210,255', ultEvery: 10,
       ults: [
-        { id: 'seven', name: '七进七出', type: 'sevenDash', count: 7, speed: 1250, len: 320, w: 40, tele: 0.32, dmg: 1.2, home: 2.6 },
-        { id: 'flurry', name: '百鸟朝凤', type: 'flurry', count: 12, R: 250, half: 0.45, dmg: 0.6 },
+        { id: 'seven', name: '七进七出', type: 'sevenDash', count: 7, speed: 1250, len: 460, w: 56, tele: 0.32, dmg: 1.2, home: 2.6 },
+        { id: 'flurry', name: '百鸟朝凤', type: 'flurry', count: 16, R: 360, half: 0.62, dmg: 0.6 },
       ],
       banner: '长坂坡 · 赵云 单骑救主', line: '“吾乃常山赵子龙也！”', rage: '“七进七出，何惧尔等！”',
       look: { skin: '#f2d4b0', skinShade: '#d0a982', robe: '#e4e6e8', trim: '#9aa6b2', armor: true, armorColor: '#c9d0d6', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#d8dde2', plume: '#b5372a', weapon: 'spear', aura: '#7f93a8', artFace: [0.48, 0.27, 0.36] },
@@ -852,7 +856,7 @@ window.GAME_DATA = {
       rewards: ['qinglong', 'wusheng', 'chunqiu'],
       ultRgb: '90,240,170', ultEvery: 11,
       ults: [
-        { id: 'dragon', name: '青龙偃月', type: 'dragonWave', speed: 330, r: 48, dmg: 2.0 },
+        { id: 'dragon', name: '青龙偃月', type: 'dragonWave', count: 3, spread: 0.42, speed: 330, r: 48, dmg: 2.0 },
         { id: 'five', name: '过五关斩六将', type: 'multiCleave', count: 5, R: 230, half: 0.9, tele: 0.4, dmg: 1.3 },
         { id: 'spiral', name: '武圣降临', type: 'spiral', hpBelow: 0.5, count: 18, dmg: 1.4 },
       ],
