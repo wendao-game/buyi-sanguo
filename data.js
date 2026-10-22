@@ -1019,12 +1019,13 @@ window.GAME_DATA = {
   },
 
   // 局外成长：金币跨局保存，在开局界面给三个出身各自购买、升级专属装备，开局就带着。
-  // 每件装备 9 级，每一级都是一个新形态（tiers：名字 + 外观描述），1–3 级普通、4–6 级精良、7–9 级传说。
+  // 每件装备前 9 级每一级都是一个新形态（9 级以后不封顶，外形不变，显示 +N）（tiers：名字 + 外观描述），1–3 级普通、4–6 级精良、7–9 级传说。
   // 武器和护甲的阶段（1–3 / 4–6 / 7–9 级）决定人物小人的造型（sprites/<出身>_w<武器阶段>a<护甲阶段>.png）；饰品显示为身边的护身光珠。
   // 价格：base × growth^当前等级（向上取整到 5）。effects 是每级的加成；startDmg 是起手武器伤害，startLvEvery 是每几级起手武器开局 +1 级。
   meta: {
     gold: { minion: 0.008, elite: [1, 4], building: 4, general: 8, generalPerChapter: 3, chapterClear: 14, eliteSoldier: 1 }, // 约为原来的 2/3
-    costBase: 30, costGrowth: 1.5, maxLv: 9,
+    // formLv：形态只有 9 个，9 级以后还能继续升，外形不变，名字后面显示 +1、+2……；9 级以后每级价格只再涨 lateGrowth 倍
+    costBase: 30, costGrowth: 1.5, formLv: 9, lateGrowth: 1.12,
     rarity: [
       { name: '普通', color: '#b08a5a', rgb: '210,170,120' },  // 1–3 级
       { name: '精良', color: '#7aa6d8', rgb: '150,200,255' },  // 4–6 级

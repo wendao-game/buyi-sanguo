@@ -3458,12 +3458,14 @@ function saveMeta(now) {
   metaSaveT = t; delete META._dirty;
   try { localStorage.setItem('buyi-meta', JSON.stringify(META)); } catch (e) { /* 存储不可用时忽略 */ }
 }
-const gearLv = id => Math.min(D.meta.maxLv, loadMeta().gear[id] || 0);
-// 装备形态：每一级一个名字；1–3 级普通、4–6 级精良、7–9 级传说（阶段 0 表示还没买）
-const gearStage = lv => lv ? Math.ceil(lv / 3) : 0;
-const gearTierName = (g, lv) => lv ? g.tiers[lv - 1] : '尚未购买';
+const gearLv = id => loadMeta().gear[id] || 0;
+// 装备形态：每一级一个名字；1–3 级普通、4–6 级精良、7–9 级传说（阶段 0 表示还没买）；9 级以后外形不变，名字后面加 +N
+const FORM_LV = D.meta.formLv;
+const gearForm = lv => Math.min(FORM_LV, lv);
+const gearStage = lv => lv ? Math.ceil(gearForm(lv) / 3) : 0;
+const gearTierName = (g, lv) => lv ? g.tiers[gearForm(lv) - 1] + (lv > FORM_LV ? ` +${lv - FORM_LV}` : '') : '尚未购买';
 function gearIconHtml(g, lv) {
-  const img = window.Assets.get(`icon:${g.id}_${Math.max(1, lv)}`) || window.Assets.get('icon:' + g.id);
+  const img = window.Assets.get(`icon:${g.id}_${Math.max(1, gearForm(lv))}`) || window.Assets.get('icon:' + g.id);
   const name = gearTierName(g, lv);
   return img ? `<img class="ico" src="${img.src}" alt="${name}">` : g.icon;
 }
@@ -3471,9 +3473,9 @@ function gearIconHtml(g, lv) {
 function gearLook(originId) {
   const gear = D.meta.gear[originId] || [];
   const w = gear.find(g => g.slot === '武器'), a = gear.find(g => g.slot === '护甲'), c = gear.find(g => g.slot === '饰品');
-  return { w: Math.max(1, gearStage(w ? gearLv(w.id) : 0)), a: Math.max(1, gearStage(a ? gearLv(a.id) : 0)), c: c ? gearLv(c.id) : 0 };
+  return { w: Math.max(1, gearStage(w ? gearLv(w.id) : 0)), a: Math.max(1, gearStage(a ? gearLv(a.id) : 0)), c: c ? gearForm(gearLv(c.id)) : 0 };
 }
-const gearCost = lv => Math.ceil(D.meta.costBase * Math.pow(D.meta.costGrowth, lv) / 5) * 5;
+const gearCost = lv => Math.ceil(D.meta.costBase * Math.pow(D.meta.costGrowth, Math.min(lv, FORM_LV)) * Math.pow(D.meta.lateGrowth, Math.max(0, lv - FORM_LV)) / 5) * 5;
 function addGold(v, x, y) {
   const m = loadMeta();
   m.gold += v; m.total += v; S.goldRun += v; m._dirty = true;
@@ -3525,17 +3527,17 @@ function renderShop() {
   $('shop-gold').textContent = `金币 ${m.gold} · 每个出身各有三件专属装备，开局就带着`;
   $('shop-list').innerHTML = D.origins.map(o => `<div class="shop-col"><h3>${o.name}<small>${o.focusName || ''}</small></h3>` +
     D.meta.gear[o.id].map(g => {
-      const lv = gearLv(g.id), max = lv >= D.meta.maxLv, cost = gearCost(lv), st = gearStage(lv), R = st ? D.meta.rarity[st - 1] : null;
-      const nx = max ? '' : `<br>下一级：<b>${g.tiers[lv]}</b> · ${gearEffectText(g, lv + 1)}`;
+      const lv = gearLv(g.id), cost = gearCost(lv), st = gearStage(lv), R = st ? D.meta.rarity[st - 1] : null;
+      const nx = `<br>下一级：<b>${gearTierName(g, lv + 1)}</b> · ${gearEffectText(g, lv + 1)}`;
       return `<div class="gear${st ? ' r' + st : ''}"><div class="seal" ${R ? `style="box-shadow: 0 0 0 2px ${R.color}, 0 0 8px ${R.color}"` : ''}>${gearIconHtml(g, lv)}</div>
-        <div class="gn">${gearTierName(g, lv)}<small>${g.slot}${R ? ` · <span style="color:${R.color}">${R.name}</span>` : ''} · Lv ${lv}/${D.meta.maxLv}</small></div>
-        <button class="buy${max ? ' max' : ''}" data-g="${g.id}" ${max || m.gold < cost ? 'disabled' : ''}>${max ? '已满级' : `${lv ? '升级' : '购买'} · 金 ${cost}`}</button>
+        <div class="gn">${gearTierName(g, lv)}<small>${g.slot}${R ? ` · <span style="color:${R.color}">${R.name}</span>` : ''} · Lv ${lv}</small></div>
+        <button class="buy" data-g="${g.id}" ${m.gold < cost ? 'disabled' : ''}>${lv ? '升级' : '购买'} · 金 ${cost}</button>
         <div class="gd">${g.desc}<br>当前：<b>${gearEffectText(g, lv)}</b>${nx}</div></div>`;
     }).join('') + '</div>').join('');  $('shop-list').querySelectorAll('.buy').forEach(b => b.addEventListener('click', () => buyGear(b.dataset.g)));
 }
 function buyGear(id) {
   const m = loadMeta(), lv = gearLv(id), cost = gearCost(lv);
-  if (lv >= D.meta.maxLv || m.gold < cost) return;
+  if (m.gold < cost) return;
   m.gold -= cost; m.gear[id] = lv + 1; m._dirty = true; saveMeta(true);
   sfx('level');
   renderShop();
@@ -3740,7 +3742,7 @@ function renderOrigins() {
       <div class="oart">${window.Portrait.html('origin', o.id)}</div>
       <div class="top"><div><div class="nm">${o.name}</div><div class="kind">初始武器 · ${D.weapons[o.weapon].name}</div></div></div>
       <div class="ds">${o.desc}</div><ul>${o.perks.map(x => `<li>${x}</li>`).join('')}</ul>
-      <div class="kit">${D.meta.gear[o.id].map(g => { const lv = gearLv(g.id), st = gearStage(lv); return lv ? `<span style="color:${D.meta.rarity[st - 1].color}">${g.tiers[lv - 1]}</span>` : ''; }).filter(Boolean).join(' · ') || '尚无军需装备'}</div>`;
+      <div class="kit">${D.meta.gear[o.id].map(g => { const lv = gearLv(g.id), st = gearStage(lv); return lv ? `<span style="color:${D.meta.rarity[st - 1].color}">${gearTierName(g, lv)}</span>` : ''; }).filter(Boolean).join(' · ') || '尚无军需装备'}</div>`;
     b.addEventListener('click', () => startGame(o.id));
     box.appendChild(b);
   });
