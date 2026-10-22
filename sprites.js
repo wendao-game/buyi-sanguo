@@ -326,6 +326,18 @@ window.Sprites = (() => {
         shape(g, '#ff8a3a', s => rr(s, 40, 72, 22, 20, 3), 1.2);
         shape(g, '#3a3a3e', s => { s.moveTo(92, 92); s.lineTo(112, 92); s.lineTo(108, 98); s.lineTo(104, 98); s.lineTo(104, 104); s.lineTo(100, 104); s.lineTo(100, 98); s.lineTo(96, 98); s.closePath(); }, 1.2);
         break;
+      case 'qiaofu': // 乔府：白墙黛瓦的江南小院，正中一座两层绣楼
+        shape(g, '#d8d2c4', s => rr(s, 6, 70, 108, 34, 2));                   // 院墙
+        roof(g, 2, 62, 116, 12, '#2c3438');
+        wallBlock(g, 30, 44, 60, 40, '#efe8da');                               // 绣楼一层
+        roof(g, 22, 30, 76, 18, '#2c3438');
+        wallBlock(g, 40, 18, 40, 16, '#efe8da');                               // 绣楼二层
+        roof(g, 34, 4, 52, 16, '#2c3438');
+        shape(g, '#8a2a2a', s => rr(s, 52, 84, 16, 20, 2), 1.2);              // 朱红院门
+        for (const x of [44, 70]) shape(g, '#5a7a8a', s => rr(s, x, 50, 8, 10, 1), 1); // 花窗
+        shape(g, '#e98fb0', s => s.ellipse(14, 66, 8, 6, 0, 0, Math.PI * 2), 1); // 墙头探出的花
+        shape(g, '#7ab08a', s => s.ellipse(106, 64, 9, 6, 0, 0, Math.PI * 2), 1);
+        break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
         wallBlock(g, 34, 52, 52, 36, '#a8322a');

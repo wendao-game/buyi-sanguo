@@ -518,6 +518,7 @@ function newState(originId) {
     decals: [], ghosts: [], hurtFlash: 0, ghostT: 0,
     teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0, pBurnT: 0, pBurnDps: 0, blinkT: 0, blinkReq: false,
     pChillT: 0, frozenT: 0, charm: null, // 女将：冰冻减速、冻住不能动、被貂蝉迷住往她身边走
+    hook: null, rootT: 0, chains: [], flails: [], lanterns: [], tides: [], pools: [], kites: [], decoys: [], // 董卓的铁链、大乔的莲灯和潮水、小乔的纸鸢、蝶影分身
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
     spawnAcc: {}, evIdx: 0, defeated: [],
     ch: 0, chStart: 0, chapterT: 0, nextBossOk: 0,     // 当前章节、本章开始时间、换章倒计时、下一名武将最早登场时间
@@ -536,7 +537,7 @@ function newState(originId) {
 function recomputeStats() {
   const p = S.player, b = D.player.base, o = S.origin.stats;
   const add = { maxHp: 0, maxHpMul: 0, speedMul: 0, armor: 0, regen: 0, pickupMul: 0, dmgMul: 0, cdMul: 0, areaMul: 0, crit: 0, critMul: 0,
-    arrowCount: 0, arrowDmg: 0, arrowPierce: 0, spellDmg: 0, skillCd: 0, spellArea: 0 };
+    arrowCount: 0, arrowDmg: 0, arrowPierce: 0, spellDmg: 0, skillCd: 0, spellArea: 0, blinkDist: 0 };
   for (const [id, lv] of Object.entries(S.passives)) {
     const def = D.passives[id], ef = def.effects, n = passiveEff(def, lv);
     for (const k in ef) add[k] += ef[k] * n;
@@ -560,6 +561,8 @@ function recomputeStats() {
   p.areaMul = 1 + add.areaMul;
   p.crit = Math.min(0.75, b.crit + (o.crit || 0) + add.crit);
   p.critMul = b.critMul + add.critMul;
+  p.blinkDist = D.blink.dist * (1 + add.blinkDist);                        // 铜雀春深：闪现更远
+  p.blinkCd = D.blink.cd * (S.shenbing.some(sb => D.shenbing[sb.gid].blinkCd) ? 0.5 : 1); // 流光蝶钗：闪现冷却减半
   if (!oldMax) p.hp = p.maxHp;
   else if (p.maxHp > oldMax) p.hp += p.maxHp - oldMax;
   p.hp = Math.min(p.hp, p.maxHp);
@@ -572,6 +575,10 @@ const ctime = () => S.t - S.chStart;
 
 function hitEnemy(e, base, opts) {
   if (e.dead) return;
+  if (e.sealed) { // 乔府：别的名将在场时府门紧闭
+    if (S.t - (e.sealMsgT || -9) > 1.2) { e.sealMsgT = S.t; addNumber(e.x, e.y - e.r * 2, '府门紧闭 · 先击败在场的名将', '#ffd98a', 15); }
+    return;
+  }
   const p = S.player;
   // 这一击带的属性：飞弹 / 落石 / 音波自己记着；刀光、直刺、火圈等当场命中的，用这次出手抽到的属性
   const el = opts && opts.el !== undefined ? opts.el : curEl, W = el === 'wind' && elStats('wind');
@@ -835,6 +842,7 @@ function onBossDeath(e) {
   S.pickups.push({ kind: 'vacuum', x: e.x - 20, y: e.y, v: 0, mag: false, vel: 0 });
   S.effects.push({ kind: 'wave', x: e.x, y: e.y, r: 260, life: 0.6, max: 0.6, color: '#cfa34a' });
   S.nextBossOk = S.t + D.stage.bossGap;
+  if (e.gid === 'daqiao') later(1.6, () => { spawnBoss('xiaoqiao', false, e.x, e.y); banner('小乔现身', '姐姐的仇，由妹妹来报'); }); // 击败大乔，小乔从原地现身
   // 章末武将倒下：敌军溃散，几秒后进入下一章（最后一章之后进入无尽征途）
   if (e.final && !S.endless) {
     for (const m of S.enemies) if (!m.dead && !m.boss && !m.building) killEnemy(m);
@@ -890,6 +898,11 @@ function onBuildingDestroyed(e) {
   if (rw.type === 'recruit') addAllies(rw.ally, rw.count);
   else if (rw.type === 'feast') { recomputeStats(); p.hp = p.maxHp; embers(p.x, p.y, 20, '140,240,160', 60, 100, 7, 1); }
   else if (rw.type === 'forge') S.forgeReady++;
+  else if (rw.type === 'qiao') { // 乔府攻破：大乔从府中走出（击败大乔后小乔现身，见 onBossDeath）
+    S.qiaoDone = true; S.nextBossOk = Math.max(S.nextBossOk || 0, S.t + 5);
+    later(1.2, () => spawnBoss('daqiao', false, e.x, e.y + 20));
+    msg = '府门洞开……大乔现身';
+  }
   else if (rw.type === 'blessing') {
     const b = D.blessings[Math.floor(Math.random() * D.blessings.length)];
     for (const k in b.effects) S.bonus[k] = (S.bonus[k] || 0) + b.effects[k];
@@ -1011,6 +1024,22 @@ function impact(x, y, R, rgb, power = 1) {
   fxTex('ring', x, y, { w: R * 2.4, h: R * 2.4, rgb, flat: 0.5, under: true, life: 0.45, grow: 1.5, core: 0.5 });
   fxTex('burst', x, y - R * 0.15, { w: R * 1.6, h: R * 1.6, rgb, life: 0.28, grow: 1.4, rot: rand(0, TAU), core: 0.7 });
   punch(0.5 * power); hitstop(0.05 * power);
+}
+// 董卓的黑色冲击：一圈暗红光环 + 翻滚的黑烟 + 地上一片焦黑
+function darkBurst(x, y, R) {
+  fxTex('ring', x, y, { w: R * 0.7, h: R * 0.7, rgb: '200,40,70', under: true, flat: 0.6, life: 0.45, grow: 2.8, core: 0.15 });
+  for (let i = 0; i < 14; i++) { const a = i / 14 * TAU; fxp({ type: 'smoke', x: x + Math.cos(a) * R * 0.3, y: y + Math.sin(a) * R * 0.2, vx: Math.cos(a) * R * 1.6, vy: Math.sin(a) * R * 1.1 - 20, drag: 3.5, grow: 30, life: 0.7, rgb: '10,6,10', size: rand(10, 16) }, true); }
+  sparks(x, y - 10, -Math.PI / 2, 10, '220,60,90', 380, Math.PI, 2.2);
+  S.decals.push({ kind: 'dark', x, y, r: R * 0.9, life: 2.4, max: 2.4 });
+  if (S.decals.length > 40) S.decals.shift();
+}
+// 大乔的水光：一圈水纹 + 溅起的水花
+function waterSplash(x, y, R) {
+  fxTex('ring', x, y, { w: R * 0.8, h: R * 0.8, rgb: '120,225,215', under: true, flat: 0.6, life: 0.4, grow: 2.2, core: 0.3 });
+  fxTex('burst', x, y - R * 0.2, { w: R * 1.8, h: R * 1.8, rgb: '130,230,220', life: 0.3, grow: 1.3, rot: rand(0, TAU), core: 0.25, a: 0.6 });
+  sparks(x, y - 6, -Math.PI / 2, 10, '200,250,245', R * 5, Math.PI * 0.8, 2);
+  S.decals.push({ kind: 'water', x, y, r: R, life: 1.2, max: 1.2 });
+  if (S.decals.length > 40) S.decals.shift();
 }
 function punch(v) { S.punch = Math.max(S.punch || 0, v); }                       // 镜头往里一冲
 function hitstop(sec) { S.hitstopT = Math.max(S.hitstopT || 0, sec); }            // 命中瞬间顿帧
@@ -1158,9 +1187,9 @@ function bossPhase(e) {
 function addShield(e, frac) { e.shieldMax = e.shield = e.maxHp * frac * (0.35 + 0.65 * champK()); e.shieldHitT = 0; }
 
 // 武将血量与伤害按登场时间放大：越晚登场越强
-function spawnBoss(gid, final) {
+function spawnBoss(gid, final, atX, atY) {
   const g = championDef('g:' + gid, D.generals[gid]);
-  const [x, y] = spawnPos(-80);
+  const [x, y] = atX !== undefined ? [atX, atY] : spawnPos(-80); // 大乔、小乔从乔府里走出来
   // 玩家成长是加速的，武将血量也要加速；战役里后期的平方加成只算一半（无尽征途全额）
   const lb = lateBoost(), mul = Math.pow(1 + S.t / 240, D.stage.bossHpExp) * (S.endless ? lb : 1 + (lb - 1) * D.stage.bossLateMul);
   const hp = (S.endless ? Math.max(g.hp, D.stage.endlessBossHp) : g.hp) * mul * D.stage.bossHpMul;
@@ -1210,7 +1239,7 @@ function spawnBuilding(bid, x, y) {
 }
 function placeBuilding(minD, maxD) {
   const p = S.player, st = D.stage;
-  const types = Object.keys(D.buildings).filter(id => S.t >= (D.buildings[id].unlock || 0));
+  const types = Object.keys(D.buildings).filter(id => !D.buildings[id].special && S.t >= (D.buildings[id].unlock || 0)); // 乔府只由剧情放出
   // 优先放场上还没有的类型
   const present = new Set(S.enemies.filter(e => e.building).map(e => e.bid));
   const fresh = types.filter(id => !present.has(id));
@@ -1223,8 +1252,16 @@ function placeBuilding(minD, maxD) {
   return null;
 }
 
+// 乔府：放在你右下方（屏幕右下角再往外一点），什么时候去打都行
+function placeQiaofu() {
+  if (S.qiaoDone || S.enemies.some(e => e.bid === 'qiaofu' && !e.dead)) return;
+  const p = S.player, e = spawnBuilding('qiaofu', p.x + 820, p.y + 560);
+  for (const o of S.enemies) if (o.building && o !== e && !o.def.special && dist2(o.x, o.y, e.x, e.y) < 420 * 420) o.dead = true; // 让开位置
+  toast('building', 'qiaofu', '江东乔府', '就在东南方向，走近了府中才会动手');
+}
 function runEvent(ev) {
   if (ev.type === 'boss') { spawnBoss(ev.id, ev.final); return; }
+  if (ev.type === 'qiaofu') { placeQiaofu(); return; }
   if (ev.type === 'ambush') {
     const R = Math.min(W, H) / 2 / ZOOM + 90;
     for (let i = 0; i < ev.count; i++) {
@@ -1297,7 +1334,26 @@ function updatePlayer(dt) {
     if (d > ch.boss.r + p.r + 20) { cx = Math.cos(a) * ch.pull; cy = Math.sin(a) * ch.pull; }
     if (Math.random() < 0.5) fxp({ type: 'petal', x: p.x + rand(-14, 14), y: p.y - rand(10, 40), vx: Math.cos(a) * 80, vy: Math.sin(a) * 80 - 20, drag: 1, life: 0.8, rgb: '255,160,205', size: rand(4, 6), rot: rand(0, TAU), spin: rand(-6, 6), seed: rand(0, 9) });
   }
-  const ctl = ch ? 0.45 : 1;
+  // 被董卓的铁链钩住：身不由己地被拖到他身前，挨一记重踏（闪现能挣脱）；被捆住时原地动不了
+  const hk = S.hook;
+  if (hk && (hk.boss.dead || S.over)) S.hook = null;
+  else if (hk) {
+    const b = hk.boss, a = angleTo(p.x, p.y, b.x, b.y), d = Math.sqrt(dist2(p.x, p.y, b.x, b.y)), reach = b.r + p.r + 16;
+    if (d <= reach + 4) {
+      S.hook = null;
+      p.iframes = 0; hurtPlayer(hk.crush);
+      p.kvx -= Math.cos(a) * 380; p.kvy -= Math.sin(a) * 380; // 被一脚踹开
+      darkBurst(b.x, b.y, 150);
+      S.shake = Math.max(S.shake, 14); punch(0.6); hitstop(0.06);
+      sfx('slam');
+    } else {
+      const step = Math.min(d - reach, hk.pull * dt);
+      cx = Math.cos(a) * step / dt; cy = Math.sin(a) * step / dt;
+      if (Math.random() < 0.5) fxp({ type: 'smoke', x: p.x + rand(-10, 10), y: p.y + 6, vx: -Math.cos(a) * 60, vy: -Math.sin(a) * 60, drag: 3, grow: 18, life: 0.45, rgb: '14,10,14', size: rand(7, 11) });
+    }
+  }
+  const bound = !!S.hook || S.t < S.rootT;
+  const ctl = bound ? 0 : ch ? 0.45 : 1;
   p.x += mx * p.speed * rampage * slowed * ctl * dt + p.kvx * dt + S.windX * wind * dt + cx * dt;
   p.y += my * p.speed * rampage * slowed * ctl * dt + p.kvy * dt + S.windY * wind * dt + cy * dt;
   if (S.t < S.pChillT && Math.random() < 0.3) fxp({ type: 'snow', x: p.x + rand(-16, 16), y: p.y - rand(0, 40), vx: rand(-10, 10), vy: rand(10, 30), drag: 1, life: 0.7, size: rand(3, 5), rot: rand(0, TAU), spin: rand(-3, 3) });
@@ -1313,14 +1369,21 @@ function updatePlayer(dt) {
     S.blinkReq = false;
     const B = D.blink;
     if (S.t >= S.blinkT && !(S.t < S.frozenT)) {
-      const a = p.facing || 0, ux = Math.cos(a), uy = Math.sin(a), x0 = p.x, y0 = p.y;
-      p.x += ux * B.dist; p.y += uy * B.dist;
+      const a = p.facing || 0, ux = Math.cos(a), uy = Math.sin(a), x0 = p.x, y0 = p.y, dist = p.blinkDist || B.dist;
+      p.x += ux * dist; p.y += uy * dist;
       p.iframes = Math.max(p.iframes, B.iframes);
-      S.blinkT = S.t + B.cd;
+      S.blinkT = S.t + (p.blinkCd || B.cd);
+      if (S.hook || S.t < S.rootT) { // 被董卓的铁链钩住 / 捆住：闪现挣断铁链
+        S.hook = null; S.rootT = 0;
+        for (let k = 0; k < 6; k++) fxp({ type: 'spark', x: x0 + rand(-10, 10), y: y0 - 14 + rand(-10, 10), vx: rand(-260, 260), vy: rand(-260, 60), drag: 3, life: 0.4, rgb: '200,60,90', size: 2 });
+        addNumber(x0, y0 - 40, '挣脱', '#ffb0c0', 18);
+      }
+      const fly = S.shenbing.find(sb => D.shenbing[sb.gid].blinkFly); // 流光蝶钗：起点留下几只蝴蝶扑向敌人
+      if (fly) { const def = D.shenbing[fly.gid]; for (let k = 0; k < def.blinkFly; k++) S.proj.push({ kind: 'butterfly', x: x0, y: y0 - 12, a: rand(0, TAU), speed: 340, vx: 0, vy: 0, r: 9, dmg: sbDmg(def, fly) * 0.6, pierce: 2, life: 2.4, hit: new Set(), homing: true, target: null, kb: 40, spin: rand(0, TAU), rgb: def.rgb }); }
       // 起点一团残烟，路径上一道光，落点一圈气浪
       smoke(x0, y0 - 12, 3, '60,55,70', 12, 10, 0.45);
-      fxTex('thrust', (x0 + p.x) / 2, (y0 + p.y) / 2 - 14, { w: B.dist * 1.1, h: 30, rot: a, rgb: '200,225,255', life: 0.22, core: 0.6 });
-      for (let k = 0; k < 8; k++) { const t = k / 7; fxp({ type: 'spark', x: x0 + ux * B.dist * t + rand(-6, 6), y: y0 + uy * B.dist * t - 14 + rand(-6, 6), vx: -ux * 120, vy: -uy * 120, drag: 4, life: 0.3, rgb: '210,230,255', size: 1.6 }); }
+      fxTex('thrust', (x0 + p.x) / 2, (y0 + p.y) / 2 - 14, { w: dist * 1.1, h: 30, rot: a, rgb: '200,225,255', life: 0.22, core: 0.6 });
+      for (let k = 0; k < 8; k++) { const t = k / 7; fxp({ type: 'spark', x: x0 + ux * dist * t + rand(-6, 6), y: y0 + uy * dist * t - 14 + rand(-6, 6), vx: -ux * 120, vy: -uy * 120, drag: 4, life: 0.3, rgb: '210,230,255', size: 1.6 }); }
       fxTex('ring', p.x, p.y + 4, { w: 70, h: 70, rgb: '190,215,255', flat: 0.5, under: true, life: 0.3, grow: 1.6, core: 0.4 });
       glint(p.x, p.y - 14, 26, '225,240,255', 0.18);
       sfx('swing');
@@ -1474,12 +1537,14 @@ function weaponTick(w, def, L, dt, p) {
           pts.push([cur.x, cur.y - cur.r * 0.6]);
           const from = cur;
           hitEnemy(cur, L.dmg, { kb: 30, quiet: true });
-          sparks(from.x, from.y - from.r * 0.6, rand(0, TAU), 3, '200,225,255', 300, Math.PI, 1.8);
+          if (L.tug && !cur.boss && !cur.building) { const ta = angleTo(cur.x, cur.y, p.x, p.y); cur.kvx += Math.cos(ta) * L.tug * 4; cur.kvy += Math.sin(ta) * L.tug * 4; } // 缚魂链：被抽中的往你这边拽
+          sparks(from.x, from.y - from.r * 0.6, rand(0, TAU), 3, def.dark ? '220,60,90' : '200,225,255', 300, Math.PI, 1.8);
           let best = null, bd = (L.jump * p.areaMul) ** 2;
           near(from.x, from.y, L.jump * p.areaMul + 48, o => { if (o.dead || hit.has(o.id)) return; const dd = dist2(from.x, from.y, o.x, o.y); if (dd < bd) { bd = dd; best = o; } });
           cur = best;
         }
-        S.effects.push({ kind: 'bolt', pts: zigzag(pts, 14), life: 0.2, max: 0.2, rgb: curEl ? D.elements[curEl].rgb : '170,200,255' });
+        if (def.dark) S.effects.push({ kind: 'chainfx', pts, life: 0.28, max: 0.28 }); // 缚魂链：一条黑铁链在敌人之间抽过
+        else S.effects.push({ kind: 'bolt', pts: zigzag(pts, 14), life: 0.2, max: 0.2, rgb: curEl ? D.elements[curEl].rgb : '170,200,255' });
         break;
       }
       case 'spin': { // 河北大刀：原地回旋，连斩数圈
@@ -1523,7 +1588,7 @@ function weaponTick(w, def, L, dt, p) {
         w.t = L.cd * p.cdMul;
         for (let i = 0; i < L.count; i++) {
           const a = rand(0, TAU);
-          S.proj.push({ kind: def.pkind || 'orb', x: p.x, y: p.y, a, speed: L.speed, vx: 0, vy: 0, r: 7, dmg: L.dmg, pierce: 1, life: D.aim.orbLife, hit: new Set(), homing: true, target: null, kb: 40, spin: rand(0, TAU) });
+          S.proj.push({ kind: def.pkind || 'orb', x: p.x, y: p.y, a, speed: L.speed, vx: 0, vy: 0, r: def.pkind === 'lantern' ? 10 : 7, dmg: L.dmg, pierce: L.pierce || 1, blast: L.blast ? L.blast * p.areaMul : 0, life: D.aim.orbLife * (def.pkind === 'lantern' ? 1.4 : 1), hit: new Set(), homing: true, target: null, kb: 40, spin: rand(0, TAU) }); // 莲灯：慢、撞上炸开；彩蝶：能穿过几个敌人
         }
         if (def.pkind === 'petal') petals(p.x, p.y - 14, 4, 90);
         break;
@@ -1704,8 +1769,38 @@ function updateSkills(dt) {
         s.t -= dt; if (s.t > 0) break;
         if (!nearest(p.x, p.y, 450)) { s.t = 0.25; break; }
         s.t = L.cd * p.cdMul;
-        S.zones.push({ id: nextId++, formation: !def.ice, ice: !!def.ice, x: p.x, y: p.y, r: L.radius * p.areaMul, dmg: L.dmg, tick: L.tick, tt: 0, life: L.life, max: L.life, slow: L.slow });
+        S.zones.push({ id: nextId++, formation: !def.ice && !def.water, ice: !!def.ice, water: !!def.water, heal: L.heal || 0, x: p.x, y: p.y, r: L.radius * p.areaMul, dmg: L.dmg, tick: L.tick, tt: 0, life: L.life, max: L.life, slow: L.slow });
+        if (def.water) { waterSplash(p.x, p.y, L.radius * 0.8); sfx('slam'); } // 春江：脚下铺开一片莲池
         if (def.ice) { shards(p.x, p.y, 16, L.radius * 2); fxTex('ring', p.x, p.y, { w: L.radius, h: L.radius, rgb: '170,220,255', life: 0.45, grow: 2.4, core: 0.5 }); sfx('slam'); }
+        break;
+      }
+      case 'hookPull': { // 暴政：甩出铁链钩住附近的敌人拽到身前，再踏出黑色冲击波
+        s.t -= dt; if (s.t > 0) break;
+        const R = L.range * p.areaMul, pool = [];
+        near(p.x, p.y, R + 48, e => { if (!e.building && !e.dead && dist2(p.x, p.y, e.x, e.y) < R * R) pool.push(e); });
+        if (!pool.length) { s.t = 0.25; break; }
+        s.t = L.cd * p.cdMul;
+        pool.sort((a, b) => dist2(p.x, p.y, a.x, a.y) - dist2(p.x, p.y, b.x, b.y));
+        for (const e of pool.slice(0, L.count)) {
+          S.effects.push({ kind: 'chainfx', x0: p.x, y0: p.y - 16, tgt: e, life: 0.4, max: 0.4 });
+          if (!e.boss && !e.ai) { const a = angleTo(e.x, e.y, p.x, p.y), d = Math.sqrt(dist2(p.x, p.y, e.x, e.y)) - 50; e.kvx += Math.cos(a) * d * 8; e.kvy += Math.sin(a) * d * 8; }
+        }
+        later(0.32, () => {
+          const r = L.radius * p.areaMul;
+          hitCircle(p.x, p.y, r, L.dmg, 160, L.stun);
+          darkBurst(p.x, p.y, r);
+          punch(0.35); S.shake = Math.max(S.shake, 7);
+          sfx('slam');
+        });
+        sfx('swing');
+        break;
+      }
+      case 'decoy': { // 蝶影：原地留下一个蝴蝶分身，引开附近的小兵，到时炸开
+        s.t -= dt; if (s.t > 0) break;
+        if (!nearest(p.x, p.y, 420)) { s.t = 0.3; break; }
+        s.t = L.cd * p.cdMul;
+        S.decoys.push({ x: p.x, y: p.y, fx: p.fx || 1, until: S.t + L.life, lure: L.lure, dmg: L.dmg, radius: L.radius * p.areaMul });
+        for (let i = 0; i < 10; i++) fxp({ type: 'fly', x: p.x, y: p.y - 20, vx: rand(-120, 120), vy: rand(-150, -30), drag: 2, life: 0.8, rgb: '215,180,255', size: rand(4, 7), rot: 0, seed: rand(0, 9) });
         break;
       }
       case 'levy': { // 黄巾号令：召来临时降卒
@@ -2270,7 +2365,388 @@ function runUlt(e, dt) {
       }
       break;
     }
+    // —— 董卓 ——
+    // 锁魂千链：黑色预警线向四面八方铺开，片刻后十条铁链一齐甩出，钩中谁就拖到身前；暴怒时错开角度再甩一轮
+    case 'chainFan': {
+      if (U.phase === 0 || (U.phase === 2 && U.t <= 0)) {
+        const n = u.count, off = U.phase === 2 ? Math.PI / n : 0;
+        U.angs = [];
+        for (let i = 0; i < n; i++) { const a = toP + off + i / n * TAU; U.angs.push(a); tele({ kind: 'line', x: e.x, y: e.y, a, len: u.len, w: u.w * 1.5, life: u.tele, rgb, dark: true }); }
+        smoke(e.x, e.y - 20, 8, '12,8,12', 18, 40, 0.9);
+        U.t = u.tele; U.phase = U.phase === 2 ? 3 : 1;
+      } else if ((U.phase === 1 || U.phase === 3) && U.t <= 0) {
+        for (const a of U.angs) throwChain(e, a, { len: u.len, speed: u.speed, w: u.w, dmg: DMG(u.dmg), pull: 1100, crush: DMG(1.4) });
+        darkBurst(e.x, e.y, 130);
+        S.shake = Math.max(S.shake, 12); punch(0.4);
+        sfx('slam');
+        if (U.phase === 1 && e.enraged) { U.phase = 2; U.t = 0.35; } else ultDone(e, 1.0);
+      }
+      break;
+    }
+    // 天罗地网：以董卓为中心画下一个巨大的黑圈，圈边插满铁桩；时间一到，圈里的人被铁链捆住拖到他跟前
+    case 'chainPrison': {
+      const R = u.prisonR * Math.min(A, 1.12);
+      if (U.phase === 0) {
+        U.cx = e.x; U.cy = e.y; U.R = R;
+        tele({ kind: 'ring', x: e.x, y: e.y, r: R, life: u.tele, rgb, dark: true });
+        tele({ kind: 'circle', x: e.x, y: e.y, r: R, life: u.tele, rgb, dark: true });
+        U.stakes = [];
+        for (let i = 0; i < 14; i++) { const a = i / 14 * TAU, x = e.x + Math.cos(a) * R, y = e.y + Math.sin(a) * R; U.stakes.push([x, y]); S.decals.push({ kind: 'dark', x, y, r: 22, life: u.tele + 1.5, max: u.tele + 1.5 }); smoke(x, y - 10, 2, '12,8,12', 10, 8, 0.8); }
+        U.t = u.tele; U.phase = 1;
+      } else if (U.t <= 0) {
+        const inside = dist2(p.x, p.y, U.cx, U.cy) < (U.R + p.r) ** 2;
+        if (inside && canBind()) {
+          hurtPlayer(DMG(u.dmg));
+          S.rootT = S.t + u.root;
+          S.hook = { boss: e, pull: 280, crush: DMG(1.2), chain: null };
+          const near4 = U.stakes.slice().sort((a, b) => dist2(a[0], a[1], p.x, p.y) - dist2(b[0], b[1], p.x, p.y)).slice(0, 4);
+          for (const [x, y] of near4) throwChain(e, 0, { ax: x, ay: y - 10, state: 'bind', speed: 1400, w: 8 });
+          addNumber(p.x, p.y - 44, '天罗地网 · 闪现挣脱', '#ff9ab0', 18);
+        }
+        for (const [x, y] of U.stakes) fxTex('pillar', x, y - 80, { w: 34, h: 180, rgb, life: 0.4, sx: 0.4, core: 0.2 });
+        darkBurst(U.cx, U.cy, 160);
+        screenFlash('60,0,20', 0.3); punch(0.6); hitstop(0.05);
+        S.shake = Math.max(S.shake, 16);
+        sfx('slam');
+        ultDone(e, 1.0);
+      }
+      break;
+    }
+    // 魔王暴政：董卓抡起两颗流星铁锤绕身横扫，一边逼近你；天上不停垂下铁链，砸中就被锁在原地
+    case 'chainFlail': {
+      if (U.phase === 0) {
+        U.phase = 1; U.t = u.dur; U.rainT = 0.4; U.k = 0;
+        for (let i = 0; i < u.balls; i++) S.flails.push({ boss: e, a: toP + i / u.balls * TAU, R: u.flailR * Math.min(A, 1.3), r: 22, spin: u.spin * (e.enraged ? 1.25 : 1), until: S.t + u.dur, dmg: DMG(u.dmg) });
+        screenFlash('60,0,20', 0.25);
+        say(e, '“谁敢不从！”');
+      }
+      const sp = e.speed * 0.55;
+      e.x += Math.cos(toP) * sp * dt; e.y += Math.sin(toP) * sp * dt;
+      U.rainT -= dt;
+      if (U.rainT <= 0 && U.k < u.rain) {
+        U.rainT = (u.dur - 0.6) / u.rain; U.k++;
+        const lead = U.k % 2 === 1, sp2 = 120;
+        addHazard(p.x + (lead ? 0 : rand(-sp2, sp2)), p.y + (lead ? 0 : rand(-sp2, sp2)), u.rainR * Math.min(A, 1.3), 0.95, DMG(0.9), rgb, { chainDrop: true, root: 0.7 });
+      }
+      if (U.t <= 0) ultDone(e, 0.8);
+      break;
+    }
+    // —— 大乔 ——
+    // 莲灯引：一排莲灯从她身边飘出，慢慢追着你飘，靠近了点燃引信、炸开水光
+    case 'lanternDrift': {
+      const n = u.count + (e.enraged ? 3 : 0);
+      for (let i = 0; i < n; i++) {
+        const a = toP + (i / (n - 1) - 0.5) * 2.6;
+        S.lanterns.push({ x: e.x + Math.cos(a) * 40, y: e.y - 10 + Math.sin(a) * 40, vx: Math.cos(a) * 180, vy: Math.sin(a) * 180, speed: u.speed * rand(0.8, 1.25), life: u.life + rand(0, 1.2), blast: u.blast * Math.min(A, 1.3), dmg: DMG(u.dmg), fuse: 0, seed: rand(0, 9) });
+      }
+      glint(e.x, e.y - 30, 40, '255,220,160', 0.3);
+      ultDone(e, 0.6);
+      break;
+    }
+    // 春江潮涌：远处升起一道长长的水墙，片刻后横扫过来；只有莲灯标着的那处缺口能钻过去。暴怒时再从侧面来一道
+    case 'tideWall': {
+      const waves = e.enraged ? 2 : 1, dir0 = rand(0, TAU);
+      for (let k = 0; k < waves; k++) {
+        const dir = dir0 + k * Math.PI / 2, d0 = 400; // 起点在屏幕里，预警看得见
+        S.tides.push({ x0: p.x - Math.cos(dir) * d0, y0: p.y - Math.sin(dir) * d0, dir, span: u.span, depth: u.depth, speed: u.speed, travel: 0, maxT: d0 * 2.2,
+          gap: rand(-0.25, 0.25) * u.span, gapW: u.gapW, wait: u.tele + k * 1.4, dmg: DMG(u.dmg), push: u.push, hit: false });
+      }
+      sfx('ult');
+      ultDone(e, 0.8);
+      break;
+    }
+    // 江心漩涡：你脚下卷起一个大漩涡，把你往中心拖，中心那一圈不停伤人
+    case 'whirlpool': {
+      S.pools.push({ kind: 'whirl', x: p.x, y: p.y, R: u.poolR, coreR: u.coreR, born: S.t, until: S.t + u.dur, pull: u.pull, dmg: DMG(u.dmg), tick: 0.6, rot: 0 });
+      waterSplash(p.x, p.y, 120);
+      say(e, '“莫要挣扎了。”');
+      ultDone(e, 0.6);
+      break;
+    }
+    // —— 小乔 ——
+    // 纸鸢索影：几只纸鸢升上天，地上的影子追着你跑，停下片刻后俯冲炸开
+    case 'kiteHunt': {
+      const n = u.count + (e.enraged ? 2 : 0);
+      for (let i = 0; i < n; i++) S.kites.push({ x: e.x + rand(-40, 40), y: e.y + rand(-40, 40), state: 'follow', age: 0, follow: u.follow + i * u.gap, lock: u.lock, r: u.kiteR * Math.min(A, 1.3), dmg: DMG(u.dmg), speed: 230, seed: rand(0, 9) });
+      for (let i = 0; i < 10; i++) fxp({ type: 'fly', x: e.x, y: e.y - 20, vx: rand(-160, 160), vy: rand(-220, -60), drag: 2, life: 0.9, rgb: '215,180,255', size: rand(5, 8), rot: 0, seed: rand(0, 9) });
+      ultDone(e, 0.6);
+      break;
+    }
+    // 蝶影迷踪：小乔在你四周来回瞬移，每到一处留下一道蝶影，蝶影随后沿直线斩过你所在的位置
+    case 'blinkCross': {
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0; U.base = rand(0, TAU); }
+      const n = u.count + (e.enraged ? 2 : 0);
+      if (U.phase === 1 && U.t <= 0) {
+        const a = U.base + U.k * (Math.PI * 0.5 + rand(-0.3, 0.3)), nx = p.x + Math.cos(a) * u.ring, ny = p.y + Math.sin(a) * u.ring;
+        for (let i = 0; i < 8; i++) fxp({ type: 'fly', x: e.x, y: e.y - 20, vx: rand(-150, 150), vy: rand(-180, 40), drag: 2.4, life: 0.7, rgb: '215,180,255', size: rand(5, 8), rot: 0, seed: rand(0, 9) });
+        e.x = nx; e.y = ny;
+        const la = angleTo(nx, ny, p.x, p.y), sx = nx - Math.cos(la) * 60, sy = ny - Math.sin(la) * 60, len = u.len, w = u.w, dmg = DMG(u.dmg);
+        tele({ kind: 'line', x: sx, y: sy, a: la, len, w, life: u.tele, rgb });
+        later(u.tele, () => {
+          if (segDist(p.x, p.y, sx, sy, la, len) < w / 2 + p.r) hurtPlayer(dmg);
+          fxTex('thrust', sx + Math.cos(la) * len / 2, sy + Math.sin(la) * len / 2 - 10, { w: len * 1.05, h: w * 1.6, rot: la, rgb, life: 0.28, sx: 1.1, core: 0.6 });
+          for (let i = 0; i < 6; i++) { const t = i / 5; fxp({ type: 'fly', x: sx + Math.cos(la) * len * t, y: sy + Math.sin(la) * len * t - 12, vx: rand(-80, 80), vy: rand(-120, -30), drag: 2, life: 0.7, rgb: '215,180,255', size: rand(5, 7), rot: 0, seed: rand(0, 9) }); }
+          sfx('swing');
+        });
+        glint(nx, ny - 20, 30, '230,200,255', 0.2);
+        U.k++; U.t = u.gap;
+        if (U.k >= n) U.phase = 2;
+      } else if (U.phase === 2 && U.t <= -u.tele) ultDone(e, 0.5);
+      break;
+    }
+    // 铜雀春深：一大圈蝴蝶围住你，一边转一边往里收，只有两处缺口能钻出去；收到最小时整圈炸开
+    case 'butterflyRing': {
+      S.pools.push({ kind: 'bring', x: p.x, y: p.y, R0: u.R0, R1: u.R1, R: u.R0, born: S.t, arm: 0.7, dur: u.dur, n: u.n, gaps: u.gaps, gapHalf: 0.34, rot: rand(0, TAU), spin: u.spin * (e.enraged ? 1.3 : 1), dmg: DMG(u.dmg) });
+      tele({ kind: 'ring', x: p.x, y: p.y, r: u.R0, life: 0.7, rgb });
+      say(e, '“这一回，看你往哪儿飞。”');
+      ultDone(e, 0.6);
+      break;
+    }
     default: ultDone(e);
+  }
+}
+
+// ============ 董卓、大乔、小乔的招式物件 ============
+// 铁链：从董卓（或地上的锚点 ax, ay）沿 a 方向甩出；链头碰到你就钩住（S.hook），把你拖到他身前
+function throwChain(e, a, o) {
+  const c = Object.assign({ boss: e, a, d: 0, state: 'out', delay: 0 }, o);
+  S.chains.push(c);
+  return c;
+}
+const chainFrom = c => c.ax !== undefined ? [c.ax, c.ay] : [c.boss.x, c.boss.y - c.boss.r * 0.7];
+const canBind = () => S.player.iframes <= 0 && S.t >= S.rampageT && !S.over;
+function updateBossFx(dt) {
+  const p = S.player;
+  for (const c of S.chains) {
+    if (c.delay > 0) { c.delay -= dt; continue; }
+    if (c.boss.dead && c.state !== 'back') c.state = 'back';
+    const [ox, oy] = chainFrom(c);
+    if (c.state === 'out') {
+      c.d += c.speed * dt;
+      const hx = ox + Math.cos(c.a) * c.d, hy = oy + Math.sin(c.a) * c.d;
+      if (Math.random() < 0.4) fxp({ type: 'smoke', x: hx, y: hy, vx: 0, vy: -20, drag: 3, grow: 14, life: 0.35, rgb: '12,8,12', size: rand(5, 8) });
+      if (!S.hook && canBind() && dist2(hx, hy, p.x, p.y - 12) < (c.w / 2 + p.r + 6) ** 2) {
+        hurtPlayer(c.dmg);
+        S.hook = { boss: c.boss, pull: c.pull, crush: c.crush, chain: c };
+        c.state = 'latched';
+        addNumber(p.x, p.y - 44, '被铁链钩住 · 闪现挣脱', '#ff9ab0', 17);
+        sparks(hx, hy, c.a + Math.PI, 10, '220,60,90', 340, 0.8, 2.2);
+        S.shake = Math.max(S.shake, 8);
+      } else if (c.d >= c.len) c.state = 'back';
+    } else if (c.state === 'latched' || c.state === 'bind') { // 钩住 / 捆住：链头跟着你走，直到挣脱或被拖到跟前
+      if (!S.hook || S.hook.boss !== c.boss || (c.state === 'latched' && S.hook.chain !== c)) c.state = 'back';
+      else { const tx = p.x, ty = p.y - 14; c.d = Math.hypot(tx - ox, ty - oy); c.a = Math.atan2(ty - oy, tx - ox); }
+    } else { c.d -= (c.speed || 1400) * 1.3 * dt; if (c.d <= 0) c.dead = true; }
+  }
+  S.chains = S.chains.filter(c => !c.dead);
+  // 魔王暴政：绕着董卓转的铁锤
+  for (const f of S.flails) {
+    if (f.boss.dead || S.t > f.until) { f.dead = true; continue; }
+    f.a += f.spin * dt;
+    const bx = f.boss.x + Math.cos(f.a) * f.R, by = f.boss.y + Math.sin(f.a) * f.R * 0.8;
+    f.x = bx; f.y = by;
+    if (Math.random() < 0.6) fxp({ type: 'smoke', x: bx + rand(-8, 8), y: by - 10 + rand(-8, 8), vx: 0, vy: -15, drag: 3, grow: 16, life: 0.5, rgb: '10,6,10', size: rand(8, 12) });
+    if (dist2(bx, by, p.x, p.y) < (f.r + p.r) ** 2) { hurtPlayer(f.dmg); p.kvx += Math.cos(f.a + Math.PI / 2) * 420; p.kvy += Math.sin(f.a + Math.PI / 2) * 420; }
+  }
+  S.flails = S.flails.filter(f => !f.dead);
+  // 莲灯：慢慢飘向你，靠近了点燃引信，片刻后炸开一团水光
+  for (const L of S.lanterns) {
+    L.life -= dt;
+    if (L.fuse > 0) {
+      L.fuse -= dt;
+      if (L.fuse <= 0) {
+        if (dist2(L.x, L.y, p.x, p.y) < (L.blast + p.r) ** 2) hurtPlayer(L.dmg);
+        waterSplash(L.x, L.y, L.blast);
+        L.dead = true;
+      }
+      continue;
+    }
+    const a = angleTo(L.x, L.y, p.x, p.y), k = Math.min(1, 1.1 * dt);
+    L.vx += (Math.cos(a) * L.speed - L.vx) * k; L.vy += (Math.sin(a) * L.speed - L.vy) * k;
+    L.x += L.vx * dt; L.y += L.vy * dt;
+    if (L.life <= 0 || dist2(L.x, L.y, p.x, p.y) < (L.blast * 0.55) ** 2) { L.fuse = L.fuseMax = 0.6; L.vx = L.vy = 0; }
+  }
+  S.lanterns = S.lanterns.filter(L => !L.dead);
+  // 春江潮涌：一道水墙横扫过来，只有一处缺口能钻过去；被冲到就受伤并被推着走
+  for (const w of S.tides) {
+    if (w.wait > 0) { w.wait -= dt; continue; }
+    w.travel += w.speed * dt;
+    const ux = Math.cos(w.dir), uy = Math.sin(w.dir), cx = w.x0 + ux * w.travel, cy = w.y0 + uy * w.travel;
+    const rx = p.x - cx, ry = p.y - cy, along = rx * ux + ry * uy, lat = -rx * uy + ry * ux;
+    if (!w.hit && Math.abs(along) < w.depth / 2 + p.r && Math.abs(lat) < w.span / 2 && Math.abs(lat - w.gap) > w.gapW / 2) {
+      w.hit = true; hurtPlayer(w.dmg);
+      p.kvx += ux * w.push; p.kvy += uy * w.push;
+    }
+    if (Math.random() < 0.9) { const l = rand(-0.5, 0.5) * w.span; if (Math.abs(l - w.gap) > w.gapW / 2) fxp({ type: 'spark', x: cx - uy * l, y: cy + ux * l - 10, vx: ux * w.speed * 0.8 + rand(-40, 40), vy: uy * w.speed * 0.8 - rand(40, 120), drag: 2, g: 300, life: 0.5, rgb: '210,250,245', size: 2 }); }
+    if (w.travel >= w.maxT) w.dead = true;
+  }
+  S.tides = S.tides.filter(w => !w.dead);
+  // 江心漩涡（把你往中心卷，中心伤人）、铜雀春深（一圈蝴蝶往里收，只有缺口能钻出去）
+  for (const o of S.pools) {
+    const d = Math.sqrt(dist2(p.x, p.y, o.x, o.y)), age = S.t - o.born;
+    if (o.kind === 'whirl') {
+      o.rot += dt * 2.6;
+      if (S.t > o.until) { o.dead = true; waterSplash(o.x, o.y, o.coreR * 1.6); continue; }
+      const R = o.R * Math.min(1, age / 0.5);
+      if (d < R && d > 4 && !S.hook) { const a = angleTo(p.x, p.y, o.x, o.y), sp = o.pull * (0.55 + 0.45 * (1 - d / R)); p.x += Math.cos(a) * sp * dt; p.y += Math.sin(a) * sp * dt; }
+      o.tick -= dt;
+      if (o.tick <= 0 && d < o.coreR + p.r) { o.tick = 0.45; hurtPlayer(o.dmg); }
+      if (Math.random() < 0.7) { const a = rand(0, TAU), r = R * rand(0.3, 1); fxp({ type: 'spark', x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r * 0.7, vx: -Math.sin(a) * 160, vy: Math.cos(a) * 110, drag: 2, life: 0.5, rgb: '170,240,235', size: 1.6 }); }
+    } else { // bring
+      const t = Math.max(0, age - o.arm), f = Math.min(1, t / o.dur), R = o.R0 + (o.R1 - o.R0) * f * f * (3 - 2 * f);
+      o.R = R; o.rot += o.spin * dt;
+      if (age > o.arm && Math.abs(d - R) < 16 + p.r) {
+        const pa = Math.atan2(p.y - o.y, p.x - o.x);
+        let inGap = false;
+        for (let k = 0; k < o.gaps; k++) if (Math.abs(angDiff(o.rot + k * TAU / o.gaps, pa)) < o.gapHalf) inGap = true;
+        if (!inGap) hurtPlayer(o.dmg);
+      }
+      if (f >= 1) { // 收拢到最小：一圈蝴蝶炸开
+        if (d < o.R1 + 30 + p.r) hurtPlayer(o.dmg * 1.5);
+        fxTex('burst', o.x, o.y - 10, { w: o.R1 * 3, h: o.R1 * 3, rgb: '210,160,255', life: 0.4, grow: 1.5, rot: rand(0, TAU) });
+        for (let i = 0; i < 16; i++) fxp({ type: 'fly', x: o.x, y: o.y - 10, vx: rand(-260, 260), vy: rand(-260, 120), drag: 2, life: 1, rgb: '210,170,255', size: rand(6, 9), rot: rand(-0.5, 0.5), seed: rand(0, 9) });
+        o.dead = true;
+      }
+    }
+  }
+  S.pools = S.pools.filter(o => !o.dead);
+  // 纸鸢索影：纸鸢的影子追着你，停住片刻后俯冲炸下
+  for (const k of S.kites) {
+    k.age += dt;
+    if (k.state === 'follow') {
+      const a = angleTo(k.x, k.y, p.x, p.y), d = Math.sqrt(dist2(k.x, k.y, p.x, p.y));
+      const sp = Math.min(d / dt, k.speed); k.x += Math.cos(a) * sp * dt; k.y += Math.sin(a) * sp * dt;
+      if (k.age >= k.follow) { k.state = 'lock'; k.lockT = k.lock; }
+    } else if (k.state === 'lock') {
+      k.lockT -= dt;
+      if (k.lockT <= 0) {
+        if (dist2(k.x, k.y, p.x, p.y) < (k.r + p.r) ** 2) hurtPlayer(k.dmg);
+        fxTex('ring', k.x, k.y, { w: k.r * 1.6, h: k.r * 1.6, rgb: '200,150,255', under: true, flat: 0.6, life: 0.4, grow: 1.8, core: 0.3 });
+        fxTex('burst', k.x, k.y - k.r * 0.3, { w: k.r * 2.4, h: k.r * 2.4, rgb: '210,160,255', life: 0.32, grow: 1.4, rot: rand(0, TAU) });
+        for (let i = 0; i < 8; i++) fxp({ type: 'fly', x: k.x, y: k.y - 12, vx: rand(-200, 200), vy: rand(-220, 40), drag: 2.4, life: 0.8, rgb: '215,180,255', size: rand(5, 8), rot: rand(-0.5, 0.5), seed: rand(0, 9) });
+        S.shake = Math.max(S.shake, 8); sfx('slam');
+        k.dead = true;
+      }
+    }
+  }
+  S.kites = S.kites.filter(k => !k.dead);
+  // 蝶影分身（小乔的技能）：引开小兵，到时炸成漫天彩蝶
+  for (const o of S.decoys) {
+    if (Math.random() < 0.25) fxp({ type: 'fly', x: o.x + rand(-16, 16), y: o.y - rand(10, 40), vx: rand(-30, 30), vy: rand(-50, -20), drag: 1, life: 0.8, rgb: '215,180,255', size: rand(4, 6), rot: 0, seed: rand(0, 9) });
+    if (S.t < o.until) continue;
+    hitCircle(o.x, o.y, o.radius, o.dmg, 120, 0.6);
+    fxTex('burst', o.x, o.y - 14, { w: o.radius * 2, h: o.radius * 2, rgb: '210,170,255', life: 0.35, grow: 1.4, rot: rand(0, TAU) });
+    for (let i = 0; i < 18; i++) fxp({ type: 'fly', x: o.x, y: o.y - 14, vx: rand(-300, 300), vy: rand(-300, 150), drag: 2, life: 1, rgb: '215,180,255', size: rand(5, 9), rot: rand(-0.5, 0.5), seed: rand(0, 9) });
+    sfx('slam');
+    o.dead = true;
+  }
+  S.decoys = S.decoys.filter(o => !o.dead);
+}
+// 地面一层：漩涡、蝶环、潮水、纸鸢的影子、蝶影分身
+function drawBossFxUnder() {
+  for (const o of S.pools) {
+    if (o.kind === 'whirl') {
+      const R = o.R * Math.min(1, (S.t - o.born) / 0.5), a = Math.min(1, (o.until - S.t) / 0.4);
+      ctx.save(); ctx.translate(o.x, o.y); ctx.scale(1, 0.7);
+      const gr = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+      gr.addColorStop(0, `rgba(10,40,50,${0.7 * a})`); gr.addColorStop(0.3, `rgba(30,110,120,${0.4 * a})`); gr.addColorStop(1, 'rgba(60,170,170,0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(0, 0, R, 0, TAU); ctx.fill();
+      ctx.strokeStyle = `rgba(180,245,240,${0.55 * a})`; ctx.lineWidth = 2.4;
+      for (let k = 0; k < 4; k++) { ctx.beginPath(); for (let i = 0; i <= 40; i++) { const t = i / 40, ang = o.rot + k * TAU / 4 + t * 4.2, r = R * (1 - t * 0.85); i ? ctx.lineTo(Math.cos(ang) * r, Math.sin(ang) * r) : ctx.moveTo(Math.cos(ang) * r, Math.sin(ang) * r); } ctx.stroke(); }
+      ctx.strokeStyle = `rgba(255,120,120,${(0.5 + 0.3 * Math.sin(S.t * 12)) * a})`; ctx.lineWidth = 3; // 中心危险圈
+      ctx.beginPath(); ctx.arc(0, 0, o.coreR, 0, TAU); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  for (const w of S.tides) {
+    const ux = Math.cos(w.dir), uy = Math.sin(w.dir), cx = w.x0 + ux * w.travel, cy = w.y0 + uy * w.travel;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(w.dir);
+    const half = w.span / 2, g0 = w.gap - w.gapW / 2, g1 = w.gap + w.gapW / 2;
+    if (w.wait > 0) { // 预警：水墙的位置和缺口，箭头指着它要冲过来的方向
+      const blink = 0.5 + 0.4 * Math.sin(S.t * 16);
+      ctx.fillStyle = `rgba(110,220,210,${0.18 + 0.1 * blink})`;
+      ctx.fillRect(-w.depth / 2, -half, w.depth, g0 + half); ctx.fillRect(-w.depth / 2, g1, w.depth, half - g1);
+      ctx.strokeStyle = `rgba(180,250,245,${0.6 * blink})`; ctx.lineWidth = 2;
+      ctx.strokeRect(-w.depth / 2, -half, w.depth, g0 + half); ctx.strokeRect(-w.depth / 2, g1, w.depth, half - g1);
+      ctx.fillStyle = `rgba(255,255,255,${0.6 * blink})`;
+      for (let l = -half + 60; l < half; l += 140) { if (l > g0 - 20 && l < g1 + 20) continue; ctx.beginPath(); ctx.moveTo(w.depth / 2 + 26, l); ctx.lineTo(w.depth / 2 + 8, l - 9); ctx.lineTo(w.depth / 2 + 8, l + 9); ctx.fill(); }
+      FX.lantern(ctx, 0, w.gap, 12, blink + 0.3); // 缺口处一盏莲灯
+    } else {
+      for (const [a0, a1] of [[-half, g0], [g1, half]]) {
+        const gr = ctx.createLinearGradient(-w.depth / 2, 0, w.depth / 2, 0);
+        gr.addColorStop(0, 'rgba(40,140,150,0.15)'); gr.addColorStop(0.6, 'rgba(70,190,190,0.75)'); gr.addColorStop(1, 'rgba(230,255,252,0.95)');
+        ctx.fillStyle = gr; ctx.fillRect(-w.depth / 2, a0, w.depth, a1 - a0);
+        ctx.strokeStyle = 'rgba(245,255,255,0.9)'; ctx.lineWidth = 3; // 浪尖白沫
+        ctx.beginPath(); for (let l = a0; l <= a1; l += 12) { const x = w.depth / 2 + Math.sin(l * 0.08 + S.t * 9) * 5; l === a0 ? ctx.moveTo(x, l) : ctx.lineTo(x, l); } ctx.stroke();
+      }
+      FX.lantern(ctx, 0, w.gap, 12, 1);
+    }
+    ctx.restore();
+  }
+  for (const k of S.kites) { // 影子：追着你的紫色圈，锁定后变红、收紧
+    const lock = k.state === 'lock', pr = lock ? 1 - k.lockT / k.lock : 0, blink = 0.6 + 0.4 * Math.sin(S.t * (lock ? 30 : 10));
+    const rgb = lock ? '255,110,150' : '200,150,255';
+    ctx.fillStyle = `rgba(${rgb},${0.12 + 0.2 * pr})`; ctx.beginPath(); ctx.ellipse(k.x, k.y, k.r, k.r * 0.7, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(${rgb},${0.7 * blink})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(k.x, k.y, k.r, k.r * 0.7, 0, 0, TAU); ctx.stroke();
+    if (lock) { ctx.fillStyle = `rgba(${rgb},0.35)`; ctx.beginPath(); ctx.ellipse(k.x, k.y, k.r * pr, k.r * 0.7 * pr, 0, 0, TAU); ctx.fill(); }
+  }
+  for (const f of S.flails) { // 铁锤扫过的那一圈，地上淡淡一道暗红
+    ctx.strokeStyle = 'rgba(160,20,50,0.28)'; ctx.lineWidth = 10; ctx.setLineDash([18, 12]);
+    ctx.beginPath(); ctx.ellipse(f.boss.x, f.boss.y, f.R, f.R * 0.8, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+// 上面一层：铁链、铁锤、莲灯、纸鸢、蝶环、蝶影分身
+function drawBossFx() {
+  for (const c of S.chains) {
+    if (c.delay > 0 || c.d <= 0) continue;
+    const [ox, oy] = chainFrom(c);
+    FX.chain(ctx, ox, oy, ox + Math.cos(c.a) * c.d, oy + Math.sin(c.a) * c.d, { w: 8, hook: true, sag: c.state === 'out' ? 0 : 6 });
+  }
+  for (const f of S.flails) {
+    const b = f.boss;
+    FX.chain(ctx, b.x, b.y - b.r * 0.8, f.x, f.y - 14, { w: 7, sag: 14 });
+    ctx.save(); ctx.translate(f.x, f.y - 14);
+    ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, 0, 0, f.r * 2.2, '200,30,60', 0.6); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    ctx.rotate(S.t * 6);
+    ctx.fillStyle = '#141016'; ctx.strokeStyle = 'rgba(200,60,90,0.9)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); for (let i = 0; i < 16; i++) { const a = i / 16 * TAU, r = i % 2 ? f.r * 0.8 : f.r * 1.15; i ? ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r) : ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  for (const L of S.lanterns) {
+    const bob = Math.sin(S.t * 3 + L.seed) * 4;
+    if (L.fuse > 0) { // 引信：一圈收紧的危险圈
+      const pr = 1 - L.fuse / L.fuseMax, blink = 0.6 + 0.4 * Math.sin(S.t * 30);
+      ctx.fillStyle = `rgba(120,220,210,${0.12 + 0.25 * pr})`; ctx.beginPath(); ctx.arc(L.x, L.y, L.blast, 0, TAU); ctx.fill();
+      ctx.strokeStyle = `rgba(200,255,250,${0.8 * blink})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(L.x, L.y, L.blast, 0, TAU); ctx.stroke();
+    }
+    FX.lantern(ctx, L.x, L.y - 14 + bob, 13, 1, L.fuse > 0 ? '255,140,120' : '255,200,120');
+  }
+  for (const k of S.kites) { // 纸鸢在影子上方，俯冲时落下来
+    const h = k.state === 'lock' ? 220 * Math.max(0, k.lockT / k.lock) : 220;
+    FX.kite(ctx, k.x + Math.sin(S.t * 3 + k.seed) * 6, k.y - 30 - h, 20, Math.sin(S.t * 2 + k.seed) * 0.2, '200,150,255', 1);
+  }
+  for (const o of S.pools) {
+    if (o.kind !== 'bring') continue;
+    const armA = Math.min(1, (S.t - o.born) / o.arm);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; // 发光的蝶环，缺口处断开
+    ctx.strokeStyle = `rgba(170,110,255,${0.45 * armA})`; ctx.lineWidth = 16;
+    for (let k = 0; k < o.gaps; k++) {
+      const a0 = o.rot + k * TAU / o.gaps + o.gapHalf, a1 = o.rot + (k + 1) * TAU / o.gaps - o.gapHalf;
+      ctx.beginPath(); ctx.arc(o.x, o.y - 10, o.R, a0, a1); ctx.stroke();
+    }
+    ctx.restore();
+    for (let i = 0; i < o.n; i++) {
+      const a = o.rot + i / o.n * TAU;
+      let gap = false;
+      for (let k = 0; k < o.gaps; k++) if (Math.abs(angDiff(o.rot + k * TAU / o.gaps, a)) < o.gapHalf) gap = true;
+      if (gap) continue;
+      FX.butterfly(ctx, o.x + Math.cos(a) * o.R, o.y + Math.sin(a) * o.R - 10, 12, a + Math.PI / 2, S.t * 5 + i, '215,175,255', armA);
+    }
+  }
+  for (const o of S.decoys) { // 蝶影分身：半透明的你，周围绕着蝴蝶
+    const a = 0.45 + 0.15 * Math.sin(S.t * 6);
+    { const L = S.gearLook || { w: 1, a: 1 }, lk = `${S.origin.id}_w${L.w}a${L.a}`, sid = window.Assets.get('sprite:' + lk) ? lk : S.origin.id; ctx.globalAlpha = a; drawUnit(unitSprite(sid, S.origin.look, 44, false, ''), o.x, o.y, S.player.r, o.fx, 0); ctx.globalAlpha = 1; }
+    for (let i = 0; i < 3; i++) { const t = S.t * 2 + i * TAU / 3; FX.butterfly(ctx, o.x + Math.cos(t) * 26, o.y - 30 + Math.sin(t) * 12, 6, 0, S.t * 6 + i, '215,180,255', 0.9); }
   }
 }
 
@@ -2341,7 +2817,7 @@ function updateBoss(e, dt) {
         const v = g.volley, n = v.count + (e.enraged ? 2 : 0), spread = v.spread * (n / v.count);
         for (let i = 0; i < n; i++) {
           const a = toP + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
-          const kind = v.petal ? 'petal' : v.ice ? 'icicle' : v.fan ? 'fan' : undefined; // 女将：花瓣 / 冰棱 / 飞扇
+          const kind = v.petal ? 'petal' : v.ice ? 'icicle' : v.fan ? 'fan' : v.lantern ? 'lantern' : v.butterfly ? 'butterfly' : undefined; // 女将：花瓣 / 冰棱 / 飞扇 / 莲灯 / 蝴蝶
           S.eproj.push({ kind, x: e.x, y: e.y - 14, vx: Math.cos(a) * v.speed, vy: Math.sin(a) * v.speed, r: v.big ? 10 : kind ? 9 : 6, big: v.big, dmg: v.dmg * e.dmg / g.dmg, life: 2.6, spin: rand(0, TAU), spinRate: kind === 'fan' ? 16 : kind === 'petal' ? 5 : 0, chill: v.ice ? 1.2 : 0 });
         }
         if (v.petal) petals(e.x, e.y - 20, 10, 140);
@@ -2371,6 +2847,20 @@ function updateBoss(e, dt) {
       }
       break;
     }
+    case 'tele_hook': {
+      e.stateT -= dt;
+      if (e.stateT > e.stateMax * 0.45) e.ang = toP;
+      const T = e.hookTele; if (T) { T.x = e.x; T.y = e.y; T.a = e.ang; }
+      if (e.stateT <= 0) {
+        const h = g.hook, o = { len: h.len, speed: h.speed, w: h.w, dmg: e.dmg * 0.8, pull: h.pull, crush: e.dmg * h.crush };
+        throwChain(e, e.ang, o);
+        if (e.enraged) for (const s of [-0.4, 0.4]) throwChain(e, e.ang + s, Object.assign({}, o)); // 暴怒：三条一起甩
+        smoke(e.x, e.y - 20, 4, '12,8,12', 14, 16, 0.6);
+        sfx('swing');
+        e.state = 'recover'; e.stateT = 0.55;
+      }
+      break;
+    }
     case 'tele_slam':
       e.stateT -= dt;
       if (e.stateT <= 0) {
@@ -2397,6 +2887,11 @@ function startBossAttack(e) {
     e.charges = atk === 'charge3' ? (e.enraged ? 4 : 3) : 1;
     e.state = 'tele_charge'; e.stateT = e.stateMax = 0.8 * fast;
     e.ang = angleTo(e.x, e.y, p.x, p.y);
+  } else if (atk === 'hook') { // 董卓：甩出铁链钩人（前段跟着你转，后段锁定方向）
+    const h = g.hook;
+    e.state = 'tele_hook'; e.stateT = e.stateMax = h.tele * fast;
+    e.ang = angleTo(e.x, e.y, p.x, p.y);
+    e.hookTele = tele({ kind: 'line', x: e.x, y: e.y, a: e.ang, len: h.len, w: h.w * 1.5, life: e.stateT, rgb: g.ultRgb, dark: true });
   } else if (atk === 'slam') {
     e.state = 'tele_slam'; e.stateT = e.stateMax = 0.95 * tk;
   } else if (atk === 'summon') {
@@ -2418,7 +2913,7 @@ function startBossAttack(e) {
     const m = g.meteor, n = m.count + (e.enraged ? 3 : 0), spread = 160 * (g.aoe || 1);
     for (let i = 0; i < n; i++) {
       const ox = i ? rand(-spread, spread) : 0, oy = i ? rand(-spread, spread) : 0;
-      S.hazards.push({ x: p.x + ox, y: p.y + oy, r: m.radius, t: m.delay + i * 0.08, max: m.delay + i * 0.08, dmg: m.dmg * e.dmg / g.dmg, rgb: m.rgb, bolt: m.bolt, petal: m.petal, ice: m.ice, page: m.page });
+      S.hazards.push({ x: p.x + ox, y: p.y + oy, r: m.radius, t: m.delay + i * 0.08, max: m.delay + i * 0.08, dmg: m.dmg * e.dmg / g.dmg, rgb: m.rgb, bolt: m.bolt, petal: m.petal, ice: m.ice, page: m.page, water: m.water, kite: m.kite });
     }
     e.state = 'recover'; e.stateT = 0.6;
   }
@@ -2446,7 +2941,7 @@ function updateEnemies(dt) {
         const o = list[i];
         if (o.el !== undefined) continue;
         o.el = atkEl;
-        if (list === S.hazards && !o.ice && !o.petal && !o.page) o.rgb = D.elements[atkEl].rgb; // 落点换成属性色
+        if (list === S.hazards && !o.ice && !o.petal && !o.page && !o.water && !o.kite) o.rgb = D.elements[atkEl].rgb; // 落点换成属性色
       }
       if (e.def.dragonTrail) recordTrail(e, e.x, e.y - e.r * 1.1, e.state === 'charge' || !!(e.ult && /Dash$/.test(e.ult.u.type) && e.ult.phase === 2), 22, 22);
     }
@@ -2459,6 +2954,10 @@ function updateEnemies(dt) {
         if (a.gone) continue;
         const ad = Math.hypot(a.x - e.x, a.y - e.y);
         if (ad < D.allyHp.aggroR && ad < d) { d = ad || 1; tx = a.x; ty = a.y; }
+      }
+      for (const o of S.decoys) { // 蝶影分身：附近的小兵改去追分身
+        const od = Math.hypot(o.x - e.x, o.y - e.y);
+        if (od < o.lure && od < d + 200) { d = od || 1; tx = o.x; ty = o.y; }
       }
       const dx = tx - e.x, dy = ty - e.y;
       const sp = (e.stunT > S.t ? 0 : e.speed) * (e.slowT > S.t ? e.slowF : 1);
@@ -2506,7 +3005,12 @@ function updateEnemies(dt) {
 function updateBuilding(e, dt) {
   const p = S.player, d = Math.sqrt(dist2(e.x, e.y, p.x, p.y)), def = e.def;
   e.kvx = e.kvy = 0;
-  if (d > 2600) { e.dead = true; return; }
+  if (def.special) { // 乔府：不会因为走远而消失；有名将在场时府门紧闭；走近了才动手
+    e.sealed = S.bossList.length > 0;
+    if (e.sealed || d > def.aggroR) return;
+    if (!e.woke) { e.woke = true; toast('building', e.bid, '乔府警觉', '府中放出莲灯，弓手登上院墙'); }
+  }
+  if (d > 2600 && !def.special) { e.dead = true; return; }
   if (d > 750) return;
   if (def.guard && !e.guarded) { e.guarded = true; spawnElite(def.guard, e.x + 60, e.y + 40); }
   if (def.spawn) {
@@ -2525,8 +3029,11 @@ function updateBuilding(e, dt) {
     e.shootT -= dt;
     if (e.shootT <= 0) {
       e.shootT = def.shoot.cd;
-      const a = angleTo(e.x, e.y - 30, p.x, p.y);
-      S.eproj.push({ x: e.x, y: e.y - 30, vx: Math.cos(a) * def.shoot.speed, vy: Math.sin(a) * def.shoot.speed, r: 5, dmg: def.shoot.dmg * (1 + S.t * D.stage.dmgGrowth), life: 2.5 });
+      const a = angleTo(e.x, e.y - 30, p.x, p.y), n = def.shoot.count || 1, sh = def.shoot;
+      for (let i = 0; i < n; i++) { // 乔府：一次放出一扇莲灯
+        const b = a + (n > 1 ? (i / (n - 1) - 0.5) * sh.spread : 0);
+        S.eproj.push({ kind: sh.lantern ? 'lantern' : undefined, x: e.x, y: e.y - 30, vx: Math.cos(b) * sh.speed, vy: Math.sin(b) * sh.speed, r: sh.lantern ? 9 : 5, dmg: sh.dmg * (1 + S.t * D.stage.dmgGrowth), life: 2.5 });
+      }
     }
   }
 }
@@ -2650,6 +3157,8 @@ function updateProjectiles(dt) {
     if (b.kind === 'petal' && Math.random() < 0.3) fxp({ type: 'petal', x: b.x, y: b.y, vx: -b.vx * 0.1, vy: -b.vy * 0.1 + 10, drag: 2, life: 0.55, rgb: '255,180,215', size: rand(3, 4.5), rot: rand(0, TAU), spin: rand(-6, 6), seed: rand(0, 9) });
     else if (b.el) { if (Math.random() < 0.5) elTrail(b); }
     else if (b.kind === 'orb' && Math.random() < 0.6) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-15, 15), vy: rand(-15, 15), drag: 3, life: 0.35, rgb: '140,240,200', size: rand(5, 8) });
+    else if (b.kind === 'butterfly' && Math.random() < 0.3) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-15, 15), vy: rand(-15, 15), drag: 3, life: 0.4, rgb: b.rgb || '210,170,255', size: rand(4, 7) });
+    else if (b.kind === 'lantern' && Math.random() < 0.3) fxp({ type: 'ember', x: b.x, y: b.y - 6, vx: 0, vy: rand(-30, -10), drag: 2, life: 0.5, rgb: '255,200,130', size: rand(4, 7) });
     else if (b.kind === 'bean' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-10, 10), vy: rand(-20, 0), drag: 3, life: 0.3, rgb: '255,210,90', size: rand(4, 6) });
     else if (b.kind === 'fire') {
       fxp({ type: 'ember', x: b.x + rand(-3, 3), y: b.y + rand(-3, 3), vx: rand(-20, 20), vy: rand(-40, -10), drag: 2, life: 0.4, rgb: Math.random() < 0.5 ? '255,140,50' : '255,210,100', size: rand(6, 10) });
@@ -2666,6 +3175,10 @@ function updateProjectiles(dt) {
           if (b.el) elBurst(b.el, b.x, b.y, R * 1.6);
           if (b.kind === 'bean') { sparks(b.x, b.y, 0, 10, '255,220,120', R * 6, Math.PI, 2.2); embers(b.x, b.y, 8, '255,200,90', R * 2, 30, 7, 0.5); }
           else if (b.kind === 'page') { pages(b.x, b.y, 6, R * 3, 6); sparks(b.x, b.y, 0, 8, '255,225,160', R * 5, Math.PI, 2); }
+          else if (b.kind === 'lantern') { // 莲灯：炸开一团水光；同心莲灯每炸一盏回一点血
+            waterSplash(b.x, b.y, R);
+            if (b.heal) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * b.heal); embers(p.x, p.y - 10, 4, '140,240,200', 50, 60, 6, 0.6); }
+          }
           else explosion(b.x, b.y, R, false);
           b.dead = true;
           return;
@@ -2680,6 +3193,7 @@ function updateProjectiles(dt) {
   for (const h of S.hazards) { // 诸葛亮火攻落点
     h.t -= dt;
     if (h.t <= 0) {
+      if (h.chainDrop && canBind() && dist2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) { S.rootT = Math.max(S.rootT, S.t + h.root); addNumber(p.x, p.y - 44, '被铁链锁住 · 闪现挣脱', '#ff9ab0', 16); } // 魔王暴政：从天而降的铁链
       if (dist2(h.x, h.y, p.x, p.y) < (h.r + p.r) ** 2) {
         const was = p.iframes;
         hurtPlayer(h.dmg, h.el || null, h);
@@ -2689,14 +3203,17 @@ function updateProjectiles(dt) {
       if (h.el) elBurst(h.el, h.x, h.y - 6, h.r * 1.3); // 属性名将的落点：炸开属性爆光
       S.effects.push({ kind: 'blast', x: h.x, y: h.y, r: h.r, life: 0.4, max: 0.4, enemy: true, rgb: h.rgb });
       fxTex('ring', h.x, h.y, { w: h.r * 2, h: h.r * 2, rgb: h.rgb || '255,140,60', under: true, life: 0.35, grow: 1.6, core: 0.4 });
-      if (h.petal || h.ice || h.page) { // 女将的落点：樱花绽开 / 冰棱破地 / 书页炸散
+      if (h.chainDrop) { darkBurst(h.x, h.y, h.r); S.shake = Math.max(S.shake, 6); h.dead = true; continue; }
+      if (h.petal || h.ice || h.page || h.water || h.kite) { // 女将的落点：樱花绽开 / 冰棱破地 / 书页炸散 / 水花 / 纸鸢
         fxTex('burst', h.x, h.y - h.r * 0.2, { w: h.r * 2.2, h: h.r * 2.2, rgb: h.rgb, life: 0.35, grow: 1.4, rot: rand(0, TAU), core: 0.25, a: 0.55 });
         if (h.petal) petals(h.x, h.y - 10, 14, h.r * 3);
         else if (h.ice) {
           shards(h.x, h.y - 10, 12, h.r * 4);
           S.decals.push({ kind: 'frost', x: h.x, y: h.y, r: h.r, life: 2, max: 2 });
           if (S.decals.length > 16) S.decals.shift();
-        } else { pages(h.x, h.y - 10, 10, h.r * 3); glint(h.x, h.y - 10, h.r * 0.8, '255,215,140', 0.25); }
+        } else if (h.water) waterSplash(h.x, h.y, h.r);
+        else if (h.kite) for (let i = 0; i < 6; i++) fxp({ type: 'fly', x: h.x, y: h.y - 12, vx: rand(-180, 180), vy: rand(-200, 40), drag: 2.4, life: 0.8, rgb: '215,180,255', size: rand(5, 8), rot: rand(-0.5, 0.5), seed: rand(0, 9) });
+        else { pages(h.x, h.y - 10, 10, h.r * 3); glint(h.x, h.y - 10, h.r * 0.8, '255,215,140', 0.25); }
         h.dead = true;
         continue;
       }
@@ -2738,6 +3255,7 @@ function updateProjectiles(dt) {
       }
     }
     if (b.wait > 0) { b.wait -= dt; if (b.wait <= 0) { b.vx = b.lvx; b.vy = b.lvy; } }
+    if (b.kind === 'butterfly') { const sp = Math.hypot(b.vx, b.vy), a = Math.atan2(b.vy, b.vx) + Math.sin(S.t * 9 + b.spin) * 2.6 * dt; b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; } // 蝴蝶：飞得一扭一扭
     b.x += b.vx * dt; b.y += b.vy * dt;
     if (b.spinRate) b.spin += b.spinRate * dt;
     if (b.homeIn) { // 兵书万卷：书页朝圈心收拢，过了圈心再飞一小段就散
@@ -2785,6 +3303,11 @@ function updateProjectiles(dt) {
 
   for (const z of S.zones) {
     z.life -= dt; z.tt -= dt;
+    if (z.water) { // 春江：站在莲池里持续回血
+      const p = S.player;
+      if (z.heal && dist2(z.x, z.y, p.x, p.y) < z.r * z.r) { p.hp = Math.min(p.maxHp, p.hp + z.heal * dt); if (Math.random() < 0.15) embers(p.x, p.y - 10, 1, '140,240,200', 30, 40, 5, 0.6); }
+      if (Math.random() < 0.08) S.decals.push({ kind: 'water', x: z.x + rand(-0.6, 0.6) * z.r, y: z.y + rand(-0.4, 0.4) * z.r, r: rand(20, 36), life: 1, max: 1 });
+    }
     if (z.fire && Math.random() < 0.8) { // 火烧赤壁：火中不断窜起火苗
       const a = rand(0, TAU), rr = z.r * Math.sqrt(Math.random());
       fxp({ type: 'ember', x: z.x + Math.cos(a) * rr, y: z.y + Math.sin(a) * rr * 0.8, vx: rand(-10, 10), vy: rand(-80, -40), drag: 1, life: rand(0.35, 0.7), rgb: Math.random() < 0.5 ? '255,130,50' : '255,200,90', size: rand(6, 11) });
@@ -2800,7 +3323,7 @@ function updateProjectiles(dt) {
           if (z.slow < 1) { e.slowT = S.t + 0.5; e.slowF = z.slow; }
           hitEnemy(e, z.dmg, { quiet: true });
           if (z.ice && Math.random() < 0.15) shards(e.x, e.y, 2, 90, 5);
-          else if (!z.formation && !z.fire && !z.ice && Math.random() < 0.5) sparks(e.x, e.y + e.r * 0.4, -Math.PI / 2, 2, '220,225,235', 220, 0.9, 1.6); // 扎脚的火星
+          else if (!z.formation && !z.fire && !z.ice && !z.water && Math.random() < 0.5) sparks(e.x, e.y + e.r * 0.4, -Math.PI / 2, 2, '220,225,235', 220, 0.9, 1.6); // 扎脚的火星
         }
       });
     }
@@ -3053,6 +3576,39 @@ function castShenbing(sb) {
       for (let i = 0; i < def.fire && pool.length; i++) { const e = pool[Math.floor(Math.random() * pool.length)]; S.strikes.push({ kind: 'fire', x: e.x, y: e.y, r: 80, t: 0.4 + i * 0.12, max: 0.4 + i * 0.12, L: { dmg: dmg * 0.25, tick: 0.4, life: 3.5 } }); }
       break;
     }
+    case 'gather': { // 魔王缚魂锁：铁链钩住最强的几个敌人，拖到一处撞在一起，再炸开黑色冲击
+      const pool = []; near(p.x, p.y, 460, e => { if (!e.building && !e.dead) pool.push(e); });
+      pool.sort((x, y) => y.maxHp - x.maxHp);
+      const cx = tgt.x, cy = tgt.y;
+      for (const e of pool.slice(0, def.count)) {
+        S.effects.push({ kind: 'chainfx', x0: p.x, y0: p.y - 16, tgt: e, life: 0.45, max: 0.45 });
+        if (!e.boss) { e.kvx += (cx - e.x) * 8; e.kvy += (cy - e.y) * 8; if (!e.ai) e.stunT = Math.max(e.stunT || 0, S.t + 0.4); }
+      }
+      later(0.35, () => {
+        hitCircle(cx, cy, def.radius, dmg, 80, def.stun);
+        darkBurst(cx, cy, def.radius);
+        S.shake = Math.max(S.shake, 7); punch(0.3);
+        sfx('slam');
+      });
+      sfx('swing');
+      break;
+    }
+    case 'lanterns': { // 同心莲灯：几盏莲灯飘向敌人，炸开水光，每炸一盏给你回一点血
+      for (let i = 0; i < def.count; i++) {
+        const b = rand(0, TAU);
+        S.proj.push({ kind: 'lantern', x: p.x + Math.cos(b) * 20, y: p.y - 14, a: b, speed: 240, vx: 0, vy: 0, r: 11, dmg, pierce: 1, blast: def.radius, heal: def.heal, life: 4, hit: new Set(), homing: true, target: null, kb: 60, spin: rand(0, TAU) });
+      }
+      glint(p.x, p.y - 20, 30, '255,220,160', 0.25);
+      break;
+    }
+    case 'butterflies': { // 流光蝶钗：一群流光蝶追咬敌人
+      for (let i = 0; i < def.count; i++) {
+        const b = i / def.count * TAU;
+        later(i * 0.03, () => S.proj.push({ kind: 'butterfly', x: p.x, y: p.y - 12, a: b, speed: 380, vx: 0, vy: 0, r: 9, dmg, pierce: 2, life: 2.6, hit: new Set(), homing: true, target: null, kb: 40, spin: rand(0, TAU), rgb }));
+      }
+      for (let i = 0; i < 8; i++) fxp({ type: 'fly', x: p.x, y: p.y - 16, vx: rand(-140, 140), vy: rand(-180, -40), drag: 2, life: 0.8, rgb: '215,180,255', size: rand(4, 7), rot: 0, seed: rand(0, 9) });
+      break;
+    }
   }
   return true;
 }
@@ -3121,6 +3677,7 @@ function update(dt) {
   gridBuild();
   updateAllies(dt);
   updateProjectiles(dt);
+  updateBossFx(dt); // 董卓的铁链、大乔的莲灯和潮水、小乔的纸鸢和蝶环、蝶影分身
   S.enemies = S.enemies.filter(e => !e.dead);
   updatePickups(dt);
   updateFx(dt);
@@ -3417,7 +3974,7 @@ function updateHud() {
   $('time').textContent = fmtTime(S.t);
   $('kills').textContent = `斩敌 ${S.kills}`;
   { const left = Math.max(0, S.blinkT - S.t), bb = $('btn-blink'); // 闪现冷却：暗色扇面 + 剩余秒数
-    bb.style.setProperty('--cd', (left / D.blink.cd).toFixed(3));
+    bb.style.setProperty('--cd', (left / (S.player.blinkCd || D.blink.cd)).toFixed(3));
     bb.classList.toggle('ready', left <= 0);
     $('blink-cd').textContent = left > 0 ? left.toFixed(1) : matchMedia('(pointer: coarse)').matches ? '' : '空格'; }
   $('goldhud').textContent = `金 ${loadMeta().gold}（本局 +${S.goldRun}）`;
@@ -3552,7 +4109,7 @@ function snapshot() {
   return {
     v: 1, saved: Date.now(), origin: S.origin.id, t: S.t, kills: S.kills,
     ch: S.ch, chStart: S.chStart, chapterT: S.chapterT, nextBossOk: S.nextBossOk, evIdx: S.evIdx,
-    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss,
+    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone,
     player: { level: p.level, xp: p.xp, hp: p.hp },
     weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
     passives: S.passives, elements: S.elements, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
@@ -3580,7 +4137,7 @@ function continueRun() {
   newState(r.origin);
   const p = S.player;
   for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
-    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT']) if (r[k] !== undefined) S[k] = r[k];
+    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone']) if (r[k] !== undefined) S[k] = r[k];
   S.weapons = r.weapons.map(w => ({ id: w.id, lv: w.lv, t: 0.3 }));
   S.skills = r.skills.map(s => ({ id: s.id, lv: s.lv, t: 1 }));
   S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0 }));
@@ -3588,6 +4145,7 @@ function continueRun() {
   recomputeStats(); p.hp = Math.min(p.maxHp, Math.max(1, r.player.hp));
   (r.allies || []).forEach(t => addAllies(t, 1));
   for (const b of r.bosses || []) { spawnBoss(b.gid, b.final); const e = S.bossList[S.bossList.length - 1]; e.hp = e.maxHp * b.hp; }
+  if (!S.endless && !S.qiaoDone && D.chapters[S.ch].events.some((ev, i) => ev.type === 'qiaofu' && i < S.evIdx)) placeQiaofu(); // 乔府还没打：重新放回右下方
   S.seen = r.seen || S.seen;
   if (r.reward) { S.rewardReady = r.reward; S.rewardLegend = r.rewardLegend; }
   S.buildDirty = true; S.saveT = 15;
@@ -4212,25 +4770,30 @@ function drawTelegraphs() {
   }
   for (const h of S.hazards) { // 火攻 / 石阵 / 青龙落点
     const prog = 1 - h.t / h.max, rgb = h.rgb || '232,116,42';
-    ctx.fillStyle = `rgba(${rgb},0.14)`;
+    const fill = h.chainDrop ? '10,4,12' : rgb, fa = h.chainDrop ? 2.4 : 1; // 董卓的落点是黑的
+    ctx.fillStyle = `rgba(${fill},${0.14 * fa})`;
     ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.fill();
-    ctx.fillStyle = `rgba(${rgb},0.32)`;
+    ctx.fillStyle = `rgba(${fill},${0.32 * fa})`;
     ctx.beginPath(); ctx.arc(h.x, h.y, h.r * prog, 0, TAU); ctx.fill();
     ctx.strokeStyle = `rgba(${rgb},0.85)`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(h.x, h.y, h.r, 0, TAU); ctx.stroke();
     if (h.petal) for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + S.t * 2, r = h.r * (1 - prog * 0.85); FX.petal(ctx, h.x + Math.cos(a) * r, h.y + Math.sin(a) * r * 0.8, 6, a + S.t * 3, '255,160,205', 0.9); } // 花瓣旋着收拢
     else if (h.ice) FX.snowflake(ctx, h.x, h.y, h.r * 0.35 * (0.4 + 0.6 * prog), S.t, 0.8); // 雪花慢慢长大
     else if (h.page) FX.page(ctx, h.x, h.y - (1 - prog) * 220, 10, Math.sin(S.t * 6 + h.x) * 0.4, Math.min(1, prog * 2), Math.cos(S.t * 9 + h.y)); // 书页从天上飘下
+    else if (h.water) { ctx.strokeStyle = `rgba(200,255,250,${0.5 + 0.4 * prog})`; ctx.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const r = h.r * ((prog * 1.5 + k / 3) % 1); ctx.beginPath(); ctx.ellipse(h.x, h.y, r, r * 0.6, 0, 0, TAU); ctx.stroke(); } } // 水纹一圈圈荡开
+    else if (h.kite) FX.kite(ctx, h.x, h.y - 30 - (1 - prog) * 260, 16, Math.sin(S.t * 3 + h.x) * 0.3, '200,150,255', Math.min(1, prog * 2)); // 纸鸢从天上俯冲下来
+    else if (h.chainDrop) FX.chain(ctx, h.x, h.y - 700, h.x, h.y - 20 - (1 - prog) * 480, { w: 8, hook: true, a: Math.min(1, prog * 2) }); // 铁链从天上垂下来
     ctx.globalAlpha = 1;
   }
   // 大招预警：颜色用武将的专属色，随时间填满；边缘发光、闪烁，越接近越急
   for (const f of S.teles) {
     const prog = 1 - f.life / f.max, blink = 0.6 + 0.4 * Math.sin(S.t * (14 + prog * 26));
+    const fill = f.dark ? '10,4,12' : f.rgb, fa = f.dark ? 2.6 : 1; // 董卓：黑色的预警，边缘暗红
     ctx.save();
     if (f.kind === 'line') {
       ctx.translate(f.x, f.y); ctx.rotate(f.a);
-      ctx.fillStyle = `rgba(${f.rgb},0.13)`; ctx.fillRect(0, -f.w / 2, f.len, f.w);
-      ctx.fillStyle = `rgba(${f.rgb},0.3)`; ctx.fillRect(0, -f.w / 2, f.len * prog, f.w);
+      ctx.fillStyle = `rgba(${fill},${0.13 * fa})`; ctx.fillRect(0, -f.w / 2, f.len, f.w);
+      ctx.fillStyle = `rgba(${fill},${0.3 * fa})`; ctx.fillRect(0, -f.w / 2, f.len * prog, f.w);
       ctx.strokeStyle = `rgba(${f.rgb},${0.6 * blink})`; ctx.lineWidth = 2;
       ctx.strokeRect(0, -f.w / 2, f.len, f.w);
       ctx.fillStyle = `rgba(255,255,255,${0.5 * blink})`; // 箭头
@@ -4243,15 +4806,15 @@ function drawTelegraphs() {
       ctx.strokeStyle = `rgba(${f.rgb},${0.7 * blink})`; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.arc(f.x, f.y, f.R, f.a - f.half, f.a + f.half); ctx.closePath(); ctx.stroke();
     } else if (f.kind === 'circle') {
-      ctx.fillStyle = `rgba(${f.rgb},0.15)`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.fill();
-      ctx.fillStyle = `rgba(${f.rgb},0.3)`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * prog, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(${fill},${0.15 * fa})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(${fill},${0.3 * fa})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * prog, 0, TAU); ctx.fill();
       ctx.strokeStyle = `rgba(${f.rgb},${0.8 * blink})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.stroke();
       ctx.strokeStyle = `rgba(${f.rgb},0.6)`; ctx.lineWidth = 1.5; // 准星
       ctx.beginPath(); ctx.moveTo(f.x - f.r * 0.3, f.y); ctx.lineTo(f.x + f.r * 0.3, f.y); ctx.moveTo(f.x, f.y - f.r * 0.3); ctx.lineTo(f.x, f.y + f.r * 0.3); ctx.stroke();
     } else if (f.kind === 'ring') {
       ctx.strokeStyle = `rgba(${f.rgb},${0.35 + 0.5 * blink})`; ctx.lineWidth = 4; ctx.setLineDash([16, 10]);
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = `rgba(${f.rgb},${0.05 + 0.12 * prog})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * prog, 0, TAU); ctx.fill();
+      ctx.fillStyle = `rgba(${fill},${(0.05 + 0.12 * prog) * fa})`; ctx.beginPath(); ctx.arc(f.x, f.y, f.r * prog, 0, TAU); ctx.fill();
     }
     ctx.restore();
   }
@@ -4447,7 +5010,14 @@ function drawBuilding(e) {
   const footY = e.y + e.r * 0.55;
   ctx.drawImage(spr.c, e.x - spr.w / 2, footY - spr.h, spr.w, spr.h);
   const top = footY - spr.h;
-  headBar(e.x, top - 6, 64, e.hp / e.maxHp, '#c9a046', def.name);
+  headBar(e.x, top - 6, def.special ? 96 : 64, e.hp / e.maxHp, '#c9a046', def.name);
+  if (def.special) { // 乔府：门前挂两盏灯笼；府门紧闭时罩一层淡金色的结界
+    for (const s of [-1, 1]) FX.lantern(ctx, e.x + s * e.r * 0.62, footY - spr.h * 0.42 + Math.sin(S.t * 2 + s) * 2, 9, 0.9);
+    if (e.sealed) {
+      ctx.strokeStyle = `rgba(255,215,130,${0.35 + 0.2 * Math.sin(S.t * 3)})`; ctx.lineWidth = 3; ctx.setLineDash([10, 8]);
+      ctx.beginPath(); ctx.ellipse(e.x, footY - spr.h * 0.45, spr.w * 0.62, spr.h * 0.62, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
   if (dist2(e.x, e.y, p.x, p.y) < 380 * 380) { // 走近时提示奖励
     ctx.font = `600 12px ${FONT}`; ctx.textAlign = 'center';
     ctx.lineWidth = 3; ctx.strokeStyle = '#15120d'; ctx.strokeText(def.desc, e.x, footY + 18);
@@ -4606,6 +5176,14 @@ function drawProjectiles() {
       const a = Math.atan2(b.vy, b.vx), fade = Math.min(1, b.life * 2.5);
       FX.dragon(ctx, FX.swimPts(b.x, b.y, a, b.r * 7, 14, b.r * 0.45, S.t * 12 + b.seed),
         { rgb: '90,235,170', core: '225,255,240', w: b.r * 0.95, a: fade, head: window.Assets.get('fx:dragon_azure'), t: S.t + b.seed });
+    } else if (b.kind === 'lantern') { // 莲灯：一盏飘着的莲花灯
+      FX.lantern(ctx, b.x, b.y - 6 + Math.sin(S.t * 4 + b.spin) * 3, 10, 1);
+    } else if (b.kind === 'butterfly') { // 彩蝶：紫光里一只扇着翅膀的蝴蝶
+      ctx.globalCompositeOperation = 'lighter';
+      FX.glow(ctx, b.x, b.y, 18, b.rgb || '190,140,255', 0.5);
+      ctx.globalCompositeOperation = 'source-over';
+      FX.butterfly(ctx, b.x, b.y, 8, Math.atan2(b.vy, b.vx) + Math.PI / 2, S.t * 7 + b.spin, '215,175,255', 1);
+      ctx.globalAlpha = 1;
     } else if (b.kind === 'petal') { // 落樱：粉光里一片打着转的樱花瓣
       ctx.globalCompositeOperation = 'lighter';
       FX.glow(ctx, b.x, b.y, 18, '255,130,190', 0.55);
@@ -4702,6 +5280,18 @@ function drawProjectiles() {
       ctx.globalAlpha = 1;
       continue;
     }
+    if (b.kind === 'lantern') { // 大乔、乔府：飘来的莲灯，外面一圈青光提示危险
+      ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, b.x, b.y, b.r * 3, '80,220,210', 0.55); ctx.globalCompositeOperation = 'source-over';
+      FX.lantern(ctx, b.x, b.y + 4, b.r * 1.1, 1, '255,160,120');
+      ctx.globalAlpha = 1;
+      continue;
+    }
+    if (b.kind === 'butterfly') { // 小乔：一只只扑闪着飞来的蝴蝶
+      ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, b.x, b.y, b.r * 3, '170,110,255', 0.55); ctx.globalCompositeOperation = 'source-over';
+      FX.butterfly(ctx, b.x, b.y, b.r * 1.1, Math.atan2(uy, ux) + Math.PI / 2, S.t * 8 + b.spin, '200,150,255', 1);
+      ctx.globalAlpha = 1;
+      continue;
+    }
     if (b.kind === 'icicle') { // 甄姬：顺着飞行方向的冰棱
       ctx.globalCompositeOperation = 'lighter';
       FX.glow(ctx, b.x, b.y, b.r * 2.6, '120,190,255', 0.6);
@@ -4761,6 +5351,15 @@ function drawProjectiles() {
 function drawZones() {
   for (const z of S.zones) {
     const a = Math.min(1, z.life / 0.6);
+    if (z.water) { // 春江：一片青绿的莲池，水面上漂着几朵莲花
+      ctx.fillStyle = `rgba(60,170,170,${0.28 * a})`;
+      ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.75, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = `rgba(190,250,245,${0.55 * a})`; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.75, 0, 0, TAU); ctx.stroke();
+      for (let i = 0; i < 5; i++) { const t = z.id * 1.3 + i * 1.25, rr = z.r * (0.25 + 0.5 * ((i * 0.37) % 1)); FX.lantern(ctx, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.7 + Math.sin(S.t * 2 + i) * 2, 8, 0.85 * a); }
+      ctx.globalAlpha = 1;
+      continue;
+    }
     if (z.fire) { // 火烧赤壁：焦黑地面 + 跳动的火光
       ctx.fillStyle = `rgba(30,12,4,${0.3 * a})`;
       ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.8, 0, 0, TAU); ctx.fill();
@@ -4853,6 +5452,10 @@ function drawEffects() {
   for (const f of S.effects) {
     const t = f.life / f.max;
     if (f.kind === 'tex') { if (!f.under) drawTexFx(f); }
+    else if (f.kind === 'chainfx') { // 黑铁链：沿着几个点抽过去（链头跟着被钩的敌人走）
+      const pts = f.tgt ? [[f.x0, f.y0], [f.tgt.x, f.tgt.y - f.tgt.r * 0.6]] : f.pts;
+      for (let i = 1; i < pts.length; i++) FX.chain(ctx, pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], { a: Math.min(1, t * 2), w: 6, hook: i === pts.length - 1, sag: 10 });
+    }
     else if (f.kind === 'elhit') { // GPT 画的属性命中图（黑底发光，叠加着画）
       const s = f.r * 2 * (1 + (1 - t) * 0.4);
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, t * 1.6) * 0.85;
@@ -5015,8 +5618,21 @@ function render(raw) {
   ctx.setTransform(DPR * Z, 0, 0, DPR * Z, DPR * (W / 2 + sx) - DPR * Z * S.camX, DPR * (H / 2 + sy) - DPR * Z * S.camY);
   drawGround(S.camX, S.camY);
   for (const f of S.decals) { // 地面裂纹；甄姬的冰面：一片淡蓝的霜，边上几道白色冰纹
-    if (f.kind !== 'frost') { FX.crack(ctx, f); continue; }
     const a = Math.min(1, f.life / (f.max * 0.5));
+    if (f.kind === 'dark') { // 董卓：一片焦黑，边上一圈暗红
+      const gr = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+      gr.addColorStop(0, `rgba(6,4,8,${0.75 * a})`); gr.addColorStop(0.75, `rgba(12,6,10,${0.55 * a})`); gr.addColorStop(1, 'rgba(120,20,40,0)');
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.7, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = `rgba(170,30,60,${0.45 * a})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r * 0.92, f.r * 0.64, 0, 0, TAU); ctx.stroke();
+      continue;
+    }
+    if (f.kind === 'water') { // 大乔：一圈圈水纹
+      ctx.strokeStyle = `rgba(150,235,225,${0.5 * a})`; ctx.lineWidth = 1.6;
+      for (let k = 0; k < 3; k++) { const rr = f.r * (0.35 + 0.3 * k + 0.25 * (1 - f.life / f.max)); ctx.beginPath(); ctx.ellipse(f.x, f.y, rr, rr * 0.6, 0, 0, TAU); ctx.stroke(); }
+      continue;
+    }
+    if (f.kind !== 'frost') { FX.crack(ctx, f); continue; }
     ctx.globalAlpha = 0.35 * a; ctx.fillStyle = 'rgb(170,215,245)';
     ctx.beginPath(); ctx.ellipse(f.x, f.y, f.r, f.r * 0.7, 0, 0, TAU); ctx.fill();
     ctx.globalAlpha = 0.6 * a; ctx.strokeStyle = 'rgb(235,248,255)'; ctx.lineWidth = 1.4;
@@ -5028,6 +5644,7 @@ function render(raw) {
   drawEffectsUnder();
   drawWeaponsUnder();
   drawTelegraphs();
+  drawBossFxUnder();
   drawPickups();
   drawGhosts();
   drawEnemies();
@@ -5035,6 +5652,7 @@ function render(raw) {
   drawShenbing();
   drawOrbit();
   drawProjectiles();
+  drawBossFx();
   FX.particles(ctx, S.particles, false); // 烟尘、碎屑
   drawEffects();
   FX.particles(ctx, S.particles, true);  // 火花、光点（叠加发光）

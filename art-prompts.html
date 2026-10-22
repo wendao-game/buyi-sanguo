@@ -76,7 +76,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
 <div class="wrap">
   <header>
     <h1>布衣三国 · <em>美术提示词</em></h1>
-    <p class="lede">一共 207 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵），第五批 11 张（白龙、青龙龙首，白龙驹，8 个新物品图标），第六批 9 种招式特效贴图（拼在一张图里），第七批 13 件神兵（拼在一张图里），第八批 12 张拼图（9 件军需装备各 9 个形态的图标、3 个出身各 9 种换装小人），第九批 4 张拼图（貂蝉、甄姬、孙尚香三位女将的立绘、小人、神兵、特写和 9 个图标），第十批 4 张拼图（冰火雷风四种属性的图标、属性箭、属性弹、命中爆光），第十二批 1 张赤兔马；另外第十一批是声音：7 首背景音乐和 92 句名将配音。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
+    <p class="lede">一共 229 张图：7 张武将立绘、3 张出身立绘、35 个图标、14 个战场小人，第二批 18 张（精英立绘和小人、随从、据点建筑、铁蒺藜），第三批 8 张（武将大招特写、吕布骑赤兔），第四批 39 张（黄巾之乱、官渡、赤壁的 6 位新武将和黄巾兵），第五批 11 张（白龙、青龙龙首，白龙驹，8 个新物品图标），第六批 9 种招式特效贴图（拼在一张图里），第七批 13 件神兵（拼在一张图里），第八批 12 张拼图（9 件军需装备各 9 个形态的图标、3 个出身各 9 种换装小人），第九批 4 张拼图（貂蝉、甄姬、孙尚香三位女将的立绘、小人、神兵、特写和 9 个图标），第十批 4 张拼图（冰火雷风四种属性的图标、属性箭、属性弹、命中爆光），第十二批 1 张赤兔马，第十三批 5 张拼图（董卓、大乔、小乔的立绘、小人、神兵、特写，9 个图标和乔府）；另外第十一批是声音：7 首背景音乐和 110 句名将配音。每条提示词已经带上统一的画风设定，点「复制」就能直接发给 ChatGPT。画好的图按文件名放进 G 盘的 <code>G:\布衣三国\assets</code> 文件夹，游戏会自动换上，没画的继续用现在的占位图。</p>
     <div class="progress"><span>已完成 <span id="count">0 / 45</span></span><div class="bar"><i id="bar"></i></div></div>
   </header>
 
@@ -189,6 +189,22 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
   </section>
 
   <section>
+    <h2>第十三批新增<span class="folder">董卓 · 大乔 · 小乔 · 乔府</span></h2>
+    <p class="section-note">三位新名将：董卓（讨董之战的章末魔王，黑色铁链）、大乔（江南春水、莲灯，青绿色）、小乔（蝴蝶、纸鸢，淡紫色），还有赤壁之战里藏着大小乔的建筑「乔府」。每人一张立绘、一个战场小人、一件神兵、一张大招特写，加 9 个新图标和 1 座建筑，共 22 张，拼成 5 张图。没画之前，游戏里用代码画的小人、立绘和建筑代替；铁链、莲灯、潮水、蝴蝶、纸鸢这些招式特效是代码画的，不用另外画。</p>
+    <div class="list">
+      <div class="anchor">
+        <h3>一次复制全部 5 张</h3>
+        <p>建议先画第 1 张立绘，再把立绘一起发给 GPT 画小人和特写，长相才一致。画好后打包发给 Claude，由 Claude 切开放进 <code>G:\布衣三国\assets</code>。</p>
+        <button class="copy primary" id="copy-batch13">复制第十三批 5 张</button>
+      </div>
+      <div class="anchor">
+        <h3>也可以一张一张复制</h3>
+        <div id="b13-buttons" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <h2>第十二批新增<span class="folder">赤兔马</span></h2>
     <p class="section-note">拿到技能「赤兔」后你会骑上赤兔马。现在用的是代码画的红马，比较简陋。这一批只要 1 张：一匹不带骑手的 Q 版赤兔马，和第五批的白龙驹同样构图（马朝右，马鞍空着放在马背正中），游戏会把你当前的角色小人坐到马鞍上，换装后也跟着变。</p>
     <div class="list">
@@ -202,7 +218,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
 
   <section>
     <h2>第十一批新增<span class="folder">背景音乐 · 名将配音</span></h2>
-    <p class="section-note">7 首背景音乐（标题、四章各一首、无尽征途、名将交锋），以及 16 位名将的配音台本，每人 5–6 句：登场、半血暴怒、每个大招一句、阵亡，共 92 句。台词全部是原创的，不照搬别的游戏。没做之前，游戏里用代码合成的古风曲占位，台词只显示字幕。</p>
+    <p class="section-note">7 首背景音乐（标题、四章各一首、无尽征途、名将交锋），以及 19 位名将的配音台本，每人 5–6 句：登场、半血暴怒、每个大招一句、阵亡，共 110 句（第十三批的董卓、大乔、小乔也在里面）。台词全部是原创的，不照搬别的游戏。没做之前，游戏里用代码合成的古风曲占位，台词只显示字幕。</p>
     <div class="list">
       <div class="anchor">
         <h3>背景音乐 7 首</h3>
@@ -211,7 +227,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--gold); outl
         <div id="m11-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
       </div>
       <div class="anchor">
-        <h3>名将配音 92 句</h3>
+        <h3>名将配音 110 句</h3>
         <p>每位名将一段，带声音设定和逐句文件名，一句一个 MP3。ChatGPT 做不了的话，可以用剪映的「文本朗读」或其他 AI 配音工具，挑接近声音设定的音色。不要模仿或克隆别的游戏里配音演员的声音。做好后打包发给 Claude 放进游戏。</p>
         <button class="copy primary" id="copy-voice">复制全部配音台本</button>
         <div id="v11-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"></div>
@@ -728,6 +744,66 @@ const GROUPS = [
       ['chitu', '赤兔马', '一匹 Q 版的赤兔马：通体火红如炭火的骏马，毛色从深红到橙红有光泽，鬃毛和马尾像火焰一样向后飘扬，尖端带一点金色火星；配金色兽纹马鞍、红色缨穗和金色马具；四蹄腾空奔跑的姿态，朝向画面右侧，神情桀骜；马背上不要骑手，马鞍空着、放在马背正中；和白龙驹同样的 Q 版比例和构图，大小一致。'],
     ],
   },
+
+  // —— 第十三批：董卓（黑色铁链）· 大乔（春水莲灯）· 小乔（蝴蝶纸鸢）· 乔府 ——
+  {
+    title: '第十三批 · 立绘', folder: 'assets/portraits/', style: PORTRAIT_STYLE,
+    note: '三位新名将的立绘，画法和之前的武将立绘一样。董卓黑金配暗红，大乔青绿配粉白，小乔淡紫配鹅黄。',
+    items: [
+      ['dongzhuo', '董卓', '董卓，权倾朝野的魔王太师，五十岁上下，身材肥壮魁梧、肩宽腰粗。方脸横肉，浓密的络腮胡，粗眉下一双凶狠的三角眼，嘴角挂着轻蔑的狞笑；头戴黑金相间的高冠，身穿黑色锦袍、外罩暗金色兽面重甲和宽大的暗红色披风；一只手握着粗重的黑铁锁链，锁链绕过肩头垂下，链头是带倒刺的铁钩；身后翻涌着黑色的烟气，边缘透出暗红色的光。'],
+      ['daqiao', '大乔', '大乔，江东国色，二十岁上下的温婉美人。鹅蛋脸、柳叶眉，眼神温柔沉静，嘴角带着浅浅的笑；乌黑长发挽成端庄的发髻，插白玉簪和一朵粉色莲花；身穿青绿与月白层叠的江南襦裙，披一条水纹披帛；双手捧着一盏粉白色的莲花灯，灯里烛火温暖；身边漂着几盏小莲灯，脚下是泛着波光的江水。'],
+      ['xiaoqiao', '小乔', '小乔，江东双璧之妹，十六七岁的灵动少女。圆圆的大眼睛，神情俏皮又带点倔强，脸颊微红；乌黑长发扎成双环髻，系淡紫色发带、插一支金色蝴蝶步摇；身穿淡紫与鹅黄相间的轻盈襦裙，袖口宽大；一手持一把淡紫色团扇，另一手牵着一只菱形纸鸢的细线；身边飞舞着几只发着淡光的紫色蝴蝶。'],
+    ],
+  },
+  {
+    title: '第十三批 · 小人', folder: 'assets/sprites/', style: SPRITE_STYLE,
+    note: '画的时候把对应的立绘一起发给 GPT，说“按这张立绘画成 Q 版小人”。',
+    items: [
+      ['dongzhuo', '董卓', '董卓：肥壮的身形，黑金高冠，黑袍配暗金兽面重甲和暗红披风，络腮胡，一手拖着一条带铁钩的黑铁锁链。'],
+      ['daqiao', '大乔', '大乔：发髻插粉色莲花，青绿月白的襦裙，水纹披帛飘动，双手捧着一盏粉白莲花灯。'],
+      ['xiaoqiao', '小乔', '小乔：双环髻系淡紫发带，淡紫鹅黄的襦裙，手持淡紫团扇，身边绕着一只小蝴蝶。'],
+    ],
+  },
+  {
+    title: '第十三批 · 神兵', folder: 'assets/shenbing/', style: SHENBING_STYLE,
+    note: '击败三位名将时小概率掉落的神兵，和第七批神兵同样的画法。',
+    items: [
+      ['dongzhuo', '魔王缚魂锁', '一盘粗重的黑铁锁链，链环乌黑发亮，链头是一枚带倒刺的大铁钩，锁链上缠着暗红色的符纹，周围翻涌着黑色烟气和暗红色的光。'],
+      ['daqiao', '同心莲灯', '一盏精致的莲花灯：粉白色的层层莲瓣托着一点温暖的烛火，底下是碧绿的荷叶托盘，周围漂着青绿色的水光和几片花瓣。'],
+      ['xiaoqiao', '流光蝶钗', '一支金色的蝴蝶发钗：钗头是一只展翅的紫色琉璃蝴蝶，翅膀上流光溢彩，垂着两串小珠，周围飞着几只发光的小蝴蝶。'],
+    ],
+  },
+  {
+    title: '第十三批 · 大招特写', folder: 'assets/cutins/', style: CUTIN_STYLE,
+    note: '和之前的特写一样：3:1 的宽图，深色背景，不要透明。',
+    items: [
+      ['dongzhuo', '董卓', '董卓：凶狠的三角眼和浓密的粗眉，络腮胡的边缘，眼神狞笑；背景是翻涌的黑烟和横七竖八飞过的黑铁锁链，透出暗红色的光，边缘光为暗红色。'],
+      ['daqiao', '大乔', '大乔：温柔沉静的眼睛，睫毛低垂，莲花发饰的边缘；背景是青绿色的江水波光和一盏盏漂浮的莲花灯，边缘光为青绿色。'],
+      ['xiaoqiao', '小乔', '小乔：灵动的大眼睛，眼神俏皮又倔强，金色蝴蝶步摇的边缘；背景是成群飞舞的紫色发光蝴蝶和高高飞起的纸鸢，边缘光为淡紫色。'],
+    ],
+  },
+  {
+    title: '第十三批 · 新图标', folder: 'assets/icons/', style: ICON_STYLE,
+    note: '三位名将的兵器、技能、宝物各 3 个，底板和之前的图标完全一样。',
+    items: [
+      ['molian', '缚魂链（兵器）', '一条甩出去的黑铁锁链，链头是带倒刺的铁钩，锁链带着暗红色的残影。'],
+      ['liandeng', '莲灯（兵器）', '一盏飘在水面上的粉白莲花灯，烛光温暖，水面荡开一圈青绿色的波纹。'],
+      ['diewu', '蝶舞（兵器）', '三只发着紫光的蝴蝶排成一串飞出，身后拖着流光。'],
+      ['baozheng', '暴政（技能）', '一只踩在地上的黑铁战靴，四周几条黑铁锁链被拽得绷直，地面裂开，冒出暗红色的光和黑烟。'],
+      ['chunjiang', '春江（技能）', '俯视的一片碧绿池水，水面上开着几朵粉色莲花，一圈圈波纹荡开。'],
+      ['dieying', '蝶影（技能）', '一个由紫色蝴蝶聚成的半透明人影，正在散成漫天蝴蝶。'],
+      ['xiangyin', '相国印绶（宝物）', '一枚方形金印，印钮是一只蹲坐的猛兽，系着紫色的绶带。印面不要出现可辨认的文字。'],
+      ['guose', '国色（宝物）', '一面圆形铜镜，镜背雕着莲花纹，镜面映着一朵粉色牡丹。'],
+      ['tongque', '铜雀春深（宝物）', '一支金色步摇，簪头是一只展翅的铜雀，垂着一串紫色珠穗。'],
+    ],
+  },
+  {
+    title: '第十三批 · 乔府', folder: 'assets/buildings/', style: BUILDING_STYLE,
+    note: '赤壁之战里藏着大乔、小乔的建筑，比普通据点大一些。画成斜俯视的 Q 版小院，底部贴近画面下缘，正面朝向画面下方。',
+    items: [
+      ['qiaofu', '乔府', '乔府：江南风格的小院，白墙黛瓦，一圈矮矮的院墙，正中一座两层的绣楼，飞檐微翘，二楼有雕花窗；朱红色的院门，门两边挂着两盏红灯笼；墙头探出一枝粉色的花和几片绿叶，院门前一小片池塘里开着莲花。'],
+    ],
+  },
 ];
 
 // —— 第八批：军需装备（和 data.js 里 meta.gear 的名字一致） ——
@@ -928,6 +1004,25 @@ document.getElementById('copy-batch12').addEventListener('click', e => {
   const g = GROUPS.find(x => x.title === '第十二批 · 赤兔马'), it = g.items[0];
   copyText(`我要为一款三国题材的游戏画一匹坐骑。我会附上同一套游戏里的白龙驹，请照它的画风、Q 版比例、构图和大小来画。统一画风：\n${g.style}\n\n画面内容：${it[2]}\n文件名：${it[0]}.png`, e.currentTarget);
 });
+// 第十三批：5 张拼图（立绘 3 人 · 小人和神兵 · 特写 3 张 · 图标 9 个 · 乔府）
+const G13 = title => GROUPS.find(g => g.title === '第十三批 · ' + title);
+const B13 = [
+  ['立绘：董卓、大乔、小乔', () => portraitSheet(G13('立绘').items)],
+  ['小人 + 神兵', () => `我要为一款三国题材的游戏画一张拼图，上面一排是战场 Q 版小人，下面一排是神兵。我会附上三位角色的立绘，小人请照着立绘的长相画。\n\n` +
+    `【上排小人】统一画风：\n${SPRITE_STYLE}\n\n【下排神兵】统一画风：\n${SHENBING_STYLE}\n\n` +
+    `请把 6 个物件画在同一张图里（比例 3:2），排成 3 列 × 2 行的整齐网格，每格大小完全相同，每个物件完整地待在自己的格子里，互相不要重叠、不要越过格子。第 1 行是 3 个小人，全部朝向画面右侧、大小一致、脚底在各自格子里的同一高度；第 2 行是 3 件神兵，都斜放成同一个角度。按序号从左到右排列。整张图背景透明，画面里不要任何文字、序号或格线。\n\n` +
+    listOf([...G13('小人').items, ...G13('神兵').items])],
+  ['大招特写 3 张', () => `我要为一款三国题材的游戏画一张大招特写拼图。统一画风：\n${CUTIN_STYLE.replace('构图：横向超宽画面，比例 3:1（例如 1536×512）；', '构图：')}\n\n` +
+    `请把下面 3 张特写画在同一张正方形图里，从上到下叠成 3 行，每行都是一张比例 3:1 的横幅、高度完全相同，行与行之间用细细的一道黑色隔开。每张都有自己完整的深色背景，不要透明。我会附上三位角色的立绘，请照着立绘的长相画。画面里不要任何文字。\n\n` +
+    listOf(G13('大招特写').items)],
+  ['图标 9 个', () => iconSheet(G13('新图标').items)],
+  ['乔府', () => { const g = G13('乔府'), it = g.items[0]; return `我要为一款三国题材的游戏画一座地图建筑。统一画风：\n${g.style}\n\n${g.note}\n\n画面内容：${it[2]}\n背景透明，画面里不要任何文字。文件名：${it[0]}.png`; }],
+];
+document.getElementById('copy-batch13').addEventListener('click', e => copyText(
+  `我要为一款三国题材的游戏画 5 张素材（三位新名将：董卓、大乔、小乔，和一座建筑「乔府」）。请按序号逐张生成，每次只画一张，画完告诉我序号，等我回复“继续”再画下一张。先画第 1 张立绘，之后画小人和特写时请照着第 1 张的长相。所有图都是同一套二次元美术风格。\n\n` +
+  B13.map(([t, f], i) => `========== 第 ${i + 1} 张：${t} ==========\n${f()}`).join('\n\n'), e.currentTarget));
+document.getElementById('b13-buttons').innerHTML = B13.map(([t], i) => `<button class="copy" data-b13="${i}">${i + 1}. ${t}</button>`).join('');
+document.querySelectorAll('[data-b13]').forEach(b => b.addEventListener('click', () => copyText(B13[+b.dataset.b13][1](), b)));
 // 第十一批：背景音乐与名将配音（台词和 data.js 里的 voice / line / rage 一致）
 const MUSIC_STYLE = '纯器乐，不要人声唱词（最多一点很轻的无词吟唱）；中国古风配器：古筝、琵琶、竹笛、二胡、编钟、大鼓和锣，可以加一点低沉的弦乐铺底；混音干净，低频不要轰头，适合在游戏里长时间循环；时长 1.5–2 分钟，开头和结尾能无缝衔接循环，不要渐弱收尾；导出 MP3。';
 const MUSIC11 = [
@@ -958,8 +1053,11 @@ const VOICE_CAST = {
   guanyu: '中年武圣，沉稳威严，字字有力，不怒自威',
   zhugeliang: '中年谋士，儒雅从容，语速平稳，智珠在握',
   zhouyu: '青年统帅，清朗自信，意气风发，带一点锋芒',
+  dongzhuo: '五十岁上下的肥壮权臣，嗓音粗厚低沉，骄横跋扈，笑里带着狠毒',
+  daqiao: '二十岁上下的江南女子，声音温柔沉稳，端庄大方，带一点忧思',
+  xiaoqiao: '十六七岁的少女，声音清甜灵动，俏皮又倔强，生气时带着哭腔',
 };
-const VOICE11 = [{"id":"chengyuanzhi","name":"程远志","title":"黄巾渠帅 · 涿郡先锋","lines":[["chengyuanzhi_enter","登场","黄天当立！谁敢挡我！"],["chengyuanzhi_rage","半血暴怒","儿郎们，给我上！"],["chengyuanzhi_ult_axe","大招「开山一斧」","开山！给我破！"],["chengyuanzhi_ult_mob","大招「黄巾乱舞」","黄巾儿郎，随我杀！"],["chengyuanzhi_death","阵亡","大贤良师……救我……"]]},{"id":"zhangbao","name":"张宝","title":"地公将军","lines":[["zhangbao_enter","登场","风来！雨来！雷来！"],["zhangbao_rage","半血暴怒","撒豆成兵，看你如何抵挡！"],["zhangbao_ult_beans","大招「撒豆成兵」","撒豆成兵，起！"],["zhangbao_ult_bolt","大招「妖雷」","妖雷，落！"],["zhangbao_death","阵亡","地公……也会死么……"]]},{"id":"zhangjiao","name":"张角","title":"天公将军 · 大贤良师","lines":[["zhangjiao_enter","登场","苍天已死，黄天当立！"],["zhangjiao_rage","半血暴怒","天雷，来！"],["zhangjiao_ult_thunder","大招「天公雷罚」","天公雷罚，降！"],["zhangjiao_ult_host","大招「黄天当立」","黄天当立，众生听令！"],["zhangjiao_ult_pool","大招「雷池」","雷池之中，寸步难行！"],["zhangjiao_death","阵亡","黄天……终究未立……"]]},{"id":"huaxiong","name":"华雄","title":"董卓帐下骁将","lines":[["huaxiong_enter","登场","鼠辈也敢来犯？"],["huaxiong_rage","半血暴怒","有点本事！"],["huaxiong_ult_leap","大招「斩将刀」","斩将刀下，不留全尸！"],["huaxiong_ult_whirl","大招「西凉狂刃」","西凉狂刃，看你往哪逃！"],["huaxiong_death","阵亡","关外……竟有此等人物……"]]},{"id":"lubu","name":"吕布","title":"人中吕布 · 马中赤兔","lines":[["lubu_enter","登场","三姓家奴？谁敢再说！"],["lubu_rage","半血暴怒","今日教你见识天下无双！"],["lubu_ult_chitu","大招「赤兔奔袭」","赤兔，随我踏平此阵！"],["lubu_ult_yuanmen","大招「辕门射戟」","辕门射戟，一箭定乾坤！"],["lubu_ult_wushuang","大招「天下无双」","画戟所向，片甲不留！"],["lubu_death","阵亡","我……天下无双……"]]},{"id":"diaochan","name":"貂蝉","title":"闭月 · 倾城舞姬","lines":[["diaochan_enter","登场","将军，可愿看妾身一舞？"],["diaochan_rage","半血暴怒","花落……人亦断肠。"],["diaochan_ult_dance","大招「闭月舞」","闭月一舞，与君同醉。"],["diaochan_ult_charm","大招「倾城一顾」","将军，看着妾身。"],["diaochan_ult_lianhuan","大招「连环计」","一环扣一环，君已入局。"],["diaochan_death","阵亡","妾身……终是一场空……"]]},{"id":"zhenji","name":"甄姬","title":"洛神 · 凌波仙子","lines":[["zhenji_enter","登场","翩若惊鸿，婉若游龙。"],["zhenji_rage","半血暴怒","洛水寒，君可知？"],["zhenji_ult_lingbo","大招「凌波微步」","凌波微步，罗袜生尘。"],["zhenji_ult_frost","大招「洛水寒川」","洛水寒川，冻彻君骨。"],["zhenji_ult_icering","大招「冰封千里」","冰封千里，无处可逃。"],["zhenji_death","阵亡","洛水……好冷……"]]},{"id":"sunshangxiang","name":"孙尚香","title":"枭姬 · 江东郡主","lines":[["sunshangxiang_enter","登场","想过此关，先问问我的扇子！"],["sunshangxiang_rage","半血暴怒","我孙家儿女，岂是好惹的！"],["sunshangxiang_ult_feishan","大招「飞扇回旋」","扇去扇回，看你躲得几次！"],["sunshangxiang_ult_bingshu","大招「兵书万卷」","兵书万卷，一页一刃！"],["sunshangxiang_ult_xiaoji","大招「枭姬之怒」","枭姬之怒，你接得住吗！"],["sunshangxiang_death","阵亡","哥哥……尚香尽力了……"]]},{"id":"yanliang","name":"颜良","title":"河北名将 · 袁绍先锋","lines":[["yanliang_enter","登场","河北颜良在此，谁来送死！"],["yanliang_rage","半血暴怒","匹夫，吃我一刀！"],["yanliang_ult_baima","大招「白马冲阵」","白马冲阵，挡我者死！"],["yanliang_ult_sweep","大招「河北刀阵」","河北刀阵，一个不留！"],["yanliang_ult_flag","大招「斩旗夺帅」","斩你帅旗，夺你首级！"],["yanliang_death","阵亡","我……还未出刀……"]]},{"id":"wenchou","name":"文丑","title":"河北名将 · 颜良义弟","lines":[["wenchou_enter","登场","还我兄长命来！"],["wenchou_rage","半血暴怒","今日不死不休！"],["wenchou_ult_rain","大招「延津箭雨」","延津箭雨，万箭穿心！"],["wenchou_ult_pierce","大招「连环突刺」","连环突刺，看枪！"],["wenchou_ult_blood","大招「为兄报仇」","兄长之仇，以血来偿！"],["wenchou_death","阵亡","兄长……我来了……"]]},{"id":"zhangfei","name":"张飞","title":"万人敌 · 燕人张翼德","lines":[["zhangfei_enter","登场","燕人张翼德在此！谁敢决一死战！"],["zhangfei_rage","半血暴怒","哇呀呀呀！"],["zhangfei_ult_roar","大招「当阳怒吼」","当阳桥头，谁敢过来！"],["zhangfei_ult_lance","大招「丈八突刺」","丈八蛇矛，捅你个对穿！"],["zhangfei_ult_rage","大招「燕人血怒」","燕人在此，血战到底！"],["zhangfei_death","阵亡","大哥……二哥……"]]},{"id":"zhaoyun","name":"赵云","title":"常山赵子龙","lines":[["zhaoyun_enter","登场","吾乃常山赵子龙也！"],["zhaoyun_rage","半血暴怒","七进七出，何惧尔等！"],["zhaoyun_ult_seven","大招「七进七出」","七进七出，如入无人之境！"],["zhaoyun_ult_flurry","大招「百鸟朝凤」","百鸟朝凤，枪出如龙！"],["zhaoyun_death","阵亡","主公……子龙……去了……"]]},{"id":"dianwei","name":"典韦","title":"古之恶来","lines":[["dianwei_enter","登场","谁敢近主公一步！"],["dianwei_rage","半血暴怒","来！再来！"],["dianwei_ult_storm","大招「双戟旋风」","双戟旋风，近者皆死！"],["dianwei_ult_quake","大招「撼地」","给我——倒下！"],["dianwei_ult_elai","大招「恶来死战」","恶来在此，死战不退！"],["dianwei_death","阵亡","主公……快走……"]]},{"id":"guanyu","name":"关羽","title":"武圣 · 关云长","lines":[["guanyu_enter","登场","插标卖首耳！"],["guanyu_rage","半血暴怒","吃我一刀！"],["guanyu_ult_dragon","大招「青龙偃月」","青龙偃月，斩！"],["guanyu_ult_five","大招「过五关斩六将」","过五关，斩六将，谁能阻我！"],["guanyu_ult_spiral","大招「武圣降临」","青龙在天，忠义在心！"],["guanyu_death","阵亡","大哥……关某……去也……"]]},{"id":"zhugeliang","name":"诸葛亮","title":"卧龙 · 诸葛孔明","lines":[["zhugeliang_enter","登场","汝等已入我阵中。"],["zhugeliang_rage","半血暴怒","东风已至，火起！"],["zhugeliang_ult_fire","大招「火烧博望」","火烧博望，一个不留。"],["zhugeliang_ult_maze","大招「八阵图」","八阵已成，汝等插翅难飞。"],["zhugeliang_ult_wind","大招「借东风」","借来东风，助我火攻！"],["zhugeliang_death","阵亡","出师未捷……亮，尽力矣……"]]},{"id":"zhouyu","name":"周瑜","title":"江东美周郎 · 大都督","lines":[["zhouyu_enter","登场","东风既起，此战必胜。"],["zhouyu_rage","半血暴怒","樯橹灰飞烟灭！"],["zhouyu_ult_chibi","大招「火烧赤壁」","火烧赤壁，樯橹成灰！"],["zhouyu_ult_qu","大招「曲有误」","曲有误，周郎顾。"],["zhouyu_ult_chain","大招「铁索连环」","铁索连环，一火俱焚！"],["zhouyu_death","阵亡","江东……就托付给你们了……"]]}];
+const VOICE11 = [{"id":"chengyuanzhi","name":"程远志","title":"黄巾渠帅 · 涿郡先锋","lines":[["chengyuanzhi_enter","登场","黄天当立！谁敢挡我！"],["chengyuanzhi_rage","半血暴怒","儿郎们，给我上！"],["chengyuanzhi_ult_axe","大招「开山一斧」","开山！给我破！"],["chengyuanzhi_ult_mob","大招「黄巾乱舞」","黄巾儿郎，随我杀！"],["chengyuanzhi_death","阵亡","大贤良师……救我……"]]},{"id":"zhangbao","name":"张宝","title":"地公将军","lines":[["zhangbao_enter","登场","风来！雨来！雷来！"],["zhangbao_rage","半血暴怒","撒豆成兵，看你如何抵挡！"],["zhangbao_ult_beans","大招「撒豆成兵」","撒豆成兵，起！"],["zhangbao_ult_bolt","大招「妖雷」","妖雷，落！"],["zhangbao_death","阵亡","地公……也会死么……"]]},{"id":"zhangjiao","name":"张角","title":"天公将军 · 大贤良师","lines":[["zhangjiao_enter","登场","苍天已死，黄天当立！"],["zhangjiao_rage","半血暴怒","天雷，来！"],["zhangjiao_ult_thunder","大招「天公雷罚」","天公雷罚，降！"],["zhangjiao_ult_host","大招「黄天当立」","黄天当立，众生听令！"],["zhangjiao_ult_pool","大招「雷池」","雷池之中，寸步难行！"],["zhangjiao_death","阵亡","黄天……终究未立……"]]},{"id":"huaxiong","name":"华雄","title":"董卓帐下骁将","lines":[["huaxiong_enter","登场","鼠辈也敢来犯？"],["huaxiong_rage","半血暴怒","有点本事！"],["huaxiong_ult_leap","大招「斩将刀」","斩将刀下，不留全尸！"],["huaxiong_ult_whirl","大招「西凉狂刃」","西凉狂刃，看你往哪逃！"],["huaxiong_death","阵亡","关外……竟有此等人物……"]]},{"id":"lubu","name":"吕布","title":"人中吕布 · 马中赤兔","lines":[["lubu_enter","登场","三姓家奴？谁敢再说！"],["lubu_rage","半血暴怒","今日教你见识天下无双！"],["lubu_ult_chitu","大招「赤兔奔袭」","赤兔，随我踏平此阵！"],["lubu_ult_yuanmen","大招「辕门射戟」","辕门射戟，一箭定乾坤！"],["lubu_ult_wushuang","大招「天下无双」","画戟所向，片甲不留！"],["lubu_death","阵亡","我……天下无双……"]]},{"id":"diaochan","name":"貂蝉","title":"闭月 · 倾城舞姬","lines":[["diaochan_enter","登场","将军，可愿看妾身一舞？"],["diaochan_rage","半血暴怒","花落……人亦断肠。"],["diaochan_ult_dance","大招「闭月舞」","闭月一舞，与君同醉。"],["diaochan_ult_charm","大招「倾城一顾」","将军，看着妾身。"],["diaochan_ult_lianhuan","大招「连环计」","一环扣一环，君已入局。"],["diaochan_death","阵亡","妾身……终是一场空……"]]},{"id":"zhenji","name":"甄姬","title":"洛神 · 凌波仙子","lines":[["zhenji_enter","登场","翩若惊鸿，婉若游龙。"],["zhenji_rage","半血暴怒","洛水寒，君可知？"],["zhenji_ult_lingbo","大招「凌波微步」","凌波微步，罗袜生尘。"],["zhenji_ult_frost","大招「洛水寒川」","洛水寒川，冻彻君骨。"],["zhenji_ult_icering","大招「冰封千里」","冰封千里，无处可逃。"],["zhenji_death","阵亡","洛水……好冷……"]]},{"id":"sunshangxiang","name":"孙尚香","title":"枭姬 · 江东郡主","lines":[["sunshangxiang_enter","登场","想过此关，先问问我的扇子！"],["sunshangxiang_rage","半血暴怒","我孙家儿女，岂是好惹的！"],["sunshangxiang_ult_feishan","大招「飞扇回旋」","扇去扇回，看你躲得几次！"],["sunshangxiang_ult_bingshu","大招「兵书万卷」","兵书万卷，一页一刃！"],["sunshangxiang_ult_xiaoji","大招「枭姬之怒」","枭姬之怒，你接得住吗！"],["sunshangxiang_death","阵亡","哥哥……尚香尽力了……"]]},{"id":"yanliang","name":"颜良","title":"河北名将 · 袁绍先锋","lines":[["yanliang_enter","登场","河北颜良在此，谁来送死！"],["yanliang_rage","半血暴怒","匹夫，吃我一刀！"],["yanliang_ult_baima","大招「白马冲阵」","白马冲阵，挡我者死！"],["yanliang_ult_sweep","大招「河北刀阵」","河北刀阵，一个不留！"],["yanliang_ult_flag","大招「斩旗夺帅」","斩你帅旗，夺你首级！"],["yanliang_death","阵亡","我……还未出刀……"]]},{"id":"wenchou","name":"文丑","title":"河北名将 · 颜良义弟","lines":[["wenchou_enter","登场","还我兄长命来！"],["wenchou_rage","半血暴怒","今日不死不休！"],["wenchou_ult_rain","大招「延津箭雨」","延津箭雨，万箭穿心！"],["wenchou_ult_pierce","大招「连环突刺」","连环突刺，看枪！"],["wenchou_ult_blood","大招「为兄报仇」","兄长之仇，以血来偿！"],["wenchou_death","阵亡","兄长……我来了……"]]},{"id":"zhangfei","name":"张飞","title":"万人敌 · 燕人张翼德","lines":[["zhangfei_enter","登场","燕人张翼德在此！谁敢决一死战！"],["zhangfei_rage","半血暴怒","哇呀呀呀！"],["zhangfei_ult_roar","大招「当阳怒吼」","当阳桥头，谁敢过来！"],["zhangfei_ult_lance","大招「丈八突刺」","丈八蛇矛，捅你个对穿！"],["zhangfei_ult_rage","大招「燕人血怒」","燕人在此，血战到底！"],["zhangfei_death","阵亡","大哥……二哥……"]]},{"id":"zhaoyun","name":"赵云","title":"常山赵子龙","lines":[["zhaoyun_enter","登场","吾乃常山赵子龙也！"],["zhaoyun_rage","半血暴怒","七进七出，何惧尔等！"],["zhaoyun_ult_seven","大招「七进七出」","七进七出，如入无人之境！"],["zhaoyun_ult_flurry","大招「百鸟朝凤」","百鸟朝凤，枪出如龙！"],["zhaoyun_death","阵亡","主公……子龙……去了……"]]},{"id":"dianwei","name":"典韦","title":"古之恶来","lines":[["dianwei_enter","登场","谁敢近主公一步！"],["dianwei_rage","半血暴怒","来！再来！"],["dianwei_ult_storm","大招「双戟旋风」","双戟旋风，近者皆死！"],["dianwei_ult_quake","大招「撼地」","给我——倒下！"],["dianwei_ult_elai","大招「恶来死战」","恶来在此，死战不退！"],["dianwei_death","阵亡","主公……快走……"]]},{"id":"guanyu","name":"关羽","title":"武圣 · 关云长","lines":[["guanyu_enter","登场","插标卖首耳！"],["guanyu_rage","半血暴怒","吃我一刀！"],["guanyu_ult_dragon","大招「青龙偃月」","青龙偃月，斩！"],["guanyu_ult_five","大招「过五关斩六将」","过五关，斩六将，谁能阻我！"],["guanyu_ult_spiral","大招「武圣降临」","青龙在天，忠义在心！"],["guanyu_death","阵亡","大哥……关某……去也……"]]},{"id":"zhugeliang","name":"诸葛亮","title":"卧龙 · 诸葛孔明","lines":[["zhugeliang_enter","登场","汝等已入我阵中。"],["zhugeliang_rage","半血暴怒","东风已至，火起！"],["zhugeliang_ult_fire","大招「火烧博望」","火烧博望，一个不留。"],["zhugeliang_ult_maze","大招「八阵图」","八阵已成，汝等插翅难飞。"],["zhugeliang_ult_wind","大招「借东风」","借来东风，助我火攻！"],["zhugeliang_death","阵亡","出师未捷……亮，尽力矣……"]]},{"id":"zhouyu","name":"周瑜","title":"江东美周郎 · 大都督","lines":[["zhouyu_enter","登场","东风既起，此战必胜。"],["zhouyu_rage","半血暴怒","樯橹灰飞烟灭！"],["zhouyu_ult_chibi","大招「火烧赤壁」","火烧赤壁，樯橹成灰！"],["zhouyu_ult_qu","大招「曲有误」","曲有误，周郎顾。"],["zhouyu_ult_chain","大招「铁索连环」","铁索连环，一火俱焚！"],["zhouyu_death","阵亡","江东……就托付给你们了……"]]},{"id":"dongzhuo","name":"董卓","title":"魔王 · 太师董仲颖","lines":[["dongzhuo_enter","登场","天下之事，岂不在我！"],["dongzhuo_rage","半血暴怒","锁链伺候！"],["dongzhuo_ult_suohun","大招「锁魂千链」","千链锁魂，一个也别想走！"],["dongzhuo_ult_tianluo","大招「天罗地网」","天罗地网，你插翅难飞！"],["dongzhuo_ult_baozheng","大招「魔王暴政」","顺我者昌，逆我者亡！"],["dongzhuo_death","阵亡","我儿奉先……何在……"]]},{"id":"daqiao","name":"大乔","title":"国色 · 江东双璧之姊","lines":[["daqiao_enter","登场","江东乔氏，恭候多时。"],["daqiao_rage","半血暴怒","妹妹，要护好自己。"],["daqiao_ult_liandeng","大招「莲灯引」","一盏莲灯，送君远行。"],["daqiao_ult_chunchao","大招「春江潮涌」","春江潮水，连海而平。"],["daqiao_ult_xuanwo","大招「江心漩涡」","江心水深，莫要回头。"],["daqiao_death","阵亡","妹妹……快走……"]]},{"id":"xiaoqiao","name":"小乔","title":"流光 · 江东双璧之妹","lines":[["xiaoqiao_enter","登场","姐姐的仇，小乔来报！"],["xiaoqiao_rage","半血暴怒","蝶儿们，别让他跑了！"],["xiaoqiao_ult_zhiyuan","大招「纸鸢索影」","纸鸢飞得高，你躲得了吗？"],["xiaoqiao_ult_dieying","大招「蝶影迷踪」","哪一个，才是真的我？"],["xiaoqiao_ult_tongque","大招「铜雀春深」","铜雀春深，锁住你！"],["xiaoqiao_death","阵亡","公瑾……小乔先走一步了……"]]}];
 const voicePrompt = g => `为《布衣三国》（三国题材的 2D 动作游戏）的角色录一组台词配音。\n角色：${g.name}（${g.title}）\n声音设定：${VOICE_CAST[g.id]}\n要求：${VOICE_STYLE}\n\n` +
   g.lines.map(([file, when, text], i) => `${i + 1}. ${file}.mp3（${when}）：${text}`).join('\n');
 document.getElementById('copy-music').addEventListener('click', e => copyText(

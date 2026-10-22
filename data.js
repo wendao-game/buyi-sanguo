@@ -291,6 +291,40 @@ window.GAME_DATA = {
         { dmg: 48, cd: 1.3, ringR: 340, count: 3, note: '连奏三声' },
       ],
     },
+    // —— 董卓、大乔、小乔 ——
+    molian: {
+      name: '缚魂链', icon: '链', type: 'chain', general: '董卓', dark: true,
+      desc: '董卓的黑铁锁链。甩出去在敌人之间来回抽打，被抽中的敌人会被往你这边拽一下。',
+      levels: [
+        { dmg: 30, cd: 1.2, chains: 3, range: 360, jump: 190, tug: 70 },
+        { dmg: 37, cd: 1.15, chains: 4, range: 370, jump: 195, tug: 80, note: '伤害 +7，多抽一个' },
+        { dmg: 42, cd: 1.05, chains: 5, range: 380, jump: 200, tug: 90, note: '多抽一个，更快' },
+        { dmg: 52, cd: 1.0, chains: 5, range: 400, jump: 210, tug: 100, note: '伤害 +10，拽得更狠' },
+        { dmg: 64, cd: 0.9, chains: 7, range: 420, jump: 220, tug: 120, note: '铁链横飞，多抽两个' },
+      ],
+    },
+    liandeng: {
+      name: '莲灯', icon: '灯', type: 'homing', general: '大乔', tags: ['spell'], pkind: 'lantern',
+      desc: '大乔的莲花灯。放出慢悠悠的莲灯飘向敌人，撞上后炸开一团水光，波及周围。',
+      levels: [
+        { dmg: 30, cd: 1.4, count: 2, speed: 210, blast: 70 },
+        { dmg: 37, cd: 1.35, count: 2, speed: 220, blast: 74, note: '伤害 +7' },
+        { dmg: 40, cd: 1.25, count: 3, speed: 225, blast: 78, note: '莲灯 +1' },
+        { dmg: 50, cd: 1.2, count: 3, speed: 235, blast: 84, note: '伤害 +10，炸得更大' },
+        { dmg: 62, cd: 1.1, count: 4, speed: 245, blast: 92, note: '江上千灯，莲灯 +1' },
+      ],
+    },
+    diewu: {
+      name: '蝶舞', icon: '蝶', type: 'homing', general: '小乔', tags: ['spell'], pkind: 'butterfly',
+      desc: '小乔袖中飞出的流光彩蝶，绕着弯追向敌人，能穿过两个敌人再散去。',
+      levels: [
+        { dmg: 14, cd: 0.75, count: 3, speed: 360, pierce: 2 },
+        { dmg: 17, cd: 0.75, count: 3, speed: 370, pierce: 2, note: '伤害 +3' },
+        { dmg: 19, cd: 0.7, count: 4, speed: 380, pierce: 2, note: '彩蝶 +1' },
+        { dmg: 24, cd: 0.65, count: 4, speed: 390, pierce: 3, note: '伤害 +5，多穿一个' },
+        { dmg: 30, cd: 0.6, count: 5, speed: 410, pierce: 3, note: '蝶影翩跹，彩蝶 +1' },
+      ],
+    },
   },
 
   // 技能：只能从武将处获得，之后升级时可以强化
@@ -482,6 +516,40 @@ window.GAME_DATA = {
         { count: 4, cd: 5, dmg: 32, radius: 118, life: 5.5, tick: 0.3, note: '樯橹灰飞烟灭' },
       ],
     },
+    // —— 董卓、大乔、小乔 ——
+    baozheng: {
+      name: '暴政', icon: '暴', type: 'hookPull', general: '董卓', dark: true,
+      desc: '定时甩出数条铁链，钩住附近的敌人拽到身前，再一脚踏下黑色冲击波。',
+      levels: [
+        { count: 4, cd: 7, range: 380, dmg: 50, radius: 150, stun: 0.8 },
+        { count: 5, cd: 6.6, range: 390, dmg: 62, radius: 160, stun: 0.9, note: '多钩一个，伤害提高' },
+        { count: 6, cd: 6.2, range: 400, dmg: 74, radius: 170, stun: 1.0, note: '多钩一个，冷却缩短' },
+        { count: 7, cd: 5.8, range: 420, dmg: 90, radius: 180, stun: 1.1, note: '多钩一个，伤害提高' },
+        { count: 9, cd: 5.2, range: 450, dmg: 110, radius: 200, stun: 1.3, note: '魔王降世，多钩两个' },
+      ],
+    },
+    chunjiang: {
+      name: '春江', icon: '江', type: 'formation', general: '大乔', water: true,
+      desc: '定时在脚下铺开一片莲池：池里的敌人走不快、不断受伤；你站在池里时持续回血。',
+      levels: [
+        { dmg: 9, cd: 10, radius: 170, life: 5, slow: 0.55, tick: 0.45, heal: 1.2 },
+        { dmg: 12, cd: 9.5, radius: 180, life: 5, slow: 0.55, tick: 0.45, heal: 1.6, note: '伤害和回血提高' },
+        { dmg: 14, cd: 9, radius: 192, life: 5.5, slow: 0.5, tick: 0.4, heal: 2, note: '莲池更大，持续更久' },
+        { dmg: 18, cd: 8.5, radius: 205, life: 5.5, slow: 0.5, tick: 0.4, heal: 2.6, note: '伤害和回血提高' },
+        { dmg: 23, cd: 7.5, radius: 225, life: 6, slow: 0.45, tick: 0.35, heal: 3.4, note: '一江春水，满池莲开' },
+      ],
+    },
+    dieying: {
+      name: '蝶影', icon: '影', type: 'decoy', general: '小乔', butterfly: true,
+      desc: '定时在原地留下一个蝴蝶化成的分身，引开附近小兵的注意，几秒后分身炸成漫天彩蝶。',
+      levels: [
+        { cd: 9, life: 3, lure: 320, dmg: 60, radius: 150 },
+        { cd: 8.5, life: 3.2, lure: 340, dmg: 76, radius: 160, note: '伤害提高，引得更久' },
+        { cd: 8, life: 3.5, lure: 360, dmg: 92, radius: 170, note: '冷却缩短，范围更大' },
+        { cd: 7.5, life: 3.7, lure: 380, dmg: 115, radius: 180, note: '伤害提高，引得更远' },
+        { cd: 6.5, life: 4, lure: 420, dmg: 140, radius: 200, note: '蝶影成双，难辨真假' },
+      ],
+    },
   },
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
@@ -521,6 +589,9 @@ window.GAME_DATA = {
     luoshenfu: { name: '《洛神赋》', icon: '洛', max: 1, unique: true, general: '甄姬', desc: '“翩若惊鸿”：冷却 -10%，攻击范围 +10%，每秒回复 +0.5', effects: { cdMul: -0.1, areaMul: 0.1, regen: 0.5 } },
     jindai: { name: '吴宫锦带', icon: '锦', max: 1, unique: true, general: '孙尚香', desc: '孙夫人的锦带：移动速度 +10%，伤害 +12%，暴击率 +4%', effects: { speedMul: 0.1, dmgMul: 0.12, crit: 0.04 } },
     guqu: { name: '曲有误', icon: '曲', max: 1, unique: true, general: '周瑜', desc: '“曲有误，周郎顾”：冷却 -10%，暴击率 +8%，攻击范围 +10%', effects: { cdMul: -0.1, crit: 0.08, areaMul: 0.1 } },
+    xiangyin: { name: '相国印绶', icon: '印', max: 1, unique: true, general: '董卓', desc: '董太师的金印紫绶：生命上限 +90，伤害 +15%，护甲 +2，但移动速度 -5%', effects: { maxHp: 90, dmgMul: 0.15, armor: 2, speedMul: -0.05 } },
+    guose: { name: '国色', icon: '国', max: 1, unique: true, general: '大乔', desc: '江东大乔的玉镜：生命上限 +50，每秒回复 +0.8，拾取范围 +25%', effects: { maxHp: 50, regen: 0.8, pickupMul: 0.25 } },
+    tongque: { name: '铜雀春深', icon: '雀', max: 1, unique: true, general: '小乔', desc: '小乔的铜雀步摇：移动速度 +12%，暴击率 +6%，闪现距离 +30%', effects: { speedMul: 0.12, crit: 0.06, blinkDist: 0.3 } },
   },
 
   // 属性：冰火雷风。升级时有几率刷到（Lv 3 起），每种最高 5 级，四种都能学。
@@ -647,6 +718,11 @@ window.GAME_DATA = {
     stable: { name: '马厩', icon: '厩', hp: 650, r: 42, xp: 20, unlock: 60, reward: { type: 'recruit', ally: 'ally_cavalry', count: 1, bonus: { speedMul: 0.08 } }, spawn: { type: 'cavalry', every: 8, max: 3 }, desc: '摧毁后获得 1 名随从骑兵，移动速度 +8%' },
     forge: { name: '铁匠铺', icon: '铁', hp: 650, r: 40, xp: 20, unlock: 60, reward: { type: 'forge' }, spawn: { type: 'foot', every: 6, max: 4 }, desc: '摧毁后任选一件武器强化 +1 级' },
     shrine: { name: '神祠', icon: '祠', hp: 520, r: 36, xp: 20, unlock: 90, reward: { type: 'blessing' }, guard: 'sorcerer', desc: '摧毁后获得一项随机祝福' },
+    // 乔府：赤壁之战开场出现在你的右下方，不会随机刷出、不会因为走远而消失。
+    // 走到 aggroR 以内才会放箭、派兵；有别的名将在场时府门紧闭打不动。攻破后大乔现身，击败大乔后小乔现身。
+    qiaofu: { name: '乔府', icon: '乔', hp: 1800, r: 52, xp: 40, special: true, aggroR: 460, reward: { type: 'qiao' },
+      shoot: { range: 480, cd: 1.1, dmg: 11, speed: 250, count: 3, spread: 0.5, lantern: true }, spawn: { type: 'archer', every: 7, max: 4 },
+      desc: '江东乔府 · 攻破后大乔现身' },
   },
 
   // 神祠祝福：随机给一项，可以叠加
@@ -893,6 +969,57 @@ window.GAME_DATA = {
       banner: '赤壁 · 大都督 周瑜', line: '“东风既起，此战必胜。”', rage: '“樯橹灰飞烟灭！”',
       look: { skin: '#f2d4b0', skinShade: '#d0a982', robe: '#a8322a', trim: '#e8e0d0', armor: true, armorColor: '#c9b28a', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#c9b28a', plume: '#e8e0d0', weapon: 'sword', aura: '#c8402a', artFace: [0.49, 0.21, 0.34] },
     },
+
+    // —— 董卓：讨董之战的章末魔王。招式以黑色铁链为主：钩人、拽人、捆人 ——
+    // 普通招式 hook：一条铁链朝你甩来，钩中就被拽到他身前挨一记重踏（闪现能挣脱）
+    dongzhuo: {
+      name: '董卓', title: '魔王 · 太师董仲颖', icon: '董', hp: 9000, speed: 76, dmg: 26, r: 40, color: '#2a1a22',
+      attacks: ['hook', 'slam', 'summon', 'hook', 'cleave', 'hook'], interval: 2.7, slamR: 170, cleaveR: 190, summon: 6, summonType: 'cavalry',
+      hook: { len: 520, speed: 1250, w: 30, pull: 1050, tele: 0.7, crush: 1.4 },
+      rewards: ['molian', 'baozheng', 'xiangyin'],
+      ultRgb: '200,40,70', ultEvery: 10, dark: true,
+      ults: [
+        { id: 'suohun', name: '锁魂千链', type: 'chainFan', count: 8, len: 640, w: 30, speed: 1400, tele: 0.85, dmg: 1.0 },
+        { id: 'tianluo', name: '天罗地网', type: 'chainPrison', prisonR: 380, tele: 1.5, root: 1.3, dmg: 1.4 },
+        { id: 'baozheng', name: '魔王暴政', type: 'chainFlail', hpBelow: 0.5, dur: 5.5, flailR: 230, balls: 2, spin: 2.4, rain: 7, rainR: 80, dmg: 1.1 },
+      ],
+      banner: '洛阳 · 魔王 董卓', line: '“天下之事，岂不在我！”', rage: '“锁链伺候！”',
+      look: { skin: '#d9a47a', skinShade: '#a8764e', robe: '#1e1418', trim: '#c9a046', armor: true, armorColor: '#2a2026', beard: 'tiger', beardColor: '#2a1a12', eyes: 'round', brows: 'bushy', head: 'helmet', headColor: '#1a1418', plume: '#8a1a28', weapon: 'dao', aura: '#5a1020', artFace: [0.52, 0.26, 0.36] },
+    },
+
+    // —— 大乔、小乔：赤壁之战里藏在右下方的乔府。攻破乔府大乔现身，击败大乔小乔现身 ——
+    // 大乔：江南春水、莲灯；招式慢而铺得开，逼你走位
+    daqiao: {
+      name: '大乔', title: '国色 · 江东双璧之姊', icon: '大', hp: 7500, speed: 100, dmg: 22, r: 29, color: '#3a8a8a',
+      attacks: ['volley', 'meteor', 'volley', 'charge'], interval: 2.6, kite: 240, chargeSpeed: 640,
+      volley: { count: 6, spread: 1.0, speed: 230, dmg: 13, lantern: true },
+      meteor: { count: 5, radius: 70, delay: 1.1, dmg: 22, rgb: '120,220,210', water: true },
+      rewards: ['liandeng', 'chunjiang', 'guose'],
+      ultRgb: '110,220,210', ultEvery: 10,
+      ults: [
+        { id: 'liandeng', name: '莲灯引', type: 'lanternDrift', count: 8, speed: 85, life: 6, blast: 95, dmg: 1.2 },
+        { id: 'chunchao', name: '春江潮涌', type: 'tideWall', span: 1100, depth: 70, speed: 320, gapW: 170, tele: 1.0, push: 650, dmg: 1.2 },
+        { id: 'xuanwo', name: '江心漩涡', type: 'whirlpool', hpBelow: 0.5, poolR: 320, coreR: 75, dur: 3.8, pull: 150, dmg: 0.5 },
+      ],
+      banner: '皖城 · 乔府 大乔', line: '“江东乔氏，恭候多时。”', rage: '“妹妹，要护好自己。”',
+      look: { skin: '#f6dcc8', skinShade: '#dcb49c', robe: '#4aa0a0', trim: '#f2ece0', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#16141a', pin: '#ffd0e0', weapon: 'ribbon', ribbon: '#8fe0d8', aura: '#3a8a8a', female: true, artFace: [0.52, 0.29, 0.34] },
+    },
+    // 小乔：蝴蝶、纸鸢；快、会瞬移，招式追着你跑
+    xiaoqiao: {
+      name: '小乔', title: '流光 · 江东双璧之妹', icon: '小', hp: 8000, speed: 118, dmg: 22, r: 28, color: '#9a6ad8',
+      attacks: ['volley', 'charge3', 'meteor', 'volley'], interval: 2.4, chargeSpeed: 720,
+      volley: { count: 7, spread: 1.1, speed: 300, dmg: 13, butterfly: true },
+      meteor: { count: 5, radius: 66, delay: 1.0, dmg: 22, rgb: '200,160,255', kite: true },
+      rewards: ['diewu', 'dieying', 'tongque'],
+      ultRgb: '200,150,255', ultEvery: 10,
+      ults: [
+        { id: 'zhiyuan', name: '纸鸢索影', type: 'kiteHunt', count: 3, follow: 1.6, lock: 0.45, gap: 0.55, kiteR: 105, dmg: 1.3 },
+        { id: 'dieying', name: '蝶影迷踪', type: 'blinkCross', count: 4, ring: 270, len: 640, w: 46, tele: 0.6, gap: 0.42, dmg: 1.1 },
+        { id: 'tongque', name: '铜雀春深', type: 'butterflyRing', hpBelow: 0.5, R0: 340, R1: 60, dur: 3.4, n: 30, gaps: 2, spin: 0.9, dmg: 0.8 },
+      ],
+      banner: '皖城 · 乔府 小乔', line: '“姐姐的仇，小乔来报！”', rage: '“蝶儿们，别让他跑了！”',
+      look: { skin: '#f8e0cc', skinShade: '#dcb8a0', robe: '#a07ad8', trim: '#f6e8ff', armor: false, beard: 'none', eyes: 'round', brows: 'thin', head: 'bun', hairColor: '#1a1420', pin: '#e0c0ff', weapon: 'fan', fanColor: '#b890f0', aura: '#9a6ad8', female: true, artFace: [0.52, 0.29, 0.34] },
+    },
   },
 
   // 名将语音：登场用 generals 里的 line，半血暴怒用 rage，这里补上阵亡和每个大招的台词（全部原创，不照搬别的游戏）。
@@ -914,6 +1041,9 @@ window.GAME_DATA = {
     guanyu: { death: '大哥……关某……去也……', ult: { dragon: '青龙偃月，斩！', five: '过五关，斩六将，谁能阻我！', spiral: '青龙在天，忠义在心！' } },
     zhugeliang: { death: '出师未捷……亮，尽力矣……', ult: { fire: '火烧博望，一个不留。', maze: '八阵已成，汝等插翅难飞。', wind: '借来东风，助我火攻！' } },
     zhouyu: { death: '江东……就托付给你们了……', ult: { chibi: '火烧赤壁，樯橹成灰！', qu: '曲有误，周郎顾。', chain: '铁索连环，一火俱焚！' } },
+    dongzhuo: { death: '我儿奉先……何在……', ult: { suohun: '千链锁魂，一个也别想走！', tianluo: '天罗地网，你插翅难飞！', baozheng: '顺我者昌，逆我者亡！' } },
+    daqiao: { death: '妹妹……快走……', ult: { liandeng: '一盏莲灯，送君远行。', chunchao: '春江潮水，连海而平。', xuanwo: '江心水深，莫要回头。' } },
+    xiaoqiao: { death: '公瑾……小乔先走一步了……', ult: { zhiyuan: '纸鸢飞得高，你躲得了吗？', dieying: '哪一个，才是真的我？', tongque: '铜雀春深，锁住你！' } },
   },
 
   // 背景音乐：有音乐文件（assets/bgm/<id>.mp3）就播放，没有就用代码合成一段古风占位曲。
@@ -953,8 +1083,8 @@ window.GAME_DATA = {
       ],
     },
     {
-      id: 'taodong', name: '第二章 · 讨董之战', sub: '公元 190 年 · 汜水关 → 连环计 → 虎牢关',
-      clear: '威震虎牢',
+      id: 'taodong', name: '第二章 · 讨董之战', sub: '公元 190 年 · 汜水关 → 连环计 → 虎牢关 → 洛阳',
+      clear: '董卓伏诛',
       elites: { captain: 10, brute: 30, crossbow: 60 },
       ground: { bg: '#27231a', grass: 'rgba(126,130,74,0.4)', blot: 'rgba(12,10,6,0.16)', flag: 'rgba(150,45,35,0.45)' },
       waves: [
@@ -968,7 +1098,8 @@ window.GAME_DATA = {
         { t: 95, type: 'ambush', enemy: 'foot', count: 42, text: '伏兵四起' },
         { t: 120, type: 'boss', id: 'diaochan' },
         { t: 160, type: 'ambush', enemy: 'cavalry', count: 20, text: '西凉铁骑' },
-        { t: 190, type: 'boss', id: 'lubu', final: true },
+        { t: 190, type: 'boss', id: 'lubu' },
+        { t: 235, type: 'boss', id: 'dongzhuo', final: true },
       ],
     },
     {
@@ -1001,6 +1132,7 @@ window.GAME_DATA = {
         { t: 180, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } },
       ],
       events: [
+        { t: 20, type: 'qiaofu' }, // 乔府出现在右下方，什么时候去打都行
         { t: 45, type: 'boss', id: 'zhugeliang' },
         { t: 105, type: 'boss', id: 'zhangfei' },
         { t: 150, type: 'ambush', enemy: 'foot', count: 48, text: '曹军南下' },
@@ -1096,6 +1228,12 @@ window.GAME_DATA = {
       desc: '笛声一起，七处冰棱从敌人脚下破冰而出，被刺中的敌人冻住片刻。' },
     sunshangxiang: { name: '枭姬铁扇', icon: '扇', iconFrom: 'feishan', rgb: '255,190,90', cd: 4.5, type: 'fans', dmg: 40, count: 6, range: 300,
       desc: '六把铁扇向四面飞出再旋回手中，并撒下一阵书页，炸伤附近的敌人。' },
+    dongzhuo: { name: '魔王缚魂锁', icon: '锁', iconFrom: 'molian', rgb: '200,40,70', cd: 6, type: 'gather', dmg: 85, count: 7, radius: 160, stun: 0.9,
+      desc: '七条黑铁链钩住附近最强的七个敌人，把它们拖到一处撞在一起，再炸开一圈黑色冲击。' },
+    daqiao: { name: '同心莲灯', icon: '灯', iconFrom: 'liandeng', rgb: '130,230,210', cd: 5.5, type: 'lanterns', dmg: 58, count: 5, radius: 95, heal: 0.015,
+      desc: '五盏莲灯飘向敌人，炸开一团水光；每炸开一盏，你回复 1.5% 生命。' },
+    xiaoqiao: { name: '流光蝶钗', icon: '钗', iconFrom: 'diewu', rgb: '210,170,255', cd: 4.5, type: 'butterflies', dmg: 34, count: 8, blinkCd: 0.5, blinkFly: 4,
+      desc: '闪现冷却减半。每 4.5 秒放出八只流光蝶追咬敌人；每次闪现，起点还会留下四只蝴蝶扑向敌人。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大

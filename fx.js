@@ -130,6 +130,7 @@ window.FX = (() => {
         case 'shard': shard(ctx, q.x, q.y, q.size, q.rot || 0, Math.min(1, t * 1.5)); break;
         case 'snow': snowflake(ctx, q.x, q.y, q.size, q.rot || 0, t); break;
         case 'page': page(ctx, q.x, q.y, q.size, q.rot || 0, Math.min(1, t * 1.5), Math.cos(q.life * 8 + (q.seed || 0))); break;
+        case 'fly': butterfly(ctx, q.x + Math.sin(q.life * 5 + (q.seed || 0)) * 6, q.y, q.size, q.rot || 0, q.life * 4 + (q.seed || 0), q.rgb, Math.min(1, t * 1.6)); break;
         case 'smoke': case 'dust':
           ctx.globalAlpha = t * (q.type === 'dust' ? 0.35 : 0.45);
           ctx.fillStyle = `rgb(${q.rgb})`;
@@ -486,5 +487,87 @@ window.FX = (() => {
     ctx.restore();
   }
 
-  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX, petal, shard, snowflake, page, fan };
+  // ---------- 董卓、大乔、小乔的小物件：铁链、莲灯、蝴蝶、纸鸢 ----------
+  // 铁链：一节节交错的黑铁环，外面一圈暗红的煞气；sag 是中间下垂多少，len 只画前面一段（链子还在飞的时候）
+  function chain(ctx, x0, y0, x1, y1, o = {}) {
+    const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy);
+    if (L < 2) return;
+    const a = o.a === undefined ? 1 : o.a, w = o.w || 7, sag = o.sag || 0, rgb = o.rgb || '190,40,70';
+    const nx = -dy / L, ny = dx / L, n = Math.max(2, Math.round(L / (w * 1.5)));
+    const pt = t => { const s = Math.sin(t * Math.PI) * sag; return [x0 + dx * t + nx * s, y0 + dy * t + ny * s + Math.abs(s) * 0.3]; };
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 * a;
+    ctx.strokeStyle = `rgb(${rgb})`; ctx.lineWidth = w * 1.6; ctx.lineCap = 'round';
+    ctx.beginPath(); for (let i = 0; i <= n; i++) { const [x, y] = pt(i / n); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = a;
+    for (let i = 0; i < n; i++) {
+      const [xa, ya] = pt(i / n), [xb, yb] = pt((i + 1) / n), ang = Math.atan2(yb - ya, xb - xa);
+      ctx.save(); ctx.translate((xa + xb) / 2, (ya + yb) / 2); ctx.rotate(ang);
+      if (i % 2) ctx.scale(1, 0.35); // 交错的环：一个正面、一个侧面
+      ctx.strokeStyle = '#0c0a0d'; ctx.lineWidth = w * 0.55;
+      ctx.beginPath(); ctx.ellipse(0, 0, w * 0.95, w * 0.6, 0, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = 'rgba(150,120,140,0.55)'; ctx.lineWidth = w * 0.18;
+      ctx.beginPath(); ctx.ellipse(0, -w * 0.08, w * 0.9, w * 0.52, 0, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      ctx.restore();
+    }
+    if (o.hook) { // 链头的铁钩
+      const ang = Math.atan2(dy, dx);
+      ctx.save(); ctx.translate(x1, y1); ctx.rotate(ang);
+      ctx.fillStyle = '#16121a'; ctx.strokeStyle = `rgba(${rgb},0.9)`; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(w * 2.2, 0); ctx.lineTo(-w * 0.6, -w * 1.4); ctx.lineTo(-w * 0.1, 0); ctx.lineTo(-w * 0.6, w * 1.4); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+  // 莲灯：一朵粉白莲花托着一点烛光，外面一圈暖光
+  function lantern(ctx, x, y, s, a, rgb = '255,200,120') {
+    if (a <= 0) return;
+    ctx.save(); ctx.globalAlpha = Math.min(1, a);
+    ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y - s * 0.3, s * 2.6, rgb, 0.7 * a); ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = Math.min(1, a);
+    for (const [k, c] of [[0.5, '#e98fb0'], [0.15, '#f6c4d6'], [-0.2, '#fde6ee']]) { // 三层花瓣，越往里越浅
+      ctx.fillStyle = c;
+      for (const side of [-1, 0, 1]) {
+        ctx.save(); ctx.translate(x + side * s * 0.45 * (1 - k * 0.6), y + k * s * 0.3); ctx.rotate(side * 0.55);
+        ctx.beginPath(); ctx.moveTo(0, s * 0.35); ctx.quadraticCurveTo(-s * 0.42, -s * 0.2, 0, -s * 0.8); ctx.quadraticCurveTo(s * 0.42, -s * 0.2, 0, s * 0.35); ctx.fill();
+        ctx.restore();
+      }
+    }
+    ctx.fillStyle = '#fff6d8'; ctx.beginPath(); ctx.ellipse(x, y - s * 0.55, s * 0.12, s * 0.22, 0, 0, TAU); ctx.fill(); // 烛火
+    ctx.fillStyle = '#4f8b74'; ctx.beginPath(); ctx.ellipse(x, y + s * 0.42, s * 0.8, s * 0.16, 0, 0, TAU); ctx.fill(); // 荷叶托
+    ctx.restore();
+  }
+  // 蝴蝶：两对翅膀随 flap 扇动（0–1），翅膀带一点白边
+  function butterfly(ctx, x, y, s, rot, flap, rgb, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = Math.min(1, a);
+    const k = 0.25 + 0.75 * Math.abs(Math.cos(flap * Math.PI));
+    ctx.fillStyle = `rgb(${rgb || '200,160,255'})`; ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 1;
+    for (const sd of [-1, 1]) {
+      ctx.save(); ctx.scale(sd * k, 1);
+      ctx.beginPath(); ctx.moveTo(0, -s * 0.1); ctx.bezierCurveTo(s * 0.9, -s * 1.1, s * 1.25, -s * 0.2, s * 0.15, s * 0.05); ctx.fill(); ctx.stroke(); // 前翅
+      ctx.beginPath(); ctx.moveTo(0, s * 0.05); ctx.bezierCurveTo(s * 0.9, s * 0.2, s * 0.7, s * 0.95, s * 0.08, s * 0.35); ctx.fill(); ctx.stroke();   // 后翅
+      ctx.restore();
+    }
+    ctx.fillStyle = '#2a1a30'; ctx.beginPath(); ctx.ellipse(0, s * 0.05, s * 0.09, s * 0.42, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#2a1a30'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(0, -s * 0.35); ctx.lineTo(-s * 0.25, -s * 0.7); ctx.moveTo(0, -s * 0.35); ctx.lineTo(s * 0.25, -s * 0.7); ctx.stroke();
+    ctx.restore();
+  }
+  // 纸鸢：菱形风筝，竹骨十字，后面拖一条飘带
+  function kite(ctx, x, y, s, rot, rgb, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.globalAlpha = Math.min(1, a);
+    ctx.strokeStyle = `rgba(${rgb || '200,160,255'},0.85)`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, s); for (let i = 1; i <= 6; i++) ctx.lineTo(Math.sin(i * 1.3 + x * 0.01) * s * 0.25, s + i * s * 0.28); ctx.stroke();
+    ctx.fillStyle = '#f4ecf8'; ctx.strokeStyle = '#4a2a5a'; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * 0.7, -s * 0.15); ctx.lineTo(0, s); ctx.lineTo(-s * 0.7, -s * 0.15); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = `rgb(${rgb || '200,160,255'})`;
+    ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(s * 0.7, -s * 0.15); ctx.lineTo(0, -s * 0.15); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0, s); ctx.lineTo(-s * 0.7, -s * 0.15); ctx.lineTo(0, -s * 0.15); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(90,60,30,0.8)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, -s); ctx.lineTo(0, s); ctx.moveTo(-s * 0.7, -s * 0.15); ctx.lineTo(s * 0.7, -s * 0.15); ctx.stroke();
+    ctx.restore();
+  }
+
+  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX, petal, shard, snowflake, page, fan, chain, lantern, butterfly, kite };
 })();
