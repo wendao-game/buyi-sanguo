@@ -72,6 +72,8 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
   pointer-events: auto; border: 2px solid rgba(190,215,255,.75); color: #eef4ff; font-family: var(--display); font-size: 26px; line-height: 1; padding: 0; --cd: 0;
   background: conic-gradient(rgba(10,10,16,.78) calc(var(--cd) * 360deg), rgba(60,80,130,.55) 0); box-shadow: 0 0 10px rgba(150,190,255,.35); touch-action: none; }
 #btn-blink.ready { box-shadow: 0 0 14px rgba(170,205,255,.8); }
+#btn-blink.dragging { transform: scale(1.15); box-shadow: 0 0 0 3px rgba(255,215,90,.9), 0 0 18px rgba(255,215,90,.6); cursor: grabbing; }
+#btn-blink { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; transition: transform .12s; }
 #btn-blink span { position: absolute; left: 0; right: 0; bottom: 7px; font-family: var(--body); font-size: 11px; color: var(--muted); }
 
 #bossbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
@@ -397,7 +399,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     </div>
     <div id="toast"><div id="toast-face"></div><div class="toast-text"><b id="toast-title"></b><span id="toast-sub"></span></div></div>
     <div id="vline" aria-live="polite"><b id="vl-name"></b><span id="vl-text"></span></div>
-    <button id="btn-blink" aria-label="闪现（空格）" title="闪现：空格 / Shift"><b>闪</b><span id="blink-cd"></span></button>
+    <button id="btn-blink" aria-label="闪现（空格）；长按可拖动" title="闪现：空格 / Shift；长按可拖动位置"><b>闪</b><span id="blink-cd"></span></button>
     <div id="tip">攻击全自动 · 专心走位</div>
   </div>
 

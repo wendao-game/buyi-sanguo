@@ -3590,7 +3590,7 @@ function continueRun() {
   if (r.reward) { S.rewardReady = r.reward; S.rewardLegend = r.rewardLegend; }
   S.buildDirty = true; S.saveT = 15;
   for (const id of ['title', 'end', 'levelup', 'pause', 'shop', 'savecode']) $(id).hidden = true;
-  $('hud').hidden = false;
+  $('hud').hidden = false; blinkRestore();
   updateHud();
   banner('继续征战', `${S.endless ? D.endless.name : chap().name} · Lv ${p.level}`);
 }
@@ -3718,7 +3718,7 @@ function startGame(originId) {
   joy.on = false;
   newState(originId);
   for (const id of ['title', 'end', 'levelup', 'pause']) $(id).hidden = true;
-  $('hud').hidden = false;
+  $('hud').hidden = false; blinkRestore();
   updateHud();
   banner(D.chapters[0].name, D.chapters[0].sub);
 }
@@ -3797,7 +3797,52 @@ $('btn-aim').addEventListener('click', () => {
 });
 aimLabel();
 // 闪现按钮（手机）：按下就闪，不触发摇杆
-$('btn-blink').addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); if (S && !S.over) S.blinkReq = true; });
+// 闪现按钮：轻点 = 闪现；长按约半秒 = 拿起来拖到想要的位置，松手放下（位置记在这个浏览器里）
+var blinkRestore = () => {}; // 开局时再放一次位置（页面刚打开时窗口大小可能还没就绪）
+{
+  const bb = $('btn-blink'), POS_KEY = 'buyi-blink-pos', HOLD = 0.45;
+  let press = null; // { id, t0, x, y, timer, drag, dx, dy }
+  const place = (cx, cy) => { // 按钮中心放到 (cx, cy)，不出屏幕
+    const r = bb.offsetWidth / 2 || 30, m = 6;
+    cx = Math.min(innerWidth - r - m, Math.max(r + m, cx)); cy = Math.min(innerHeight - r - m, Math.max(r + m, cy));
+    Object.assign(bb.style, { left: (cx - r) + 'px', top: (cy - r) + 'px', right: 'auto', bottom: 'auto' });
+    return [cx, cy];
+  };
+  const restore = () => { // 存的是占屏幕宽高的比例，转屏、换窗口大小也大致在同一个地方
+    if (innerWidth < 100 || innerHeight < 100) return; // 页面还没排好版（比如后台标签页）时先不放
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(POS_KEY)); } catch (e) { /* ignore */ }
+    if (s && isFinite(s.fx) && isFinite(s.fy)) place(s.fx * innerWidth, s.fy * innerHeight);
+  };
+  bb.addEventListener('pointerdown', e => {
+    e.stopPropagation(); e.preventDefault();
+    try { bb.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+    const rc = bb.getBoundingClientRect();
+    press = { id: e.pointerId, drag: false, dx: e.clientX - (rc.left + rc.width / 2), dy: e.clientY - (rc.top + rc.height / 2) };
+    press.timer = setTimeout(() => { if (press) { press.drag = true; bb.classList.add('dragging'); } }, HOLD * 1000);
+  });
+  bb.addEventListener('pointermove', e => {
+    if (!press || e.pointerId !== press.id || !press.drag) return;
+    e.preventDefault();
+    place(e.clientX - press.dx, e.clientY - press.dy);
+  });
+  const end = (e, cancel) => {
+    if (!press || e.pointerId !== press.id) return;
+    clearTimeout(press.timer);
+    if (press.drag) { // 放下：记住位置
+      const rc = bb.getBoundingClientRect();
+      try { localStorage.setItem(POS_KEY, JSON.stringify({ fx: (rc.left + rc.width / 2) / innerWidth, fy: (rc.top + rc.height / 2) / innerHeight })); } catch (err) { /* ignore */ }
+      bb.classList.remove('dragging');
+    } else if (!cancel && S && !S.over) S.blinkReq = true; // 轻点：闪现
+    press = null;
+  };
+  bb.addEventListener('pointerup', e => end(e, false));
+  bb.addEventListener('pointercancel', e => end(e, true));
+  bb.addEventListener('contextmenu', e => e.preventDefault()); // 手机长按不弹菜单
+  addEventListener('resize', restore);
+  blinkRestore = restore;
+  restore();
+}
 $('btn-quit').addEventListener('click', toTitle);
 $('btn-sound').addEventListener('click', () => {
   muted = !muted;
