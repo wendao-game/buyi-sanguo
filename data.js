@@ -984,7 +984,7 @@ window.GAME_DATA = {
         { id: 'baozheng', name: '魔王暴政', type: 'chainFlail', hpBelow: 0.5, dur: 5.5, flailR: 230, balls: 2, spin: 2.4, rain: 7, rainR: 80, dmg: 1.1 },
       ],
       banner: '洛阳 · 魔王 董卓', line: '“天下之事，岂不在我！”', rage: '“锁链伺候！”',
-      look: { skin: '#d9a47a', skinShade: '#a8764e', robe: '#1e1418', trim: '#c9a046', armor: true, armorColor: '#2a2026', beard: 'tiger', beardColor: '#2a1a12', eyes: 'round', brows: 'bushy', head: 'helmet', headColor: '#1a1418', plume: '#8a1a28', weapon: 'dao', aura: '#5a1020', artFace: [0.52, 0.26, 0.36] },
+      look: { skin: '#d9a47a', skinShade: '#a8764e', robe: '#1e1418', trim: '#c9a046', armor: true, armorColor: '#2a2026', beard: 'tiger', beardColor: '#2a1a12', eyes: 'round', brows: 'bushy', head: 'helmet', headColor: '#1a1418', plume: '#8a1a28', weapon: 'dao', aura: '#5a1020', artFace: [0.54, 0.34, 0.36] },
     },
 
     // —— 大乔、小乔：赤壁之战里藏在右下方的乔府。攻破乔府大乔现身，击败大乔小乔现身 ——
@@ -1002,7 +1002,7 @@ window.GAME_DATA = {
         { id: 'xuanwo', name: '江心漩涡', type: 'whirlpool', hpBelow: 0.5, poolR: 320, coreR: 75, dur: 3.8, pull: 150, dmg: 0.5 },
       ],
       banner: '皖城 · 乔府 大乔', line: '“江东乔氏，恭候多时。”', rage: '“妹妹，要护好自己。”',
-      look: { skin: '#f6dcc8', skinShade: '#dcb49c', robe: '#4aa0a0', trim: '#f2ece0', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#16141a', pin: '#ffd0e0', weapon: 'ribbon', ribbon: '#8fe0d8', aura: '#3a8a8a', female: true, artFace: [0.52, 0.29, 0.34] },
+      look: { skin: '#f6dcc8', skinShade: '#dcb49c', robe: '#4aa0a0', trim: '#f2ece0', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#16141a', pin: '#ffd0e0', weapon: 'ribbon', ribbon: '#8fe0d8', aura: '#3a8a8a', female: true, artFace: [0.44, 0.28, 0.3] },
     },
     // 小乔：蝴蝶、纸鸢；快、会瞬移，招式追着你跑
     xiaoqiao: {
@@ -1018,7 +1018,7 @@ window.GAME_DATA = {
         { id: 'tongque', name: '铜雀春深', type: 'butterflyRing', hpBelow: 0.5, R0: 340, R1: 60, dur: 3.4, n: 30, gaps: 2, spin: 0.9, dmg: 0.8 },
       ],
       banner: '皖城 · 乔府 小乔', line: '“姐姐的仇，小乔来报！”', rage: '“蝶儿们，别让他跑了！”',
-      look: { skin: '#f8e0cc', skinShade: '#dcb8a0', robe: '#a07ad8', trim: '#f6e8ff', armor: false, beard: 'none', eyes: 'round', brows: 'thin', head: 'bun', hairColor: '#1a1420', pin: '#e0c0ff', weapon: 'fan', fanColor: '#b890f0', aura: '#9a6ad8', female: true, artFace: [0.52, 0.29, 0.34] },
+      look: { skin: '#f8e0cc', skinShade: '#dcb8a0', robe: '#a07ad8', trim: '#f6e8ff', armor: false, beard: 'none', eyes: 'round', brows: 'thin', head: 'bun', hairColor: '#1a1420', pin: '#e0c0ff', weapon: 'fan', fanColor: '#b890f0', aura: '#9a6ad8', female: true, artFace: [0.37, 0.36, 0.3] },
     },
   },
 
