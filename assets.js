@@ -14,6 +14,8 @@
 
 // 素材文件夹：和 index.html 放在一起的 assets/。整个游戏文件夹搬到哪里都能用。
 const ASSET_BASE = 'assets/';
+// 图片格式：仓库里是 PNG；发给 TapTap 的发布包把图片转成 WebP（小很多），打包脚本会把这里改成 '.webp'
+const IMG = '.png';
 
 window.Assets = (() => {
   const imgs = {};
@@ -29,42 +31,42 @@ window.Assets = (() => {
   }
 
   function init(D) {
-    for (const id in D.generals) load('portrait:' + id, `${ASSET_BASE}portraits/${id}.png`);
-    for (const o of D.origins) load('origin:' + o.id, `${ASSET_BASE}origins/${o.id}.png`);
+    for (const id in D.generals) load('portrait:' + id, `${ASSET_BASE}portraits/${id}${IMG}`);
+    for (const o of D.origins) load('origin:' + o.id, `${ASSET_BASE}origins/${o.id}${IMG}`);
     for (const group of [D.weapons, D.skills, D.passives]) {
-      for (const id in group) load('icon:' + id, `${ASSET_BASE}icons/${id}.png`);
+      for (const id in group) load('icon:' + id, `${ASSET_BASE}icons/${id}${IMG}`);
     }
     // 属性：图标 icons/el_<属性>.png；属性箭 fx/el_arrow_<属性>.png（黑底、箭头朝右）、
     // 属性弹 fx/el_orb_<属性>.png（黑底）、属性命中 fx/el_hit_<属性>.png（黑底）。属性 = fire / ice / thunder / wind
     for (const id in D.elements || {}) {
-      load('icon:el_' + id, `${ASSET_BASE}icons/el_${id}.png`);
-      for (const k of ['arrow', 'orb', 'hit']) load(`elfx:${k}_${id}`, `${ASSET_BASE}fx/el_${k}_${id}.png`);
+      load('icon:el_' + id, `${ASSET_BASE}icons/el_${id}${IMG}`);
+      for (const k of ['arrow', 'orb', 'hit']) load(`elfx:${k}_${id}`, `${ASSET_BASE}fx/el_${k}_${id}${IMG}`);
     }
     // 局外装备图标
     // 局外装备：每件 9 个形态的图标（icons/<装备>_<级>.png），以及每个出身 9 种造型的小人（sprites/<出身>_w<武器阶段>a<护甲阶段>.png）
     for (const o in (D.meta && D.meta.gear) || {}) {
-      for (const g of D.meta.gear[o]) for (let lv = 1; lv <= 9; lv++) load(`icon:${g.id}_${lv}`, `${ASSET_BASE}icons/${g.id}_${lv}.png`);
-      for (let w = 1; w <= 3; w++) for (let a = 1; a <= 3; a++) load(`sprite:${o}_w${w}a${a}`, `${ASSET_BASE}sprites/${o}_w${w}a${a}.png`);
+      for (const g of D.meta.gear[o]) for (let lv = 1; lv <= 9; lv++) load(`icon:${g.id}_${lv}`, `${ASSET_BASE}icons/${g.id}_${lv}${IMG}`);
+      for (let w = 1; w <= 3; w++) for (let a = 1; a <= 3; a++) load(`sprite:${o}_w${w}a${a}`, `${ASSET_BASE}sprites/${o}_w${w}a${a}${IMG}`);
     }
     // 战场小人（Q 版全身、朝右、透明背景，脚底贴着图片下沿）
     for (const id of [...D.origins.map(o => o.id), ...Object.keys(D.generals), ...Object.keys(D.enemies), ...Object.keys(D.allies)]) {
-      load('sprite:' + id, `${ASSET_BASE}sprites/${id}.png`);
+      load('sprite:' + id, `${ASSET_BASE}sprites/${id}${IMG}`);
     }
     // 精英立绘、据点建筑、道具
-    for (const id in D.enemies) if (D.enemies[id].kind === 'elite') load('elite:' + id, `${ASSET_BASE}elites/${id}.png`);
-    for (const id in D.buildings) load('building:' + id, `${ASSET_BASE}buildings/${id}.png`);
-    load('prop:caltrop', `${ASSET_BASE}props/caltrop.png`);
+    for (const id in D.enemies) if (D.enemies[id].kind === 'elite') load('elite:' + id, `${ASSET_BASE}elites/${id}${IMG}`);
+    for (const id in D.buildings) load('building:' + id, `${ASSET_BASE}buildings/${id}${IMG}`);
+    load('prop:caltrop', `${ASSET_BASE}props/caltrop${IMG}`);
     // 大招特写横幅、吕布骑赤兔
-    for (const id in D.generals) load('cutin:' + id, `${ASSET_BASE}cutins/${id}.png`);
-    load('sprite:lubu_mounted', `${ASSET_BASE}sprites/lubu_mounted.png`);
+    for (const id in D.generals) load('cutin:' + id, `${ASSET_BASE}cutins/${id}${IMG}`);
+    load('sprite:lubu_mounted', `${ASSET_BASE}sprites/lubu_mounted${IMG}`);
     // 特效贴图：龙首（白龙 = 赵云七进七出，青龙 = 关羽刀气）、坐骑
-    for (const id of ['dragon_white', 'dragon_azure']) load('fx:' + id, `${ASSET_BASE}fx/${id}.png`);
+    for (const id of ['dragon_white', 'dragon_azure']) load('fx:' + id, `${ASSET_BASE}fx/${id}${IMG}`);
     // 招式特效贴图（黑底发光图，叠加着画）：刀光、冲击环、爆裂、雷电、枪芒、旋风、火焰、法阵、光柱
-    for (const id of ['slash', 'ring', 'burst', 'bolt', 'thrust', 'whirl', 'flame', 'circle', 'pillar']) load('fxs:' + id, `${ASSET_BASE}fx/${id}.png`);
-    load('mount:white', `${ASSET_BASE}mounts/white.png`);
-    load('mount:chitu', `${ASSET_BASE}mounts/chitu.png`); // 赤兔马（玩家拿到「赤兔」后骑）
+    for (const id of ['slash', 'ring', 'burst', 'bolt', 'thrust', 'whirl', 'flame', 'circle', 'pillar']) load('fxs:' + id, `${ASSET_BASE}fx/${id}${IMG}`);
+    load('mount:white', `${ASSET_BASE}mounts/white${IMG}`);
+    load('mount:chitu', `${ASSET_BASE}mounts/chitu${IMG}`); // 赤兔马（玩家拿到「赤兔」后骑）
     // 神兵：悬浮在玩家身边的名将专属兵器（透明背景，兵器斜放）
-    for (const id in D.shenbing || {}) load('shenbing:' + id, `${ASSET_BASE}shenbing/${id}.png`);
+    for (const id in D.shenbing || {}) load('shenbing:' + id, `${ASSET_BASE}shenbing/${id}${IMG}`);
   }
 
   const esc = s => String(s).replace(/"/g, '&quot;');

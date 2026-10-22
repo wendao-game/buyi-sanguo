@@ -143,11 +143,12 @@ function noiseBuffer() {
 // 音乐、语音文件由 assets/audio.json 列出（装素材时生成），没有清单时一律用合成的占位音乐、只显示字幕，不会去请求不存在的文件。
 let musicOn = true, voiceOn = true;
 try { musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0'; } catch (e) { /* 存储不可用时忽略 */ }
-const AUDIO = { bgm: {}, voice: {}, loop: {} };
+const AUDIO = { bgm: {}, voice: {}, loop: {}, loopFrom: {} };
 fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
   if (!m) return;
   for (const id of m.bgm || []) AUDIO.bgm[id] = `${ASSET_BASE}bgm/${id}.mp3`;
   Object.assign(AUDIO.loop, m.loop || {}); // 每首的循环长度（采样帧，44.1 kHz），用来做无缝循环
+  Object.assign(AUDIO.loopFrom, m.loopFrom || {}); // 重新压缩过的音乐开头会多出一小段编码器静音：循环从这里开始（采样帧）
   // 配音两种写法：["lubu_enter", …]（一句一个文件），或 { lubu: { file: "lubu.mp3", clips: { enter: [起, 止], … } } }（一位名将一个文件，按时间段取每一句）
   const v = m.voice || [];
   if (Array.isArray(v)) for (const id of v) AUDIO.voice[id] = { src: `${ASSET_BASE}voice/${id}.mp3` };
@@ -253,9 +254,10 @@ const Music = (() => {
       const a = actx, s = a.createBufferSource(), g = a.createGain();
       s.buffer = buf; s.loop = true;
       const frames = AUDIO.loop[id];
-      if (frames && frames / 44100 <= buf.duration + 0.01) { s.loopStart = 0; s.loopEnd = Math.min(buf.duration, frames / 44100); }
+      const from = (AUDIO.loopFrom[id] || 0) / 44100;
+      if (frames && from + frames / 44100 <= buf.duration + 0.01) { s.loopStart = from; s.loopEnd = Math.min(buf.duration, from + frames / 44100); }
       g.gain.setValueAtTime(0.0001, a.currentTime); g.gain.linearRampToValueAtTime(VOL_FILE * (performance.now() < duckUntil ? 0.35 : 1), a.currentTime + 1.5);
-      s.connect(g).connect(a.destination); s.start();
+      s.connect(g).connect(a.destination); s.start(0, from);
       src = s; srcGain = g;
     }).catch(() => { if (my === token && cur === id && D.bgm[id]) startSynth(id, D.bgm[id]); }); // 文件坏了就退回合成音乐
   }
