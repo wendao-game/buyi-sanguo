@@ -1,0 +1,64 @@
+# ============ 乐天竞品分析 配置文件 ============
+# 改完保存，然后运行：python main.py
+
+api:
+  # 在 https://webservice.rakuten.co.jp/ 登录 → アプリ一覧 → 新規アプリ登録 获取
+  application_id: ""        # アプリID / applicationId
+  access_key: ""            # アクセスキー / accessKey
+  # 注册应用时填写的「WebサイトURL」，必须一致，否则会报 REFERRER_MISSING / 403
+  site_url: "https://www.rakuten.co.jp/sanc66666/"
+  # 乐天 2026 版接口地址（乐天再改版时改这里即可）
+  search_endpoint: "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
+  # 排行榜接口（可选，填了 genre_id 的品类才会用；不需要就留空 ""）
+  ranking_endpoint: "https://openapi.rakuten.co.jp/ichibaranking/api/IchibaItem/Ranking/20220601"
+  interval_seconds: 1.1     # 每次请求间隔（乐天限制约 1 次/秒）
+
+# 我的店铺（乐天店铺网址 rakuten.co.jp/ 后面那一段）
+my_shops:
+  - code: sanc66666
+    name: 我的店铺A
+  - code: happy8888
+    name: 我的店铺B
+
+# 重点盯防的竞品店铺（可选）：会抓取它们在每个品类下的全部商品
+# 先跑一次，在报告「竞争店铺」表里找到对手的 shop_code 再填进来
+watch_shops: []
+#  - code: xxxxxx
+#    name: 对手1
+
+# 抓取深度
+fetch:
+  search_pages: 3        # 每个关键词抓综合排序前几页（每页 30 个，3 页 = 前 90 名）
+  bestseller_pages: 1    # 每个关键词抓「评价数最多」前几页（找爆款）
+  shop_pages: 5          # 每个店铺每个关键词最多抓几页
+
+# 估算销量用：大约每多少单产生 1 条评价（乐天家居/宠物类一般 2%~5%）
+review_rate: 0.03
+
+# 品类与关键词（关键词用日语，和买家在乐天搜索框里输入的一样）
+# genre_id：乐天类目 ID（可选，填了能更精准并启用排行榜；0 或不填 = 不限类目）
+# exclude：搜索时排除的词（配件、零件等）
+categories:
+  - name: 桌子
+    keywords: [パソコンデスク, ローテーブル, 折りたたみテーブル, デスク おしゃれ]
+    genre_id: 0
+    exclude: [脚のみ, 天板のみ, カバー, マット]
+    price_bins: [0, 3000, 5000, 8000, 12000, 20000, 30000, 999999]
+
+  - name: 宠物笼子
+    keywords: [ペットケージ, 犬 ケージ, 猫 ケージ, うさぎ ケージ]
+    genre_id: 0
+    exclude: [パーツ, 部品, カバーのみ]
+    price_bins: [0, 3000, 5000, 8000, 12000, 20000, 30000, 999999]
+
+  - name: 宠物厕所
+    keywords: [犬 トイレ, 猫 トイレ, システムトイレ, トイレトレー 犬]
+    genre_id: 0
+    exclude: [砂, シーツ, 交換用]
+    price_bins: [0, 1500, 2500, 4000, 6000, 9000, 15000, 999999]
+
+  - name: 航空箱
+    keywords: [ペットキャリー ハード, クレート 犬, 猫 キャリー, 航空 キャリー ペット]
+    genre_id: 0
+    exclude: [カバー, パーツ]
+    price_bins: [0, 2000, 3500, 5000, 8000, 12000, 20000, 999999]
