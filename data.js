@@ -13,6 +13,11 @@ window.GAME_DATA = {
   // 闪现：空格 / Shift（手机点右下角「闪」），朝移动方向瞬移 5 个身位，冷却 5 秒，瞬移时短暂无敌
   blink: { cd: 5, dist: 150, iframes: 0.3 },
 
+  // TapTap 广告和排行榜：在 TapTap 里打开时才有（网页版自动隐藏）。ID 在 TapTap 开发者后台拿到后填进来，空着就不显示。
+  // rewardedAdUnitId：激励视频广告位 ID；leaderboardId：排行榜 ID（按坚持时间排名，单位秒，降序、保留历史最高）
+  // 看广告复活每局只有一次：满血、短暂无敌、震开身边的敌人；结算时看广告，本局金币再加 adGoldBonus
+  taptap: { rewardedAdUnitId: '', leaderboardId: '', reviveIframes: 3, reviveKnockR: 320, adGoldBonus: 0.2 },
+
   // 无限成长：武器 / 技能满 5 级后的“突破”规则
   breakthrough: {
     dmgPerLevel: 0.12,   // 每突破一级伤害 +12%

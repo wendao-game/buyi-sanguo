@@ -520,6 +520,7 @@ function newState(originId) {
     decals: [], ghosts: [], hurtFlash: 0, ghostT: 0,
     teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0, pBurnT: 0, pBurnDps: 0, blinkT: 0, blinkReq: false,
     pChillT: 0, frozenT: 0, charm: null, // 女将：冰冻减速、冻住不能动、被貂蝉迷住往她身边走
+    revived: false, adGold: false, // TapTap 广告：本局已经看广告复活过 / 已经领过金币加成
     hook: null, rootT: 0, chains: [], flails: [], lanterns: [], tides: [], pools: [], kites: [], decoys: [], // 董卓的铁链、大乔的莲灯和潮水、小乔的纸鸢、蝶影分身
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
     spawnAcc: {}, evIdx: 0, defeated: [],
@@ -915,6 +916,61 @@ function onBuildingDestroyed(e) {
   recomputeStats();
   S.buildDirty = true;
   toast('building', e.bid, `攻破${def.name}`, msg);
+}
+
+// ============ TapTap：激励视频广告、排行榜 ============
+// 只有在 TapTap 里打开时才有全局对象 tap；网页版、本地测试时没有，相关按钮全部不显示
+const TT = D.taptap;
+const tapApi = () => window.tap || null;
+let rewardAd = null, adDone = null;
+function adOK() { const t = tapApi(); return !!(t && t.createRewardedVideoAd && TT.rewardedAdUnitId); }
+function getRewardAd() {
+  if (rewardAd || !adOK()) return rewardAd;
+  rewardAd = tapApi().createRewardedVideoAd({ adUnitId: TT.rewardedAdUnitId }); // 单例：整局游戏只创建一次
+  rewardAd.onError(() => {});
+  rewardAd.onClose(res => { // 只有完整看完（isEnded）才给奖励
+    if (actx && actx.state === 'suspended') actx.resume();
+    const cb = adDone; adDone = null;
+    if (cb) cb(!!(res && res.isEnded));
+  });
+  return rewardAd;
+}
+// 播一条激励视频，看完 cb(true)，没看完或没广告 cb(false)
+function watchAd(cb) {
+  const ad = getRewardAd();
+  if (!ad) { cb(false); return; }
+  adDone = cb;
+  if (actx && actx.state === 'running') actx.suspend(); // 放广告时游戏静音
+  const fail = () => { if (actx && actx.state === 'suspended') actx.resume(); const c = adDone; adDone = null; if (c) c(false); };
+  ad.show().catch(() => ad.load().then(() => ad.show()).catch(fail));
+}
+function lbOK() { const t = tapApi(); return !!(t && t.getLeaderboardManager && TT.leaderboardId); }
+const lbCall = (fn, args) => { try { tapApi().getLeaderboardManager()[fn](Object.assign({ leaderboardId: TT.leaderboardId, callback: { onSuccess() {}, onFailure() {} } }, args)); } catch (e) { /* 排行榜出错不影响游戏 */ } };
+function submitScore() { if (lbOK() && S) lbCall('submitScores', { scores: [{ leaderboardId: TT.leaderboardId, score: Math.floor(S.t) }] }); } // 按坚持时间（秒）排名
+function openLeaderboard() { if (lbOK()) lbCall('openLeaderboard', {}); }
+
+// 看广告复活：满血、短暂无敌，身边的敌人被震开，名将的锁链、冻结、迷惑全部解除
+function revive() {
+  const p = S.player;
+  S.revived = true; S.over = false; S.modal = false;
+  $('end').hidden = true;
+  p.hp = p.maxHp; p.iframes = TT.reviveIframes;
+  S.hook = null; S.rootT = 0; S.frozenT = 0; S.pChillT = 0; S.charm = null; S.pSlowT = 0; S.pBurnT = 0;
+  const R = TT.reviveKnockR;
+  for (const e of S.enemies) {
+    if (e.dead || e.building) continue;
+    const d = Math.hypot(e.x - p.x, e.y - p.y);
+    if (d < R) { const a = angleTo(p.x, p.y, e.x, e.y), k = (R - d) / R; e.kvx += Math.cos(a) * 900 * k; e.kvy += Math.sin(a) * 900 * k; if (!e.boss && !e.ai) e.stunT = S.t + 1; }
+  }
+  S.eproj = S.eproj.filter(b => Math.hypot(b.x - p.x, b.y - p.y) > R); // 身边的飞弹一并清掉
+  S.hazards = S.hazards.filter(h => Math.hypot(h.x - p.x, h.y - p.y) > R);
+  fxTex('pillar', p.x, p.y - 160, { w: 140, h: 420, rgb: '255,220,140', life: 1.2, sx: 0.5, fadeIn: 0.05, core: 0.8 });
+  fxTex('ring', p.x, p.y, { w: R * 0.6, h: R * 0.6, rgb: '255,220,140', life: 0.6, grow: 3, core: 0.5 });
+  embers(p.x, p.y - 20, 30, '255,220,140', 200, 80, 8, 1);
+  screenFlash('255,230,170', 0.35); S.shake = Math.max(S.shake, 12);
+  banner('重整旗鼓', '满血复活 · 每局仅此一次');
+  sfx('level');
+  saveRun();
 }
 
 function gameOver() {
@@ -4111,7 +4167,7 @@ function snapshot() {
   return {
     v: 1, saved: Date.now(), origin: S.origin.id, t: S.t, kills: S.kills,
     ch: S.ch, chStart: S.chStart, chapterT: S.chapterT, nextBossOk: S.nextBossOk, evIdx: S.evIdx,
-    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone,
+    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone, revived: !!S.revived, adGold: !!S.adGold,
     player: { level: p.level, xp: p.xp, hp: p.hp },
     weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
     passives: S.passives, elements: S.elements, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
@@ -4139,7 +4195,7 @@ function continueRun() {
   newState(r.origin);
   const p = S.player;
   for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
-    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone']) if (r[k] !== undefined) S[k] = r[k];
+    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'revived', 'adGold']) if (r[k] !== undefined) S[k] = r[k];
   S.weapons = r.weapons.map(w => ({ id: w.id, lv: w.lv, t: 0.3 }));
   S.skills = r.skills.map(s => ({ id: s.id, lv: s.lv, t: 1 }));
   S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0 }));
@@ -4178,6 +4234,7 @@ function openSaveCode() {
   $('btn-save-copy').focus();
 }
 function refreshTitle() {
+  $('btn-rank').hidden = !lbOK(); // TapTap 排行榜：只在 TapTap 里显示
   showBestOnTitle();
   $('title-gold').textContent = `金 ${loadMeta().gold}`;
   const r = loadRun();
@@ -4247,19 +4304,36 @@ function showEnd() {
   const names = [...new Set(S.defeated)];
   $('end-title').textContent = isBest ? '虽死犹荣' : '战死沙场';
   $('end-sub').textContent = (isBest ? '新纪录！' : '') + `止步于 ${rankOf(p.level)} · ${names.length ? '曾斩 ' + names.join('、') : '尚未斩将'}`;
-  $('end-stats').innerHTML = [
+  const fill = () => { $('end-stats').innerHTML = [
     ['征战至', S.endless ? '天下三分' : chap().name.split(' · ')[1]],
     ['坚持时间', fmtTime(S.t)], ['等级', `Lv ${p.level}`],
     ['军衔', rankOf(p.level)], ['斩敌', S.kills],
     ['斩将次数', S.defeated.length], ['本局金币', `+${S.goldRun}`], ['金币总数', loadMeta().gold],
     ...(best ? [['最佳坚持', fmtTime(best.t)], ['最佳等级', `Lv ${best.lv}`]] : []),
-  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+  ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join(''); };
+  fill();
   $('end-build').innerHTML = buildChips();
+  submitScore(); // TapTap 排行榜：提交这一局坚持的时间
   const btns = $('end-btns');
   btns.innerHTML = '';
   const mk = (text, primary, fn) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = text; b.addEventListener('click', fn); btns.appendChild(b); return b; };
-  mk('再来一局', true, () => startGame(S.origin.id)).focus();
+  // TapTap 激励视频：看完广告原地复活（每局一次）
+  const rv = adOK() && !S.revived && mk('看广告复活', true, () => {
+    rv.disabled = true; rv.textContent = '广告加载中…';
+    watchAd(ok => { if (ok) revive(); else { rv.disabled = false; rv.textContent = '没看完广告，再试一次'; } });
+  });
+  const again = mk('再来一局', !rv, () => startGame(S.origin.id));
   mk('回到标题', false, toTitle); // 标题界面可以换出身、逛军需、看图鉴
+  // TapTap 激励视频：看完广告，本局金币再加 20%（每局一次）
+  const bonus = Math.max(1, Math.round(S.goldRun * TT.adGoldBonus));
+  const gb = adOK() && S.goldRun > 0 && !S.adGold && mk(`看广告 金币 +${Math.round(TT.adGoldBonus * 100)}%（+${bonus}）`, false, () => {
+    gb.disabled = true; gb.textContent = '广告加载中…';
+    watchAd(ok => {
+      if (ok) { S.adGold = true; addGold(bonus); saveMeta(true); fill(); gb.textContent = `已领取 +${bonus} 金币`; }
+      else { gb.disabled = false; gb.textContent = `没看完广告 · 再试一次（+${bonus}）`; }
+    });
+  });
+  (rv || again).focus();
   $('end').hidden = false;
 }
 
@@ -4333,6 +4407,7 @@ window.Assets.onLoad(() => {
 });
 
 $('btn-codex').addEventListener('click', openCodex);
+$('btn-rank').addEventListener('click', openLeaderboard); // TapTap 排行榜（只在 TapTap 里显示）
 $('btn-shop').addEventListener('click', openShop);
 $('btn-shop-close').addEventListener('click', closeShop);
 $('btn-continue').addEventListener('click', continueRun);
