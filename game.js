@@ -955,7 +955,7 @@ function watchAd(cb) {
 }
 function lbOK() { const t = tapApi(); return !!(t && t.getLeaderboardManager && TT.leaderboardId); }
 const lbCall = (fn, args) => { try { tapApi().getLeaderboardManager()[fn](Object.assign({ leaderboardId: TT.leaderboardId, callback: { onSuccess() {}, onFailure() {} } }, args)); } catch (e) { /* 排行榜出错不影响游戏 */ } };
-function submitScore() { if (lbOK() && S) lbCall('submitScores', { scores: [{ leaderboardId: TT.leaderboardId, score: Math.floor(S.t) }] }); } // 按坚持时间（秒）排名
+function submitScore() { if (lbOK() && S) lbCall('submitScores', { scores: [{ leaderboardId: TT.leaderboardId, score: S.player.level }] }); } // 按这一局达到的等级排名（等级没有上限）
 function openLeaderboard() { if (lbOK()) lbCall('openLeaderboard', {}); }
 
 // 看广告复活：满血、短暂无敌，身边的敌人被震开，名将的锁链、冻结、迷惑全部解除
@@ -4689,7 +4689,7 @@ function showEnd() {
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join(''); };
   fill();
   $('end-build').innerHTML = buildChips();
-  submitScore(); // TapTap 排行榜：提交这一局坚持的时间
+  submitScore(); // TapTap 排行榜：提交这一局的等级
   const btns = $('end-btns');
   btns.innerHTML = '';
   const mk = (text, primary, fn) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = text; b.addEventListener('click', fn); btns.appendChild(b); return b; };
