@@ -569,5 +569,34 @@ window.FX = (() => {
     ctx.restore();
   }
 
-  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX, petal, shard, snowflake, page, fan, chain, lantern, butterfly, kite };
+  // 鬼火（郭嘉）：青绿色的一团冷焰，火舌向上飘，中心发白
+  function wisp(ctx, x, y, s, t, a = 1, rgb = '110,240,200') {
+    if (a <= 0) return;
+    ctx.save(); ctx.globalAlpha = Math.min(1, a);
+    ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y, s * 2.6, rgb, 0.65 * a);
+    ctx.globalAlpha = Math.min(1, a);
+    const sway = Math.sin(t * 9 + x * 0.05) * s * 0.25;
+    ctx.fillStyle = `rgba(${rgb},0.85)`;
+    ctx.beginPath(); ctx.moveTo(x - s * 0.7, y + s * 0.2);
+    ctx.quadraticCurveTo(x - s * 0.8, y - s * 0.9, x + sway, y - s * 1.9);
+    ctx.quadraticCurveTo(x + s * 0.8, y - s * 0.9, x + s * 0.7, y + s * 0.2);
+    ctx.arc(x, y + s * 0.2, s * 0.7, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = 'rgba(235,255,250,0.9)'; ctx.beginPath(); ctx.ellipse(x, y, s * 0.32, s * 0.45, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  // 巨石（典韦）：粗糙的灰褐色圆石，带几道裂纹，rot 是滚动角度
+  function rock(ctx, x, y, r, rot) {
+    ctx.save(); ctx.translate(x, y);
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(r * 0.1, r * 0.85, r * 1.05, r * 0.32, 0, 0, TAU); ctx.fill();
+    ctx.rotate(rot);
+    const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r);
+    g.addColorStop(0, '#a89c88'); g.addColorStop(0.6, '#6e6456'); g.addColorStop(1, '#3e372e');
+    ctx.fillStyle = g; ctx.strokeStyle = '#2a241c'; ctx.lineWidth = 2;
+    ctx.beginPath(); for (let i = 0; i < 11; i++) { const a = i / 11 * TAU, rr = r * (0.88 + 0.12 * Math.sin(i * 2.7)); i ? ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(30,24,18,.7)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-r * 0.5, -r * 0.1); ctx.lineTo(-r * 0.1, r * 0.15); ctx.lineTo(r * 0.3, -r * 0.05); ctx.moveTo(-r * 0.1, r * 0.15); ctx.lineTo(-r * 0.05, r * 0.6); ctx.moveTo(r * 0.2, -r * 0.55); ctx.lineTo(r * 0.45, -r * 0.3); ctx.stroke();
+    ctx.restore();
+  }
+
+  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX, petal, shard, snowflake, page, fan, chain, lantern, butterfly, kite, wisp, rock };
 })();

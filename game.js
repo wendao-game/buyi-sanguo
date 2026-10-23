@@ -152,7 +152,10 @@ fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
   // 配音两种写法：["lubu_enter", …]（一句一个文件），或 { lubu: { file: "lubu.mp3", clips: { enter: [起, 止], … } } }（一位名将一个文件，按时间段取每一句）
   const v = m.voice || [];
   if (Array.isArray(v)) for (const id of v) AUDIO.voice[id] = { src: `${ASSET_BASE}voice/${id}.mp3` };
-  else for (const gid in v) for (const k in v[gid].clips) AUDIO.voice[`${gid}_${k}`] = { src: `${ASSET_BASE}voice/${v[gid].file}`, t: v[gid].clips[k], gain: v[gid].gain || 1 }; // gain：录得小声的名将单独放大
+  else for (const gid in v) for (const k in v[gid].clips) { // gain：录得小声的名将单独放大；时间段第四项写文件名的，是后来补录的单句（比如 zhangfei2.mp3）
+    const c = v[gid].clips[k], file = typeof c[3] === 'string' ? c[3] : v[gid].file;
+    AUDIO.voice[`${gid}_${k}`] = { src: `${ASSET_BASE}voice/${file}`, t: c, gain: v[gid].gain || 1 };
+  }
   Music.refresh();
 }).catch(() => { /* 没有清单：用合成音乐 */ });
 
@@ -521,6 +524,7 @@ function newState(originId) {
     teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0, pBurnT: 0, pBurnDps: 0, blinkT: 0, blinkReq: false,
     pChillT: 0, frozenT: 0, charm: null, // 女将：冰冻减速、冻住不能动、被貂蝉迷住往她身边走
     revived: false, adGold: false, // TapTap 广告：本局已经看广告复活过 / 已经领过金币加成
+    specialDone: {}, riders: [], boards: [], quakes: [], boulders: [], coils: [], marks: [], mist: null, // 西凉营地；马超的铁骑、郭嘉的棋盘和迷雾、张飞的地裂、典韦的巨石、赵云的白龙、遗计锦囊
     hook: null, rootT: 0, chains: [], flails: [], lanterns: [], tides: [], pools: [], kites: [], decoys: [], // 董卓的铁链、大乔的莲灯和潮水、小乔的纸鸢、蝶影分身
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
     spawnAcc: {}, evIdx: 0, defeated: [],
@@ -901,6 +905,11 @@ function onBuildingDestroyed(e) {
   if (rw.type === 'recruit') addAllies(rw.ally, rw.count);
   else if (rw.type === 'feast') { recomputeStats(); p.hp = p.maxHp; embers(p.x, p.y, 20, '140,240,160', 60, 100, 7, 1); }
   else if (rw.type === 'forge') S.forgeReady++;
+  else if (rw.type === 'general') { // 西凉营地：攻破后马超从营中杀出
+    S.specialDone[e.bid] = true; S.nextBossOk = Math.max(S.nextBossOk || 0, S.t + 5);
+    later(1.2, () => spawnBoss(rw.gid, false, e.x, e.y + 20));
+    msg = rw.msg;
+  }
   else if (rw.type === 'qiao') { // 乔府攻破：大乔从府中走出（击败大乔后小乔现身，见 onBossDeath）
     S.qiaoDone = true; S.nextBossOk = Math.max(S.nextBossOk || 0, S.t + 5);
     later(1.2, () => spawnBoss('daqiao', false, e.x, e.y + 20));
@@ -1311,6 +1320,14 @@ function placeBuilding(minD, maxD) {
 }
 
 // 乔府：放在你右下方（屏幕右下角再往外一点），什么时候去打都行
+// 西凉营地这类剧情据点：放在你身边某个方向（dx, dy），什么时候去打都行；打掉后记在 S.specialDone 里
+function placeSpecial(bid, dx, dy) {
+  if (S.specialDone[bid] || S.enemies.some(e => e.bid === bid && !e.dead)) return;
+  const p = S.player, e = spawnBuilding(bid, p.x + dx, p.y + dy), def = D.buildings[bid];
+  for (const o of S.enemies) if (o.building && o !== e && !o.def.special && dist2(o.x, o.y, e.x, e.y) < 420 * 420) o.dead = true; // 让开位置
+  const dir = (dx < 0 ? '西' : '东') + (dy < 0 ? '北' : '南'); // 西北、东南……
+  toast('building', bid, def.name, `就在${dir}方向，走近了才会动手`);
+}
 function placeQiaofu() {
   if (S.qiaoDone || S.enemies.some(e => e.bid === 'qiaofu' && !e.dead)) return;
   const p = S.player, e = spawnBuilding('qiaofu', p.x + 820, p.y + 560);
@@ -1320,6 +1337,7 @@ function placeQiaofu() {
 function runEvent(ev) {
   if (ev.type === 'boss') { spawnBoss(ev.id, ev.final); return; }
   if (ev.type === 'qiaofu') { placeQiaofu(); return; }
+  if (ev.type === 'special') { placeSpecial(ev.bid, ev.dx, ev.dy); return; }
   if (ev.type === 'ambush') {
     const R = Math.min(W, H) / 2 / ZOOM + 90;
     for (let i = 0; i < ev.count; i++) {
@@ -1507,8 +1525,9 @@ function thrust(a, L, def) {
     if (along < -e.r || along > len + e.r || side > hw + e.r) return;
     hitEnemy(e, L.dmg, { kb: L.kb, kbAngle: a });
   });
-  const rgb = curEl ? D.elements[curEl].rgb : def.id === 'longdan' ? '220,235,255' : '235,215,170';
+  const rgb = curEl ? D.elements[curEl].rgb : def.rgb || (def.id === 'longdan' ? '220,235,255' : '235,215,170');
   S.effects.push({ kind: 'thrust', x: p.x, y: p.y - 10, a, len, w: L.width, life: 0.18, max: 0.18, rgb });
+  if (def.spark) S.effects.push({ kind: 'bolt', pts: zigzag([[p.x, p.y - 10], [p.x + ux * len, p.y - 10 + uy * len]], 18), life: 0.15, max: 0.15, rgb: '170,210,255', w: 3 }); // 虎头湛金枪：枪尖带雷光
   if (curEl) fxTex('thrust', p.x + ux * len * 0.5, p.y - 10 + uy * len * 0.5, { w: len, h: L.width * 1.6, rot: a, rgb, life: 0.2, a: 0.8, core: 0.4 });
   glint(p.x + ux * len, p.y - 10 + uy * len, 14, rgb, 0.12);
 }
@@ -1861,6 +1880,23 @@ function updateSkills(dt) {
         for (let i = 0; i < 10; i++) fxp({ type: 'fly', x: p.x, y: p.y - 20, vx: rand(-120, 120), vy: rand(-150, -30), drag: 2, life: 0.8, rgb: '215,180,255', size: rand(4, 7), rot: 0, seed: rand(0, 9) });
         break;
       }
+      case 'cavalryCharge': { // 铁骑：一队西凉铁骑英灵从你身后朝敌人冲阵
+        s.t -= dt; if (s.t > 0) break;
+        const tgt = densest(500); if (!tgt) { s.t = 0.3; break; }
+        s.t = L.cd * p.cdMul;
+        spiritRiders(p.x, p.y, angleTo(p.x, p.y, tgt.x, tgt.y), L.count, L.len * p.areaMul, L.w, L.dmg, L.speed, -160);
+        sfx('swing');
+        break;
+      }
+      case 'delayedBlast': { // 遗计：给附近最强的几个敌人贴上锦囊，片刻后炸开
+        s.t -= dt; if (s.t > 0) break;
+        const pool = []; near(p.x, p.y, 440, e => { if (!e.building && !e.dead && !S.marks.some(m => m.e === e)) pool.push(e); });
+        if (!pool.length) { s.t = 0.3; break; }
+        s.t = L.cd * p.cdMul;
+        pool.sort((a, b) => b.maxHp - a.maxHp);
+        for (const e of pool.slice(0, L.count)) S.marks.push({ e, x: e.x, y: e.y, until: S.t + L.delay, delay: L.delay, dmg: L.dmg, radius: L.radius * p.areaMul });
+        break;
+      }
       case 'levy': { // 黄巾号令：召来临时降卒
         s.t -= dt; if (s.t > 0) break;
         if (!nearest(p.x, p.y, 450)) { s.t = 0.25; break; }
@@ -2002,7 +2038,7 @@ function showUltCutin(e, u) {
   sfx('ult');
 }
 function tele(o) { o.max = o.life; S.teles.push(o); return o; }
-function ultDone(e, rest = 0.7) { e.ult = null; e.state = 'recover'; e.stateT = rest; e.mounted = false; e.whirl = false; e.leapH = 0; }
+function ultDone(e, rest = 0.7) { e.ult = null; e.state = 'recover'; e.stateT = rest; e.mounted = false; e.whirl = false; e.leapH = 0; e.skyHidden = false; }
 // 点到线段的距离（直线攻击判定）
 function segDist(px, py, x, y, a, len) {
   const ux = Math.cos(a), uy = Math.sin(a), t = clamp((px - x) * ux + (py - y) * uy, 0, len);
@@ -2560,6 +2596,137 @@ function runUlt(e, dt) {
       ultDone(e, 0.6);
       break;
     }
+    // —— 马超 ——
+    // 西凉铁骑：你身边铺开几条平行的冲锋道，一条接一条冲过一队铁骑英灵，只有一条是空的
+    case 'cavalryLanes': {
+      if (U.phase === 0) {
+        const a = rand(0, TAU), n = u.lanes, safe = Math.floor(Math.random() * n), cx = p.x, cy = p.y, ux = Math.cos(a), uy = Math.sin(a);
+        let k = 0;
+        for (let i = 0; i < n; i++) {
+          if (i === safe) continue;
+          const off = (i - (n - 1) / 2) * u.laneW, lx = cx - uy * off, ly = cy + ux * off, sx = lx - ux * u.span / 2, sy = ly - uy * u.span / 2, wait = u.tele + k * u.gap;
+          tele({ kind: 'line', x: sx, y: sy, a, len: u.span, w: u.laneW * 0.9, life: wait, rgb });
+          later(wait, () => { for (let r = 0; r < u.riders; r++) S.riders.push({ x: sx - ux * r * 95, y: sy - uy * r * 95 + rand(-12, 12), a, speed: u.speed, left: u.span + u.riders * 95 + 200, hostile: true, dmg: DMG(u.dmg), w: u.laneW * 0.7, hit: false, seed: rand(0, 9) }); sfx('swing'); });
+          k++;
+        }
+        e.mounted = true; U.t = u.tele + k * u.gap + 0.9; U.phase = 1;
+        say(e, '“铁骑——冲阵！”');
+      } else if (U.t <= 0) ultDone(e, 0.6);
+      break;
+    }
+    // 锦马环骑：马超骑着马绕你跑一圈，身后留下一圈银蓝雷火把你圈住，再从圈外三次冲过圈心
+    case 'ringRide': {
+      const R = u.ringR;
+      if (U.phase === 0) { U.cx = p.x; U.cy = p.y; U.a0 = angleTo(p.x, p.y, e.x, e.y); U.phase = 1; U.t = u.rideT; e.mounted = true; tele({ kind: 'ring', x: U.cx, y: U.cy, r: R, life: u.rideT, rgb }); }
+      if (U.phase === 1) {
+        const f = clamp(1 - U.t / u.rideT, 0, 1), a = U.a0 + f * TAU;
+        e.x = U.cx + Math.cos(a) * R; e.y = U.cy + Math.sin(a) * R;
+        fxp({ type: 'spark', x: e.x + rand(-10, 10), y: e.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-90, -20), drag: 2, life: 0.5, rgb: '190,220,255', size: 2 });
+        if (U.t <= 0) { S.pools.push({ kind: 'firering', x: U.cx, y: U.cy, R, band: 38, born: S.t, until: S.t + u.burn, dmg: DMG(0.55), tick: 0 }); U.phase = 2; U.k = 0; U.t = 0.15; sfx('slam'); }
+      } else if (U.phase === 2 && U.t <= 0) {
+        if (U.k >= u.dashes) { e.mounted = false; ultDone(e, 0.6); break; }
+        U.da = angleTo(e.x, e.y, p.x, p.y); U.trav = 0; U.hit = false;
+        tele({ kind: 'line', x: e.x, y: e.y, a: U.da, len: R * 2 + 40, w: u.w, life: u.tele, rgb });
+        U.phase = 3; U.t = u.tele;
+      } else if (U.phase === 3) {
+        if (U.t <= 0) U.phase = 4;
+      } else if (U.phase === 4) {
+        const st = u.dashSpeed * dt; e.x += Math.cos(U.da) * st; e.y += Math.sin(U.da) * st; U.trav += st;
+        if (!U.hit && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r + u.w * 0.3) ** 2) { U.hit = true; hurtPlayer(DMG(u.dmg)); p.kvx += Math.cos(U.da) * 600; p.kvy += Math.sin(U.da) * 600; }
+        if (Math.random() < 0.8) fxp({ type: 'spark', x: e.x, y: e.y - 10, vx: -Math.cos(U.da) * 200, vy: -Math.sin(U.da) * 200, drag: 3, life: 0.35, rgb: '200,225,255', size: 2.4 });
+        if (U.trav >= R * 2 + 40) { U.k++; U.phase = 2; U.t = 0.12; }
+      }
+      break;
+    }
+    // 神威天降：马超跃上半空，三杆雷枪接连砸向你的位置，每一杆落地都向八方炸出雷光
+    case 'skyLance': {
+      e.skyHidden = U.t > -0.6 || U.k < u.count; // 跃上半空（落地前一刻才现身）
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0.25; }
+      if (U.phase === 1 && U.t <= 0 && U.k < u.count) {
+        const x = p.x, y = p.y, r = u.lanceR * Math.min(A, 1.3), off = rand(0, TAU);
+        tele({ kind: 'circle', x, y, r, life: u.tele, rgb });
+        later(u.tele, () => {
+          if (dist2(x, y, p.x, p.y) < (r + p.r) ** 2) hurtPlayer(DMG(u.dmg));
+          fxTex('pillar', x, y - 220, { w: r * 1.2, h: 480, rgb, life: 0.35, sx: 0.35, core: 0.9 });
+          S.effects.push({ kind: 'bolt', pts: zigzag([[x + rand(-40, 40), y - 420], [x, y]], 20), life: 0.3, max: 0.3, rgb: '200,225,255', w: 7 });
+          impact(x, y, r, rgb, 1); groundImpact(x, y, r * 1.2);
+          S.shake = Math.max(S.shake, 14); punch(0.5); sfx('slam');
+          for (let i = 0; i < u.rays; i++) { // 八方雷光：先亮预警线，0.45 秒后劈下
+            const a = off + i / u.rays * TAU;
+            tele({ kind: 'line', x, y, a, len: u.rayLen, w: u.rayW, life: 0.45, rgb });
+            later(0.45, () => {
+              if (segDist(p.x, p.y, x, y, a, u.rayLen) < u.rayW / 2 + p.r) hurtPlayer(DMG(u.dmg * 0.6));
+              S.effects.push({ kind: 'bolt', pts: zigzag([[x, y - 8], [x + Math.cos(a) * u.rayLen, y - 8 + Math.sin(a) * u.rayLen]], 22), life: 0.22, max: 0.22, rgb: '190,215,255', w: 4 });
+            });
+          }
+        });
+        U.lx = x; U.ly = y; U.k++; U.t = u.tele + 0.3;
+      }
+      if (U.k >= u.count && U.t <= -0.9) { e.x = U.lx; e.y = U.ly + 60; e.skyHidden = false; groundImpact(e.x, e.y, 160); ultDone(e, 0.8); }
+      break;
+    }
+    // —— 郭嘉 ——
+    // 十胜十败：你脚下铺开一张棋盘，黑格白格轮流炸开鬼火——每一轮都得挪到另一种颜色的格子上
+    case 'chessBoard': {
+      S.boards.push({ x: p.x, y: p.y, n: u.n, cell: u.cell, rounds: u.rounds + (e.enraged ? 1 : 0), round: 0, tele: u.tele, gap: u.gap, t: u.tele, state: 'warn', parity: Math.random() < 0.5 ? 0 : 1, dmg: DMG(u.dmg), hostile: true, born: S.t });
+      say(e, '“落子无悔。”');
+      ultDone(e, 0.6);
+      break;
+    }
+    // 料敌先机：一个接一个的鬼火落点，砸向你「接下来要走到」的地方——别一直往一个方向跑
+    case 'predictStrike': {
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0; }
+      if (U.t <= 0 && U.k < u.count + (e.enraged ? 2 : 0)) {
+        let dx = (S.pvx || 0) * u.lead, dy = (S.pvy || 0) * u.lead; const L = Math.hypot(dx, dy); if (L > 320) { dx *= 320 / L; dy *= 320 / L; }
+        addHazard(p.x + dx, p.y + dy, u.strikeR * Math.min(A, 1.3), u.tele, DMG(u.dmg), rgb, { wisp: true, eye: true });
+        U.k++; U.t = u.gap;
+      }
+      if (U.k >= u.count + (e.enraged ? 2 : 0) && U.t <= 0) ultDone(e, 0.5);
+      break;
+    }
+    // 鬼谋迷雾：四下一片漆黑，只看得见身边一小圈；鬼火从黑暗里飘出来找你
+    case 'mistVeil': {
+      S.mist = { boss: e, born: S.t, until: S.t + u.dur, sight: u.sight, left: u.wisps, spawnT: 0.4, gap: (u.dur - 1) / u.wisps, dmg: DMG(u.dmg) };
+      ultDone(e, 0.5);
+      break;
+    }
+    // —— 张飞 ——
+    // 喝断长坂：连跺三脚，每一脚都让地面沿五个方向裂开，地裂从脚下一路撕到远处
+    case 'quakeLines': {
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0.1; }
+      if (U.t <= 0 && U.k < u.stomps) {
+        const base = angleTo(e.x, e.y, p.x, p.y) + (U.k % 2 ? Math.PI / u.lines : 0), x = e.x, y = e.y;
+        for (let i = 0; i < u.lines; i++) {
+          const a = base + i / u.lines * TAU;
+          tele({ kind: 'line', x, y, a, len: u.len, w: u.w, life: u.tele, rgb });
+          later(u.tele, () => S.quakes.push({ x, y, a, len: u.len, w: u.w, d: 0, speed: u.speed, dmg: DMG(u.dmg), hit: false, linger: 0.6, rocks: [] }));
+        }
+        groundImpact(x, y + e.r * 0.5, 160); S.shake = Math.max(S.shake, 10); punch(0.3); sfx('slam');
+        U.k++; U.t = u.gap;
+      }
+      if (U.k >= u.stomps && U.t <= -0.3) ultDone(e, 0.6);
+      break;
+    }
+    // —— 典韦 ——
+    // 力拔千钧：典韦抱起几块巨石砸出去，石头满地乱滚，撞到屏幕边上还会弹回来
+    case 'boulders': {
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0.15; }
+      if (U.t <= 0 && U.k < u.count) {
+        const a = angleTo(e.x, e.y, p.x, p.y) + (U.k - (u.count - 1) / 2) * 0.38, x = e.x, y = e.y, r = u.rockR * Math.min(A, 1.25);
+        tele({ kind: 'line', x, y, a, len: 900, w: r * 2, life: u.tele, rgb });
+        later(u.tele, () => { S.boulders.push({ x, y, vx: Math.cos(a) * u.speed, vy: Math.sin(a) * u.speed, r, bounces: u.bounces, life: 5, dmg: DMG(u.dmg), hitT: 0, rot: 0 }); groundImpact(x, y, 90); sfx('slam'); });
+        U.k++; U.t = u.gap;
+      }
+      if (U.k >= u.count && U.t <= -u.tele) ultDone(e, 0.6);
+      break;
+    }
+    // —— 赵云 ——
+    // 白龙盘枪：一条白龙绕着你盘成一圈、越收越紧（龙身上留着一道缺口），最后龙头掉转，一头扎穿圈心
+    case 'dragonCoil': {
+      S.coils.push({ x: p.x, y: p.y, R0: u.coilR0, R1: u.coilR1, t: 0, T: u.coilT, body: u.body, a0: rand(0, TAU), dive: u.dive, diveW: u.diveW, dmg: DMG(u.dmg), state: 'coil', hitT: 0 });
+      ultDone(e, 0.6);
+      break;
+    }
     default: ultDone(e);
   }
 }
@@ -2650,7 +2817,7 @@ function updateBossFx(dt) {
       o.tick -= dt;
       if (o.tick <= 0 && d < o.coreR + p.r) { o.tick = 0.45; hurtPlayer(o.dmg); }
       if (Math.random() < 0.7) { const a = rand(0, TAU), r = R * rand(0.3, 1); fxp({ type: 'spark', x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r * 0.7, vx: -Math.sin(a) * 160, vy: Math.cos(a) * 110, drag: 2, life: 0.5, rgb: '170,240,235', size: 1.6 }); }
-    } else { // bring
+    } else if (o.kind === 'bring') { // 蝶环
       const t = Math.max(0, age - o.arm), f = Math.min(1, t / o.dur), R = o.R0 + (o.R1 - o.R0) * f * f * (3 - 2 * f);
       o.R = R; o.rot += o.spin * dt;
       if (age > o.arm && Math.abs(d - R) < 16 + p.r) {
@@ -2699,6 +2866,199 @@ function updateBossFx(dt) {
     o.dead = true;
   }
   S.decoys = S.decoys.filter(o => !o.dead);
+  updateBossFx2(dt);
+}
+// 马超的铁骑、郭嘉的棋盘和迷雾、张飞的地裂、典韦的巨石、赵云的白龙、遗计锦囊（敌我都用得上的几样带 hostile 标记）
+function updateBossFx2(dt) {
+  const p = S.player;
+  // 玩家的移动速度（郭嘉「料敌先机」用来预判）
+  if (S.plx !== undefined && dt > 0) { const vx = (p.x - S.plx) / dt, vy = (p.y - S.ply) / dt; S.pvx = (S.pvx || 0) * 0.85 + vx * 0.15; S.pvy = (S.pvy || 0) * 0.85 + vy * 0.15; }
+  S.plx = p.x; S.ply = p.y;
+  // 铁骑英灵：沿直线冲过去；敌方的撞你，我方的撞敌人
+  for (const r of S.riders) {
+    const st = r.speed * dt, ux = Math.cos(r.a), uy = Math.sin(r.a);
+    r.x += ux * st; r.y += uy * st; r.left -= st;
+    if (r.hostile) {
+      if (!r.hit && dist2(r.x, r.y, p.x, p.y) < (r.w / 2 + p.r) ** 2) { r.hit = true; hurtPlayer(r.dmg); p.kvx += ux * 700; p.kvy += uy * 700; }
+    } else {
+      near(r.x, r.y, r.w + 48, e => { if (r.hitSet.has(e.id) || dist2(r.x, r.y, e.x, e.y) > (r.w / 2 + e.r) ** 2) return; r.hitSet.add(e.id); hitEnemy(e, r.dmg, { kb: 320, kbAngle: r.a, quiet: true }); });
+    }
+    if (Math.random() < 0.7) fxp({ type: 'dust', x: r.x + rand(-10, 10), y: r.y + 10, vx: -ux * 120, vy: -uy * 120, drag: 3, grow: 24, life: 0.45, rgb: '120,110,96', size: rand(8, 12) });
+    if (Math.random() < 0.5) fxp({ type: 'spark', x: r.x + rand(-14, 14), y: r.y - rand(10, 40), vx: -ux * 260, vy: -uy * 260, drag: 3, life: 0.3, rgb: '190,215,255', size: 2 });
+    if (r.left <= 0) r.dead = true;
+  }
+  S.riders = S.riders.filter(r => !r.dead);
+  // 雷火圈（锦马环骑）：圈住你，碰到圈就挨烧
+  for (const o of S.pools) {
+    if (o.kind !== 'firering') continue;
+    if (S.t > o.until) { o.dead = true; continue; }
+    const d = Math.sqrt(dist2(p.x, p.y, o.x, o.y));
+    o.tick -= dt;
+    if (o.tick <= 0 && Math.abs(d - o.R) < o.band / 2 + p.r) { o.tick = 0.4; hurtPlayer(o.dmg); }
+    if (Math.random() < 0.9) { const a = rand(0, TAU); fxp({ type: 'ember', x: o.x + Math.cos(a) * o.R, y: o.y + Math.sin(a) * o.R, vx: 0, vy: rand(-80, -30), drag: 1, life: 0.5, rgb: Math.random() < 0.5 ? '160,200,255' : '230,240,255', size: rand(6, 11) }); }
+  }
+  S.pools = S.pools.filter(o => !o.dead);
+  // 棋盘：一种颜色的格子先亮预警，再炸开鬼火；下一轮换另一种颜色
+  for (const b of S.boards) {
+    b.t -= dt;
+    if (b.t > 0) continue;
+    if (b.state === 'warn') {
+      const half = b.n * b.cell / 2, x0 = b.x - half, y0 = b.y - half;
+      const cellOf = (x, y) => { const i = Math.floor((x - x0) / b.cell), j = Math.floor((y - y0) / b.cell); return i >= 0 && j >= 0 && i < b.n && j < b.n && (i + j) % 2 === b.parity; };
+      if (b.hostile) { if (cellOf(p.x, p.y)) hurtPlayer(b.dmg); }
+      else near(b.x, b.y, half * 1.5, e => { if (!e.building && cellOf(e.x, e.y)) hitEnemy(e, b.dmg, { kb: 60, quiet: true }); });
+      for (let i = 0; i < b.n; i++) for (let j = 0; j < b.n; j++) if ((i + j) % 2 === b.parity) {
+        const cx = x0 + (i + 0.5) * b.cell, cy = y0 + (j + 0.5) * b.cell;
+        fxTex('burst', cx, cy - b.cell * 0.2, { w: b.cell * 1.3, h: b.cell * 1.3, rgb: '110,240,200', life: 0.3, grow: 1.3, rot: rand(0, TAU), core: 0.2, a: 0.6 });
+        if (Math.random() < 0.5) fxp({ type: 'ember', x: cx, y: cy - 10, vx: 0, vy: rand(-120, -60), drag: 1, life: 0.6, rgb: '110,240,200', size: rand(8, 12) });
+      }
+      S.shake = Math.max(S.shake, b.hostile ? 7 : 3); sfx('slam');
+      b.round++; b.parity ^= 1; b.state = 'gap'; b.t = b.gap;
+      if (b.round >= b.rounds) b.dead = true;
+    } else { b.state = 'warn'; b.t = b.tele; }
+  }
+  S.boards = S.boards.filter(b => !b.dead);
+  // 地裂（喝断长坂）：从脚下往外撕开，沿路冒出碎石
+  for (const q of S.quakes) {
+    if (q.d < q.len) {
+      q.d = Math.min(q.len, q.d + q.speed * dt);
+      const hx = q.x + Math.cos(q.a) * q.d, hy = q.y + Math.sin(q.a) * q.d;
+      if (!q.hit && segDist(p.x, p.y, q.x, q.y, q.a, q.d) < q.w / 2 + p.r) { q.hit = true; hurtPlayer(q.dmg); p.kvx += Math.cos(q.a + Math.PI / 2) * 300; p.kvy += Math.sin(q.a + Math.PI / 2) * 300; }
+      if (q.rocks.length < 40) q.rocks.push({ x: hx + rand(-q.w, q.w) * 0.3, y: hy + rand(-q.w, q.w) * 0.3, s: rand(8, 16), t: S.t });
+      for (let k = 0; k < 2; k++) particle(hx, hy, '#7a6a52', 260);
+    } else { q.linger -= dt; if (q.linger <= 0) q.dead = true; }
+  }
+  S.quakes = S.quakes.filter(q => !q.dead);
+  // 巨石：一路滚，碰到屏幕边就弹回来
+  const vw = W / ZOOM / 2, vh = H / ZOOM / 2;
+  for (const b of S.boulders) {
+    b.x += b.vx * dt; b.y += b.vy * dt; b.rot += Math.hypot(b.vx, b.vy) / b.r * dt; b.life -= dt;
+    if (b.bounces > 0) {
+      if ((b.x - S.camX > vw - b.r && b.vx > 0) || (b.x - S.camX < -vw + b.r && b.vx < 0)) { b.vx = -b.vx; b.bounces--; groundImpact(b.x, b.y + b.r * 0.6, 80); S.shake = Math.max(S.shake, 6); }
+      if ((b.y - S.camY > vh - b.r && b.vy > 0) || (b.y - S.camY < -vh + b.r && b.vy < 0)) { b.vy = -b.vy; b.bounces--; groundImpact(b.x, b.y + b.r * 0.6, 80); S.shake = Math.max(S.shake, 6); }
+    }
+    if (S.t > b.hitT && dist2(b.x, b.y, p.x, p.y) < (b.r + p.r) ** 2) { b.hitT = S.t + 0.6; hurtPlayer(b.dmg); const a = angleTo(b.x, b.y, p.x, p.y); p.kvx += Math.cos(a) * 700; p.kvy += Math.sin(a) * 700; }
+    if (Math.random() < 0.6) fxp({ type: 'dust', x: b.x + rand(-b.r, b.r) * 0.5, y: b.y + b.r * 0.7, vx: -b.vx * 0.2, vy: -b.vy * 0.2, drag: 3, grow: 28, life: 0.5, rgb: '120,100,72', size: rand(10, 16) });
+    if (b.life <= 0) b.dead = true;
+  }
+  S.boulders = S.boulders.filter(b => !b.dead);
+  // 白龙盘枪：龙身是一圈（留一道缺口），慢慢收紧；最后龙头掉转扎穿圈心
+  for (const c of S.coils) {
+    c.t += dt;
+    if (c.state === 'coil') {
+      const f = Math.min(1, c.t / c.T);
+      c.R = c.R0 + (c.R1 - c.R0) * f * f * (3 - 2 * f); c.head = c.a0 + f * TAU * 1.5;
+      c.pts = coilPts(c);
+      if (S.t > c.hitT && c.pts.some(q => dist2(q[0], q[1], p.x, p.y) < (c.body * 0.8 + p.r) ** 2)) { c.hitT = S.t + 0.5; hurtPlayer(c.dmg); }
+      if (f >= 1) { // 掉头：从龙头的位置穿过你现在站的地方
+        const [hx, hy] = c.pts[0]; c.da = angleTo(hx, hy, p.x, p.y); c.dx = hx; c.dy = hy; c.state = 'aim'; c.t = 0;
+        tele({ kind: 'line', x: hx, y: hy, a: c.da, len: c.R * 2 + 500, w: c.diveW, life: c.dive, rgb: '220,235,255' });
+      }
+    } else if (c.state === 'aim') {
+      if (c.t >= c.dive) { c.state = 'dive'; c.t = 0; c.hit = false; c.trail = c.pts.slice(); }
+    } else {
+      const d = c.t * 1800, hx = c.dx + Math.cos(c.da) * d, hy = c.dy + Math.sin(c.da) * d;
+      c.trail.unshift([hx, hy]); if (c.trail.length > 26) c.trail.pop();
+      if (!c.hit && dist2(hx, hy, p.x, p.y) < (c.diveW / 2 + p.r) ** 2) { c.hit = true; hurtPlayer(c.dmg * 1.4); }
+      if (d > c.R * 2 + 500) c.dead = true;
+    }
+  }
+  S.coils = S.coils.filter(c => !c.dead);
+  // 遗计锦囊：贴在敌人身上，到时炸开
+  for (const m of S.marks) {
+    if (!m.e.dead) { m.x = m.e.x; m.y = m.e.y; }
+    if (S.t < m.until) continue;
+    hitCircle(m.x, m.y, m.radius, m.dmg, 140);
+    fxTex('burst', m.x, m.y - 20, { w: m.radius * 2.2, h: m.radius * 2.2, rgb: '110,240,200', life: 0.35, grow: 1.4, rot: rand(0, TAU) });
+    fxTex('ring', m.x, m.y, { w: m.radius * 0.8, h: m.radius * 0.8, rgb: '160,255,220', under: true, flat: 0.6, life: 0.4, grow: 2.4, core: 0.3 });
+    for (let i = 0; i < 6; i++) fxp({ type: 'ember', x: m.x, y: m.y - 20, vx: rand(-160, 160), vy: rand(-220, -40), drag: 2, life: 0.6, rgb: '110,240,200', size: rand(8, 12) });
+    sfx('slam'); m.dead = true;
+  }
+  S.marks = S.marks.filter(m => !m.dead);
+  // 鬼谋迷雾：鬼火从黑暗里飘出来找你
+  const M = S.mist;
+  if (M) {
+    if (S.t > M.until || M.boss.dead) S.mist = null;
+    else if (M.left > 0 && (M.spawnT -= dt) <= 0) {
+      M.spawnT = M.gap; M.left--;
+      const a = rand(0, TAU), d = 420;
+      S.eproj.push({ kind: 'wisp', x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d, vx: -Math.cos(a) * 140, vy: -Math.sin(a) * 140, r: 12, dmg: M.dmg, life: 5, seek: 1.4, spin: rand(0, TAU) });
+    }
+  }
+}
+// 我方的铁骑英灵：从 (x, y) 往 a 方向排成一排冲过去；back 是起点往后退多少（从身后冲出来）
+function spiritRiders(x, y, a, n, len, w, dmg, speed, back) {
+  const ux = Math.cos(a), uy = Math.sin(a);
+  for (let i = 0; i < n; i++) {
+    const off = (i - (n - 1) / 2) * w * 0.8, sx = x - uy * off + ux * back, sy = y + ux * off + uy * back;
+    S.riders.push({ x: sx - ux * i * 30, y: sy - uy * i * 30, a, speed, left: len, hostile: false, dmg, w, hitSet: new Set(), seed: rand(0, 9) });
+  }
+}
+// 白龙盘成一圈的身体：从龙头往后绕大约 300 度，留出一道缺口
+function coilPts(c) {
+  const pts = [], n = 26;
+  for (let j = 0; j < n; j++) { const a = c.head - j * 0.205, r = c.R * (1 + 0.04 * Math.sin(S.t * 8 + j * 0.6)); pts.push([c.x + Math.cos(a) * r, c.y + Math.sin(a) * r * 0.85]); }
+  return pts;
+}
+function drawBossFx2Under() {
+  for (const o of S.pools) { // 雷火圈
+    if (o.kind !== 'firering') continue;
+    const a = Math.min(1, (o.until - S.t) / 0.5, (S.t - o.born) / 0.2);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a;
+    ctx.strokeStyle = 'rgba(120,170,255,0.45)'; ctx.lineWidth = o.band * 1.6; ctx.beginPath(); ctx.arc(o.x, o.y, o.R, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = `rgba(230,240,255,${0.6 + 0.3 * Math.sin(S.t * 22)})`; ctx.lineWidth = o.band * 0.35; ctx.beginPath(); ctx.arc(o.x, o.y, o.R, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+  for (const b of S.boards) { // 棋盘：格线 + 将要炸开的格子发青光
+    const half = b.n * b.cell / 2, x0 = b.x - half, y0 = b.y - half, warn = b.state === 'warn', pr = warn ? 1 - b.t / b.tele : 0, blink = 0.6 + 0.4 * Math.sin(S.t * (14 + pr * 26));
+    const fade = Math.min(1, (S.t - b.born) / 0.3);
+    ctx.save(); ctx.globalAlpha = fade;
+    for (let i = 0; i < b.n; i++) for (let j = 0; j < b.n; j++) {
+      const x = x0 + i * b.cell, y = y0 + j * b.cell, bad = warn && (i + j) % 2 === b.parity;
+      ctx.fillStyle = bad ? `rgba(20,90,80,${0.35 + 0.35 * pr})` : 'rgba(230,245,240,0.10)';
+      ctx.fillRect(x + 2, y + 2, b.cell - 4, b.cell - 4);
+      if (bad) { ctx.strokeStyle = `rgba(110,240,200,${0.7 * blink})`; ctx.lineWidth = 2.5; ctx.strokeRect(x + 4, y + 4, b.cell - 8, b.cell - 8); FX.wisp(ctx, x + b.cell / 2, y + b.cell * 0.62, b.cell * 0.12 * (0.6 + 0.6 * pr), S.t + i + j, 0.8); }
+    }
+    ctx.strokeStyle = 'rgba(200,240,230,0.35)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0, y0, half * 2, half * 2);
+    ctx.restore();
+  }
+  for (const q of S.quakes) { // 地裂：一道发着暗红火光的裂缝，沿路翘起碎石
+    const a = q.d < q.len ? 1 : Math.max(0, q.linger / 0.6), ex = q.x + Math.cos(q.a) * q.d, ey = q.y + Math.sin(q.a) * q.d;
+    ctx.save(); ctx.globalAlpha = a; ctx.lineCap = 'round';
+    ctx.strokeStyle = 'rgba(20,12,8,0.85)'; ctx.lineWidth = q.w * 0.35; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = 'rgba(255,120,50,0.55)'; ctx.lineWidth = q.w * 0.12; ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(ex, ey); ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
+    for (const r of q.rocks) { const k = Math.min(1, (S.t - r.t) / 0.15); ctx.fillStyle = '#6e5e48'; ctx.strokeStyle = '#2a2018'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(r.x - r.s * 0.6, r.y + 4); ctx.lineTo(r.x, r.y - r.s * 1.6 * k); ctx.lineTo(r.x + r.s * 0.6, r.y + 4); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+    ctx.restore();
+  }
+}
+function drawBossFx2() {
+  for (const r of S.riders) { // 铁骑英灵：半透明的骑兵，外面一层银蓝光
+    const spr = unitSprite('cavalry', D.enemies.cavalry.look, 62, false, D.enemies.cavalry.mount || '#5a3a24');
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, r.x, r.y - 26, 60, r.hostile ? '120,170,255' : '255,215,130', 0.55); ctx.restore();
+    ctx.globalAlpha = 0.85; drawUnit(spr, r.x, r.y, 16, Math.cos(r.a) >= 0 ? 1 : -1, Math.sin(S.t * 30 + r.seed) * 2); ctx.globalAlpha = 1;
+  }
+  for (const b of S.boulders) FX.rock(ctx, b.x, b.y - b.r * 0.3, b.r, b.rot);
+  for (const c of S.coils) { // 白龙
+    const pts = c.state === 'dive' ? c.trail : c.pts; if (!pts || pts.length < 4) continue;
+    FX.dragon(ctx, pts, { rgb: '235,245,255', a: 1, w: c.body, head: window.Assets.get('fx:dragon_white'), t: S.t, core: '255,255,255' });
+  }
+  for (const m of S.marks) { // 锦囊：敌人头顶一个青色的「计」字，外面一圈倒计时
+    const k = Math.max(0, (m.until - S.t) / m.delay), y = m.y - 46;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, m.x, y, 26, '110,240,200', 0.6); ctx.restore();
+    ctx.strokeStyle = 'rgba(160,255,220,0.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(m.x, y, 15, -Math.PI / 2, -Math.PI / 2 + TAU * k); ctx.stroke();
+    ctx.font = `700 15px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#e8fff8'; ctx.fillText('计', m.x, y + 1); ctx.textBaseline = 'alphabetic';
+  }
+}
+// 鬼谋迷雾：在屏幕上盖一层黑雾，只留你身边一圈；黑雾上面再把鬼火画亮，看得见它们飘过来
+function drawMist() {
+  const M = S.mist; if (!M) return;
+  const p = S.player, a = Math.min(1, (S.t - M.born) / 0.5, (M.until - S.t) / 0.5);
+  const sx = W / 2 + (p.x - S.camX) * ZOOM, sy = H / 2 + (p.y - 20 - S.camY) * ZOOM, r = M.sight * ZOOM;
+  const g = ctx.createRadialGradient(sx, sy, r * 0.6, sx, sy, r * 1.25);
+  g.addColorStop(0, 'rgba(4,10,10,0)'); g.addColorStop(1, `rgba(4,10,10,${0.93 * a})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  for (const b of S.eproj) if (b.kind === 'wisp') FX.wisp(ctx, W / 2 + (b.x - S.camX) * ZOOM, H / 2 + (b.y - S.camY) * ZOOM, b.r * ZOOM, S.t + b.spin, 1);
 }
 // 地面一层：漩涡、蝶环、潮水、纸鸢的影子、蝶影分身
 function drawBossFxUnder() {
@@ -2875,7 +3235,7 @@ function updateBoss(e, dt) {
         const v = g.volley, n = v.count + (e.enraged ? 2 : 0), spread = v.spread * (n / v.count);
         for (let i = 0; i < n; i++) {
           const a = toP + (n > 1 ? (i / (n - 1) - 0.5) * spread : 0);
-          const kind = v.petal ? 'petal' : v.ice ? 'icicle' : v.fan ? 'fan' : v.lantern ? 'lantern' : v.butterfly ? 'butterfly' : undefined; // 女将：花瓣 / 冰棱 / 飞扇 / 莲灯 / 蝴蝶
+          const kind = v.petal ? 'petal' : v.ice ? 'icicle' : v.fan ? 'fan' : v.lantern ? 'lantern' : v.butterfly ? 'butterfly' : v.wisp ? 'wisp' : undefined; // 女将：花瓣 / 冰棱 / 飞扇 / 莲灯 / 蝴蝶
           S.eproj.push({ kind, x: e.x, y: e.y - 14, vx: Math.cos(a) * v.speed, vy: Math.sin(a) * v.speed, r: v.big ? 10 : kind ? 9 : 6, big: v.big, dmg: v.dmg * e.dmg / g.dmg, life: 2.6, spin: rand(0, TAU), spinRate: kind === 'fan' ? 16 : kind === 'petal' ? 5 : 0, chill: v.ice ? 1.2 : 0 });
         }
         if (v.petal) petals(e.x, e.y - 20, 10, 140);
@@ -2971,7 +3331,7 @@ function startBossAttack(e) {
     const m = g.meteor, n = m.count + (e.enraged ? 3 : 0), spread = 160 * (g.aoe || 1);
     for (let i = 0; i < n; i++) {
       const ox = i ? rand(-spread, spread) : 0, oy = i ? rand(-spread, spread) : 0;
-      S.hazards.push({ x: p.x + ox, y: p.y + oy, r: m.radius, t: m.delay + i * 0.08, max: m.delay + i * 0.08, dmg: m.dmg * e.dmg / g.dmg, rgb: m.rgb, bolt: m.bolt, petal: m.petal, ice: m.ice, page: m.page, water: m.water, kite: m.kite });
+      S.hazards.push({ x: p.x + ox, y: p.y + oy, r: m.radius, t: m.delay + i * 0.08, max: m.delay + i * 0.08, dmg: m.dmg * e.dmg / g.dmg, rgb: m.rgb, bolt: m.bolt, petal: m.petal, ice: m.ice, page: m.page, water: m.water, kite: m.kite, wisp: m.wisp });
     }
     e.state = 'recover'; e.stateT = 0.6;
   }
@@ -2999,7 +3359,7 @@ function updateEnemies(dt) {
         const o = list[i];
         if (o.el !== undefined) continue;
         o.el = atkEl;
-        if (list === S.hazards && !o.ice && !o.petal && !o.page && !o.water && !o.kite) o.rgb = D.elements[atkEl].rgb; // 落点换成属性色
+        if (list === S.hazards && !o.ice && !o.petal && !o.page && !o.water && !o.kite && !o.wisp) o.rgb = D.elements[atkEl].rgb; // 落点换成属性色
       }
       if (e.def.dragonTrail) recordTrail(e, e.x, e.y - e.r * 1.1, e.state === 'charge' || !!(e.ult && /Dash$/.test(e.ult.u.type) && e.ult.phase === 2), 22, 22);
     }
@@ -3066,7 +3426,7 @@ function updateBuilding(e, dt) {
   if (def.special) { // 乔府：不会因为走远而消失；有名将在场时府门紧闭；走近了才动手
     e.sealed = S.bossList.length > 0;
     if (e.sealed || d > def.aggroR) return;
-    if (!e.woke) { e.woke = true; toast('building', e.bid, '乔府警觉', '府中放出莲灯，弓手登上院墙'); }
+    if (!e.woke) { e.woke = true; toast('building', e.bid, def.wake ? def.wake[0] : `${def.name}警觉`, def.wake ? def.wake[1] : '守军出动'); }
   }
   if (d > 2600 && !def.special) { e.dead = true; return; }
   if (d > 750) return;
@@ -3216,6 +3576,7 @@ function updateProjectiles(dt) {
     else if (b.el) { if (Math.random() < 0.5) elTrail(b); }
     else if (b.kind === 'orb' && Math.random() < 0.6) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-15, 15), vy: rand(-15, 15), drag: 3, life: 0.35, rgb: '140,240,200', size: rand(5, 8) });
     else if (b.kind === 'butterfly' && Math.random() < 0.3) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-15, 15), vy: rand(-15, 15), drag: 3, life: 0.4, rgb: b.rgb || '210,170,255', size: rand(4, 7) });
+    else if (b.kind === 'wisp' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-10, 10), vy: rand(-40, -15), drag: 2, life: 0.4, rgb: '110,240,200', size: rand(5, 8) });
     else if (b.kind === 'lantern' && Math.random() < 0.3) fxp({ type: 'ember', x: b.x, y: b.y - 6, vx: 0, vy: rand(-30, -10), drag: 2, life: 0.5, rgb: '255,200,130', size: rand(4, 7) });
     else if (b.kind === 'bean' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-10, 10), vy: rand(-20, 0), drag: 3, life: 0.3, rgb: '255,210,90', size: rand(4, 6) });
     else if (b.kind === 'fire') {
@@ -3233,6 +3594,7 @@ function updateProjectiles(dt) {
           if (b.el) elBurst(b.el, b.x, b.y, R * 1.6);
           if (b.kind === 'bean') { sparks(b.x, b.y, 0, 10, '255,220,120', R * 6, Math.PI, 2.2); embers(b.x, b.y, 8, '255,200,90', R * 2, 30, 7, 0.5); }
           else if (b.kind === 'page') { pages(b.x, b.y, 6, R * 3, 6); sparks(b.x, b.y, 0, 8, '255,225,160', R * 5, Math.PI, 2); }
+          else if (b.kind === 'wisp') { fxTex('burst', b.x, b.y, { w: R * 2, h: R * 2, rgb: '110,240,200', life: 0.3, grow: 1.3, rot: rand(0, TAU), core: 0.2 }); }
           else if (b.kind === 'lantern') { // 莲灯：炸开一团水光；同心莲灯每炸一盏回一点血
             waterSplash(b.x, b.y, R);
             if (b.heal) { p.hp = Math.min(p.maxHp, p.hp + p.maxHp * b.heal); embers(p.x, p.y - 10, 4, '140,240,200', 50, 60, 6, 0.6); }
@@ -3262,7 +3624,7 @@ function updateProjectiles(dt) {
       S.effects.push({ kind: 'blast', x: h.x, y: h.y, r: h.r, life: 0.4, max: 0.4, enemy: true, rgb: h.rgb });
       fxTex('ring', h.x, h.y, { w: h.r * 2, h: h.r * 2, rgb: h.rgb || '255,140,60', under: true, life: 0.35, grow: 1.6, core: 0.4 });
       if (h.chainDrop) { darkBurst(h.x, h.y, h.r); S.shake = Math.max(S.shake, 6); h.dead = true; continue; }
-      if (h.petal || h.ice || h.page || h.water || h.kite) { // 女将的落点：樱花绽开 / 冰棱破地 / 书页炸散 / 水花 / 纸鸢
+      if (h.petal || h.ice || h.page || h.water || h.kite || h.wisp) { // 女将的落点：樱花绽开 / 冰棱破地 / 书页炸散 / 水花 / 纸鸢
         fxTex('burst', h.x, h.y - h.r * 0.2, { w: h.r * 2.2, h: h.r * 2.2, rgb: h.rgb, life: 0.35, grow: 1.4, rot: rand(0, TAU), core: 0.25, a: 0.55 });
         if (h.petal) petals(h.x, h.y - 10, 14, h.r * 3);
         else if (h.ice) {
@@ -3270,6 +3632,7 @@ function updateProjectiles(dt) {
           S.decals.push({ kind: 'frost', x: h.x, y: h.y, r: h.r, life: 2, max: 2 });
           if (S.decals.length > 16) S.decals.shift();
         } else if (h.water) waterSplash(h.x, h.y, h.r);
+        else if (h.wisp) for (let i = 0; i < 8; i++) fxp({ type: 'ember', x: h.x + rand(-h.r, h.r) * 0.4, y: h.y - 10, vx: rand(-60, 60), vy: rand(-200, -80), drag: 1.5, life: 0.7, rgb: '110,240,200', size: rand(8, 14) }); // 鬼火窜起
         else if (h.kite) for (let i = 0; i < 6; i++) fxp({ type: 'fly', x: h.x, y: h.y - 12, vx: rand(-180, 180), vy: rand(-200, 40), drag: 2.4, life: 0.8, rgb: '215,180,255', size: rand(5, 8), rot: rand(-0.5, 0.5), seed: rand(0, 9) });
         else { pages(h.x, h.y - 10, 10, h.r * 3); glint(h.x, h.y - 10, h.r * 0.8, '255,215,140', 0.25); }
         h.dead = true;
@@ -3313,6 +3676,7 @@ function updateProjectiles(dt) {
       }
     }
     if (b.wait > 0) { b.wait -= dt; if (b.wait <= 0) { b.vx = b.lvx; b.vy = b.lvy; } }
+    if (b.seek) { const sp = Math.hypot(b.vx, b.vy), a0 = Math.atan2(b.vy, b.vx), a = a0 + clamp(angDiff(a0, angleTo(b.x, b.y, p.x, p.y)), -b.seek * dt, b.seek * dt); b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; } // 鬼火：慢慢拐弯追你
     if (b.kind === 'butterfly') { const sp = Math.hypot(b.vx, b.vy), a = Math.atan2(b.vy, b.vx) + Math.sin(S.t * 9 + b.spin) * 2.6 * dt; b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp; } // 蝴蝶：飞得一扭一扭
     b.x += b.vx * dt; b.y += b.vy * dt;
     if (b.spinRate) b.spin += b.spinRate * dt;
@@ -3657,6 +4021,17 @@ function castShenbing(sb) {
         S.proj.push({ kind: 'lantern', x: p.x + Math.cos(b) * 20, y: p.y - 14, a: b, speed: 240, vx: 0, vy: 0, r: 11, dmg, pierce: 1, blast: def.radius, heal: def.heal, life: 4, hit: new Set(), homing: true, target: null, kb: 60, spin: rand(0, TAU) });
       }
       glint(p.x, p.y - 20, 30, '255,220,160', 0.25);
+      break;
+    }
+    case 'spiritCavalry': { // 虎头湛金枪：三队铁骑英灵从敌群中间穿阵而过
+      const a = angleTo(p.x, p.y, tgt.x, tgt.y), ux = Math.cos(a), uy = Math.sin(a);
+      for (let k = 0; k < def.count; k++) { const off = (k - (def.count - 1) / 2) * def.w; spiritRiders(tgt.x - uy * off - ux * def.len / 2, tgt.y + ux * off - uy * def.len / 2, a, 2, def.len, def.w, dmg, 1300, 0); }
+      S.effects.push({ kind: 'bolt', pts: zigzag([[p.x, p.y - 30], [tgt.x, tgt.y - 10]], 18), life: 0.25, max: 0.25, rgb: '190,215,255', w: 4 });
+      sfx('swing');
+      break;
+    }
+    case 'chessStrike': { // 鬼才棋局：敌群脚下摆开棋盘，两种颜色的格子轮流炸开鬼火
+      S.boards.push({ x: tgt.x, y: tgt.y, n: def.n, cell: def.cell * p.areaMul, rounds: 2, round: 0, tele: 0.45, gap: 0.12, t: 0.45, state: 'warn', parity: 0, dmg, hostile: false, born: S.t });
       break;
     }
     case 'butterflies': { // 流光蝶钗：一群流光蝶追咬敌人
@@ -4167,7 +4542,7 @@ function snapshot() {
   return {
     v: 1, saved: Date.now(), origin: S.origin.id, t: S.t, kills: S.kills,
     ch: S.ch, chStart: S.chStart, chapterT: S.chapterT, nextBossOk: S.nextBossOk, evIdx: S.evIdx,
-    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone, revived: !!S.revived, adGold: !!S.adGold,
+    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone, specialDone: S.specialDone, revived: !!S.revived, adGold: !!S.adGold,
     player: { level: p.level, xp: p.xp, hp: p.hp },
     weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
     passives: S.passives, elements: S.elements, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
@@ -4195,7 +4570,7 @@ function continueRun() {
   newState(r.origin);
   const p = S.player;
   for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
-    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'revived', 'adGold']) if (r[k] !== undefined) S[k] = r[k];
+    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'specialDone', 'revived', 'adGold']) if (r[k] !== undefined) S[k] = r[k];
   S.weapons = r.weapons.map(w => ({ id: w.id, lv: w.lv, t: 0.3 }));
   S.skills = r.skills.map(s => ({ id: s.id, lv: s.lv, t: 1 }));
   S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0 }));
@@ -4204,6 +4579,7 @@ function continueRun() {
   (r.allies || []).forEach(t => addAllies(t, 1));
   for (const b of r.bosses || []) { spawnBoss(b.gid, b.final); const e = S.bossList[S.bossList.length - 1]; e.hp = e.maxHp * b.hp; }
   if (!S.endless && !S.qiaoDone && D.chapters[S.ch].events.some((ev, i) => ev.type === 'qiaofu' && i < S.evIdx)) placeQiaofu(); // 乔府还没打：重新放回右下方
+  if (!S.endless) for (const [i, ev] of D.chapters[S.ch].events.entries()) if (ev.type === 'special' && i < S.evIdx) placeSpecial(ev.bid, ev.dx, ev.dy); // 西凉营地还没打：放回原来的方向
   S.seen = r.seen || S.seen;
   if (r.reward) { S.rewardReady = r.reward; S.rewardLegend = r.rewardLegend; }
   S.buildDirty = true; S.saveT = 15;
@@ -4859,6 +5235,7 @@ function drawTelegraphs() {
     else if (h.page) FX.page(ctx, h.x, h.y - (1 - prog) * 220, 10, Math.sin(S.t * 6 + h.x) * 0.4, Math.min(1, prog * 2), Math.cos(S.t * 9 + h.y)); // 书页从天上飘下
     else if (h.water) { ctx.strokeStyle = `rgba(200,255,250,${0.5 + 0.4 * prog})`; ctx.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const r = h.r * ((prog * 1.5 + k / 3) % 1); ctx.beginPath(); ctx.ellipse(h.x, h.y, r, r * 0.6, 0, 0, TAU); ctx.stroke(); } } // 水纹一圈圈荡开
     else if (h.kite) FX.kite(ctx, h.x, h.y - 30 - (1 - prog) * 260, 16, Math.sin(S.t * 3 + h.x) * 0.3, '200,150,255', Math.min(1, prog * 2)); // 纸鸢从天上俯冲下来
+    else if (h.wisp) { FX.wisp(ctx, h.x, h.y + 6, h.r * 0.22 * (0.4 + 0.6 * prog), S.t + h.x, 0.9); if (h.eye) { ctx.strokeStyle = `rgba(160,255,220,${0.5 + 0.4 * prog})`; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.ellipse(h.x, h.y - h.r * 0.55, h.r * 0.42, h.r * 0.18, 0, 0, TAU); ctx.stroke(); ctx.fillStyle = 'rgba(160,255,220,.8)'; ctx.beginPath(); ctx.arc(h.x, h.y - h.r * 0.55, h.r * 0.1, 0, TAU); ctx.fill(); } } // 鬼火慢慢长大；料敌先机的落点上睁开一只眼
     else if (h.chainDrop) FX.chain(ctx, h.x, h.y - 700, h.x, h.y - 20 - (1 - prog) * 480, { w: 8, hook: true, a: Math.min(1, prog * 2) }); // 铁链从天上垂下来
     ctx.globalAlpha = 1;
   }
@@ -5089,7 +5466,7 @@ function drawBuilding(e) {
   const top = footY - spr.h;
   headBar(e.x, top - 6, def.special ? 96 : 64, e.hp / e.maxHp, '#c9a046', def.name);
   if (def.special) { // 乔府：门前挂两盏灯笼；府门紧闭时罩一层淡金色的结界
-    if (!window.Assets.get('building:' + e.bid)) for (const s of [-1, 1]) FX.lantern(ctx, e.x + s * e.r * 0.62, footY - spr.h * 0.42 + Math.sin(S.t * 2 + s) * 2, 9, 0.9); // 美术图里已经画了灯笼
+    if (e.bid === 'qiaofu' && !window.Assets.get('building:' + e.bid)) for (const s of [-1, 1]) FX.lantern(ctx, e.x + s * e.r * 0.62, footY - spr.h * 0.42 + Math.sin(S.t * 2 + s) * 2, 9, 0.9); // 美术图里已经画了灯笼
     if (e.sealed) {
       ctx.strokeStyle = `rgba(255,215,130,${0.35 + 0.2 * Math.sin(S.t * 3)})`; ctx.lineWidth = 3; ctx.setLineDash([10, 8]);
       ctx.beginPath(); ctx.ellipse(e.x, footY - spr.h * 0.45, spr.w * 0.62, spr.h * 0.62, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
@@ -5131,6 +5508,7 @@ function drawEnemies() {
   }
   for (const e of S.bossList) {
     const g = e.def, h = e.r * 2.6;
+    if (e.skyHidden) continue; // 马超「神威天降」：跃上半空，看不见
     if (e.enraged) {
       const pr = 0.5 + 0.5 * Math.sin(S.t * 8);
       ctx.fillStyle = `rgba(200,40,30,${0.16 + 0.14 * pr})`;
@@ -5255,6 +5633,8 @@ function drawProjectiles() {
         { rgb: '90,235,170', core: '225,255,240', w: b.r * 0.95, a: fade, head: window.Assets.get('fx:dragon_azure'), t: S.t + b.seed });
     } else if (b.kind === 'lantern') { // 莲灯：一盏飘着的莲花灯
       FX.lantern(ctx, b.x, b.y - 6 + Math.sin(S.t * 4 + b.spin) * 3, 10, 1);
+    } else if (b.kind === 'wisp') { // 鬼火：一团青绿的冷焰
+      FX.wisp(ctx, b.x, b.y + 4, 8, S.t + b.spin, 1);
     } else if (b.kind === 'butterfly') { // 彩蝶：紫光里一只扇着翅膀的蝴蝶
       ctx.globalCompositeOperation = 'lighter';
       FX.glow(ctx, b.x, b.y, 18, b.rgb || '190,140,255', 0.5);
@@ -5363,6 +5743,7 @@ function drawProjectiles() {
       ctx.globalAlpha = 1;
       continue;
     }
+    if (b.kind === 'wisp') { FX.wisp(ctx, b.x, b.y + 4, b.r * 0.9, S.t + b.spin, 1); continue; } // 郭嘉：飘过来的鬼火
     if (b.kind === 'butterfly') { // 小乔：一只只扑闪着飞来的蝴蝶
       ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, b.x, b.y, b.r * 3, '170,110,255', 0.55); ctx.globalCompositeOperation = 'source-over';
       FX.butterfly(ctx, b.x, b.y, b.r * 1.1, Math.atan2(uy, ux) + Math.PI / 2, S.t * 8 + b.spin, '200,150,255', 1);
@@ -5631,6 +6012,7 @@ function drawNumbers() {
 
 function drawScreen() {
   const p = S.player;
+  drawMist(); // 郭嘉的鬼谋迷雾
   // 屏幕外指示：武将（红）、据点（金，带距离）
   const marks = [...S.bossList.map(e => [e, '#b5372a', '#ebe0c5', e.def.icon, false]),
     ...S.enemies.filter(e => e.building).map(e => [e, '#cfa34a', '#2a2116', e.def.icon, true])];
@@ -5722,6 +6104,7 @@ function render(raw) {
   drawWeaponsUnder();
   drawTelegraphs();
   drawBossFxUnder();
+  drawBossFx2Under();
   drawPickups();
   drawGhosts();
   drawEnemies();
@@ -5730,6 +6113,7 @@ function render(raw) {
   drawOrbit();
   drawProjectiles();
   drawBossFx();
+  drawBossFx2();
   FX.particles(ctx, S.particles, false); // 烟尘、碎屑
   drawEffects();
   FX.particles(ctx, S.particles, true);  // 火花、光点（叠加发光）

@@ -338,6 +338,14 @@ window.Sprites = (() => {
         shape(g, '#e98fb0', s => s.ellipse(14, 66, 8, 6, 0, 0, Math.PI * 2), 1); // 墙头探出的花
         shape(g, '#7ab08a', s => s.ellipse(106, 64, 9, 6, 0, 0, Math.PI * 2), 1);
         break;
+      case 'xiliangying': // 西凉营地：木栅栏围着几顶白色毡帐，中间一面「马」字大旗
+        for (let x = 6; x <= 112; x += 8) shape(g, '#6b4a2e', s => { s.moveTo(x, 104); s.lineTo(x, 80); s.lineTo(x + 3, 74); s.lineTo(x + 6, 80); s.lineTo(x + 6, 104); s.closePath(); }, 1.2);
+        for (const [x, w, h] of [[14, 30, 30], [74, 32, 32]]) shape(g, '#e6e2d8', s => { s.moveTo(x, 86); s.lineTo(x + w / 2, 86 - h); s.lineTo(x + w, 86); s.closePath(); });
+        shape(g, '#efece4', s => { s.moveTo(36, 90); s.lineTo(60, 44); s.lineTo(84, 90); s.closePath(); });
+        line(g, 60, 44, 60, 6, '#3a2a1a', 2.6);
+        shape(g, '#3a6ab8', s => { s.moveTo(60, 8); s.lineTo(90, 14); s.lineTo(86, 30); s.lineTo(60, 26); s.closePath(); }, 1.2);
+        g.fillStyle = '#f2ead8'; g.font = '900 13px serif'; g.textAlign = 'center'; g.fillText('马', 74, 24);
+        break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
         wallBlock(g, 34, 52, 52, 36, '#a8322a');

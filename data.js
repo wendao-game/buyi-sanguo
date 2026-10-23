@@ -319,6 +319,29 @@ window.GAME_DATA = {
         { dmg: 62, cd: 1.1, count: 4, speed: 245, blast: 92, note: '江上千灯，莲灯 +1' },
       ],
     },
+    // —— 马超、郭嘉 ——
+    hutouqiang: {
+      name: '虎头湛金枪', icon: '枪', type: 'thrust', general: '马超', rgb: '255,215,130', spark: true,
+      desc: '马超的金枪。一枪刺得又长又远，枪尖带着银蓝色的雷光，打中的敌人被挑飞。',
+      levels: [
+        { dmg: 34, cd: 0.8, len: 260, width: 34, count: 1, kb: 220 },
+        { dmg: 42, cd: 0.78, len: 275, width: 34, count: 1, kb: 230, note: '伤害 +8，更长' },
+        { dmg: 46, cd: 0.72, len: 290, width: 36, count: 2, kb: 240, note: '一次刺两枪' },
+        { dmg: 58, cd: 0.68, len: 310, width: 38, count: 2, kb: 250, note: '伤害 +12，更长' },
+        { dmg: 72, cd: 0.6, len: 340, width: 40, count: 3, kb: 280, note: '一次刺三枪，神威凛凛' },
+      ],
+    },
+    guihuo: {
+      name: '鬼火', icon: '鬼', type: 'homing', general: '郭嘉', tags: ['spell'], pkind: 'wisp',
+      desc: '郭嘉放出的青绿色鬼火，飘忽不定地追着敌人，撞上后炸开一小团冷焰。',
+      levels: [
+        { dmg: 20, cd: 1.0, count: 3, speed: 260, blast: 55 },
+        { dmg: 25, cd: 1.0, count: 3, speed: 270, blast: 58, note: '伤害 +5' },
+        { dmg: 28, cd: 0.9, count: 4, speed: 280, blast: 62, note: '鬼火 +1' },
+        { dmg: 35, cd: 0.85, count: 4, speed: 290, blast: 66, note: '伤害 +7，炸得更大' },
+        { dmg: 44, cd: 0.75, count: 5, speed: 300, blast: 72, note: '百鬼夜行，鬼火 +1' },
+      ],
+    },
     diewu: {
       name: '蝶舞', icon: '蝶', type: 'homing', general: '小乔', tags: ['spell'], pkind: 'butterfly',
       desc: '小乔袖中飞出的流光彩蝶，绕着弯追向敌人，能穿过两个敌人再散去。',
@@ -544,6 +567,28 @@ window.GAME_DATA = {
         { dmg: 23, cd: 7.5, radius: 225, life: 6, slow: 0.45, tick: 0.35, heal: 3.4, note: '一江春水，满池莲开' },
       ],
     },
+    tieqi: {
+      name: '铁骑', icon: '骑', type: 'cavalryCharge', general: '马超',
+      desc: '定时召来一队西凉铁骑的英灵，从你身后朝前方冲阵，一路撞翻敌人。',
+      levels: [
+        { count: 3, cd: 8, dmg: 45, len: 700, w: 70, speed: 1000 },
+        { count: 3, cd: 7.5, dmg: 56, len: 750, w: 74, speed: 1050, note: '伤害提高，冲得更远' },
+        { count: 4, cd: 7, dmg: 64, len: 780, w: 76, speed: 1100, note: '骑兵 +1' },
+        { count: 4, cd: 6.5, dmg: 80, len: 820, w: 80, speed: 1150, note: '伤害提高，冷却缩短' },
+        { count: 6, cd: 5.8, dmg: 98, len: 880, w: 86, speed: 1250, note: '西凉铁骑，骑兵 +2' },
+      ],
+    },
+    yiji: {
+      name: '遗计', icon: '计', type: 'delayedBlast', general: '郭嘉', tags: ['spell'],
+      desc: '定时给附近最强的几个敌人贴上锦囊，片刻后锦囊炸开，周围的敌人一起遭殃。',
+      levels: [
+        { count: 3, cd: 7, delay: 1.6, dmg: 70, radius: 110 },
+        { count: 3, cd: 6.6, delay: 1.6, dmg: 86, radius: 116, note: '伤害提高，范围更大' },
+        { count: 4, cd: 6.2, delay: 1.5, dmg: 98, radius: 122, note: '多贴一个' },
+        { count: 4, cd: 5.8, delay: 1.4, dmg: 120, radius: 130, note: '伤害提高，炸得更快' },
+        { count: 6, cd: 5, delay: 1.3, dmg: 146, radius: 140, note: '遗计定辽东，多贴两个' },
+      ],
+    },
     dieying: {
       name: '蝶影', icon: '影', type: 'decoy', general: '小乔', butterfly: true,
       desc: '定时在原地留下一个蝴蝶化成的分身，引开附近小兵的注意，几秒后分身炸成漫天彩蝶。',
@@ -596,6 +641,8 @@ window.GAME_DATA = {
     guqu: { name: '曲有误', icon: '曲', max: 1, unique: true, general: '周瑜', desc: '“曲有误，周郎顾”：冷却 -10%，暴击率 +8%，攻击范围 +10%', effects: { cdMul: -0.1, crit: 0.08, areaMul: 0.1 } },
     xiangyin: { name: '相国印绶', icon: '印', max: 1, unique: true, general: '董卓', desc: '董太师的金印紫绶：生命上限 +90，伤害 +15%，护甲 +2，但移动速度 -5%', effects: { maxHp: 90, dmgMul: 0.15, armor: 2, speedMul: -0.05 } },
     guose: { name: '国色', icon: '国', max: 1, unique: true, general: '大乔', desc: '江东大乔的玉镜：生命上限 +50，每秒回复 +0.8，拾取范围 +25%，闪现冷却 -25%', effects: { maxHp: 50, regen: 0.8, pickupMul: 0.25, blinkCd: 0.25 } },
+    shikui: { name: '狮盔兽带', icon: '狮', max: 1, unique: true, general: '马超', desc: '马超的狮子盔、兽面带：生命上限 +50，移动速度 +12%，伤害 +10%', effects: { maxHp: 50, speedMul: 0.12, dmgMul: 0.1 } },
+    guicai: { name: '鬼才', icon: '才', max: 1, unique: true, general: '郭嘉', desc: '“郭奉孝在，不使孤至此”：冷却 -12%，暴击率 +6%，伤害 +8%', effects: { cdMul: -0.12, crit: 0.06, dmgMul: 0.08 } },
     tongque: { name: '铜雀春深', icon: '雀', max: 1, unique: true, general: '小乔', desc: '小乔的铜雀步摇：移动速度 +12%，暴击率 +6%，闪现距离 +30%', effects: { speedMul: 0.12, crit: 0.06, blinkDist: 0.3 } },
   },
 
@@ -725,9 +772,13 @@ window.GAME_DATA = {
     shrine: { name: '神祠', icon: '祠', hp: 520, r: 36, xp: 20, unlock: 90, reward: { type: 'blessing' }, guard: 'sorcerer', desc: '摧毁后获得一项随机祝福' },
     // 乔府：赤壁之战开场出现在你的右下方，不会随机刷出、不会因为走远而消失。
     // 走到 aggroR 以内才会放箭、派兵；有别的名将在场时府门紧闭打不动。攻破后大乔现身，击败大乔后小乔现身。
-    qiaofu: { name: '乔府', icon: '乔', hp: 1800, r: 52, xp: 40, special: true, aggroR: 460, reward: { type: 'qiao' },
+    qiaofu: { name: '乔府', icon: '乔', hp: 1800, r: 52, xp: 40, special: true, aggroR: 460, wake: ['乔府警觉', '府中放出莲灯，弓手登上院墙'], reward: { type: 'qiao' },
       shoot: { range: 480, cd: 1.1, dmg: 11, speed: 250, count: 3, spread: 0.5, lantern: true }, spawn: { type: 'archer', every: 7, max: 4 },
       desc: '江东乔府 · 攻破后大乔现身' },
+    // 西凉营地：群雄逐鹿开场出现在你的左上方，规则和乔府一样（走近才动手、别的名将在场时营门紧闭）。攻破后马超骑白马杀出
+    xiliangying: { name: '西凉营地', icon: '西', hp: 2000, r: 54, xp: 40, special: true, aggroR: 480, wake: ['西凉营地警觉', '营中铁骑杀了出来'], reward: { type: 'general', gid: 'machao', msg: '营门大开……马超杀出！' },
+      shoot: { range: 500, cd: 1.3, dmg: 12, speed: 300, count: 2, spread: 0.3 }, spawn: { type: 'cavalry', every: 5, max: 5 },
+      desc: '西凉营地 · 攻破后马超杀出' },
   },
 
   // 神祠祝福：随机给一项，可以叠加
@@ -899,6 +950,7 @@ window.GAME_DATA = {
         { id: 'roar', name: '当阳怒吼', type: 'bigRoar', R: 440, dmg: 1.0, push: 900, slow: 2.2 },
         { id: 'lance', name: '丈八突刺', type: 'lanceDash', count: 3, speed: 1350, len: 900, w: 46, tele: 0.85, dmg: 1.8 },
         { id: 'rage', name: '燕人血怒', type: 'frenzy', hpBelow: 0.4, dur: 7 },
+        { id: 'duanqiao', name: '喝断长坂', type: 'quakeLines', stomps: 3, gap: 0.75, lines: 5, len: 640, w: 54, speed: 950, tele: 0.55, dmg: 1.3 }, // 连跺三脚，地裂沿五个方向撕开
       ],
       banner: '长坂坡 · 张飞 断喝', line: '“燕人张翼德在此！谁敢决一死战！”', rage: '“哇呀呀呀！”',
       look: { skin: '#6b5242', skinShade: '#4a382c', robe: '#2b2622', trim: '#8a7a5a', armor: true, armorColor: '#3a3430', beard: 'tiger', eyes: 'round', brows: 'bushy', head: 'helmet', headColor: '#2b2622', plume: '#b5372a', weapon: 'snake', aura: '#4a4038', artFace: [0.55, 0.31, 0.36] },
@@ -913,6 +965,7 @@ window.GAME_DATA = {
       ults: [
         { id: 'seven', name: '七进七出', type: 'sevenDash', count: 7, speed: 1250, len: 460, w: 56, tele: 0.32, dmg: 1.2, home: 2.6 },
         { id: 'flurry', name: '百鸟朝凤', type: 'flurry', count: 16, R: 360, half: 0.62, dmg: 0.6 },
+        { id: 'longpan', name: '白龙盘枪', type: 'dragonCoil', coilR0: 380, coilR1: 110, coilT: 1.7, body: 46, dive: 0.55, diveW: 70, dmg: 1.2 }, // 白龙绕你盘成一圈往里收，最后一头扎穿
       ],
       banner: '长坂坡 · 赵云 单骑救主', line: '“吾乃常山赵子龙也！”', rage: '“七进七出，何惧尔等！”',
       look: { skin: '#f2d4b0', skinShade: '#d0a982', robe: '#e4e6e8', trim: '#9aa6b2', armor: true, armorColor: '#c9d0d6', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#d8dde2', plume: '#b5372a', weapon: 'spear', aura: '#7f93a8', artFace: [0.48, 0.27, 0.36] },
@@ -927,6 +980,7 @@ window.GAME_DATA = {
         { id: 'storm', name: '双戟旋风', type: 'twinStorm', count: 8, speed: 380, range: 320, dmg: 1.0 },
         { id: 'quake', name: '撼地', type: 'leap', radius: 175, dmg: 1.8 },
         { id: 'elai', name: '恶来死战', type: 'frenzy', hpBelow: 0.5, dur: 7 },
+        { id: 'gunshi', name: '力拔千钧', type: 'boulders', count: 3, rockR: 62, speed: 560, tele: 0.65, gap: 0.35, bounces: 2, dmg: 1.5 }, // 抱起巨石砸出去，满地乱滚
       ],
       banner: '宛城 · 典韦 死战', line: '“谁敢近主公一步！”', rage: '“来！再来！”',
       look: { skin: '#a8754e', skinShade: '#80583a', robe: '#5a3b28', trim: '#8a6a3a', armor: false, beard: 'short', eyes: 'round', brows: 'bushy', head: 'band', weapon: 'twinji', aura: '#6b4a2e', scar: true, artFace: [0.61, 0.27, 0.36] },
@@ -1025,6 +1079,38 @@ window.GAME_DATA = {
       banner: '皖城 · 乔府 小乔', line: '“姐姐的仇，小乔来报！”', rage: '“蝶儿们，别让他跑了！”',
       look: { skin: '#f8e0cc', skinShade: '#dcb8a0', robe: '#a07ad8', trim: '#f6e8ff', armor: false, beard: 'none', eyes: 'round', brows: 'thin', head: 'bun', hairColor: '#1a1420', pin: '#e0c0ff', weapon: 'fan', fanColor: '#b890f0', aura: '#9a6ad8', female: true, artFace: [0.37, 0.36, 0.3] },
     },
+
+    // —— 马超：群雄逐鹿里藏在左上方的西凉营地，攻破营地后杀出。骑白马，招式全是冲阵，银蓝色的雷光 ——
+    machao: {
+      name: '马超', el: 'thunder', title: '锦马超 · 神威天将军', icon: '马', hp: 8500, speed: 116, dmg: 26, r: 34, color: '#c8ccd4',
+      attacks: ['charge3', 'cleave', 'summon', 'charge3', 'charge'], interval: 2.5, cleaveR: 200, chargeSpeed: 780, summon: 6, summonType: 'cavalry',
+      homing: 1.6, rideCharge: true, mount: '#eef0f2', // 骑白马追着你冲
+      rewards: ['hutouqiang', 'tieqi', 'shikui'],
+      ultRgb: '150,200,255', ultEvery: 10,
+      ults: [
+        { id: 'tieqi', name: '西凉铁骑', type: 'cavalryLanes', lanes: 5, laneW: 120, span: 1300, tele: 0.75, gap: 0.42, riders: 4, speed: 1150, dmg: 1.2 },
+        { id: 'huanqi', name: '锦马环骑', type: 'ringRide', ringR: 330, rideT: 1.3, burn: 3.6, dashes: 3, dashSpeed: 1350, tele: 0.5, w: 58, dmg: 1.3 },
+        { id: 'shenwei', name: '神威天降', type: 'skyLance', hpBelow: 0.5, count: 3, lanceR: 125, tele: 0.9, rays: 8, rayLen: 520, rayW: 44, dmg: 1.6 },
+      ],
+      banner: '潼关 · 锦马超 杀出营门', line: '“西凉马孟起在此！”', rage: '“今日便叫你血染潼关！”',
+      look: { skin: '#f0d0ac', skinShade: '#cfa67e', robe: '#e8eaee', trim: '#3a6ab8', armor: true, armorColor: '#c8ccd4', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#d8dce2', plume: '#e8eaee', weapon: 'spear', aura: '#6a8ad0', artFace: [0.5, 0.27, 0.34] },
+    },
+    // —— 郭嘉：鬼才。青绿色的鬼火、棋盘、料敌先机；不跟你硬拼，专门算计你的走位 ——
+    guojia: {
+      name: '郭嘉', title: '鬼才 · 郭奉孝', icon: '郭', hp: 7200, speed: 92, dmg: 22, r: 30, color: '#3a6a68',
+      attacks: ['volley', 'meteor', 'summon', 'volley', 'meteor'], interval: 2.5, kite: 280, summon: 6, summonType: 'archer',
+      volley: { count: 7, spread: 1.2, speed: 230, dmg: 13, wisp: true },
+      meteor: { count: 5, radius: 70, delay: 1.1, dmg: 22, rgb: '110,240,200', wisp: true },
+      rewards: ['guihuo', 'yiji', 'guicai'],
+      ultRgb: '110,240,200', ultEvery: 10,
+      ults: [
+        { id: 'shisheng', name: '十胜十败', type: 'chessBoard', cell: 112, n: 7, rounds: 3, tele: 0.95, gap: 0.3, dmg: 1.0 },
+        { id: 'liaodi', name: '料敌先机', type: 'predictStrike', count: 6, gap: 0.42, lead: 0.85, tele: 0.75, strikeR: 95, dmg: 1.2 },
+        { id: 'guimou', name: '鬼谋迷雾', type: 'mistVeil', hpBelow: 0.5, dur: 5.5, sight: 170, wisps: 12, dmg: 0.8 },
+      ],
+      banner: '官渡 · 鬼才 郭嘉', line: '“十胜十败，此战已定。”', rage: '“咳……还早着呢。”',
+      look: { skin: '#f0dcc4', skinShade: '#d0b498', robe: '#2f5a5a', trim: '#e6efe8', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#1e3434', weapon: 'fan', fanColor: '#7ad8c0', aura: '#3a8a80', artFace: [0.5, 0.25, 0.34] },
+    },
   },
 
   // 名将语音：登场用 generals 里的 line，半血暴怒用 rage，这里补上阵亡和每个大招的台词（全部原创，不照搬别的游戏）。
@@ -1040,15 +1126,17 @@ window.GAME_DATA = {
     sunshangxiang: { death: '哥哥……尚香尽力了……', ult: { feishan: '扇去扇回，看你躲得几次！', bingshu: '兵书万卷，一页一刃！', xiaoji: '枭姬之怒，你接得住吗！' } },
     yanliang: { death: '我……还未出刀……', ult: { baima: '白马冲阵，挡我者死！', sweep: '河北刀阵，一个不留！', flag: '斩你帅旗，夺你首级！' } },
     wenchou: { death: '兄长……我来了……', ult: { rain: '延津箭雨，万箭穿心！', pierce: '连环突刺，看枪！', blood: '兄长之仇，以血来偿！' } },
-    zhangfei: { death: '大哥……二哥……', ult: { roar: '当阳桥头，谁敢过来！', lance: '丈八蛇矛，捅你个对穿！', rage: '燕人在此，血战到底！' } },
-    zhaoyun: { death: '主公……子龙……去了……', ult: { seven: '七进七出，如入无人之境！', flurry: '百鸟朝凤，枪出如龙！' } },
-    dianwei: { death: '主公……快走……', ult: { storm: '双戟旋风，近者皆死！', quake: '给我——倒下！', elai: '恶来在此，死战不退！' } },
+    zhangfei: { death: '大哥……二哥……', ult: { roar: '当阳桥头，谁敢过来！', lance: '丈八蛇矛，捅你个对穿！', rage: '燕人在此，血战到底！', duanqiao: '喝断长坂桥，谁敢上前！' } },
+    zhaoyun: { death: '主公……子龙……去了……', ult: { seven: '七进七出，如入无人之境！', flurry: '百鸟朝凤，枪出如龙！', longpan: '白龙盘枪，困你于此！' } },
+    dianwei: { death: '主公……快走……', ult: { storm: '双戟旋风，近者皆死！', quake: '给我——倒下！', elai: '恶来在此，死战不退！', gunshi: '接我这块石头！' } },
     guanyu: { death: '大哥……关某……去也……', ult: { dragon: '青龙偃月，斩！', five: '过五关，斩六将，谁能阻我！', spiral: '青龙在天，忠义在心！' } },
     zhugeliang: { death: '出师未捷……亮，尽力矣……', ult: { fire: '火烧博望，一个不留。', maze: '八阵已成，汝等插翅难飞。', wind: '借来东风，助我火攻！' } },
     zhouyu: { death: '江东……就托付给你们了……', ult: { chibi: '火烧赤壁，樯橹成灰！', qu: '曲有误，周郎顾。', chain: '铁索连环，一火俱焚！' } },
     dongzhuo: { death: '我儿奉先……何在……', ult: { suohun: '千链锁魂，一个也别想走！', tianluo: '天罗地网，你插翅难飞！', baozheng: '顺我者昌，逆我者亡！' } },
     daqiao: { death: '妹妹……快走……', ult: { liandeng: '一盏莲灯，送君远行。', chunchao: '春江潮水，连海而平。', xuanwo: '江心水深，莫要回头。' } },
     xiaoqiao: { death: '公瑾……小乔先走一步了……', ult: { zhiyuan: '纸鸢飞得高，你躲得了吗？', dieying: '哪一个，才是真的我？', tongque: '铜雀春深，锁住你！' } },
+    machao: { death: '父亲……孩儿……无能……', ult: { tieqi: '西凉铁骑，随我冲阵！', huanqi: '锦马环骑，你已无路可走！', shenwei: '神威天将军，在此！' } },
+    guojia: { death: '天不假年……奉孝，先走一步……', ult: { shisheng: '十胜十败，一步错，步步错。', liaodi: '你的下一步，我早已算到。', guimou: '鬼谋入雾，生路何在？' } },
   },
 
   // 背景音乐：有音乐文件（assets/bgm/<id>.mp3）就播放，没有就用代码合成一段古风占位曲。
@@ -1108,7 +1196,7 @@ window.GAME_DATA = {
       ],
     },
     {
-      id: 'qunxiong', name: '第三章 · 群雄逐鹿', sub: '公元 197–204 年 · 宛城 → 白马 → 邺城 → 过五关',
+      id: 'qunxiong', name: '第三章 · 群雄逐鹿', sub: '公元 197–211 年 · 宛城 → 白马 → 官渡 → 潼关 → 过五关',
       clear: '千里走单骑',
       elites: { captain: 0, brute: 0, crossbow: 0 },
       ground: { bg: '#22261a', grass: 'rgba(112,142,72,0.45)', blot: 'rgba(8,12,6,0.16)', flag: 'rgba(50,72,128,0.5)' },
@@ -1118,12 +1206,14 @@ window.GAME_DATA = {
         { t: 160, rates: { foot: 4.2, shield: 0.7, archer: 0.7, cavalry: 1.1 } },
       ],
       events: [
+        { t: 20, type: 'special', bid: 'xiliangying', dx: -820, dy: -560 }, // 西凉营地出现在左上方，什么时候去打都行
         { t: 45, type: 'boss', id: 'dianwei' },
         { t: 105, type: 'boss', id: 'yanliang' },
         { t: 140, type: 'ambush', enemy: 'cavalry', count: 24, text: '河北铁骑' },
         { t: 170, type: 'boss', id: 'wenchou' },
         { t: 210, type: 'boss', id: 'zhenji' },
-        { t: 260, type: 'boss', id: 'guanyu', final: true },
+        { t: 245, type: 'boss', id: 'guojia' },
+        { t: 290, type: 'boss', id: 'guanyu', final: true },
       ],
     },
     {
@@ -1237,6 +1327,10 @@ window.GAME_DATA = {
       desc: '七条黑铁链钩住附近最强的七个敌人，把它们拖到一处撞在一起，再炸开一圈黑色冲击。' },
     daqiao: { name: '同心莲灯', icon: '灯', iconFrom: 'liandeng', rgb: '130,230,210', cd: 5.5, type: 'lanterns', dmg: 58, count: 5, radius: 95, heal: 0.015,
       desc: '五盏莲灯飘向敌人，炸开一团水光；每炸开一盏，你回复 1.5% 生命。' },
+    machao: { name: '虎头湛金枪', icon: '枪', iconFrom: 'hutouqiang', rgb: '150,200,255', cd: 5.5, type: 'spiritCavalry', dmg: 70, count: 3, len: 900, w: 90,
+      desc: '金枪一指，三队西凉铁骑的英灵从敌群中穿阵而过，带起一路银蓝雷光。' },
+    guojia: { name: '鬼才棋局', icon: '棋', iconFrom: 'guihuo', rgb: '110,240,200', cd: 6, type: 'chessStrike', dmg: 60, n: 5, cell: 72,
+      desc: '在敌群脚下摆开一张棋盘，黑白两色的格子轮流炸开鬼火，格子里的敌人连挨两下。' },
     xiaoqiao: { name: '流光蝶钗', icon: '钗', iconFrom: 'diewu', rgb: '210,170,255', cd: 4.5, type: 'butterflies', dmg: 34, count: 8, blinkCd: 0.5, blinkFly: 4,
       desc: '闪现冷却减半。每 4.5 秒放出八只流光蝶追咬敌人；每次闪现，起点还会留下四只蝴蝶扑向敌人。' },
   },
