@@ -1093,7 +1093,7 @@ window.GAME_DATA = {
         { id: 'shenwei', name: '神威天降', type: 'skyLance', hpBelow: 0.5, count: 3, lanceR: 125, tele: 0.9, rays: 8, rayLen: 520, rayW: 44, dmg: 1.6 },
       ],
       banner: '潼关 · 锦马超 杀出营门', line: '“西凉马孟起在此！”', rage: '“今日便叫你血染潼关！”',
-      look: { skin: '#f0d0ac', skinShade: '#cfa67e', robe: '#e8eaee', trim: '#3a6ab8', armor: true, armorColor: '#c8ccd4', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#d8dce2', plume: '#e8eaee', weapon: 'spear', aura: '#6a8ad0', artFace: [0.5, 0.27, 0.34] },
+      look: { skin: '#f0d0ac', skinShade: '#cfa67e', robe: '#e8eaee', trim: '#3a6ab8', armor: true, armorColor: '#c8ccd4', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#d8dce2', plume: '#e8eaee', weapon: 'spear', aura: '#6a8ad0', artFace: [0.65, 0.39, 0.28] },
     },
     // —— 郭嘉：鬼才。青绿色的鬼火、棋盘、料敌先机；不跟你硬拼，专门算计你的走位 ——
     guojia: {
@@ -1109,7 +1109,7 @@ window.GAME_DATA = {
         { id: 'guimou', name: '鬼谋迷雾', type: 'mistVeil', hpBelow: 0.5, dur: 5.5, sight: 170, wisps: 12, dmg: 0.8 },
       ],
       banner: '官渡 · 鬼才 郭嘉', line: '“十胜十败，此战已定。”', rage: '“咳……还早着呢。”',
-      look: { skin: '#f0dcc4', skinShade: '#d0b498', robe: '#2f5a5a', trim: '#e6efe8', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#1e3434', weapon: 'fan', fanColor: '#7ad8c0', aura: '#3a8a80', artFace: [0.5, 0.25, 0.34] },
+      look: { skin: '#f0dcc4', skinShade: '#d0b498', robe: '#2f5a5a', trim: '#e6efe8', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#1e3434', weapon: 'fan', fanColor: '#7ad8c0', aura: '#3a8a80', artFace: [0.48, 0.32, 0.28] },
     },
   },
 
