@@ -1466,6 +1466,8 @@ function runEvent(ev) {
     banner(ev.text, '小心包围');
   }
 }
+// 藏在剧情建筑里的名将：西凉营地的马超、乔府的大乔小乔、孤冢的司马懿（从 data.js 的建筑奖励里找出来）
+const HIDDEN_GENERALS = new Set(Object.values(D.buildings).flatMap(b => !b.reward ? [] : b.reward.type === 'general' ? [b.reward.gid] : b.reward.type === 'qiao' ? ['daqiao', 'xiaoqiao'] : []));
 function director(dt) {
   const st = D.stage;
   if (S.chapterT && S.t >= S.chapterT) nextChapter();
@@ -1480,8 +1482,8 @@ function director(dt) {
     S.endlessT -= dt;
     if (S.endlessT <= 0 && !S.bossList.length) {
       S.endlessT = st.endlessBossEvery;
-      // 在全部武将里随机（不连续重复）
-      const ids = Object.keys(D.generals).filter(id => id !== S.lastBoss);
+      // 在全部武将里随机（不连续重复）；藏在建筑里的名将（马超、大小乔、司马懿）要这一局打掉过建筑、见过面才会出现
+      const ids = Object.keys(D.generals).filter(id => id !== S.lastBoss && (!HIDDEN_GENERALS.has(id) || S.seen[id]));
       const gid = ids[Math.floor(Math.random() * ids.length)];
       S.lastBoss = gid;
       spawnBoss(gid);
