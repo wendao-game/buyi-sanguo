@@ -824,11 +824,11 @@ window.GAME_DATA = {
       shoot: { range: 480, cd: 1.1, dmg: 11, speed: 250, count: 3, spread: 0.5, lantern: true }, spawn: { type: 'archer', every: 7, max: 4 },
       desc: '江东乔府 · 攻破后大乔现身' },
     // 西凉营地：群雄逐鹿开场出现在你的左上方，规则和乔府一样（走近才动手、别的名将在场时营门紧闭）。攻破后马超骑白马杀出
-    xiliangying: { name: '西凉营地', icon: '西', hp: 2000, r: 54, xp: 40, special: true, aggroR: 480, wake: ['西凉营地警觉', '营中铁骑杀了出来'], reward: { type: 'general', gid: 'machao', msg: '营门大开……马超杀出！' },
+    xiliangying: { name: '西凉营地', icon: '西', seal: '营门紧闭', hp: 2000, r: 54, xp: 40, special: true, aggroR: 480, wake: ['西凉营地警觉', '营中铁骑杀了出来'], reward: { type: 'general', gid: 'machao', msg: '营门大开……马超杀出！' },
       shoot: { range: 500, cd: 1.3, dmg: 12, speed: 300, count: 2, spread: 0.3 }, spawn: { type: 'cavalry', every: 5, max: 5 },
       desc: '西凉营地 · 攻破后马超杀出' },
     // 孤冢：赤壁之战里诸葛亮登场之后出现在你的西北方，规则和西凉营地一样。冢里鬼火乱飞、死士往外爬，攻破后司马懿破冢而出
-    zhong: { name: '孤冢', icon: '冢', hp: 2100, r: 52, xp: 40, special: true, aggroR: 470, wake: ['孤冢异动', '鬼火四起，死士从冢里爬了出来'], reward: { type: 'general', gid: 'simayi', msg: '孤冢崩裂……冢虎出世！' },
+    zhong: { name: '孤冢', icon: '冢', seal: '冢门封死', hp: 2100, r: 52, xp: 40, special: true, aggroR: 470, wake: ['孤冢异动', '鬼火四起，死士从冢里爬了出来'], reward: { type: 'general', gid: 'simayi', msg: '孤冢崩裂……冢虎出世！' },
       shoot: { range: 480, cd: 1.4, dmg: 12, speed: 230, count: 3, spread: 0.6, soul: true }, spawn: { type: 'shade', every: 5, max: 6 },
       desc: '孤冢 · 攻破后司马懿现身' },
     // 疑冢：司马懿大招「冢虎疑冢」时立起的一圈坟（只有一座是真的），不会自己刷出来
@@ -1180,7 +1180,7 @@ window.GAME_DATA = {
         { id: 'yizhong', name: '冢虎疑冢', type: 'feignDeath', hpBelow: 0.5, tombs: 5, ring: 300, dur: 8, novaR: 380, dmg: 1.8 },
       ],
       banner: '五丈原 · 冢虎 司马懿', line: '“隐忍半生，等的便是今日。”', rage: '“孔明已死，天下谁还能制我？”',
-      look: { skin: '#e8d4bc', skinShade: '#c4ab90', robe: '#2a2234', trim: '#8a6ab8', armor: false, beard: 'long', beardColor: '#2a2226', eyes: 'phoenix', brows: 'sharp', head: 'lunjin', headColor: '#16121c', weapon: 'fan', fanColor: '#6a4a9a', aura: '#5a3a8a', artFace: [0.5, 0.3, 0.3] },
+      look: { skin: '#e8d4bc', skinShade: '#c4ab90', robe: '#2a2234', trim: '#8a6ab8', armor: false, beard: 'long', beardColor: '#2a2226', eyes: 'phoenix', brows: 'sharp', head: 'lunjin', headColor: '#16121c', weapon: 'fan', fanColor: '#6a4a9a', aura: '#5a3a8a', artFace: [0.6, 0.25, 0.28] },
     },
   },
 

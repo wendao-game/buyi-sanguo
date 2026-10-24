@@ -585,7 +585,7 @@ function hitEnemy(e, base, opts) {
   if (e.dead) return;
   if (e.vanish) return; // 司马懿诈死藏进疑冢：打不到
   if (e.sealed) { // 乔府：别的名将在场时府门紧闭
-    if (S.t - (e.sealMsgT || -9) > 1.2) { e.sealMsgT = S.t; addNumber(e.x, e.y - e.r * 2, '府门紧闭 · 先击败在场的名将', '#ffd98a', 15); }
+    if (S.t - (e.sealMsgT || -9) > 1.2) { e.sealMsgT = S.t; addNumber(e.x, e.y - e.r * 2, `${e.def.seal || '府门紧闭'} · 先击败在场的名将`, '#ffd98a', 15); } // 西凉营地「营门紧闭」，孤冢「冢门封死」
     return;
   }
   const p = S.player;
