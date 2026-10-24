@@ -1207,7 +1207,7 @@ window.GAME_DATA = {
         { id: 'danjing', name: '拔矢啖睛', type: 'eyeArrow', hpBelow: 0.5, rage: 8, speed: 1.5, leech: 0.015, tele: 0.8, arrowLen: 1000, arrowW: 40, dmg: 1.5 },
       ],
       banner: '下邳 · 盲将 夏侯惇', line: '“夏侯元让在此，鼠辈受死！”', rage: '“一只眼，照样斩你！”',
-      look: { skin: '#d6a47a', skinShade: '#b07f56', robe: '#3a2a26', trim: '#a8322a', armor: true, armorColor: '#2c2a2e', beard: 'short', beardColor: '#1e1814', eyes: 'normal', brows: 'bushy', head: 'helmet', headColor: '#2a2628', plume: '#a8322a', weapon: 'dao', aura: '#8a2a20', scar: true, artFace: [0.5, 0.28, 0.3] },
+      look: { skin: '#d6a47a', skinShade: '#b07f56', robe: '#3a2a26', trim: '#a8322a', armor: true, armorColor: '#2c2a2e', beard: 'short', beardColor: '#1e1814', eyes: 'normal', brows: 'bushy', head: 'helmet', headColor: '#2a2628', plume: '#a8322a', weapon: 'dao', aura: '#8a2a20', scar: true, artFace: [0.53, 0.26, 0.28] },
     },
     // —— 司马懿：冢虎。赤壁之战里诸葛亮之后，西北方升起一座孤冢，攻破后破冢而出。幽冥属性（隐藏属性），招式全是黑紫色：
     // 死士破土、狼顾之相（身前身后两道目光一起扫）、诈死藏进一圈疑冢里（只有一座是真的，打破真冢才逼得出他）
