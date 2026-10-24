@@ -342,6 +342,18 @@ window.GAME_DATA = {
         { dmg: 44, cd: 0.75, count: 5, speed: 300, blast: 72, note: '百鬼夜行，鬼火 +1' },
       ],
     },
+    // 狼顾：身前身后同时张开两道目光，绕着你扫过一段（sweep 是扫过的圈数，dur 是扫一次用几秒）
+    langgu: {
+      name: '狼顾', icon: '顾', type: 'gaze', general: '司马懿', tags: ['spell'],
+      desc: '司马懿的狼顾之相：身前身后同时张开两道幽紫的目光，绕着你扫过半圈，目光所及的敌人都受伤。',
+      levels: [
+        { dmg: 26, cd: 1.6, R: 210, half: 0.32, sweep: 0.5, dur: 0.45 },
+        { dmg: 32, cd: 1.55, R: 225, half: 0.33, sweep: 0.5, dur: 0.45, note: '伤害 +6，看得更远' },
+        { dmg: 36, cd: 1.45, R: 240, half: 0.36, sweep: 0.6, dur: 0.5, note: '扫得更开' },
+        { dmg: 46, cd: 1.35, R: 255, half: 0.38, sweep: 0.6, dur: 0.5, note: '伤害 +10，看得更远' },
+        { dmg: 58, cd: 1.2, R: 280, half: 0.42, sweep: 0.75, dur: 0.55, note: '鹰视狼顾，扫过大半圈' },
+      ],
+    },
     diewu: {
       name: '蝶舞', icon: '蝶', type: 'homing', general: '小乔', tags: ['spell'], pkind: 'butterfly',
       desc: '小乔袖中飞出的流光彩蝶，绕着弯追向敌人，能穿过两个敌人再散去。',
@@ -600,6 +612,18 @@ window.GAME_DATA = {
         { cd: 6.5, life: 4, lure: 420, dmg: 140, radius: 200, note: '蝶影成双，难辨真假' },
       ],
     },
+    // 死士：raise 是一次爬出几个死士（临时随从，不占名额），life 秒后散去，sdmg 是死士的伤害
+    sishi: {
+      name: '死士', icon: '死', type: 'deadRise', general: '司马懿',
+      desc: '定时在敌群脚下裂开几座孤坟，幽冥鬼火喷涌伤敌；坟里爬出死士随你作战，片刻后散去。',
+      levels: [
+        { count: 3, cd: 8, dmg: 55, radius: 80, raise: 1, life: 8, sdmg: 14 },
+        { count: 3, cd: 7.6, dmg: 68, radius: 84, raise: 2, life: 8, sdmg: 17, note: '多爬出一个死士，伤害提高' },
+        { count: 4, cd: 7.2, dmg: 78, radius: 88, raise: 2, life: 9, sdmg: 20, note: '多裂一座坟' },
+        { count: 4, cd: 6.6, dmg: 96, radius: 94, raise: 3, life: 10, sdmg: 25, note: '多爬出一个死士，伤害提高' },
+        { count: 6, cd: 6, dmg: 118, radius: 100, raise: 4, life: 11, sdmg: 31, note: '阴养死士三千，一朝而集' },
+      ],
+    },
   },
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
@@ -644,6 +668,8 @@ window.GAME_DATA = {
     shikui: { name: '狮盔兽带', icon: '狮', max: 1, unique: true, general: '马超', desc: '马超的狮子盔、兽面带：生命上限 +50，移动速度 +12%，伤害 +10%', effects: { maxHp: 50, speedMul: 0.12, dmgMul: 0.1 } },
     guicai: { name: '鬼才', icon: '才', max: 1, unique: true, general: '郭嘉', desc: '“郭奉孝在，不使孤至此”：冷却 -12%，暴击率 +6%，伤害 +8%', effects: { cdMul: -0.12, crit: 0.06, dmgMul: 0.08 } },
     tongque: { name: '铜雀春深', icon: '雀', max: 1, unique: true, general: '小乔', desc: '小乔的铜雀步摇：移动速度 +12%，暴击率 +6%，闪现距离 +30%', effects: { speedMul: 0.12, crit: 0.06, blinkDist: 0.3 } },
+    // 冢虎：生命跌破 below 时诈死脱身（无敌 iframes 秒，回复 heal 比例的生命），每 cd 秒一次
+    zhonghu: { name: '冢虎', icon: '虎', max: 1, unique: true, general: '司马懿', desc: '冢虎隐忍：生命上限 +40，伤害 +10%；生命跌到 25% 以下时诈死脱身，2 秒无敌并回复 30% 生命（每 60 秒一次）', effects: { maxHp: 40, dmgMul: 0.1 }, feign: { below: 0.25, heal: 0.3, iframes: 2, cd: 60 } },
   },
 
   // 属性：冰火雷风。升级时有几率刷到（Lv 3 起），每种最高 5 级，四种都能学。
@@ -653,7 +679,8 @@ window.GAME_DATA = {
   elementFrom: 3,  // 第几级开始在升级选项里出现
   // 名将的属性攻击（generals 里的 el）：被打中时附带的效果
   //   火：灼烧 dur 秒，每秒掉这一击伤害的 burn；冰：减速 chill 秒；雷：麻痹（移动大减）stun 秒；风：被吹飞 push
-  bossElement: { fire: { burn: 0.12, dur: 3 }, ice: { chill: 1.6 }, thunder: { stun: 0.7 }, wind: { push: 520 } },
+  //   幽冥：噬魂 curse 秒，这段时间里受到的伤害 +amp、不回血
+  bossElement: { fire: { burn: 0.12, dur: 3 }, ice: { chill: 1.6 }, thunder: { stun: 0.7 }, wind: { push: 520 }, dark: { curse: 3, amp: 0.2 } },
   elements: {
     fire: {
       name: '烈火', icon: '火', rgb: '255,130,50', core: '255,225,150', color: '#e8743a',
@@ -703,6 +730,20 @@ window.GAME_DATA = {
         { dmg: 0.3, kb: 1.0, pierce: 2, gust: { every: 3.5, radius: 200, dmg: 75 }, note: '风卷残云：旋风更大更频繁，多穿透 1 个' },
       ],
     },
+    // 隐藏属性：升级时刷不到，只有击败司马懿、在他的遗物里选中才学得会；学会之后才会在升级里出现
+    // vuln：噬魂印记让敌人多受的伤害；raise：带印记的小兵倒下时化作死士的几率；max：死士同时最多几个；life：死士留几秒
+    dark: {
+      name: '幽冥', icon: '冥', rgb: '170,90,230', core: '235,205,255', color: '#8a5ac8', hidden: true,
+      desc: '隐藏属性。攻击有几率化作幽冥：命中留下噬魂印记，3 秒内受到的伤害提高；带印记的小兵倒下时，有几率化作死士为你作战。',
+      awaken: '冢中枯骨：死士散去时炸开一团幽冥鬼火。',
+      levels: [
+        { vuln: 0.06, raise: 0.12, max: 2, life: 6 },
+        { vuln: 0.08, raise: 0.15, max: 3, life: 7, note: '印记更深，更容易化作死士' },
+        { vuln: 0.1, raise: 0.18, max: 3, life: 8, note: '印记更深，死士留得更久' },
+        { vuln: 0.12, raise: 0.22, max: 4, life: 9, note: '印记更深，死士 +1' },
+        { vuln: 0.15, raise: 0.28, max: 5, life: 10, blast: 85, note: '冢中枯骨：死士散去时炸开' },
+      ],
+    },
   },
 
   enemies: {
@@ -722,6 +763,10 @@ window.GAME_DATA = {
       look: { skin: '#b07a50', robe: '#6b5a3a', trim: '#e0b020', armor: false, beard: 'short', eyes: 'round', brows: 'bushy', head: 'band', bandColor: '#e0b020', weapon: 'hammer' } },
     yt_archer: { name: '黄巾弓手', icon: '射', hp: 13, speed: 58, dmg: 5, xp: 2, r: 13, color: '#8a8a3a', ranged: { range: 280, cd: 2.6, speed: 220, dmg: 8 }, h: 40,
       look: { skin: '#d0a070', robe: '#7a7044', trim: '#4a4228', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'band', bandColor: '#e0b020', weapon: 'bow' } },
+
+    // —— 冢中死士：司马懿的孤冢里爬出来的黑甲死士（只由孤冢、司马懿召出，不在波次里刷） ——
+    shade: { name: '冢中死士', icon: '死', hp: 22, speed: 84, dmg: 10, xp: 2, r: 13, color: '#3a2a4a', h: 42,
+      look: { skin: '#b8b0c4', robe: '#2a2234', trim: '#7a5aa8', armor: true, armorColor: '#34303e', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#26222e', plume: '#6a3a9a', weapon: 'dao' } },
 
     // —— 精英：有自己的招式（复用武将的招式系统），定时出现，掉落更多 ——
     captain: {
@@ -759,6 +804,9 @@ window.GAME_DATA = {
     // 黄巾号令召来的临时降卒（不占随从名额，沿用黄巾兵的小人图）
     ally_yt: { name: '黄巾降卒', kind: 'melee', hp: 90, speed: 165, dmg: 14, range: 40, cd: 0.7, h: 40, r: 12, art: 'yt_foot', temp: true,
       look: { skin: '#c99a68', robe: '#8a7a52', trim: '#5e5040', armor: false, beard: 'stubble', beardColor: '#2a2018', eyes: 'normal', brows: 'sharp', head: 'band', bandColor: '#e0b020', weapon: 'spear' } },
+    // 死士：司马懿的「死士」技能、「幽冥」属性召出的临时随从（沿用冢中死士的小人图，半透明、带紫光）
+    ally_shade: { name: '死士', kind: 'melee', hp: 100, speed: 175, dmg: 14, range: 40, cd: 0.7, h: 42, r: 12, art: 'shade', temp: true, shade: true,
+      look: { skin: '#b8b0c4', robe: '#2a2234', trim: '#7a5aa8', armor: true, armorColor: '#34303e', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#26222e', plume: '#6a3a9a', weapon: 'dao' } },
   },
   allyCap: 8,
 
@@ -779,6 +827,12 @@ window.GAME_DATA = {
     xiliangying: { name: '西凉营地', icon: '西', hp: 2000, r: 54, xp: 40, special: true, aggroR: 480, wake: ['西凉营地警觉', '营中铁骑杀了出来'], reward: { type: 'general', gid: 'machao', msg: '营门大开……马超杀出！' },
       shoot: { range: 500, cd: 1.3, dmg: 12, speed: 300, count: 2, spread: 0.3 }, spawn: { type: 'cavalry', every: 5, max: 5 },
       desc: '西凉营地 · 攻破后马超杀出' },
+    // 孤冢：赤壁之战里诸葛亮登场之后出现在你的西北方，规则和西凉营地一样。冢里鬼火乱飞、死士往外爬，攻破后司马懿破冢而出
+    zhong: { name: '孤冢', icon: '冢', hp: 2100, r: 52, xp: 40, special: true, aggroR: 470, wake: ['孤冢异动', '鬼火四起，死士从冢里爬了出来'], reward: { type: 'general', gid: 'simayi', msg: '孤冢崩裂……冢虎出世！' },
+      shoot: { range: 480, cd: 1.4, dmg: 12, speed: 230, count: 3, spread: 0.6, soul: true }, spawn: { type: 'shade', every: 5, max: 6 },
+      desc: '孤冢 · 攻破后司马懿现身' },
+    // 疑冢：司马懿大招「冢虎疑冢」时立起的一圈坟（只有一座是真的），不会自己刷出来
+    yizhong: { name: '疑冢', icon: '冢', hp: 320, r: 30, xp: 0, special: true, tomb: true, desc: '真假难辨 · 打破真冢逼出司马懿' },
   },
 
   // 神祠祝福：随机给一项，可以叠加
@@ -1111,6 +1165,23 @@ window.GAME_DATA = {
       banner: '官渡 · 鬼才 郭嘉', line: '“十胜十败，此战已定。”', rage: '“咳……还早着呢。”',
       look: { skin: '#f0dcc4', skinShade: '#d0b498', robe: '#2f5a5a', trim: '#e6efe8', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#1e3434', weapon: 'fan', fanColor: '#7ad8c0', aura: '#3a8a80', artFace: [0.48, 0.32, 0.28] },
     },
+    // —— 司马懿：冢虎。赤壁之战里诸葛亮之后，西北方升起一座孤冢，攻破后破冢而出。幽冥属性（隐藏属性），招式全是黑紫色：
+    // 死士破土、狼顾之相（身前身后两道目光一起扫）、诈死藏进一圈疑冢里（只有一座是真的，打破真冢才逼得出他）
+    simayi: {
+      name: '司马懿', el: 'dark', title: '冢虎 · 司马仲达', icon: '懿', hp: 8800, speed: 88, dmg: 24, r: 32, color: '#2e2438',
+      attacks: ['volley', 'meteor', 'summon', 'volley', 'meteor'], interval: 2.5, kite: 260, summon: 6, summonType: 'shade',
+      volley: { count: 8, spread: 1.3, speed: 240, dmg: 13, wisp: true, wrgb: '170,90,230' },
+      meteor: { count: 5, radius: 72, delay: 1.1, dmg: 24, rgb: '170,90,230', wisp: true },
+      rewards: ['dark', 'langgu', 'sishi', 'zhonghu'],
+      ultRgb: '170,90,230', ultEvery: 10,
+      ults: [
+        { id: 'sishi', name: '死士三千', type: 'deadRise', count: 9, ring: 230, tele: 1.0, eruptR: 66, raise: 6, dmg: 1.1 },
+        { id: 'langgu', name: '鹰视狼顾', type: 'wolfGaze', R: 640, blind: 110, half: 0.3, turns: 0.75, tele: 1.0, dur: 3.4, dmg: 0.9 },
+        { id: 'yizhong', name: '冢虎疑冢', type: 'feignDeath', hpBelow: 0.5, tombs: 5, ring: 300, dur: 8, novaR: 380, dmg: 1.8 },
+      ],
+      banner: '五丈原 · 冢虎 司马懿', line: '“隐忍半生，等的便是今日。”', rage: '“孔明已死，天下谁还能制我？”',
+      look: { skin: '#e8d4bc', skinShade: '#c4ab90', robe: '#2a2234', trim: '#8a6ab8', armor: false, beard: 'long', beardColor: '#2a2226', eyes: 'phoenix', brows: 'sharp', head: 'lunjin', headColor: '#16121c', weapon: 'fan', fanColor: '#6a4a9a', aura: '#5a3a8a', artFace: [0.5, 0.3, 0.3] },
+    },
   },
 
   // 名将语音：登场用 generals 里的 line，半血暴怒用 rage，这里补上阵亡和每个大招的台词（全部原创，不照搬别的游戏）。
@@ -1137,6 +1208,7 @@ window.GAME_DATA = {
     xiaoqiao: { death: '公瑾……小乔先走一步了……', ult: { zhiyuan: '纸鸢飞得高，你躲得了吗？', dieying: '哪一个，才是真的我？', tongque: '铜雀春深，锁住你！' } },
     machao: { death: '父亲……孩儿……无能……', ult: { tieqi: '西凉铁骑，随我冲阵！', huanqi: '锦马环骑，你已无路可走！', shenwei: '神威天将军，在此！' } },
     guojia: { death: '天不假年……奉孝，先走一步……', ult: { shisheng: '十胜十败，一步错，步步错。', liaodi: '你的下一步，我早已算到。', guimou: '鬼谋入雾，生路何在？' } },
+    simayi: { death: '算尽天下……终究……算不过天……', ult: { sishi: '死士三千，听我号令——起！', langgu: '我不必回头，也看得见你。', yizhong: '哪一座才是我的冢？你猜。' } },
   },
 
   // 背景音乐：有音乐文件（assets/bgm/<id>.mp3）就播放，没有就用代码合成一段古风占位曲。
@@ -1229,6 +1301,7 @@ window.GAME_DATA = {
       events: [
         { t: 20, type: 'qiaofu' }, // 乔府出现在右下方，什么时候去打都行
         { t: 45, type: 'boss', id: 'zhugeliang' },
+        { t: 80, type: 'special', bid: 'zhong', dx: -820, dy: -560 }, // 诸葛亮之后，孤冢出现在西北方，什么时候去打都行
         { t: 105, type: 'boss', id: 'zhangfei' },
         { t: 150, type: 'ambush', enemy: 'foot', count: 48, text: '曹军南下' },
         { t: 165, type: 'boss', id: 'zhaoyun' },
@@ -1333,6 +1406,8 @@ window.GAME_DATA = {
       desc: '在敌群脚下摆开一张棋盘，黑白两色的格子轮流炸开鬼火，格子里的敌人连挨两下。' },
     xiaoqiao: { name: '流光蝶钗', icon: '钗', iconFrom: 'diewu', rgb: '210,170,255', cd: 4.5, type: 'butterflies', dmg: 34, count: 8, blinkCd: 0.5, blinkFly: 4,
       desc: '闪现冷却减半。每 4.5 秒放出八只流光蝶追咬敌人；每次闪现，起点还会留下四只蝴蝶扑向敌人。' },
+    simayi: { name: '冢虎墓碑', icon: '碑', iconFrom: 'langgu', rgb: '170,90,230', cd: 6, type: 'tombDrop', dmg: 75, count: 4, radius: 95, stun: 1, nova: 0.8,
+      desc: '四块黑石墓碑从天而降砸进敌群，砸晕落点的敌人；片刻后墓碑里再炸出一圈幽冥鬼火。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大
