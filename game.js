@@ -527,6 +527,7 @@ function newState(originId) {
     specialDone: {}, riders: [], boards: [], quakes: [], boulders: [], coils: [], marks: [], mist: null, // 西凉营地；马超的铁骑、郭嘉的棋盘和迷雾、张飞的地裂、典韦的巨石、赵云的白龙、遗计锦囊
     hook: null, rootT: 0, chains: [], flails: [], lanterns: [], tides: [], pools: [], kites: [], decoys: [], // 董卓的铁链、大乔的莲灯和潮水、小乔的纸鸢、蝶影分身
     gazes: [], graves: [], steles: [], pCurseT: 0, feignT: 0, // 司马懿的狼顾目光、破土孤坟、神兵墓碑；被幽冥噬魂、冢虎诈死的冷却
+    arena: null, flyArrows: [], bloodEyes: [], glT: 0, danjingT: 0, rageT: 0, dimT: 0, // 夏侯惇的单挑枪阵、飞箭、血眼；刚烈反击、啖睛的冷却和狂暴
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
     spawnAcc: {}, evIdx: 0, defeated: [],
     ch: 0, chStart: 0, chapterT: 0, nextBossOk: 0,     // 当前章节、本章开始时间、换章倒计时、下一名武将最早登场时间
@@ -598,6 +599,8 @@ function hitEnemy(e, base, opts) {
   if (e.vulnT > S.t) dmg *= 1 + D.champion.breakVuln; // 破甲后易伤
   if (S.elements.ice >= 5 && e.slowT > S.t) dmg *= 1 + D.elements.ice.levels[4].shatter; // 寒冰 Lv5 碎冰：减速中的敌人受伤更多
   if (e.curseT > S.t) dmg *= 1 + e.curseV;            // 幽冥噬魂印记：多受伤害
+  if (S.t < S.rageT) dmg *= 1 + D.passives.danjing.rage.dmg; // 啖睛狂暴：伤害提高
+  if (e.stance) { e.stance.hits++; dmg *= 0.5; }      // 夏侯惇「刚烈」：横刀格挡，伤害减半，每一下都记一层怒
   if (e.dr) dmg *= 1 - e.dr;                          // 名将半血 / 濒死减伤
   dmg = Math.max(1, Math.round(dmg * rand(0.92, 1.08)));
   // 护甲护体：先扣护甲，打空了才伤到血；护甲在时几乎推不动
@@ -798,8 +801,40 @@ function hurtPlayer(amount, el = atkEl, src = atkSrc) {
     fxTex('ring', p.x, p.y, { w: R * 0.8, h: R * 0.8, rgb: '255,150,70', life: 0.35, grow: 2.6, core: 0.4 });
     sparks(p.x, p.y, 0, 14, '255,180,100', 420, Math.PI, 2.4);
   }
-  if (feignDeath()) return;
+  // 夏侯惇血怒：打中你就给自己回血
+  const lb = S.bossList.find(b => b.leechT > S.t);
+  if (lb) { lb.hp = Math.min(lb.maxHp, lb.hp + lb.maxHp * lb.leech); addNumber(lb.x, lb.y - lb.r * 3, `+${Math.round(lb.maxHp * lb.leech)}`, '#ff6a5a', 14); }
+  retaliate(src);
+  if (bloodRage() || feignDeath()) return;
   if (p.hp <= 0) { p.hp = 0; gameOver(); }
+}
+// 刚烈（夏侯惇的技能）：每次受伤，朝打你的敌人劈回一道血色刀光；打你的不是敌人（落点、飞弹）就劈向附近最强的敌人
+function retaliate(src) {
+  const sk = S.skills.find(s => s.id === 'ganglie');
+  if (!sk || S.t < S.glT) return;
+  const p = S.player, L = statsOf(D.skills.ganglie, sk.lv);
+  let tgt = src && src.def && src.hp !== undefined && !src.dead && !src.vanish ? src : null;
+  if (!tgt) { let bk = -1; near(p.x, p.y, 520, e => { if (e.building || e.dead || e.vanish) return; const k = (e.boss ? 1e9 : e.ai ? 1e6 : 0) + e.maxHp; if (k > bk && dist2(p.x, p.y, e.x, e.y) < 520 * 520) { bk = k; tgt = e; } }); }
+  if (!tgt) return;
+  S.glT = S.t + L.gap;
+  const a = angleTo(p.x, p.y, tgt.x, tgt.y), len = L.len * p.areaMul, dmg = L.dmg * (1 + (1 - p.hp / p.maxHp) * L.lowHp);
+  const cut = (x, y, ang) => { hitLine(x, y, ang, len, L.w, dmg, 220); fxTex('thrust', x + Math.cos(ang) * len / 2, y - 14 + Math.sin(ang) * len / 2, { w: len * 1.1, h: L.w * 1.5, rot: ang, rgb: '255,60,45', life: 0.28, sx: 1.2, core: 0.8 }); };
+  cut(p.x, p.y, a);
+  if (L.cross) { const b = a + Math.PI / 2; cut(tgt.x - Math.cos(b) * len / 2, tgt.y - Math.sin(b) * len / 2, b); } // Lv5：再横着补一刀，十字
+  sparks(p.x, p.y - 16, a, 8, '255,90,70', 420, 0.5, 2.2);
+  sfx('swing');
+}
+// 啖睛（夏侯惇的物品）：生命跌破一定比例时回一大截血，并狂暴几秒（伤害、移速提高），有冷却
+function bloodRage() {
+  const p = S.player, R = S.passives.danjing && D.passives.danjing.rage;
+  if (!R || S.t < S.danjingT || p.hp > p.maxHp * R.below) return false;
+  S.danjingT = S.t + R.cd; S.rageT = S.t + R.dur;
+  p.hp = Math.min(p.maxHp, Math.max(1, p.hp) + p.maxHp * R.heal); p.iframes = Math.max(p.iframes, 0.5);
+  fxTex('pillar', 0, 0, { follow: p, oy: -90, w: 90, h: 280, rgb: '255,50,40', life: 0.8, sx: 0.5, core: 0.6 });
+  embers(p.x, p.y - 16, 20, '255,70,50', 160, 80, 8, 0.8);
+  addNumber(p.x, p.y - 50, '啖睛 · 血怒', '#ff7a6a', 20);
+  screenFlash('255,40,30', 0.25); sfx('boss');
+  return true;
 }
 // 冢虎：生命跌破一定比例时诈死脱身——倒地化作一缕黑烟，几秒无敌并回一截血（有冷却）
 function feignDeath() {
@@ -1520,7 +1555,7 @@ function director(dt) {
 function updatePlayer(dt) {
   const p = S.player;
   const [mx, my] = moveInput();
-  const rampage = S.t < S.rampageT ? 1 + S.rampageSpeed : 1;
+  const rampage = (S.t < S.rampageT ? 1 + S.rampageSpeed : 1) * (S.t < S.rageT ? 1 + D.passives.danjing.rage.speed : 1); // 七进七出 / 啖睛狂暴
   const slowed = (S.t < S.pSlowT ? 0.55 : 1) * (S.t < S.pChillT ? 0.6 : 1) * (S.t < S.frozenT ? 0 : 1); // 震慑 / 冰冻减速 / 冻住
   const wind = S.t < S.windT ? 1 : 0;                     // 借东风：被风推着走
   let cx = 0, cy = 0;                                     // 被貂蝉迷住：不由自主地往她身边走
@@ -1604,7 +1639,7 @@ function updatePlayer(dt) {
   if (S.t < S.pBurnT && !S.god) { // 被火属性名将点着：持续掉血
     p.hp -= S.pBurnDps * dt;
     if (Math.random() < 0.4) embers(p.x + rand(-8, 8), p.y - 14, 1, D.elements.fire.rgb, 30, 50, 5, 0.45);
-    if (!feignDeath() && p.hp <= 0 && !S.over) { p.hp = 0; gameOver(); }
+    if (!bloodRage() && !feignDeath() && p.hp <= 0 && !S.over) { p.hp = 0; gameOver(); }
   }
   p.iframes = Math.max(0, p.iframes - dt);
   recordTrail(p, p.x, p.y - 22, S.t < S.rampageT, 14, 22); // 七进七出：身后一条白龙
@@ -1779,6 +1814,27 @@ function weaponTick(w, def, L, dt, p) {
         w.t -= dt; if (w.t > 0) break;
         if (!nearest(p.x, p.y, L.ringR * p.areaMul)) { w.t = 0.1; break; }
         w.t = L.cd * p.cdMul; w.queue = L.count; w.qt = 0;
+        break;
+      }
+      case 'duelSlash': { // 虎将刀：锁定附近最强的敌人，刀光一闪而至，在它身上连斩几刀
+        if (w.ds) {
+          const g = w.ds; g.t -= dt; if (g.t > 0) break;
+          if (g.k >= g.n || g.tgt.dead) { w.ds = null; break; }
+          const x = g.tgt.x, y = g.tgt.y, a = rand(0, TAU);
+          hitCircle(x, y, g.R, L.dmg, 160);
+          fxTex('slash', x, y - 16, { w: g.R * 2.8, h: g.R * 1.4, rot: a, rgb: '255,80,60', life: 0.22, grow: 1.2, core: 0.7 });
+          sparks(x, y - 16, a, 6, '255,120,90', 380, 0.7, 2);
+          sfx('swing'); g.k++; g.t = 0.12;
+          break;
+        }
+        w.t -= dt; if (w.t > 0) break;
+        const R = L.range * p.areaMul; let best = null, bk = -1;
+        near(p.x, p.y, R + 48, e => { if (e.building || e.dead || e.vanish || dist2(p.x, p.y, e.x, e.y) > R * R) return; const k = (e.boss ? 1e9 : e.ai ? 1e6 : 0) + e.maxHp; if (k > bk) { bk = k; best = e; } }); // 名将 > 精英 > 血最厚的
+        if (!best) { w.t = 0.15; break; }
+        w.t = L.cd * p.cdMul;
+        const a = angleTo(p.x, p.y, best.x, best.y), d = Math.sqrt(dist2(p.x, p.y, best.x, best.y));
+        fxTex('thrust', (p.x + best.x) / 2, (p.y + best.y) / 2 - 14, { w: d * 1.1, h: 34, rot: a, rgb: '255,90,70', life: 0.2, sx: 1.2, core: 0.8 }); // 刀光一闪而至
+        w.ds = { tgt: best, n: L.hits, k: 0, t: 0.08, R: L.radius * p.areaMul };
         break;
       }
       case 'gaze': { // 狼顾：身前身后同时张开两道目光，绕着你扫过一段，每个敌人每次只挨一下
@@ -2193,7 +2249,10 @@ function showUltCutin(e, u) {
   sfx('ult');
 }
 function tele(o) { o.max = o.life; S.teles.push(o); return o; }
-function ultDone(e, rest = 0.7) { e.ult = null; e.state = 'recover'; e.stateT = rest; e.mounted = false; e.whirl = false; e.leapH = 0; e.skyHidden = false; }
+function ultDone(e, rest = 0.7) {
+  e.ult = null; e.state = 'recover'; e.stateT = rest; e.mounted = false; e.whirl = false; e.leapH = 0; e.skyHidden = false; e.stance = null;
+  if (S.arena && S.arena.boss === e && S.arena.until === Infinity) S.arena.until = S.t + 0.35; // 夏侯惇的单挑枪阵跟着收掉
+}
 // 点到线段的距离（直线攻击判定）
 function segDist(px, py, x, y, a, len) {
   const ux = Math.cos(a), uy = Math.sin(a), t = clamp((px - x) * ux + (py - y) * uy, 0, len);
@@ -2882,6 +2941,89 @@ function runUlt(e, dt) {
       ultDone(e, 0.6);
       break;
     }
+    // —— 夏侯惇 ——
+    // 刚烈：横刀格挡两秒（受伤减半，每挨一下记一层怒）；架势一收，按怒的层数朝四面八方劈出血色刀光——挨得越多刀光越多
+    case 'counterStance': {
+      if (U.phase === 0) {
+        e.stance = { hits: 0, born: S.t }; U.phase = 1; U.t = u.dur;
+        fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.5, w: u.ring * 2, h: u.ring * 2, rgb, under: true, flat: 0.55, life: u.dur, spin: 1.2, fadeIn: 0.1, a: 0.6 });
+        say(e, '“来啊！”');
+      } else if (U.phase === 1) {
+        if (U.t <= 0) {
+          const n = clamp(Math.round(u.minBlades + e.stance.hits * u.perHit), u.minBlades, u.maxBlades + (e.enraged ? 2 : 0)), a0 = toP, x = e.x, y = e.y; // 第一刀正对着你，得挪一步
+          e.stance = null;
+          for (let i = 0; i < n; i++) {
+            const a = a0 + i / n * TAU;
+            tele({ kind: 'line', x, y, a, len: u.len, w: u.w, life: 0.45, rgb });
+            later(0.45, () => {
+              if (segDist(p.x, p.y, x, y, a, u.len) < u.w / 2 + p.r) hurtPlayer(DMG(u.dmg), null, e);
+              fxTex('thrust', x + Math.cos(a) * u.len / 2, y - 14 + Math.sin(a) * u.len / 2, { w: u.len * 1.1, h: u.w * 1.5, rot: a, rgb: '255,60,45', life: 0.3, sx: 1.2, core: 0.8 });
+            });
+          }
+          later(0.45, () => { impact(x, y, 120, rgb, 1); S.shake = Math.max(S.shake, 12); sfx('slam'); });
+          addNumber(e.x, e.y - e.r * 3.2, `刚烈 · ${n} 刀`, '#ff8a7a', 22);
+          U.phase = 2; U.t = 0.8;
+        }
+      } else if (U.t <= 0) ultDone(e, 0.4);
+      break;
+    }
+    // 虎将单挑：以你为中心立起一圈枪阵，把你们俩关在里面（你出不去、小兵进不来），他贴身连出几段大刀，每段前有扇形预警
+    case 'duelArena': {
+      if (U.phase === 0) {
+        S.arena = { x: p.x, y: p.y, R: u.arenaR, born: S.t, until: Infinity, boss: e, wall: DMG(u.wall), hitT: 0 };
+        const a = angleTo(p.x, p.y, e.x, e.y), d = Math.min(u.arenaR - 70, Math.sqrt(dist2(p.x, p.y, e.x, e.y)));
+        e.x = p.x + Math.cos(a) * d; e.y = p.y + Math.sin(a) * d; // 他也进了阵
+        groundImpact(e.x, e.y + e.r * 0.5, 120); S.shake = Math.max(S.shake, 10); sfx('slam');
+        banner('虎将单挑', '枪阵之内，只有你和夏侯惇');
+        U.phase = 1; U.k = 0; U.t = 0.8;
+      } else if (U.phase === 1 && U.t <= 0) {
+        if (U.k >= u.combos + (e.enraged ? 1 : 0)) { if (S.arena) S.arena.until = S.t + 0.35; ultDone(e, 0.6); break; }
+        const A2 = S.arena || { x: p.x, y: p.y, R: u.arenaR }, a = angleTo(p.x, p.y, e.x, e.y);
+        let nx = p.x + Math.cos(a) * 110, ny = p.y + Math.sin(a) * 110; // 冲到你身边
+        const dd = Math.hypot(nx - A2.x, ny - A2.y); if (dd > A2.R - 40) { nx = A2.x + (nx - A2.x) * (A2.R - 40) / dd; ny = A2.y + (ny - A2.y) * (A2.R - 40) / dd; }
+        for (let k = 0; k < 6; k++) fxp({ type: 'dust', x: e.x + (nx - e.x) * k / 6, y: e.y + (ny - e.y) * k / 6 + 10, vx: 0, vy: -20, drag: 3, grow: 22, life: 0.4, rgb: '120,100,80', size: rand(8, 12) });
+        e.x = nx; e.y = ny;
+        U.ang = angleTo(e.x, e.y, p.x, p.y);
+        tele({ kind: 'wedge', x: e.x, y: e.y, a: U.ang, R: u.cleaveR, half: u.half, life: u.tele, rgb });
+        U.phase = 2; U.t = u.tele;
+      } else if (U.phase === 2) {
+        e.ang = U.ang;
+        if (U.t <= 0) {
+          if (inWedge(p.x, p.y, e.x, e.y, U.ang, u.cleaveR, u.half, p.r)) hurtPlayer(DMG(u.dmg), null, e);
+          fxTex('slash', e.x + Math.cos(U.ang) * u.cleaveR * 0.45, e.y - 20 + Math.sin(U.ang) * u.cleaveR * 0.45, { w: u.cleaveR * 1.3, h: u.cleaveR * 0.8, rot: U.ang + Math.PI / 2, rgb, life: 0.3, grow: 1.2, core: 0.7 });
+          punch(0.5); S.shake = Math.max(S.shake, 9); sfx('slam');
+          U.k++; U.phase = 1; U.t = u.gap;
+        }
+      }
+      break;
+    }
+    // 拔矢啖睛：画面一暗，一支冷箭从远处射中他的左眼；他踉跄、拔矢吞睛，进入血怒（更快、受伤减半、打中你就回血），再把那支箭朝你掷回来
+    case 'eyeArrow': {
+      if (U.phase === 0) {
+        const a = rand(-Math.PI * 0.9, -Math.PI * 0.1), hx = e.x, hy = e.y - e.r * 2.2;
+        S.flyArrows.push({ x0: hx + Math.cos(a) * 760, y0: hy + Math.sin(a) * 520, x1: hx, y1: hy, t: 0, T: 0.35 });
+        S.dimT = S.t + 1.4; U.phase = 1; U.t = 0.35;
+      } else if (U.phase === 1 && U.t <= 0) { // 中箭
+        const hy = e.y - e.r * 2.2;
+        sparks(e.x, hy, -Math.PI / 2, 18, '230,40,30', 420, Math.PI, 2.6);
+        for (let i = 0; i < 10; i++) fxp({ type: 'ember', x: e.x, y: hy, vx: rand(-120, 120), vy: rand(-160, 40), g: 400, drag: 1, life: 0.7, rgb: '200,20,20', size: rand(5, 8) });
+        addNumber(e.x, hy - 30, '中箭！', '#ff6a5a', 24);
+        e.flash = 0.3; hitstop(0.12); S.shake = Math.max(S.shake, 14); sfx('hurt');
+        U.phase = 2; U.t = 1.0;
+      } else if (U.phase === 2 && U.t <= 0) { // 拔矢啖睛，血怒
+        e.frenzyT = S.t + u.rage; e.leechT = S.t + u.rage; e.leech = u.leech;
+        fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 3, w: e.r * 4, h: e.r * 9, rgb: '255,40,30', life: 1.0, sx: 0.5, core: 0.6 });
+        fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.5, w: e.r * 7, h: e.r * 7, rgb: '230,30,20', under: true, flat: 0.55, life: 1.6, spin: -2.5 });
+        screenFlash('200,20,10', 0.3); punch(0.8); embers(e.x, e.y - 30, 30, '255,60,40', 200, 80, 9, 1);
+        U.ang = toP; tele({ kind: 'line', x: e.x, y: e.y, a: U.ang, len: u.arrowLen, w: u.arrowW, life: u.tele, rgb });
+        U.phase = 3; U.t = u.tele;
+      } else if (U.phase === 3 && U.t <= 0) { // 把箭掷回来
+        if (segDist(p.x, p.y, e.x, e.y, U.ang, u.arrowLen) < u.arrowW / 2 + p.r) hurtPlayer(DMG(u.dmg), null, e);
+        S.flyArrows.push({ x0: e.x, y0: e.y - 20, x1: e.x + Math.cos(U.ang) * u.arrowLen, y1: e.y - 20 + Math.sin(U.ang) * u.arrowLen, t: 0, T: 0.22, big: true });
+        sfx('swing'); ultDone(e, 0.3);
+      }
+      break;
+    }
     // —— 司马懿 ——
     // 死士三千：你脚下和身边一圈先裂开孤坟，紧接着外面再裂一圈；鬼火从坟里喷出来，几座坟里爬出死士
     case 'deadRise': {
@@ -3086,6 +3228,83 @@ function updateBossFx(dt) {
   S.decoys = S.decoys.filter(o => !o.dead);
   updateBossFx2(dt);
   updateSimayi(dt);
+  updateXiahou(dt);
+}
+// 夏侯惇：单挑枪阵（你出不去，碰到枪会被扎回来；小兵进不来）、飞箭、血眼
+function updateXiahou(dt) {
+  const p = S.player, A = S.arena;
+  if (A) {
+    if (S.t > A.until || A.boss.dead) { // 枪阵收起：长枪倒下，扬起尘土
+      for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; fxp({ type: 'dust', x: A.x + Math.cos(a) * A.R, y: A.y + Math.sin(a) * A.R, vx: Math.cos(a) * 60, vy: Math.sin(a) * 40, drag: 3, grow: 20, life: 0.5, rgb: '120,100,80', size: rand(8, 12) }); }
+      S.arena = null;
+    } else {
+      const d = Math.hypot(p.x - A.x, p.y - A.y), lim = A.R - p.r;
+      if (d > lim) { // 撞到枪阵：拉回圈里，扎一下
+        const a = Math.atan2(p.y - A.y, p.x - A.x);
+        p.x = A.x + Math.cos(a) * lim; p.y = A.y + Math.sin(a) * lim;
+        p.kvx = -Math.cos(a) * 320; p.kvy = -Math.sin(a) * 320;
+        if (S.t > A.hitT) { A.hitT = S.t + 0.6; hurtPlayer(A.wall, null, A.boss); sparks(p.x, p.y - 10, a + Math.PI, 8, '255,200,160', 320, 0.8, 2); }
+      }
+      for (const e of S.enemies) { // 小兵进不来
+        if (e.dead || e.boss || e.building) continue;
+        const de = Math.hypot(e.x - A.x, e.y - A.y);
+        if (de < A.R + e.r) { const a = Math.atan2(e.y - A.y, e.x - A.x); e.x = A.x + Math.cos(a) * (A.R + e.r); e.y = A.y + Math.sin(a) * (A.R + e.r); }
+      }
+    }
+  }
+  for (const f of S.flyArrows) { f.t += dt; if (f.t > f.T + 0.25) f.dead = true; }
+  S.flyArrows = S.flyArrows.filter(f => !f.dead);
+  for (const o of S.bloodEyes) { o.t += dt; if (o.t > o.T) o.dead = true; }
+  S.bloodEyes = S.bloodEyes.filter(o => !o.dead);
+}
+function drawXiahouUnder() {
+  const A = S.arena; if (!A) return;
+  const k = Math.min(1, (S.t - A.born) / 0.3), out = A.until !== Infinity ? Math.max(0, (A.until - S.t) / 0.35) : 1, a = k * out;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = 'rgba(120,20,15,0.12)'; ctx.beginPath(); ctx.ellipse(A.x, A.y, A.R, A.R, 0, 0, TAU); ctx.fill(); // 阵里的地面泛红
+  ctx.strokeStyle = 'rgba(230,60,40,0.7)'; ctx.lineWidth = 3; ctx.setLineDash([14, 10]); ctx.beginPath(); ctx.arc(A.x, A.y, A.R, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  ctx.restore();
+}
+// 一只血红的独眼（神兵「血眼战刀」）
+function drawBloodEye(x, y, s, alpha) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  FX.glow(ctx, x, y, s * 3, '230,40,30', 0.5 * alpha);
+  ctx.fillStyle = `rgba(255,70,50,${0.9 * alpha})`; ctx.beginPath(); ctx.ellipse(x, y, s, s * 0.38, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = `rgba(255,235,220,${alpha})`; ctx.beginPath(); ctx.ellipse(x, y, s * 0.14, s * 0.34, 0, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function drawXiahouOver() {
+  const A = S.arena;
+  if (A) { // 枪阵：一圈插在地上的长枪，枪尖朝外，枪缨飘红
+    const k = Math.min(1, (S.t - A.born) / 0.3), out = A.until !== Infinity ? Math.max(0, (A.until - S.t) / 0.35) : 1, n = Math.round(A.R / 14);
+    ctx.save(); ctx.globalAlpha = k * out; ctx.lineCap = 'round';
+    for (let i = 0; i < n; i++) {
+      const a = i / n * TAU, x = A.x + Math.cos(a) * A.R, y = A.y + Math.sin(a) * A.R, h = 46 * k, lean = Math.cos(a) * 8;
+      ctx.strokeStyle = '#5a4030'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + lean, y - h); ctx.stroke();
+      ctx.fillStyle = '#d8dce2'; ctx.beginPath(); ctx.moveTo(x + lean - 4, y - h); ctx.lineTo(x + lean, y - h - 14); ctx.lineTo(x + lean + 4, y - h); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#c0302a'; ctx.beginPath(); ctx.arc(x + lean, y - h + 3, 3.2, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+  }
+  for (const e of S.bossList) { // 刚烈：横刀格挡时罩一层血红的护体，头顶记着挨了几下
+    if (!e.stance) continue;
+    const pulse = 0.5 + 0.5 * Math.sin(S.t * 12);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, e.x, e.y - e.r * 1.2, e.r * 3, '255,50,40', 0.35 + 0.15 * pulse); ctx.restore();
+    ctx.strokeStyle = `rgba(255,120,100,${0.6 + 0.3 * pulse})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(e.x, e.y - e.r * 1.1, e.r * 1.5, e.r * 1.9, 0, 0, TAU); ctx.stroke();
+    ctx.font = `900 18px ${FONT}`; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = '#1a0c0a';
+    const txt = `怒 ${e.stance.hits}`; ctx.strokeText(txt, e.x, e.y - e.r * 3.4); ctx.fillStyle = '#ff9a8a'; ctx.fillText(txt, e.x, e.y - e.r * 3.4);
+  }
+  for (const f of S.flyArrows) { // 飞箭：一支长箭，后面拖一道残影
+    const k = Math.min(1, f.t / f.T), x = f.x0 + (f.x1 - f.x0) * k, y = f.y0 + (f.y1 - f.y0) * k, a = Math.atan2(f.y1 - f.y0, f.x1 - f.x0), L = f.big ? 70 : 46;
+    ctx.save(); ctx.globalAlpha = f.t > f.T ? Math.max(0, 1 - (f.t - f.T) / 0.25) : 1;
+    ctx.strokeStyle = 'rgba(255,90,70,0.45)'; ctx.lineWidth = f.big ? 10 : 5; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * L * 2.2, y - Math.sin(a) * L * 2.2); ctx.lineTo(x, y); ctx.stroke();
+    ctx.translate(x, y); ctx.rotate(a);
+    ctx.strokeStyle = '#3a2a1e'; ctx.lineWidth = f.big ? 4 : 2.5; ctx.beginPath(); ctx.moveTo(-L, 0); ctx.lineTo(0, 0); ctx.stroke();
+    ctx.fillStyle = '#d8dce2'; ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-4, -5); ctx.lineTo(-4, 5); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#c0302a'; ctx.fillRect(-L, -4, 10, 8);
+    ctx.restore();
+  }
+  for (const o of S.bloodEyes) { const a = Math.min(1, o.t / 0.15, (o.T - o.t) / 0.2); drawBloodEye(o.x, o.y, o.s * (0.6 + 0.4 * Math.min(1, o.t / 0.3)), a); }
 }
 // 马超的铁骑、郭嘉的棋盘和迷雾、张飞的地裂、典韦的巨石、赵云的白龙、遗计锦囊（敌我都用得上的几样带 hostile 标记）
 function updateBossFx2(dt) {
@@ -4386,6 +4605,20 @@ function castShenbing(sb) {
       for (let k = 0; k < def.count; k++) { const off = (k - (def.count - 1) / 2) * def.w; spiritRiders(tgt.x - uy * off - ux * def.len / 2, tgt.y + ux * off - uy * def.len / 2, a, 2, def.len, def.w, dmg, 1300, 0); }
       S.effects.push({ kind: 'bolt', pts: zigzag([[p.x, p.y - 30], [tgt.x, tgt.y - 10]], 18), life: 0.25, max: 0.25, rgb: '190,215,255', w: 4 });
       sfx('swing');
+      break;
+    }
+    case 'eyeCleave': { // 血眼战刀：敌群上空睁开一只血眼，随后巨刀十字劈下
+      const x = tgt.x, y = tgt.y;
+      S.bloodEyes.push({ x, y: y - 130, t: 0, T: 0.75, s: 30 });
+      later(0.55, () => {
+        for (const a of [Math.PI / 4, -Math.PI / 4]) {
+          const sx = x - Math.cos(a) * def.len / 2, sy = y - Math.sin(a) * def.len / 2;
+          near(x, y, def.len / 2 + 48, e => { if (!e.building && !e.boss && segDist(e.x, e.y, sx, sy, a, def.len) < def.w / 2 + e.r) e.stunT = Math.max(e.stunT || 0, S.t + def.stun); });
+          hitLine(sx, sy, a, def.len, def.w, dmg, 200);
+          fxTex('thrust', x, y - 10, { w: def.len * 1.1, h: def.w * 1.6, rot: a, rgb, life: 0.32, sx: 1.2, core: 0.8 });
+        }
+        impact(x, y, 90, rgb, 0.8); groundImpact(x, y, 120); S.shake = Math.max(S.shake, 7); sfx('slam');
+      });
       break;
     }
     case 'tombDrop': { // 冢虎墓碑：几块黑石墓碑砸进敌群，立一会儿再炸出鬼火
@@ -6393,6 +6626,12 @@ function drawNumbers() {
 function drawScreen() {
   const p = S.player;
   drawMist(); // 郭嘉的鬼谋迷雾
+  if (S.t < S.dimT) { const k = Math.min(1, (S.dimT - S.t) / 0.4, (S.t - S.dimT + 1.4) / 0.2); ctx.fillStyle = `rgba(0,0,0,${0.45 * k})`; ctx.fillRect(0, 0, W, H); } // 拔矢啖睛：冷箭射来时画面一暗
+  if (S.bossList.some(b => b.leechT > S.t) || S.t < S.rageT) { // 夏侯惇血怒 / 你的啖睛狂暴：屏幕边缘泛红
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.72);
+    g.addColorStop(0, 'rgba(160,10,10,0)'); g.addColorStop(1, `rgba(160,10,10,${0.28 + 0.08 * Math.sin(S.t * 6)})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
   // 屏幕外指示：武将（红）、据点（金，带距离）
   const marks = [...S.bossList.filter(e => !e.vanish).map(e => [e, '#b5372a', '#ebe0c5', e.def.icon, false]),
     ...S.enemies.filter(e => e.building).map(e => [e, '#cfa34a', '#2a2116', e.def.icon, true])];
@@ -6486,6 +6725,7 @@ function render(raw) {
   drawBossFxUnder();
   drawBossFx2Under();
   drawSimayiUnder();
+  drawXiahouUnder();
   drawPickups();
   drawGhosts();
   drawEnemies();
@@ -6496,6 +6736,7 @@ function render(raw) {
   drawBossFx();
   drawBossFx2();
   drawSimayiOver();
+  drawXiahouOver();
   FX.particles(ctx, S.particles, false); // 烟尘、碎屑
   drawEffects();
   FX.particles(ctx, S.particles, true);  // 火花、光点（叠加发光）

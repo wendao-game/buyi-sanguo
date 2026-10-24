@@ -345,6 +345,18 @@ window.GAME_DATA = {
         { dmg: 44, cd: 0.75, count: 5, speed: 300, blast: 72, note: '百鬼夜行，鬼火 +1' },
       ],
     },
+    // 虎将刀：锁定附近最强的敌人（精英、名将优先），刀光一闪而至，在它身上连斩 hits 刀（radius 是每一刀波及的范围）；range 是找目标的距离
+    hujiangdao: {
+      name: '虎将刀', icon: '斩', type: 'duelSlash', general: '夏侯惇',
+      desc: '夏侯惇的厚背大刀。每隔一会儿锁定附近最强的敌人（精英、名将优先），刀光一闪而至，在它身上连斩三刀，旁边的敌人一起遭殃。',
+      levels: [
+        { dmg: 40, cd: 3.2, hits: 3, range: 380, radius: 70 },
+        { dmg: 50, cd: 3.0, hits: 3, range: 395, radius: 74, note: '伤害 +10' },
+        { dmg: 56, cd: 2.8, hits: 4, range: 410, radius: 78, note: '多斩一刀' },
+        { dmg: 70, cd: 2.6, hits: 4, range: 430, radius: 84, note: '伤害 +14，更快' },
+        { dmg: 86, cd: 2.3, hits: 5, range: 460, radius: 92, note: '盲将之怒，多斩一刀' },
+      ],
+    },
     // 狼顾：身前身后同时张开两道目光，绕着你扫过一段（sweep 是扫过的圈数，dur 是扫一次用几秒）
     langgu: {
       name: '狼顾', icon: '顾', type: 'gaze', general: '司马懿', tags: ['spell'],
@@ -615,6 +627,18 @@ window.GAME_DATA = {
         { cd: 6.5, life: 4, lure: 420, dmg: 140, radius: 200, note: '蝶影成双，难辨真假' },
       ],
     },
+    // 刚烈：每次受伤，朝打你的敌人（没有就朝最强的敌人）劈回一道血色刀光；伤害 = dmg × (1 + 已损生命比例 × lowHp)，gap 秒内只反击一次
+    ganglie: {
+      name: '刚烈', icon: '烈', type: 'retaliate', general: '夏侯惇',
+      desc: '每次受伤，都朝打你的敌人劈回一道血色刀光，一路贯穿；你掉的血越多，这一刀越重。',
+      levels: [
+        { dmg: 60, len: 420, w: 50, lowHp: 1.5, gap: 0.6 },
+        { dmg: 76, len: 440, w: 54, lowHp: 1.6, gap: 0.55, note: '伤害提高' },
+        { dmg: 90, len: 460, w: 58, lowHp: 1.8, gap: 0.5, note: '伤害提高，刀光更长' },
+        { dmg: 110, len: 490, w: 62, lowHp: 2.0, gap: 0.45, note: '伤害提高，反击更快' },
+        { dmg: 136, len: 540, w: 70, lowHp: 2.4, gap: 0.4, cross: true, note: '刚烈不屈：一次劈出十字两刀' },
+      ],
+    },
     // 死士：raise 是一次爬出几个死士（临时随从，不占名额），life 秒后散去，sdmg 是死士的伤害
     sishi: {
       name: '死士', icon: '死', type: 'deadRise', general: '司马懿',
@@ -671,6 +695,8 @@ window.GAME_DATA = {
     shikui: { name: '狮盔兽带', icon: '狮', max: 1, unique: true, general: '马超', desc: '马超的狮子盔、兽面带：生命上限 +50，移动速度 +12%，伤害 +10%', effects: { maxHp: 50, speedMul: 0.12, dmgMul: 0.1 } },
     guicai: { name: '鬼才', icon: '才', max: 1, unique: true, general: '郭嘉', desc: '“郭奉孝在，不使孤至此”：冷却 -12%，暴击率 +6%，伤害 +8%', effects: { cdMul: -0.12, crit: 0.06, dmgMul: 0.08 } },
     tongque: { name: '铜雀春深', icon: '雀', max: 1, unique: true, general: '小乔', desc: '小乔的铜雀步摇：移动速度 +12%，暴击率 +6%，闪现距离 +30%', effects: { speedMul: 0.12, crit: 0.06, blinkDist: 0.3 } },
+    // 啖睛：生命跌破 below 时回复 heal 比例的生命，并狂暴 dur 秒（伤害 +dmg、移速 +speed），每 cd 秒一次
+    danjing: { name: '啖睛', icon: '睛', max: 1, unique: true, general: '夏侯惇', desc: '“父精母血，不可弃也！”生命上限 +40；生命跌到 30% 以下时，立刻回复 40% 生命并狂暴 6 秒（伤害 +40%、移速 +20%），每 75 秒一次', effects: { maxHp: 40 }, rage: { below: 0.3, heal: 0.4, dur: 6, dmg: 0.4, speed: 0.2, cd: 75 } },
     // 冢虎：生命跌破 below 时诈死脱身（无敌 iframes 秒，回复 heal 比例的生命），每 cd 秒一次
     zhonghu: { name: '冢虎', icon: '虎', max: 1, unique: true, general: '司马懿', desc: '冢虎隐忍：生命上限 +40，伤害 +10%；生命跌到 25% 以下时诈死脱身，2 秒无敌并回复 30% 生命（每 60 秒一次）', effects: { maxHp: 40, dmgMul: 0.1 }, feign: { below: 0.25, heal: 0.3, iframes: 2, cd: 60 } },
   },
@@ -1168,6 +1194,21 @@ window.GAME_DATA = {
       banner: '官渡 · 鬼才 郭嘉', line: '“十胜十败，此战已定。”', rage: '“咳……还早着呢。”',
       look: { skin: '#f0dcc4', skinShade: '#d0b498', robe: '#2f5a5a', trim: '#e6efe8', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#1e3434', weapon: 'fan', fanColor: '#7ad8c0', aura: '#3a8a80', artFace: [0.48, 0.32, 0.28] },
     },
+    // —— 夏侯惇：盲将。群雄逐鹿里典韦之后登场。血红配黑铁，纯力量：
+    // 刚烈（横刀格挡，挨得越多反击的刀光越多）、虎将单挑（立起枪阵把你和他关在一起）、拔矢啖睛（冷箭射中左眼，拔矢吞睛后血怒，再把箭掷回来）
+    xiahoudun: {
+      name: '夏侯惇', title: '盲将 · 夏侯元让', icon: '惇', hp: 6200, speed: 94, dmg: 28, r: 36, color: '#3a2a26',
+      attacks: ['cleave', 'charge', 'slam', 'summon', 'cleave', 'charge'], interval: 2.7, cleaveR: 200, slamR: 165, chargeSpeed: 640, summon: 6, summonType: 'cavalry',
+      rewards: ['hujiangdao', 'ganglie', 'danjing'],
+      ultRgb: '230,50,40', ultEvery: 10,
+      ults: [
+        { id: 'ganglie', name: '刚烈', type: 'counterStance', dur: 2.0, ring: 260, len: 640, w: 46, minBlades: 4, maxBlades: 12, perHit: 0.5, dmg: 1.2 },
+        { id: 'danqi', name: '虎将单挑', type: 'duelArena', arenaR: 280, combos: 3, tele: 0.7, gap: 0.35, cleaveR: 300, half: 1.05, wall: 0.5, dmg: 1.3 },
+        { id: 'danjing', name: '拔矢啖睛', type: 'eyeArrow', hpBelow: 0.5, rage: 8, speed: 1.5, leech: 0.015, tele: 0.8, arrowLen: 1000, arrowW: 40, dmg: 1.5 },
+      ],
+      banner: '下邳 · 盲将 夏侯惇', line: '“夏侯元让在此，鼠辈受死！”', rage: '“一只眼，照样斩你！”',
+      look: { skin: '#d6a47a', skinShade: '#b07f56', robe: '#3a2a26', trim: '#a8322a', armor: true, armorColor: '#2c2a2e', beard: 'short', beardColor: '#1e1814', eyes: 'normal', brows: 'bushy', head: 'helmet', headColor: '#2a2628', plume: '#a8322a', weapon: 'dao', aura: '#8a2a20', scar: true, artFace: [0.5, 0.28, 0.3] },
+    },
     // —— 司马懿：冢虎。赤壁之战里诸葛亮之后，西北方升起一座孤冢，攻破后破冢而出。幽冥属性（隐藏属性），招式全是黑紫色：
     // 死士破土、狼顾之相（身前身后两道目光一起扫）、诈死藏进一圈疑冢里（只有一座是真的，打破真冢才逼得出他）
     simayi: {
@@ -1211,6 +1252,7 @@ window.GAME_DATA = {
     xiaoqiao: { death: '公瑾……小乔先走一步了……', ult: { zhiyuan: '纸鸢飞得高，你躲得了吗？', dieying: '哪一个，才是真的我？', tongque: '铜雀春深，锁住你！' } },
     machao: { death: '父亲……孩儿……无能……', ult: { tieqi: '西凉铁骑，随我冲阵！', huanqi: '锦马环骑，你已无路可走！', shenwei: '神威天将军，在此！' } },
     guojia: { death: '天不假年……奉孝，先走一步……', ult: { shisheng: '十胜十败，一步错，步步错。', liaodi: '你的下一步，我早已算到。', guimou: '鬼谋入雾，生路何在？' } },
+    xiahoudun: { death: '孟德……元让……先走一步了……', ult: { ganglie: '有本事，再打一刀试试！', danqi: '来！一对一，生死各安天命！', danjing: '父精母血，不可弃也！' } },
     simayi: { death: '算尽天下……终究……算不过天……', ult: { sishi: '死士三千，听我号令——起！', langgu: '我不必回头，也看得见你。', yizhong: '哪一座才是我的冢？你猜。' } },
   },
 
@@ -1283,6 +1325,7 @@ window.GAME_DATA = {
       events: [
         { t: 20, type: 'special', bid: 'xiliangying', dx: -820, dy: -560 }, // 西凉营地出现在左上方，什么时候去打都行
         { t: 45, type: 'boss', id: 'dianwei' },
+        { t: 75, type: 'boss', id: 'xiahoudun' }, // 下邳征吕布时被流矢射中左眼（198 年）
         { t: 105, type: 'boss', id: 'yanliang' },
         { t: 140, type: 'ambush', enemy: 'cavalry', count: 24, text: '河北铁骑' },
         { t: 170, type: 'boss', id: 'wenchou' },
@@ -1409,6 +1452,8 @@ window.GAME_DATA = {
       desc: '在敌群脚下摆开一张棋盘，黑白两色的格子轮流炸开鬼火，格子里的敌人连挨两下。' },
     xiaoqiao: { name: '流光蝶钗', icon: '钗', iconFrom: 'diewu', rgb: '210,170,255', cd: 4.5, type: 'butterflies', dmg: 34, count: 8, blinkCd: 0.5, blinkFly: 4,
       desc: '闪现冷却减半。每 4.5 秒放出八只流光蝶追咬敌人；每次闪现，起点还会留下四只蝴蝶扑向敌人。' },
+    xiahoudun: { name: '血眼战刀', icon: '刀', iconFrom: 'hujiangdao', rgb: '230,50,40', cd: 5.5, type: 'eyeCleave', dmg: 95, len: 420, w: 70, stun: 0.8,
+      desc: '敌群上空睁开一只血红的独眼，随后一柄巨刀落下，十字劈开，被劈中的敌人僵住片刻。' },
     simayi: { name: '冢虎墓碑', icon: '碑', iconFrom: 'langgu', rgb: '170,90,230', cd: 6, type: 'tombDrop', dmg: 75, count: 4, radius: 95, stun: 1, nova: 0.8,
       desc: '四块黑石墓碑从天而降砸进敌群，砸晕落点的敌人；片刻后墓碑里再炸出一圈幽冥鬼火。' },
   },
