@@ -1005,6 +1005,78 @@ const lbCall = (fn, args) => { try { tapApi().getLeaderboardManager()[fn](Object
 function submitScore() { if (lbOK() && S) lbCall('submitScores', { scores: [{ leaderboardId: TT.leaderboardId, score: S.player.level }] }); } // 按这一局达到的等级排名（等级没有上限）
 function openLeaderboard() { if (lbOK()) lbCall('openLeaderboard', {}); }
 
+// 云存档：只在 TapTap 里有（tap.getCloudSaveManager）。进游戏时先下载云端那份和本机合并，之后有变化就上传（每分钟最多一次）。
+// 合并规则：局外进度取累计赚过金币更多的那份（一样多就取更新的，买装备不加累计金币）；最佳纪录取更好的；图鉴每位武将取次数更多的。
+const CS = TT.cloudSave, CLOUD_KEYS = ['buyi-meta', 'buyi-best', 'buyi-slain'];
+const cloud = { uuid: null, ready: false, busy: false, dirty: false, lastUp: -1e9, timer: 0 };
+function cloudOK() { const t = tapApi(); return !!(t && t.getCloudSaveManager && t.getFileSystemManager && t.env && t.env.USER_DATA_PATH); }
+const cloudFile = () => `${tapApi().env.USER_DATA_PATH}/${CS.name}.json`;
+const readKey = k => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch (e) { return null; } };
+function cloudLocal() { saveMeta(true); const o = {}; for (const k of CLOUD_KEYS) { const v = readKey(k); if (v) o[k] = v; } return o; }
+// 两份存档合并成一份；返回 { save, fromCloud: 本机有没有被云端更新, toCloud: 云端是不是比合并结果旧 }
+function mergeSaves(loc, cl) {
+  const out = {}, metaKey = m => m ? [m.total || 0, m.at || 0] : [-1, -1];
+  const newer = (a, b) => { const ka = metaKey(a), kb = metaKey(b); return ka[0] !== kb[0] ? ka[0] > kb[0] : ka[1] > kb[1]; };
+  const m1 = loc['buyi-meta'], m2 = cl['buyi-meta'];
+  out['buyi-meta'] = m2 && newer(m2, m1) ? m2 : m1 || m2;
+  const b1 = loc['buyi-best'], b2 = cl['buyi-best'];
+  out['buyi-best'] = !b1 ? b2 : !b2 ? b1 : (b2.t > b1.t ? b2 : b1);
+  const s1 = loc['buyi-slain'] || {}, s2 = cl['buyi-slain'] || {}, s = Object.assign({}, s1);
+  for (const g in s2) s[g] = Math.max(s[g] || 0, s2[g]);
+  out['buyi-slain'] = s;
+  for (const k of CLOUD_KEYS) if (!out[k]) delete out[k];
+  const same = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+  return { save: out, fromCloud: CLOUD_KEYS.some(k => !same(out[k], loc[k])), toCloud: CLOUD_KEYS.some(k => !same(out[k], cl[k])) };
+}
+// 有变化：标记一下，由定时器按频率限制上传
+function cloudDirty() { if (cloud.ready) cloud.dirty = true; }
+function cloudUpload() {
+  if (!cloud.ready || cloud.busy || !cloud.dirty || performance.now() - cloud.lastUp < CS.every * 1000) return;
+  const t = tapApi(), cm = t.getCloudSaveManager(), fs = t.getFileSystemManager(), save = cloudLocal(), m = save['buyi-meta'] || {}, b = save['buyi-best'];
+  cloud.busy = true; cloud.dirty = false; cloud.lastUp = performance.now();
+  const fail = () => { cloud.busy = false; cloud.dirty = true; }; // 失败了下一轮再传
+  const meta = { name: CS.name, summary: `金币 ${m.gold || 0} · 最佳 Lv ${b ? b.lv : 0}`, playtime: Math.round(b ? b.t : 0) };
+  try {
+    fs.writeFile({ filePath: cloudFile(), data: JSON.stringify(Object.assign({ v: 1, at: Date.now() }, save)), encoding: 'utf8', fail,
+      success: () => {
+        const done = { archiveMetaData: meta, archiveFilePath: cloudFile(), fail, success: r => { cloud.busy = false; if (r && r.uuid) cloud.uuid = r.uuid; } };
+        if (cloud.uuid) cm.updateArchive(Object.assign({ archiveUUID: cloud.uuid }, done)); else cm.createArchive(done);
+      } });
+  } catch (e) { fail(); }
+}
+// 进游戏：下载云端存档，和本机合并。下载失败（没网等）就过 30 秒再试——合并之前不上传，免得本机的旧档盖掉云端
+function cloudInit() {
+  if (!cloudOK() || cloud.timer) return;
+  cloud.timer = setInterval(cloudUpload, 5000);
+  cloudLoad();
+}
+function cloudLoad() {
+  const t = tapApi(), cm = t.getCloudSaveManager(), fs = t.getFileSystemManager();
+  const retry = () => setTimeout(cloudLoad, 30000);
+  const start = cl => {
+    const r = mergeSaves(cloudLocal(), cl || {});
+    if (r.fromCloud) {
+      for (const k of CLOUD_KEYS) { try { if (r.save[k]) localStorage.setItem(k, JSON.stringify(r.save[k])); } catch (e) { /* ignore */ } }
+      META = null;
+      if (!$('title').hidden) { refreshTitle(); renderOrigins(); }
+      toast('', '', '云存档已同步', `金币 ${loadMeta().gold}`);
+    }
+    cloud.ready = true;
+    if (r.toCloud) cloud.dirty = true;
+  };
+  try {
+    cm.getArchiveList({ fail: retry,
+      success: res => {
+        const a = (res && res.saves || []).find(s => s.name === CS.name);
+        if (!a) { start(null); return; } // 云端还没有：这是第一次，把本机的传上去
+        cloud.uuid = a.uuid;
+        cm.getArchiveData({ archiveUUID: a.uuid, archiveFileId: a.fileId, targetFilePath: `${t.env.USER_DATA_PATH}/${CS.name}_cloud.json`, fail: retry,
+          success: d => fs.readFile({ filePath: d.filePath || `${t.env.USER_DATA_PATH}/${CS.name}_cloud.json`, encoding: 'utf8', fail: retry,
+            success: f => { let o = null; try { o = JSON.parse(f.data); } catch (e) { /* 坏档当作没有 */ } start(o); } }) });
+      } });
+  } catch (e) { retry(); }
+}
+
 // 看广告复活：满血、短暂无敌，身边的敌人被震开，名将的锁链、冻结、迷惑全部解除
 function revive() {
   const p = S.player;
@@ -4741,8 +4813,9 @@ function saveMeta(now) {
   const t = performance.now();
   if (!now && t - metaSaveT < 1500) { clearTimeout(saveMeta.pending); saveMeta.pending = setTimeout(() => saveMeta(true), 1600); return; }
   if (!META || !META._dirty) return; // 只有金币或装备变了才写，避免两个网页互相覆盖
-  metaSaveT = t; delete META._dirty;
+  metaSaveT = t; delete META._dirty; META.at = Date.now(); // at：云存档合并时比新旧用
   try { localStorage.setItem('buyi-meta', JSON.stringify(META)); } catch (e) { /* 存储不可用时忽略 */ }
+  cloudDirty();
 }
 const gearLv = id => loadMeta().gear[id] || 0;
 // 装备形态：每一级一个名字；1–3 级普通、4–6 级精良、7–9 级传说（阶段 0 表示还没买）；9 级以后外形不变，名字后面加 +N
@@ -4898,7 +4971,8 @@ function importCode(text) {
   let o; try { o = JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch (e) { return '存档码不完整，请完整复制后再粘贴'; }
   for (const k of SAVE_KEYS) { try { if (o[k]) localStorage.setItem(k, JSON.stringify(o[k])); else if (k === 'buyi-run') localStorage.removeItem(k); } catch (e) { return '这台设备不能保存数据（可能是无痕模式）'; } }
   META = null;
-  return `已读取：金币 ${loadMeta().gold}${o['buyi-run'] ? '，含一局未打完的征战' : ''}`;
+  const meta = loadMeta(); meta._dirty = true; saveMeta(true); // 读了存档码：当作最新的进度，传到云端
+  return `已读取：金币 ${meta.gold}${o['buyi-run'] ? '，含一局未打完的征战' : ''}`;
 }
 function openSaveCode() {
   $('save-text').value = exportCode(); $('save-msg').textContent = '';
@@ -4908,6 +4982,7 @@ function openSaveCode() {
 function refreshTitle() {
   $('btn-rank').hidden = !lbOK(); // TapTap 排行榜：只在 TapTap 里显示
   getRewardAd(); // 在标题页就创建激励视频并预加载（没有 tap 时什么也不做）
+  cloudInit();   // 云存档：第一次到标题页时下载、合并（只做一次；没有 tap 时什么也不做）
   showBestOnTitle();
   $('title-gold').textContent = `金 ${loadMeta().gold}`;
   const r = loadRun();
@@ -4924,6 +4999,7 @@ function loadBest() {
 }
 function saveBest(rec) {
   try { localStorage.setItem('buyi-best', JSON.stringify(rec)); } catch (e) { /* ignore */ }
+  cloudDirty();
 }
 // 图鉴只记录斩过哪些武将，仅用于展示
 function loadSlain() {
@@ -4933,6 +5009,7 @@ function markSlain(gid) {
   const s = loadSlain();
   s[gid] = (s[gid] || 0) + 1;
   try { localStorage.setItem('buyi-slain', JSON.stringify(s)); } catch (e) { /* ignore */ }
+  cloudDirty();
 }
 function nameOf(id) { const d = defOf(kindOf(id), id); return d ? d.name : id; }
 // 武将按战役里的登场顺序排列
@@ -5170,8 +5247,8 @@ $('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; try { local
 audioLabels();
 // 浏览器要求先有一次点击 / 按键才能出声：标题界面第一次操作时就把音乐放起来
 for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => audio(), { once: true, capture: true });
-document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause(); if (document.hidden) { saveRun(); saveMeta(true); Music.want(null); } });
-addEventListener('pagehide', () => { saveRun(); saveMeta(true); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause(); if (document.hidden) { saveRun(); saveMeta(true); cloudUpload(); Music.want(null); } });
+addEventListener('pagehide', () => { saveRun(); saveMeta(true); cloudUpload(); });
 
 // ============ 绘制 ============
 function hash(x, y) {

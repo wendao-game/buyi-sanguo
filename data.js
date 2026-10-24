@@ -16,7 +16,10 @@ window.GAME_DATA = {
   // TapTap 广告和排行榜：在 TapTap 里打开时才有（网页版自动隐藏）。ID 在 TapTap 开发者后台拿到后填进来，空着就不显示。
   // rewardedAdUnitId：激励视频广告位 ID；leaderboardId：排行榜 ID（按这一局达到的等级排名，降序、保留历史最高）
   // 看广告复活每局只有一次：满血、短暂无敌、震开身边的敌人；结算时看广告，本局金币再加 adGoldBonus
-  taptap: { rewardedAdUnitId: '1054324', leaderboardId: 'gwy1u779jhgau3z3er', reviveIframes: 3, reviveKnockR: 320, adGoldBonus: 0.2 },
+  taptap: { rewardedAdUnitId: '1054324', leaderboardId: 'gwy1u779jhgau3z3er', reviveIframes: 3, reviveKnockR: 320, adGoldBonus: 0.2,
+    // 云存档：局外进度（金币、装备）、最佳纪录、图鉴存到玩家的 TapTap 账号里，换手机、清缓存都不丢（没打完的那一局只存在本机）。
+    // TapTap 限制每分钟最多上传一次，所以有变化后至少隔 every 秒才传；name 是云端存档名（不能有空格和中文）
+    cloudSave: { name: 'buyi_save', every: 65 } },
 
   // 无限成长：武器 / 技能满 5 级后的“突破”规则
   breakthrough: {
