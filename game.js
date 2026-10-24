@@ -937,6 +937,7 @@ function getRewardAd() {
   if (rewardAd || !adOK()) return rewardAd;
   rewardAd = tapApi().createRewardedVideoAd({ adUnitId: TT.rewardedAdUnitId }); // 单例：整局游戏只创建一次
   rewardAd.onError(() => {});
+  rewardAd.load().catch(() => {}); // 先预加载一条，玩家点按钮时能直接播
   rewardAd.onClose(res => { // 只有完整看完（isEnded）才给奖励
     if (actx && actx.state === 'suspended') actx.resume();
     const cb = adDone; adDone = null;
@@ -4611,6 +4612,7 @@ function openSaveCode() {
 }
 function refreshTitle() {
   $('btn-rank').hidden = !lbOK(); // TapTap 排行榜：只在 TapTap 里显示
+  getRewardAd(); // 在标题页就创建激励视频并预加载（没有 tap 时什么也不做）
   showBestOnTitle();
   $('title-gold').textContent = `金 ${loadMeta().gold}`;
   const r = loadRun();
