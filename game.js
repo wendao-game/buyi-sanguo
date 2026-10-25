@@ -143,7 +143,11 @@ function noiseBuffer() {
 // ============ 背景音乐与名将语音 ============
 // 音乐、语音文件由 assets/audio.json 列出（装素材时生成），没有清单时一律用合成的占位音乐、只显示字幕，不会去请求不存在的文件。
 let musicOn = true, voiceOn = true;
-try { musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0'; } catch (e) { /* 存储不可用时忽略 */ }
+let pickPause = false, shakeOn = true; // 设置：升级 / 斩将选卡时暂停（默认边打边选）、镜头震动（默认开）
+try {
+  musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0';
+  pickPause = localStorage.getItem('buyi-pickpause') === '1'; shakeOn = localStorage.getItem('buyi-shake') !== '0';
+} catch (e) { /* 存储不可用时忽略 */ }
 const AUDIO = { bgm: {}, voice: {}, loop: {}, loopFrom: {} };
 fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
   if (!m) return;
@@ -4764,7 +4768,7 @@ function update(dt) {
   }
   if (S.rankUp) { banner(`晋升 · ${S.rankUp}`, `Lv ${p.level}`); S.rankUp = null; }
   S.saveT -= dt; if (S.saveT <= 0) { S.saveT = 15; saveRun(); } // 每 15 秒自动存档
-  // 选择栏不暂停游戏：有待选的升级 / 斩将奖励 / 铁匠铺时，在屏幕上方弹出
+  // 选择栏默认不暂停游戏（设置里可以改成暂停）：有待选的升级 / 斩将奖励 / 铁匠铺时，在屏幕上方弹出
   if (!S.over && !S.choice && (S.rewardReady || S.forgeReady || S.pendingLevels > 0)) nextModal();
 }
 
@@ -4862,13 +4866,13 @@ function openChoices(mode, gid, legend) {
     const g = D.generals[gid];
     $('lu-portrait').innerHTML = window.Portrait.html('general', gid, { crop: true });
     $('lu-title').textContent = `斩获 · ${g.name}`;
-    $('lu-sub').textContent = '武将遗物，夺取其一（不暂停，边打边选）';
+    $('lu-sub').textContent = `武将遗物，夺取其一（${pickPause ? '已暂停' : '不暂停，边打边选'}）`;
   } else if (mode === 'forge') {
     $('lu-title').textContent = '铁匠铺 · 重铸兵器';
     $('lu-sub').textContent = '任选一件武器，强化 +1 级';
   } else {
     $('lu-title').textContent = `升级 · Lv ${p.level}`;
-    $('lu-sub').textContent = `${rankOf(p.level)} · 按 1/2/3 或点选（不暂停）${S.pendingLevels ? ` · 还有 ${S.pendingLevels} 次` : ''}`;
+    $('lu-sub').textContent = `${rankOf(p.level)} · 按 1/2/3 或点选（${pickPause ? '已暂停' : '不暂停'}）${S.pendingLevels ? ` · 还有 ${S.pendingLevels} 次` : ''}`;
     sfx('level');
   }
   const box = $('lu-cards');
@@ -5517,8 +5521,13 @@ $('btn-sound').addEventListener('click', () => {
   if (muted) stopVoice();
 });
 $('btn-sound').textContent = muted ? '静' : '声';
-// 暂停菜单里分别开关音乐和语音
-const audioLabels = () => { $('btn-music').textContent = `音乐：${musicOn ? '开' : '关'}`; $('btn-voice').textContent = `语音：${voiceOn ? '开' : '关'}`; };
+// 暂停菜单里的设置：音乐、语音、选卡暂停、镜头震动
+const audioLabels = () => {
+  $('btn-music').textContent = `音乐：${musicOn ? '开' : '关'}`; $('btn-voice').textContent = `语音：${voiceOn ? '开' : '关'}`;
+  $('btn-pickpause').textContent = `选卡暂停：${pickPause ? '开' : '关'}`; $('btn-shake').textContent = `镜头震动：${shakeOn ? '开' : '关'}`;
+};
+$('btn-pickpause').addEventListener('click', () => { pickPause = !pickPause; try { localStorage.setItem('buyi-pickpause', pickPause ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
+$('btn-shake').addEventListener('click', () => { shakeOn = !shakeOn; try { localStorage.setItem('buyi-shake', shakeOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
 $('btn-music').addEventListener('click', () => { musicOn = !musicOn; try { localStorage.setItem('buyi-music', musicOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); Music.refresh(); });
 $('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; try { localStorage.setItem('buyi-voice', voiceOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); if (!voiceOn) stopVoice(); });
 audioLabels();
@@ -6739,8 +6748,9 @@ function render(raw) {
     drawGround(cx, cy);
     return;
   }
-  const sx = S.shake > 0 ? rand(-1, 1) * S.shake : 0, sy = S.shake > 0 ? rand(-1, 1) * S.shake : 0;
-  const Z = ZOOM * (1 + 0.06 * (S.punch || 0)); // 重击时镜头往里一冲
+  const shk = shakeOn ? S.shake : 0; // 设置里关掉镜头震动：不抖、也不往里冲
+  const sx = shk > 0 ? rand(-1, 1) * shk : 0, sy = shk > 0 ? rand(-1, 1) * shk : 0;
+  const Z = ZOOM * (1 + (shakeOn ? 0.06 * (S.punch || 0) : 0)); // 重击时镜头往里一冲
   ctx.setTransform(DPR * Z, 0, 0, DPR * Z, DPR * (W / 2 + sx) - DPR * Z * S.camX, DPR * (H / 2 + sy) - DPR * Z * S.camY);
   drawGround(S.camX, S.camY);
   for (const f of S.decals) { // 地面裂纹；甄姬的冰面：一片淡蓝的霜，边上几道白色冰纹
@@ -6798,7 +6808,7 @@ let last = performance.now(), hudT = 0;
 function frame(now) {
   const raw = Math.min(0.05, (now - last) / 1000);
   last = now;
-  if (S && !S.paused && !S.modal && !S.over) {
+  if (S && !S.paused && !S.modal && !S.over && !(pickPause && S.choice)) {
     let dt = S.slowmo > 0 ? raw * 0.3 : raw;
     if (S.ultFreeze > 0) { S.ultFreeze -= raw; dt = raw * 0.04; } // 大招演出：画面近乎定格
     else if (S.hitstopT > 0) { S.hitstopT -= raw; dt = raw * 0.06; } // 重击顿帧
