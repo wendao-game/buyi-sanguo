@@ -1062,31 +1062,48 @@ function onBuildingDestroyed(e) {
 // 只有在 TapTap 里打开时才有全局对象 tap；网页版、本地测试时没有，相关按钮全部不显示
 const TT = D.taptap;
 const tapApi = () => window.tap || null;
-let rewardAd = null, adDone = null, adOn = false;
+// 激励视频：有时广告平台拉不到广告（库存不足、手机关了个性化广告等），这时 show / load 可能既不成功也不报错，
+// 只在 onError 里报一声。所以：出错或 adWait 秒还没播出来，就当这次没有广告，按钮恢复成“点击重试”。
+// 已经超时放弃了、广告却晚一步播出来并看完的，照样给奖励（adLate，回调自己判断还能不能领）
+let rewardAd = null, adDone = null, adOn = false, adShown = false, adTimer = 0, adLate = null;
+const adWait = 10;
 function adOK() { const t = tapApi(); return !!(t && t.createRewardedVideoAd && TT.rewardedAdUnitId); }
 function getRewardAd() {
   if (rewardAd || !adOK()) return rewardAd;
   rewardAd = tapApi().createRewardedVideoAd({ adUnitId: TT.rewardedAdUnitId }); // 单例：整局游戏只创建一次
-  rewardAd.onError(() => {}); // 播放失败由 watchAd 里 show() 的 catch 处理
+  rewardAd.onError(() => { if (adOn && !adShown) adEnd(false, 'noad'); }); // 拉不到广告：不再干等
   rewardAd.load().catch(() => {}); // 先预加载一条，玩家点按钮时能直接播
-  rewardAd.onClose(res => adEnd(!!(res && res.isEnded))); // 只有完整看完（isEnded）才给奖励
+  rewardAd.onClose(res => { // 只有完整看完（isEnded）才给奖励
+    const ended = !!(res && res.isEnded);
+    if (adOn) adEnd(ended, ended ? 'ok' : 'closed');
+    else if (ended && adLate && performance.now() < adLate.until) { const cb = adLate.cb; adLate = null; rebuildAudioSoon(); cb(true, 'ok'); } // 超时之后才播出来的
+    preloadAd();
+  });
   return rewardAd;
 }
-// 广告结束的唯一出口（看完 / 没看完关掉 / 出错）：先安排重建音频，再把结果交给回调，回调里出错也不影响声音恢复
-function adEnd(ok) {
-  if (!adOn) return; // onClose 和出错可能都来，只处理一次
-  adOn = false;
+function preloadAd() { if (rewardAd) rewardAd.load().catch(() => {}); } // 为下一次预加载
+// 广告结束的唯一出口（看完 / 没看完关掉 / 没有广告）：先安排重建音频，再把结果交给回调，回调里出错也不影响声音恢复
+// why：'ok' 看完、'closed' 没看完就关了、'noad' 这次拉不到广告（出错或超时）
+function adEnd(ok, why) {
+  if (!adOn) return; // onClose、出错、超时可能都来，只处理一次
+  adOn = false; clearTimeout(adTimer);
   rebuildAudioSoon();
   const cb = adDone; adDone = null;
-  if (cb) cb(ok);
+  if (why === 'noad') { adLate = { cb, until: performance.now() + 120000 }; preloadAd(); } else adLate = null;
+  if (cb) cb(ok, why);
 }
-// 播一条激励视频，看完 cb(true)，没看完或没广告 cb(false)
+// 播一条激励视频：看完 cb(true, 'ok')，没看完 cb(false, 'closed')，没有广告 cb(false, 'noad')。
+// 同时只放一条：上一条还没结束时再点不理会（结算页的两个广告按钮在此期间都是灰的）
 function watchAd(cb) {
   const ad = getRewardAd();
-  if (!ad) { cb(false); return; }
-  adDone = cb; adOn = true;
+  if (!ad) { cb(false, 'noad'); return; }
+  if (adOn) return;
+  adDone = cb; adOn = true; adShown = false; adLate = null;
   if (actx && actx.state === 'running') actx.suspend().catch(() => {}); // 放广告时游戏静音
-  ad.show().catch(() => ad.load().then(() => ad.show()).catch(() => adEnd(false)));
+  clearTimeout(adTimer);
+  adTimer = setTimeout(() => { if (adOn && !adShown) adEnd(false, 'noad'); }, adWait * 1000);
+  const shown = () => { adShown = true; clearTimeout(adTimer); };
+  ad.show().then(shown).catch(() => ad.load().then(() => ad.show()).then(shown).catch(() => adEnd(false, 'noad')));
 }
 function lbOK() { const t = tapApi(); return !!(t && t.getLeaderboardManager && TT.leaderboardId); }
 const lbCall = (fn, args) => { try { tapApi().getLeaderboardManager()[fn](Object.assign({ leaderboardId: TT.leaderboardId, callback: { onSuccess() {}, onFailure() {} } }, args)); } catch (e) { /* 排行榜出错不影响游戏 */ } };
@@ -5561,22 +5578,31 @@ function showEnd() {
   const btns = $('end-btns');
   btns.innerHTML = '';
   const mk = (text, primary, fn) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = text; b.addEventListener('click', fn); btns.appendChild(b); return b; };
+  // 两个广告按钮同时只能放一条：一个在加载 / 播放时，另一个先变灰；结束后没领过的恢复。run：这一局（已经再来一局、回到标题的就不再发奖励）
+  const run = S, adBtns = [], adBusy = on => { for (const b of adBtns) if (!b.done) b.disabled = on; };
+  const failText = why => why === 'noad' ? '暂时没有广告 · 点击重试' : '没看完广告 · 再试一次';
   // TapTap 激励视频：看完广告原地复活（每局一次）
   const rv = adOK() && !S.revived && mk('看广告复活', true, () => {
-    rv.disabled = true; rv.textContent = '广告加载中…';
-    watchAd(ok => { if (ok) revive(); else { rv.disabled = false; rv.textContent = '没看完广告，再试一次'; } });
+    adBusy(true); rv.textContent = '广告加载中…';
+    watchAd((ok, why) => {
+      if (S !== run || !S.over) return;
+      if (ok) { rv.done = true; revive(); return; }
+      adBusy(false); rv.textContent = failText(why);
+    });
   });
   const again = mk('再来一局', !rv, () => startGame(S.origin.id));
   mk('回到标题', false, toTitle); // 标题界面可以换出身、逛军需、看图鉴
   // TapTap 激励视频：看完广告，本局金币再加 20%（每局一次）
   const bonus = Math.max(1, Math.round(S.goldRun * TT.adGoldBonus));
   const gb = adOK() && S.goldRun > 0 && !S.adGold && mk(`看广告 金币 +${Math.round(TT.adGoldBonus * 100)}%（+${bonus}）`, false, () => {
-    gb.disabled = true; gb.textContent = '广告加载中…';
-    watchAd(ok => {
-      if (ok) { S.adGold = true; addGold(bonus); saveMeta(true); fill(); gb.textContent = `已领取 +${bonus} 金币`; }
-      else { gb.disabled = false; gb.textContent = `没看完广告 · 再试一次（+${bonus}）`; }
+    adBusy(true); gb.textContent = '广告加载中…';
+    watchAd((ok, why) => {
+      if (S !== run || run.adGold) return;
+      if (ok) { gb.done = true; S.adGold = true; addGold(bonus); saveMeta(true); fill(); adBusy(false); gb.disabled = true; gb.textContent = `已领取 +${bonus} 金币`; return; }
+      adBusy(false); gb.textContent = `${failText(why)}（+${bonus}）`;
     });
   });
+  for (const b of [rv, gb]) if (b) adBtns.push(b);
   (rv || again).focus();
   $('end').hidden = false;
 }
