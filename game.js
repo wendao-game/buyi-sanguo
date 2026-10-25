@@ -1857,19 +1857,23 @@ function weaponTick(w, def, L, dt, p) {
         break;
       }
       case 'sonic': { // 周郎琴：一圈圈音波向外扩散
+        // 后期范围、冷却叠得太狠时音波会铺满屏幕、看不清地图：半径最多到本级的 sonicCap.area 倍，两轮之间至少隔 sonicCap.cd 秒；
+        // 超出上限的范围和冷却折算成伤害（over），总伤害基本不变
+        const SC = D.sonicCap, raw = L.ringR * p.areaMul, R = Math.min(raw, statsOf(def, w.lv).ringR * SC.area);
+        const rawCd = L.cd * p.cdMul, cd = Math.max(SC.cd, rawCd), over = (1 + (raw / R - 1) * SC.areaDmg) * (cd / rawCd);
         if (w.queue > 0) {
           w.qt -= dt;
           if (w.qt <= 0) {
             w.queue--; w.qt = 0.28;
             S.rings.push(def.ice // 寒玉笛：冰蓝的寒气环，碰到的敌人走不快
-              ? { x: p.x, y: p.y, r: 20, maxR: L.ringR * p.areaMul, speed: 400, dmg: L.dmg, hit: new Set(), rgb: '160,215,255', core: '240,250,255', w: 10, kb: 40, ice: true }
-              : { x: p.x, y: p.y, r: 20, maxR: L.ringR * p.areaMul, speed: 420, dmg: L.dmg, hit: new Set(), rgb: '255,200,170', core: '255,245,235', w: 10, kb: 80 });
+              ? { x: p.x, y: p.y, r: 20, maxR: R, speed: 400, dmg: L.dmg * over, hit: new Set(), rgb: '160,215,255', core: '240,250,255', w: 10, kb: 40, ice: true }
+              : { x: p.x, y: p.y, r: 20, maxR: R, speed: 420, dmg: L.dmg * over, hit: new Set(), rgb: '255,200,170', core: '255,245,235', w: 10, kb: 80 });
             sfx('pick');
           }
         }
         w.t -= dt; if (w.t > 0) break;
-        if (!nearest(p.x, p.y, L.ringR * p.areaMul)) { w.t = 0.1; break; }
-        w.t = L.cd * p.cdMul; w.queue = L.count; w.qt = 0;
+        if (!nearest(p.x, p.y, R)) { w.t = 0.1; break; }
+        w.t = cd; w.queue = L.count; w.qt = 0;
         break;
       }
       case 'duelSlash': { // 虎将刀：锁定附近最强的敌人，刀光一闪而至，在它身上连斩几刀
@@ -6846,9 +6850,9 @@ function drawEffects() {
   for (const r of S.rings) { // 无双：血色戟气；周郎琴：淡色音波
     const t = 1 - r.r / r.maxR;
     if (!r.rgb) FX.sprite(ctx, 'ring', '255,50,35', r.x, r.y, r.r * 2.15, r.r * 2.15, r.r * 0.004, 0.35 + 0.65 * t, 0.4); // 戟气贴图
-    else FX.sprite(ctx, 'ring', r.rgb, r.x, r.y, r.r * 2.1, r.r * 2.1, 0, 0.5 * t + 0.15, 0.3);
+    else FX.sprite(ctx, 'ring', r.rgb, r.x, r.y, r.r * 2.1, r.r * 2.1, 0, 0.45 * t * t, 0.3); // 音波越往外越淡，到边上完全消失，几圈叠在一起也不会糊成一片
     ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = (r.rgb ? 0.15 : 0.25) + 0.5 * t; ctx.strokeStyle = `rgb(${r.rgb || '220,40,30'})`; ctx.lineWidth = (r.w || 22) * t + 6;
+    ctx.globalAlpha = r.rgb ? 0.05 + 0.5 * t : 0.25 + 0.5 * t; ctx.strokeStyle = `rgb(${r.rgb || '220,40,30'})`; ctx.lineWidth = (r.w || 22) * t + 6;
     ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke();
     ctx.globalAlpha = 0.6 + 0.4 * t; ctx.strokeStyle = `rgb(${r.core || '255,170,140'})`; ctx.lineWidth = r.rgb ? 2 : 3;
     ctx.beginPath(); ctx.arc(r.x, r.y, r.r, 0, TAU); ctx.stroke();
