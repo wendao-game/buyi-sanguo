@@ -360,6 +360,27 @@ window.Sprites = (() => {
         shape(g, '#5e5866', s => { s.moveTo(50, 102); s.lineTo(48, 58); s.quadraticCurveTo(60, 48, 72, 60); s.lineTo(70, 102); s.closePath(); }, 1.6);
         g.fillStyle = '#c8b0e8'; g.font = '900 14px serif'; g.textAlign = 'center'; g.fillText('冢', 60, 84);
         break;
+      case 'yaolu': // 药庐：竹篱围着一间茅草顶的小屋，门口挂着药葫芦，两边晒着药草的竹匾，屋顶冒着青绿的药烟
+        for (let x = 6; x <= 110; x += 7) line(g, x, 104, x, 84, '#a8935a', 2);           // 竹篱
+        line(g, 4, 90, 116, 90, '#8a7444', 1.6);
+        wallBlock(g, 26, 54, 68, 50, '#b8a27a');
+        shape(g, '#c9a862', s => { s.moveTo(16, 58); s.quadraticCurveTo(60, 14, 104, 58); s.closePath(); }); // 茅草顶
+        for (const x of [30, 44, 60, 76, 90]) line(g, 60, 24, x, 56, 'rgba(120,90,40,.5)', 0.6);
+        shape(g, '#4a3420', s => rr(s, 50, 72, 20, 32, 2));                               // 门
+        shape(g, '#d8b050', s => { s.arc(78, 72, 4, 0, Math.PI * 2); s.moveTo(83, 82); s.arc(78, 82, 6, 0, Math.PI * 2); }, 1.2); // 药葫芦
+        for (const x of [14, 106]) { shape(g, '#b89a5a', s => s.ellipse(x, 76, 12, 4, 0, 0, Math.PI * 2), 1.2); for (let k = -1; k <= 1; k++) { g.fillStyle = '#5fae5a'; g.beginPath(); g.ellipse(x + k * 5, 74, 3, 1.5, k, 0, Math.PI * 2); g.fill(); } } // 晒药的竹匾
+        g.fillStyle = '#f2ead8'; g.font = '900 13px serif'; g.textAlign = 'center'; g.fillText('药', 38, 76);
+        for (const [x, y, r] of [[70, 20, 6], [76, 10, 8], [84, 2, 9]]) { g.fillStyle = 'rgba(150,220,160,.55)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); } // 药烟
+        break;
+      case 'yaoding': // 药鼎：一只青铜三足鼎，鼎里冒着青绿的药气
+        line(g, 44, 104, 40, 88, '#6a6040', 3.5); line(g, 76, 104, 80, 88, '#6a6040', 3.5); line(g, 60, 104, 60, 92, '#6a6040', 3.5); // 三足
+        shape(g, '#8a7a48', s => { s.moveTo(34, 64); s.quadraticCurveTo(34, 96, 60, 96); s.quadraticCurveTo(86, 96, 86, 64); s.closePath(); });
+        shape(g, '#a8925a', s => s.ellipse(60, 64, 27, 7, 0, 0, Math.PI * 2), 1.4);       // 鼎口
+        g.fillStyle = '#4a9a5a'; g.beginPath(); g.ellipse(60, 64, 22, 5, 0, 0, Math.PI * 2); g.fill(); // 药汤
+        for (const x of [36, 84]) shape(g, '#8a7a48', s => rr(s, x - 4, 50, 8, 14, 2), 1.2); // 鼎耳
+        g.strokeStyle = 'rgba(60,50,20,.5)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(40, 76); g.lineTo(80, 76); g.stroke(); // 纹饰
+        for (const [x, y, r] of [[54, 50, 6], [64, 40, 7], [58, 28, 8]]) { g.fillStyle = 'rgba(150,230,160,.5)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); } // 药气
+        break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
         wallBlock(g, 34, 52, 52, 36, '#a8322a');

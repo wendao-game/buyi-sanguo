@@ -651,6 +651,31 @@ window.GAME_DATA = {
         { count: 6, cd: 6, dmg: 118, radius: 100, raise: 4, life: 11, sdmg: 31, note: '阴养死士三千，一朝而集' },
       ],
     },
+    // 百草：每隔一会儿在离你 near–far 的地方长出 count 株草药，life 秒后枯萎；走过去采一株回复 heal 比例的生命（被噬魂时不回血）。
+    // 站着不动就采不到，必须走位；haste：采到后 2 秒内移速提高
+    baicao: {
+      name: '百草', icon: '草', type: 'herbs', general: '华佗',
+      desc: '华佗遍尝百草。每隔一会儿，身边不远处长出几株草药，走过去采下就能回血；不去采，过一会儿就枯萎了。',
+      levels: [
+        { cd: 9, count: 2, heal: 0.03, life: 6, near: 140, far: 240 },
+        { cd: 8.5, count: 2, heal: 0.035, life: 6, near: 140, far: 240, note: '回血更多' },
+        { cd: 8, count: 3, heal: 0.035, life: 6.5, near: 140, far: 250, note: '多长一株' },
+        { cd: 7.2, count: 3, heal: 0.04, life: 6.5, near: 140, far: 250, note: '回血更多，长得更快' },
+        { cd: 6.5, count: 3, heal: 0.045, life: 7, near: 140, far: 260, haste: 0.2, note: '遍地生香：采到草药后 2 秒内移速 +20%' },
+      ],
+    },
+    // 麻沸散：朝敌人最密的地方扔一包麻沸散，炸开一团药雾（radius），留 life 秒；雾里的敌人移速变成 slow 倍，每 tick 秒受 dmg 伤害
+    mafeisan: {
+      name: '麻沸散', icon: '麻', type: 'numbCloud', general: '华佗',
+      desc: '朝敌人最密集的地方扔出一包麻沸散，炸开一团药雾：雾里的敌人浑身发麻、走不动路，并不断受伤。',
+      levels: [
+        { cd: 8, radius: 110, life: 4, slow: 0.4, tick: 0.5, dmg: 10 },
+        { cd: 7.6, radius: 118, life: 4, slow: 0.4, tick: 0.5, dmg: 13, note: '伤害提高，药雾更大' },
+        { cd: 7.2, radius: 128, life: 4.5, slow: 0.4, tick: 0.5, dmg: 16, note: '药雾更大，散得更慢' },
+        { cd: 6.6, radius: 138, life: 4.5, slow: 0.35, tick: 0.5, dmg: 20, note: '伤害提高，麻得更狠' },
+        { cd: 6, radius: 150, life: 5, slow: 0.3, tick: 0.5, dmg: 26, note: '一服麻沸，刮骨不觉' },
+      ],
+    },
   },
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
@@ -699,6 +724,8 @@ window.GAME_DATA = {
     danjing: { name: '啖睛', icon: '睛', max: 1, unique: true, general: '夏侯惇', desc: '“父精母血，不可弃也！”生命上限 +40；生命跌到 30% 以下时，立刻回复 40% 生命并狂暴 6 秒（伤害 +40%、移速 +20%），每 75 秒一次', effects: { maxHp: 40 }, rage: { below: 0.3, heal: 0.4, dur: 6, dmg: 0.4, speed: 0.2, cd: 75 } },
     // 冢虎：生命跌破 below 时诈死脱身（无敌 iframes 秒，回复 heal 比例的生命），每 cd 秒一次
     zhonghu: { name: '冢虎', icon: '虎', max: 1, unique: true, general: '司马懿', desc: '冢虎隐忍：生命上限 +40，伤害 +10%；生命跌到 25% 以下时诈死脱身，2 秒无敌并回复 30% 生命（每 60 秒一次）', effects: { maxHp: 40, dmgMul: 0.1 }, feign: { below: 0.25, heal: 0.3, iframes: 2, cd: 60 } },
+    // 五禽戏：闪现后 dur 秒内一共回复 heal 比例的生命，每 cd 秒最多一次（要主动闪现才回血）
+    wuqinxi: { name: '五禽戏', icon: '禽', max: 1, unique: true, general: '华佗', desc: '华佗所创导引之术：生命上限 +30，移动速度 +8%；每次闪现后 3 秒内回复 6% 生命（每 10 秒最多一次）', effects: { maxHp: 30, speedMul: 0.08 }, blinkHeal: { heal: 0.06, dur: 3, cd: 10 } },
   },
 
   // 属性：冰火雷风。升级时有几率刷到（Lv 3 起），每种最高 5 级，四种都能学。
@@ -862,6 +889,13 @@ window.GAME_DATA = {
       desc: '孤冢 · 攻破后司马懿现身' },
     // 疑冢：司马懿大招「冢虎疑冢」时立起的一圈坟（只有一座是真的），不会自己刷出来
     yizhong: { name: '疑冢', icon: '冢', hp: 320, r: 30, xp: 0, special: true, tomb: true, desc: '真假难辨 · 打破真冢逼出司马懿' },
+    // 药庐：打完黄巾之战（第二章开场）出现在你的西南方，规则和西凉营地一样（走近才动手、别的名将在场时闭门），但血厚一倍、不放箭不派兵：
+    // calm 秒没挨打就每秒回 regen 比例的血（没法路过磨一点）；走近后药香飘出，aura 范围里的敌兵每秒回 auraHeal 比例的血。攻破后华佗现身
+    yaolu: { name: '药庐', icon: '庐', seal: '药庐闭门', hp: 4000, r: 50, xp: 40, special: true, aggroR: 460, wake: ['药庐飘出药香', '附近敌兵的伤口在慢慢愈合'], reward: { type: 'general', gid: 'huatuo', msg: '药庐门开……神医华佗现身' },
+      regen: 0.03, calm: 4, aura: 300, auraHeal: 0.05,
+      desc: '药庐 · 攻破后华佗现身' },
+    // 药鼎：华佗大招「百草药鼎」时立在他身边的药鼎（活着就给他回血，打碎时药雾给你回血），不会自己刷出来
+    yaoding: { name: '药鼎', icon: '鼎', hp: 200, r: 26, xp: 0, special: true, pot: true, desc: '打碎药鼎 · 断他药力' },
   },
 
   // 神祠祝福：随机给一项，可以叠加
@@ -1226,6 +1260,23 @@ window.GAME_DATA = {
       banner: '五丈原 · 冢虎 司马懿', line: '“隐忍半生，等的便是今日。”', rage: '“孔明已死，天下谁还能制我？”',
       look: { skin: '#e8d4bc', skinShade: '#c4ab90', robe: '#2a2234', trim: '#8a6ab8', armor: false, beard: 'long', beardColor: '#2a2226', eyes: 'phoenix', brows: 'sharp', head: 'lunjin', headColor: '#16121c', weapon: 'fan', fanColor: '#6a4a9a', aura: '#5a3a8a', artFace: [0.6, 0.25, 0.28] },
     },
+    // —— 华佗：神医。打完黄巾之战，西南方出现一座药庐，攻破后现身。passive：不走动、不出手，也不挡后面的名将登场。
+    // 血最厚（基础 10000），没有半血、濒死减伤，全靠回血：养生（calm 秒没挨打，每秒回 regen）、
+    // 青囊回春（引导回血，期间挨够 breakAt 比例的伤害就被打断）、百草药鼎（身边立鼎回血，拆鼎断药）、刮骨疗毒（半血大回一口，之后元气大伤）
+    huatuo: {
+      name: '华佗', title: '神医 · 华元化', icon: '佗', hp: 10000, speed: 0, dmg: 0, r: 30, color: '#3a6a4a', passive: true,
+      regen: 0.03, calm: 4, castR: 700, // castR：你走到这个距离以内，他才放大招
+      rewards: ['baicao', 'mafeisan', 'wuqinxi'],
+      ultRgb: '120,220,140', ultEvery: 16,
+      ults: [
+        { id: 'qingnang', name: '青囊回春', type: 'channelHeal', dur: 4, heal: 0.03, breakAt: 0.05, stun: 2.5 },
+        { id: 'yaoding', name: '百草药鼎', type: 'herbPots', pots: 4, ring: 280, life: 10, heal: 0.005, playerHeal: 0.04 },
+        { id: 'guagu', name: '刮骨疗毒', type: 'boneScrape', hpBelow: 0.5, heal: 0.15, weak: 6, weakDmg: 0.35, weakHeal: 0.5 },
+      ],
+      banner: '谯县 · 神医 华佗', line: '“老夫行医半生，只救人，不杀人。”', rage: '“刀伤易治，杀心难医啊。”',
+      slain: ['神医华佗倒下', '青囊遗术，就此传你'],
+      look: { skin: '#e6c8a4', skinShade: '#c4a47e', robe: '#4f7458', trim: '#e8e0c8', armor: false, beard: 'long', beardColor: '#ece8de', eyes: 'calm', brows: 'thin', head: 'scholar', headColor: '#2e3a2e', weapon: 'scrolls', aura: '#5aa070', artFace: [0.5, 0.3, 0.3] },
+    },
   },
 
   // 名将语音：登场用 generals 里的 line，半血暴怒用 rage，这里补上阵亡和每个大招的台词（全部原创，不照搬别的游戏）。
@@ -1254,6 +1305,7 @@ window.GAME_DATA = {
     guojia: { death: '天不假年……奉孝，先走一步……', ult: { shisheng: '十胜十败，一步错，步步错。', liaodi: '你的下一步，我早已算到。', guimou: '鬼谋入雾，生路何在？' } },
     xiahoudun: { death: '孟德……元让……先走一步了……', ult: { ganglie: '有本事，再打一刀试试！', danqi: '来！一对一，生死各安天命！', danjing: '父精母血，不可弃也！' } },
     simayi: { death: '算尽天下……终究……算不过天……', ult: { sishi: '死士三千，听我号令——起！', langgu: '我不必回头，也看得见你。', yizhong: '哪一座才是我的冢？你猜。' } },
+    huatuo: { death: '青囊之术……可惜……无人可传了……', ult: { qingnang: '青囊在手，百病可医。', yaoding: '百草入鼎，药香自来。', guagu: '刮骨去毒，忍一时之痛！' } },
   },
 
   // 背景音乐：有音乐文件（assets/bgm/<id>.mp3）就播放，没有就用代码合成一段古风占位曲。
@@ -1304,6 +1356,7 @@ window.GAME_DATA = {
         { t: 140, rates: { foot: 3.6, shield: 0.5, archer: 0.5, cavalry: 0.9 } },
       ],
       events: [
+        { t: 8, type: 'special', bid: 'yaolu', dx: -820, dy: 560 }, // 打完黄巾之战，药庐出现在西南方（左下），之后一直留在地图上
         { t: 55, type: 'boss', id: 'huaxiong' },
         { t: 95, type: 'ambush', enemy: 'foot', count: 42, text: '伏兵四起' },
         { t: 120, type: 'boss', id: 'diaochan' },
@@ -1456,6 +1509,9 @@ window.GAME_DATA = {
       desc: '敌群上空睁开一只血红的独眼，随后一柄巨刀落下，十字劈开，被劈中的敌人僵住片刻。' },
     simayi: { name: '冢虎墓碑', icon: '碑', iconFrom: 'langgu', rgb: '170,90,230', cd: 6, type: 'tombDrop', dmg: 75, count: 4, radius: 95, stun: 1, nova: 0.8,
       desc: '四块黑石墓碑从天而降砸进敌群，砸晕落点的敌人；片刻后墓碑里再炸出一圈幽冥鬼火。' },
+    // 青囊书：药香绕身 dur 秒，每 tick 秒伤害 radius 内的敌人；每打中一个敌人回复 heal 比例的生命，每次最多回复 cap（身边要有敌人才回血）
+    huatuo: { name: '青囊书', icon: '书', iconFrom: 'baicao', rgb: '120,220,140', cd: 6.5, type: 'herbRing', dmg: 40, radius: 170, dur: 2.4, tick: 0.4, heal: 0.005, cap: 0.06,
+      desc: '青囊书在身边翻开，药香绕身 2.4 秒，不断伤害圈里的敌人；每打中一个敌人回复 0.5% 生命，每次最多回复 6%。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大
