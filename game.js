@@ -54,7 +54,8 @@ function audio() {
       bus = master;
     } catch (e) { actx = null; }
   }
-  if (actx && actx.state === 'suspended') actx.resume();
+  // iOS 被广告 / 来电抢走音频后是 interrupted 而不是 suspended，两种都要 resume
+  if (actx && actx.state !== 'running' && actx.state !== 'closed') actx.resume().catch(() => {});
 }
 // 包络：起音 atk 秒升到 vol，再在 dur 内指数衰减
 function env(g, t0, vol, dur, atk = 0.006) {
@@ -280,6 +281,13 @@ const Music = (() => {
   return {
     want(id) { if (id === cur && (live || !actx || muted || !musicOn)) return; cur = id; start(id); },
     refresh() { start(cur); },
+    // 换了新的 AudioContext：旧的节点和解码好的音乐都作废（不去碰已经关掉的旧 context），下一帧 want() 会在新的上面接着放当前这首
+    reset() {
+      live = false; token++;
+      if (timer) { clearInterval(timer); timer = null; }
+      gain = src = srcGain = null;
+      decoded.clear();
+    },
     // 名将说话时把音乐压低
     duck(sec) {
       duckUntil = performance.now() + sec * 1000;
@@ -335,6 +343,37 @@ function speak(gid, key, text, subtitle = true) {
   }).catch(() => { /* 文件坏了：只留字幕 */ });
 }
 speak.n = 0;
+
+// ============ 音频恢复（iOS） ============
+// iOS 上广告视频、切后台会抢走音频会话：回来后旧的 AudioContext 可能一直 suspended / interrupted，
+// 甚至显示 running 却没有声音，resume() 也救不回来，只有杀进程才好。所以这两种情况之后直接关掉旧的、新建一个，
+// 音乐由每帧的 Music.want() 在新 context 上接着放；新建时不在触摸里的话 iOS 会让它先 suspended，
+// 等玩家下一次触摸（checkAudio）时再 resume，还不行就当场重建。
+let audioCheck = false, rebuildTimer = 0;
+function rebuildAudio() {
+  const old = actx;
+  if (!old) return; // 还没出过声：第一次触摸时 audio() 会新建
+  stopVoice();
+  actx = bus = noiseBuf = speak.out = null;
+  voiceBufs.clear();
+  Music.reset();
+  try { old.close().catch(() => {}); } catch (e) { /* 已经关了 */ }
+  audio();
+  audioCheck = true;
+}
+// 等广告 / 系统把音频会话交还（约 300ms）再重建；广告关闭和切回前台可能同时触发，只重建一次
+function rebuildAudioSoon() { clearTimeout(rebuildTimer); rebuildTimer = setTimeout(rebuildAudio, 300); }
+// 每次触摸 / 按键都会调用（iOS 只有在用户手势里才允许出声）
+function checkAudio() {
+  if (!audioCheck || !actx) { audio(); return; }
+  audioCheck = false;
+  if (actx.state === 'closed' || actx.state === 'interrupted') { rebuildAudio(); audioCheck = false; return; } // 在手势里新建的直接就能出声
+  audio();
+  const a = actx, ct = a.currentTime;
+  setTimeout(() => { // resume 之后时钟还是不走：这个 context 已经坏了，重建，下一次触摸再确认
+    if (a === actx && (a.state !== 'running' || a.currentTime <= ct)) rebuildAudio();
+  }, 400);
+}
 
 // ============ 输入 ============
 const keys = new Set();
@@ -1012,28 +1051,31 @@ function onBuildingDestroyed(e) {
 // 只有在 TapTap 里打开时才有全局对象 tap；网页版、本地测试时没有，相关按钮全部不显示
 const TT = D.taptap;
 const tapApi = () => window.tap || null;
-let rewardAd = null, adDone = null;
+let rewardAd = null, adDone = null, adOn = false;
 function adOK() { const t = tapApi(); return !!(t && t.createRewardedVideoAd && TT.rewardedAdUnitId); }
 function getRewardAd() {
   if (rewardAd || !adOK()) return rewardAd;
   rewardAd = tapApi().createRewardedVideoAd({ adUnitId: TT.rewardedAdUnitId }); // 单例：整局游戏只创建一次
-  rewardAd.onError(() => {});
+  rewardAd.onError(() => {}); // 播放失败由 watchAd 里 show() 的 catch 处理
   rewardAd.load().catch(() => {}); // 先预加载一条，玩家点按钮时能直接播
-  rewardAd.onClose(res => { // 只有完整看完（isEnded）才给奖励
-    if (actx && actx.state === 'suspended') actx.resume();
-    const cb = adDone; adDone = null;
-    if (cb) cb(!!(res && res.isEnded));
-  });
+  rewardAd.onClose(res => adEnd(!!(res && res.isEnded))); // 只有完整看完（isEnded）才给奖励
   return rewardAd;
+}
+// 广告结束的唯一出口（看完 / 没看完关掉 / 出错）：先安排重建音频，再把结果交给回调，回调里出错也不影响声音恢复
+function adEnd(ok) {
+  if (!adOn) return; // onClose 和出错可能都来，只处理一次
+  adOn = false;
+  rebuildAudioSoon();
+  const cb = adDone; adDone = null;
+  if (cb) cb(ok);
 }
 // 播一条激励视频，看完 cb(true)，没看完或没广告 cb(false)
 function watchAd(cb) {
   const ad = getRewardAd();
   if (!ad) { cb(false); return; }
-  adDone = cb;
-  if (actx && actx.state === 'running') actx.suspend(); // 放广告时游戏静音
-  const fail = () => { if (actx && actx.state === 'suspended') actx.resume(); const c = adDone; adDone = null; if (c) c(false); };
-  ad.show().catch(() => ad.load().then(() => ad.show()).catch(fail));
+  adDone = cb; adOn = true;
+  if (actx && actx.state === 'running') actx.suspend().catch(() => {}); // 放广告时游戏静音
+  ad.show().catch(() => ad.load().then(() => ad.show()).catch(() => adEnd(false)));
 }
 function lbOK() { const t = tapApi(); return !!(t && t.getLeaderboardManager && TT.leaderboardId); }
 const lbCall = (fn, args) => { try { tapApi().getLeaderboardManager()[fn](Object.assign({ leaderboardId: TT.leaderboardId, callback: { onSuccess() {}, onFailure() {} } }, args)); } catch (e) { /* 排行榜出错不影响游戏 */ } };
@@ -5481,8 +5523,14 @@ $('btn-music').addEventListener('click', () => { musicOn = !musicOn; try { local
 $('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; try { localStorage.setItem('buyi-voice', voiceOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); if (!voiceOn) stopVoice(); });
 audioLabels();
 // 浏览器要求先有一次点击 / 按键才能出声：标题界面第一次操作时就把音乐放起来
-for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => audio(), { once: true, capture: true });
-document.addEventListener('visibilitychange', () => { if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause(); if (document.hidden) { saveRun(); saveMeta(true); cloudUpload(); Music.want(null); } });
+// 之后每次触摸也都检查一下：广告、切后台回来后，声音没在走就 resume 或重建（iOS 老版本只认 touchend）
+for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, checkAudio, { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause();
+  if (document.hidden) { saveRun(); saveMeta(true); cloudUpload(); Music.want(null); }
+  else rebuildAudioSoon(); // 切回前台：iOS 上旧的 AudioContext 可能已经没声音了
+});
+try { if (tapApi() && tapApi().onShow) tapApi().onShow(rebuildAudioSoon); } catch (e) { /* TapTap 容器里切回前台可能只发这个 */ }
 addEventListener('pagehide', () => { saveRun(); saveMeta(true); cloudUpload(); });
 
 // ============ 绘制 ============
