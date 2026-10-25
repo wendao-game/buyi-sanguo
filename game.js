@@ -144,9 +144,14 @@ function noiseBuffer() {
 // 音乐、语音文件由 assets/audio.json 列出（装素材时生成），没有清单时一律用合成的占位音乐、只显示字幕，不会去请求不存在的文件。
 let musicOn = true, voiceOn = true;
 let pickPause = false, shakeOn = true; // 设置：升级 / 斩将选卡时暂停（默认边打边选）、镜头震动（默认开）
+// 特效：auto 自动（帧率掉下来就自动精简）/ full 完整 / lite 精简（粒子、特效、伤害数字更少，发光更暗）
+let fxMode = 'auto', autoLite = false;
+const fxLite = () => fxMode === 'lite' || (fxMode === 'auto' && autoLite);
 try {
   musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0';
   pickPause = localStorage.getItem('buyi-pickpause') === '1'; shakeOn = localStorage.getItem('buyi-shake') !== '0';
+  fxMode = ['full', 'lite'].includes(localStorage.getItem('buyi-fx')) ? localStorage.getItem('buyi-fx') : 'auto';
+  autoLite = localStorage.getItem('buyi-fx-auto') === '1'; // 这台设备以前卡过：自动模式直接精简
 } catch (e) { /* 存储不可用时忽略 */ }
 const AUDIO = { bgm: {}, voice: {}, loop: {}, loopFrom: {} };
 fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
@@ -704,7 +709,7 @@ function soulBurst(x, y, R, a = 1) {
 // 带属性的爆炸 / 落石：一圈属性色的冲击，有 GPT 画的属性命中图就叠上
 function elBurst(el, x, y, R) {
   const E = D.elements[el], art = window.Assets.get('elfx:hit_' + el);
-  if (art) S.effects.push({ kind: 'elhit', img: art, x, y, r: R, life: 0.32, max: 0.32, rot: rand(0, TAU) });
+  if (art) { if (fxRoom()) S.effects.push({ kind: 'elhit', img: art, x, y, r: R, life: 0.32, max: 0.32, rot: rand(0, TAU) }); }
   else fxTex('burst', x, y, { w: R, h: R, rgb: E.rgb, life: 0.3, grow: 1.4, rot: rand(0, TAU), core: 0.3, a: 0.7 });
   if (el === 'ice') shards(x, y, 6, R * 2.4, 6);
   else if (el === 'thunder') sparks(x, y, -Math.PI / 2, 8, E.rgb, R * 5, Math.PI, 2);
@@ -724,7 +729,7 @@ function elTrail(b) {
 function applyElement(e, base, el, hx, hy) {
   if (Math.random() < 0.35) elSpark(el, hx, hy);
   const hitArt = window.Assets.get('elfx:hit_' + el); // 有属性命中图：偶尔在敌人身上炸开一朵小的
-  if (hitArt && Math.random() < 0.3 && S.effects.length < 260) S.effects.push({ kind: 'elhit', img: hitArt, x: hx, y: hy, r: e.r * 1.3, life: 0.22, max: 0.22, rot: rand(0, TAU) });
+  if (hitArt && Math.random() < 0.3 && S.effects.length < (fxLite() ? 30 : 80)) S.effects.push({ kind: 'elhit', img: hitArt, x: hx, y: hy, r: e.r * 1.3, life: 0.22, max: 0.22, rot: rand(0, TAU) });
   if (el === 'fire') { // 烈火：点燃，持续灼烧（取这几秒里最重的一次命中来算）
     const L = elStats('fire'), dps = base * L.burn;
     if (!(e.burnT > S.t)) { e.burnBase = dps; e.burnTick = S.t + 0.5; }
@@ -1217,13 +1222,14 @@ function gameOver() {
 
 // ============ 特效 ============
 function addNumber(x, y, text, color, size) {
-  if (S.numbers.length > 140) S.numbers.shift();
+  if (S.numbers.length > (fxLite() ? 50 : 140)) S.numbers.shift(); // 精简：伤害数字少一些，看得清地图
   S.numbers.push({ x, y, text, color, size, life: 0.7, max: 0.7 });
 }
 // 粒子上限：超过后先丢掉不重要的（火花、光点），保证大混战时也流畅
 const FX_CAP = 900;
 function fxp(q, important) {
-  if (S.particles.length > (important ? FX_CAP + 200 : FX_CAP)) return;
+  const cap = fxLite() ? 350 : FX_CAP; // 精简：粒子上限压到 350
+  if (S.particles.length > (important ? cap + 200 : cap)) return;
   q.max = q.life;
   S.particles.push(q);
 }
@@ -1306,7 +1312,10 @@ function drawDragonTrail(tr, rgb, a, headKey, w) {
 // ---------- 特效贴图与打击感 ----------
 // fxTex：在地图上放一张特效贴图（见 fx.js）。o 里可选：w/h 尺寸、rot 角度、rgb 染色、life 持续、
 // grow 结束时放大倍数、spin 旋转、flat 压扁（贴地的环和法阵用 0.5 左右）、under 画在角色下面、fadeIn 淡入比例、core 白热核心亮度
+// 特效同屏上限（贴图、爆炸、属性命中图，满了就不再加，名将身上的除外）：后期一秒放几十招，叠在一起只剩一片白光
+const fxRoom = () => S.effects.length < (fxLite() ? 50 : 120);
 function fxTex(key, x, y, o) {
+  if (!fxRoom() && !(o.follow && o.follow.boss)) return;
   const life = o.life || 0.4;
   S.effects.push(Object.assign({ kind: 'tex', key, x, y, w: 100, h: 100, rot: 0, life, max: life, grow: 1, spin: 0, flat: 1, fadeIn: 0.12, core: 0.35 }, o, { life, max: life }));
 }
@@ -1347,7 +1356,7 @@ function say(e, text) {
 
 // ============ 掉落 ============
 function dropXp(x, y, v) {
-  if (S.pickups.length > 320) {
+  if (S.pickups.length > (fxLite() ? 150 : 320)) { // 地上的经验太多就并进已有的（精简模式并得更早，少画几百颗）
     const g = S.pickups[Math.floor(Math.random() * S.pickups.length)];
     if (g.kind === 'xp') { g.v += v; return; }
   }
@@ -4418,7 +4427,7 @@ function updateProjectiles(dt) {
         if (b.blast) { // 羽扇火球：命中后爆炸
           const R = b.blast;
           near(b.x, b.y, R + 48, o => { if (dist2(b.x, b.y, o.x, o.y) < (R + o.r) ** 2) hitEnemy(o, b.dmg, { kb: 120, kbAngle: angleTo(b.x, b.y, o.x, o.y), quiet: true, el: b.el || null }); });
-          S.effects.push({ kind: 'blast', x: b.x, y: b.y, r: R, life: 0.34, max: 0.34, rgb: b.el ? D.elements[b.el].rgb : b.rgb });
+          if (fxRoom()) S.effects.push({ kind: 'blast', x: b.x, y: b.y, r: R, life: 0.34, max: 0.34, rgb: b.el ? D.elements[b.el].rgb : b.rgb });
           if (b.el) elBurst(b.el, b.x, b.y, R * 1.6);
           if (b.kind === 'bean') { sparks(b.x, b.y, 0, 10, '255,220,120', R * 6, Math.PI, 2.2); embers(b.x, b.y, 8, '255,200,90', R * 2, 30, 7, 0.5); }
           else if (b.kind === 'page') { pages(b.x, b.y, 6, R * 3, 6); sparks(b.x, b.y, 0, 8, '255,225,160', R * 5, Math.PI, 2); }
@@ -4604,7 +4613,7 @@ function updateStrikes(dt) {
     if (s.kind === 'fire') { // 火船落地，燃起一片大火
       const L = s.L;
       S.zones.push({ id: nextId++, fire: true, x: s.x, y: s.y, r: s.r, dmg: L.dmg, tick: L.tick, tt: 0, life: L.life, max: L.life, slow: 1 });
-      S.effects.push({ kind: 'blast', x: s.x, y: s.y, r: s.r, life: 0.4, max: 0.4, rgb: '255,130,50' });
+      if (fxRoom()) S.effects.push({ kind: 'blast', x: s.x, y: s.y, r: s.r, life: 0.4, max: 0.4, rgb: '255,130,50' });
       explosion(s.x, s.y, s.r * 0.6, false);
       continue;
     }
@@ -4613,13 +4622,13 @@ function updateStrikes(dt) {
     if (s.kind === 'rock') {
       groundImpact(s.x, s.y, s.r, '140,120,90');
       for (let i = 0; i < 7; i++) particle(s.x, s.y - 6, i % 2 ? '#7a6a58' : '#5a4e42', 320);
-      S.effects.push({ kind: 'blast', x: s.x, y: s.y, r: s.r, life: 0.3, max: 0.3, rgb: '220,190,130' });
+      if (fxRoom()) S.effects.push({ kind: 'blast', x: s.x, y: s.y, r: s.r, life: 0.3, max: 0.3, rgb: '220,190,130' });
       S.shake = Math.max(S.shake, 3);
     } else { // 天雷
       S.effects.push({ kind: 'bolt', pts: zigzag([[s.x + rand(-40, 40), s.y - 340], [s.x, s.y]], 16), life: 0.24, max: 0.24, rgb: '180,210,255', w: 5 });
       fxTex('bolt', s.x, s.y - 180, { w: 90, h: 380, rgb: '255,235,150', life: 0.22, core: 0.8, fadeIn: 0.02 });
       fxTex('ring', s.x, s.y, { w: s.r * 1.4, h: s.r * 1.4, rgb: '170,200,255', under: true, life: 0.3, grow: 1.6 });
-      S.effects.push({ kind: 'blast', x: s.x, y: s.y, r: s.r * 0.7, life: 0.18, max: 0.18, rgb: '120,160,255' });
+      if (fxRoom()) S.effects.push({ kind: 'blast', x: s.x, y: s.y, r: s.r * 0.7, life: 0.18, max: 0.18, rgb: '120,160,255' });
       sparks(s.x, s.y, -Math.PI / 2, 10, '210,230,255', 420, Math.PI, 2.2);
       S.shake = Math.max(S.shake, 2.5);
     }
@@ -5563,8 +5572,8 @@ function showEnd() {
   if (isBest) saveBest({ t: S.t, lv: p.level, kills: S.kills, origin: S.origin.name });
   const best = isBest ? null : prev;
   const names = [...new Set(S.defeated)];
-  $('end-title').textContent = isBest ? '虽死犹荣' : '战死沙场';
-  $('end-sub').textContent = (isBest ? '新纪录！' : '') + `止步于 ${rankOf(p.level)} · ${names.length ? '曾斩 ' + names.join('、') : '尚未斩将'}`;
+  $('end-title').textContent = S.retreat ? (isBest ? '凯旋回营' : '收兵回营') : isBest ? '虽死犹荣' : '战死沙场';
+  $('end-sub').textContent = (isBest ? '新纪录！' : '') + `${S.retreat ? '收兵于' : '止步于'} ${rankOf(p.level)} · ${names.length ? '曾斩 ' + names.join('、') : '尚未斩将'}`;
   const fill = () => { $('end-stats').innerHTML = [
     ['征战至', S.endless ? '天下三分' : chap().name.split(' · ')[1]],
     ['坚持时间', fmtTime(S.t)], ['等级', `Lv ${p.level}`],
@@ -5582,7 +5591,7 @@ function showEnd() {
   const run = S, adBtns = [], adBusy = on => { for (const b of adBtns) if (!b.done) b.disabled = on; };
   const failText = why => why === 'noad' ? '暂时没有广告 · 点击重试' : '没看完广告 · 再试一次';
   // TapTap 激励视频：看完广告原地复活（每局一次）
-  const rv = adOK() && !S.revived && mk('看广告复活', true, () => {
+  const rv = adOK() && !S.revived && !S.retreat && mk('看广告复活', true, () => {
     adBusy(true); rv.textContent = '广告加载中…';
     watchAd((ok, why) => {
       if (S !== run || !S.over) return;
@@ -5767,6 +5776,25 @@ const audioLabels = () => {
 };
 $('btn-pickpause').addEventListener('click', () => { pickPause = !pickPause; try { localStorage.setItem('buyi-pickpause', pickPause ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
 $('btn-shake').addEventListener('click', () => { shakeOn = !shakeOn; try { localStorage.setItem('buyi-shake', shakeOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
+// 特效：自动 → 完整 → 精简 → 自动；切回自动时重新看帧率
+const fxLabel = () => { $('btn-fx').textContent = `特效：${fxMode === 'full' ? '完整' : fxMode === 'lite' ? '精简' : autoLite ? '自动（已精简）' : '自动'}`; };
+$('btn-fx').addEventListener('click', () => {
+  fxMode = fxMode === 'auto' ? 'full' : fxMode === 'full' ? 'lite' : 'auto';
+  if (fxMode === 'auto') { autoLite = false; fps.slowT = 0; }
+  try { localStorage.setItem('buyi-fx', fxMode); if (fxMode === 'auto') localStorage.removeItem('buyi-fx-auto'); } catch (e) { /* ignore */ }
+  fxLabel();
+});
+fxLabel();
+// 收兵结算：不用非得战死，随时结束这一局，照常结算金币、纪录和排行榜（点两下确认，免得误触）
+let retreatT = 0;
+$('btn-retreat').addEventListener('click', () => {
+  if (!S || S.over) return;
+  if (performance.now() > retreatT) { retreatT = performance.now() + 3000; $('btn-retreat').textContent = '确定收兵？再点一次'; setTimeout(() => { $('btn-retreat').textContent = '收兵结算'; }, 3000); return; }
+  retreatT = 0; $('btn-retreat').textContent = '收兵结算';
+  $('pause').hidden = true; S.paused = false;
+  S.retreat = true;
+  gameOver();
+});
 $('btn-music').addEventListener('click', () => { musicOn = !musicOn; try { localStorage.setItem('buyi-music', musicOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); Music.refresh(); });
 $('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; try { localStorage.setItem('buyi-voice', voiceOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); if (!voiceOn) stopVoice(); });
 audioLabels();
@@ -6732,11 +6760,12 @@ function drawZones() {
       ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.8, 0, 0, TAU); ctx.fill();
       ctx.globalCompositeOperation = 'lighter';
       FX.glow(ctx, z.x, z.y, z.r * (1.15 + 0.08 * Math.sin(S.t * 14 + z.id)), '255,110,40', 0.5 * a);
-      for (let i = 0; i < 5; i++) {
+      const few = fxLite() || S.zones.length > 8; // 火太多或精简模式：火团、火舌少画几个
+      for (let i = 0; i < (few ? 1 : 5); i++) {
         const t = z.id * 1.7 + i * 1.3, rr = z.r * 0.55 * ((i * 0.37) % 1);
         FX.glow(ctx, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.8, z.r * 0.4 * (0.8 + 0.25 * Math.sin(S.t * 17 + i * 2)), '255,170,70', 0.45 * a);
       }
-      for (let i = 0; i < 4; i++) { // 窜动的火舌
+      for (let i = 0; i < (few ? 2 : 4); i++) { // 窜动的火舌
         const t = z.id * 2.3 + i * 1.57, rr = z.r * 0.45, fl = 0.85 + 0.25 * Math.sin(S.t * 13 + i * 2.1);
         FX.sprite(ctx, 'flame', null, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.7 - z.r * 0.35 * fl, z.r * 0.55, z.r * 1.1 * fl, Math.sin(S.t * 5 + i) * 0.12, 0.75 * a);
       }
@@ -6833,7 +6862,7 @@ function drawEffects() {
     }
     else if (f.kind === 'elhit') { // GPT 画的属性命中图（黑底发光，叠加着画）
       const s = f.r * 2 * (1 + (1 - t) * 0.4);
-      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, t * 1.6) * 0.85;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, t * 1.6) * 0.85 * fxK * clamp(110 / f.r, 0.3, 1); // 越大越淡
       ctx.translate(f.x, f.y); ctx.rotate(f.rot); ctx.drawImage(f.img, -s / 2, -s / 2, s, s); ctx.restore();
     }
     else if (f.kind === 'arc') FX.slash(ctx, f.rgb ? f : Object.assign(f, { rgb: rgbOf(f.color) }));
@@ -6853,8 +6882,9 @@ function drawEffects() {
     } else if (f.kind === 'blast') { // 爆炸：先一下白热闪光，再是向外翻滚的火光，边缘是淡淡的热浪
       ctx.globalCompositeOperation = 'lighter';
       const rgb = f.rgb || (f.enemy ? '255,100,50' : '255,170,80'), prog = 1 - t;
-      if (prog < 0.25) FX.glow(ctx, f.x, f.y, f.r * (0.6 + prog * 2), '255,250,235', (1 - prog / 0.25) * 0.9);
-      FX.glow(ctx, f.x, f.y, f.r * (0.9 + 0.7 * Math.pow(prog, 0.5)), rgb, t * 0.85);
+      const big = f.enemy ? 1 : clamp(110 / f.r, 0.3, 1); // 后期范围叠得很大的爆炸：越大越淡，免得一炸就是半屏白光
+      if (prog < 0.25) FX.glow(ctx, f.x, f.y, f.r * (0.6 + prog * 2), '255,250,235', (1 - prog / 0.25) * 0.9 * big);
+      FX.glow(ctx, f.x, f.y, f.r * (0.9 + 0.7 * Math.pow(prog, 0.5)), rgb, t * 0.85 * big);
       const rr = f.r * (0.7 + 0.6 * Math.pow(prog, 0.6));
       const g = ctx.createRadialGradient(f.x, f.y, rr * 0.7, f.x, f.y, rr);
       g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(0.85, `rgba(${rgb},${0.35 * t})`); g.addColorStop(1, `rgba(${rgb},0)`);
@@ -7023,9 +7053,15 @@ function render(raw) {
     for (let i = 0; i < 6; i++) { const t = i * 1.05 + f.x * 0.01; ctx.moveTo(f.x + Math.cos(t) * f.r * 0.2, f.y + Math.sin(t) * f.r * 0.14); ctx.lineTo(f.x + Math.cos(t) * f.r * 0.85, f.y + Math.sin(t) * f.r * 0.6); }
     ctx.stroke(); ctx.globalAlpha = 1;
   }
+  // 叠加发光的亮度 fxK：同屏特效越多越暗（开方衰减，最低 45%），精简模式再打六折。
+  // 只调你这边的地面火、特效、粒子、神兵；名将的招式、预警、敌人照常亮，躲招不受影响
+  const load = S.effects.length + S.zones.length * 3 + S.rings.length * 2 + S.particles.length / 40;
+  fxK = clamp(Math.sqrt(60 / Math.max(60, load)), 0.45, 1) * (fxLite() ? 0.6 : 1);
+  FX.setK(fxK);
   drawZones();
   drawEffectsUnder();
   drawWeaponsUnder();
+  FX.setK(1);
   drawTelegraphs();
   drawBossFxUnder();
   drawBossFx2Under();
@@ -7036,25 +7072,42 @@ function render(raw) {
   drawGhosts();
   drawEnemies();
   drawPlayer();
+  FX.setK(fxK);
   drawShenbing();
   drawOrbit();
+  FX.setK(1);
   drawProjectiles();
   drawBossFx();
   drawBossFx2();
   drawSimayiOver();
   drawXiahouOver();
+  FX.setK(fxK);
   FX.particles(ctx, S.particles, false); // 烟尘、碎屑
   drawEffects();
   FX.particles(ctx, S.particles, true);  // 火花、光点（叠加发光）
+  FX.setK(1);
   drawNumbers();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawScreen();
 }
 
 // ============ 主循环 ============
-let last = performance.now(), hudT = 0;
+let last = performance.now(), hudT = 0, fxK = 1;
+// 特效「自动」：战斗中连续 4 秒平均帧率低于 40，就切到精简（这台设备之后一直精简，暂停菜单里可以改回完整）
+const fps = { ema: 1 / 60, slowT: 0 };
+function watchFps(raw) {
+  if (fxMode !== 'auto' || autoLite || raw <= 0 || raw > 0.25) return; // 切后台回来那一帧不算
+  fps.ema += (raw - fps.ema) * 0.05;
+  fps.slowT = fps.ema > 1 / 40 ? fps.slowT + raw : 0;
+  if (fps.slowT > 4) {
+    autoLite = true; fxLabel();
+    try { localStorage.setItem('buyi-fx-auto', '1'); } catch (e) { /* ignore */ }
+    toast('', '', '画面有点卡，已自动精简特效', '暂停菜单里可以改回「完整」');
+  }
+}
 function frame(now) {
   const raw = Math.min(0.05, (now - last) / 1000);
+  if (S && !S.paused && !S.modal && !S.over) watchFps((now - last) / 1000);
   last = now;
   if (S && !S.paused && !S.modal && !S.over && !(pickPause && S.choice)) {
     let dt = S.slowmo > 0 ? raw * 0.3 : raw;

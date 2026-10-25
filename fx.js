@@ -4,6 +4,9 @@
 window.FX = (() => {
   const TAU = Math.PI * 2;
   const glowCache = new Map();
+  // 叠加发光的整体亮度（0–1）：后期满屏特效时由游戏调低，免得叠成一片白光（见 game.js 的 fxK）
+  let K = 1;
+  const setK = v => { K = v; };
 
   function glowTex(rgb) {
     let c = glowCache.get(rgb);
@@ -25,7 +28,7 @@ window.FX = (() => {
   // 柔光圆（需在 'lighter' 混合下调用效果最好）
   function glow(ctx, x, y, r, rgb, a) {
     if (a <= 0 || r <= 0) return;
-    ctx.globalAlpha = Math.min(1, a);
+    ctx.globalAlpha = Math.min(1, a * K);
     ctx.drawImage(glowTex(rgb), x - r, y - r, r * 2, r * 2);
   }
 
@@ -117,7 +120,7 @@ window.FX = (() => {
       const t = Math.max(0, q.life / q.max);
       switch (q.type) {
         case 'spark': {
-          ctx.globalAlpha = t;
+          ctx.globalAlpha = t * K;
           ctx.strokeStyle = `rgb(${q.rgb})`;
           ctx.lineWidth = q.size * (0.4 + 0.6 * t);
           ctx.lineCap = 'round';
@@ -401,6 +404,7 @@ window.FX = (() => {
   }
   // 画一张特效贴图：中心在 (x, y)，宽 w 高 h，转 rot；core 是额外叠一层不染色的白光（保留白热核心）
   function sprite(ctx, key, rgb, x, y, w, h, rot, a, core = 0.35, flat = 1) {
+    a *= K;
     if (a <= 0) return;
     if (artOf(key)) a *= 0.8; // 画的贴图比代码生成的亮，压一点免得刺眼
     ctx.save();
@@ -598,5 +602,5 @@ window.FX = (() => {
     ctx.restore();
   }
 
-  return { glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX, petal, shard, snowflake, page, fan, chain, lantern, butterfly, kite, wisp, rock };
+  return { setK, glow, star, slash, shock, particles, crack, makeCrack, glowTex, dragon, swimPts, tex, sprite, setArt, TEX, petal, shard, snowflake, page, fan, chain, lantern, butterfly, kite, wisp, rock };
 })();
