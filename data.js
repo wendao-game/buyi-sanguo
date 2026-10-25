@@ -1275,7 +1275,7 @@ window.GAME_DATA = {
       ],
       banner: '谯县 · 神医 华佗', line: '“老夫行医半生，只救人，不杀人。”', rage: '“刀伤易治，杀心难医啊。”',
       slain: ['神医华佗倒下', '青囊遗术，就此传你'],
-      look: { skin: '#e6c8a4', skinShade: '#c4a47e', robe: '#4f7458', trim: '#e8e0c8', armor: false, beard: 'long', beardColor: '#ece8de', eyes: 'calm', brows: 'thin', head: 'scholar', headColor: '#2e3a2e', weapon: 'scrolls', aura: '#5aa070', artFace: [0.5, 0.3, 0.3] },
+      look: { skin: '#e6c8a4', skinShade: '#c4a47e', robe: '#4f7458', trim: '#e8e0c8', armor: false, beard: 'long', beardColor: '#ece8de', eyes: 'calm', brows: 'thin', head: 'scholar', headColor: '#2e3a2e', weapon: 'scrolls', aura: '#5aa070', artFace: [0.5, 0.19, 0.28] },
     },
   },
 
