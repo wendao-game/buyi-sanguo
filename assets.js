@@ -58,8 +58,10 @@ window.Assets = (() => {
     load('prop:caltrop', `${ASSET_BASE}props/caltrop${IMG}`);
     // 大招特写横幅、吕布骑赤兔
     for (const id in D.generals) load('cutin:' + id, `${ASSET_BASE}cutins/${id}${IMG}`);
+    for (const c of (D.twin && D.twin.combos) || []) load('cutin:combo_' + c.id, `${ASSET_BASE}cutins/combo_${c.id}${IMG}`); // 魔吕布、魔貂蝉的组合大招特写（宽幅双人）
     load('sprite:lubu_mounted', `${ASSET_BASE}sprites/lubu_mounted${IMG}`);
     load('sprite:machao_mounted', `${ASSET_BASE}sprites/machao_mounted${IMG}`); // 马超骑白马
+    load('sprite:molubu_mounted', `${ASSET_BASE}sprites/molubu_mounted${IMG}`); // 魔吕布骑魔赤兔（没有图时用代码画的马驮着魔吕布的小人）
     // 特效贴图：龙首（白龙 = 赵云七进七出，青龙 = 关羽刀气）、坐骑
     for (const id of ['dragon_white', 'dragon_azure']) load('fx:' + id, `${ASSET_BASE}fx/${id}${IMG}`);
     // 招式特效贴图（黑底发光图，叠加着画）：刀光、冲击环、爆裂、雷电、枪芒、旋风、火焰、法阵、光柱

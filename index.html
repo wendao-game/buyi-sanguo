@@ -79,8 +79,8 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 
 #bossbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
   width: min(560px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; }
-#bossface { position: relative; width: 56px; height: 56px; flex: none; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px var(--gold), 0 3px 8px rgba(0,0,0,.6); }
-#bossface svg { display: block; width: 100%; height: 100%; }
+#bossface, #bossface2 { position: relative; width: 56px; height: 56px; flex: none; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px var(--gold), 0 3px 8px rgba(0,0,0,.6); }
+#bossface svg, #bossface2 svg { display: block; width: 100%; height: 100%; }
 .bossinfo { flex: 1; min-width: 0; text-align: center; }
 
 /* 武将登场：立绘切入 */
@@ -185,6 +185,15 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 /* 护甲：叠在血条上方的一道亮蓝 */
 #bossshield { position: absolute; left: 0; top: 0; height: 4px; width: 0; background: linear-gradient(90deg, #7ea4e8, #d6e4ff); box-shadow: 0 0 6px rgba(170,200,255,.8); transition: width .1s; }
 #bossfill { height: 100%; width: 100%; background: linear-gradient(90deg, #7d1a13, var(--seal)); transition: width .1s; }
+/* 魔吕布、魔貂蝉：一条血条左右各一半，中间一道金线；黑血守护是暗红发黑的一层 */
+#bossfill2, #bossshield2 { display: none; }
+#bosshp.twin #bossfill { position: absolute; left: 0; top: 0; }
+#bosshp.twin #bossfill2 { display: block; position: absolute; left: 50%; top: 0; height: 100%; background: linear-gradient(90deg, #6a0f2a, #c0204a); transition: width .1s; }
+#bosshp.twin #bossshield, #bosshp.twin #bossshield2 { background: linear-gradient(90deg, #1a0006, #8a0a1a); box-shadow: 0 0 6px rgba(200,20,40,.9); }
+#bosshp.twin #bossshield2 { display: block; position: absolute; left: 50%; top: 0; height: 4px; transition: width .1s; }
+#bosshp.twin::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 2px; background: var(--gold); }
+/* 魔吕布、魔貂蝉的组合大招：和普通大招同一个位置，横幅更宽、渐隐更靠右，两人同框都看得到 */
+#ult.combo .ult-band { width: min(820px, 94vw); -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); }
 
 #banner { position: absolute; left: 0; right: 0; top: 34%; text-align: center; pointer-events: none; opacity: 0; }
 /* 武将大招演出：从左侧切进来的发光横幅 + 眼部特写 + 速度线 + 招式名；游戏不暂停，只压暗左边一小块，战场照样看得清 */
@@ -317,7 +326,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
   .card .ds { font-size: 13px; }
   .seal { width: 38px; height: 38px; font-size: 20px; }
   #slots { max-width: 200px; }
-  #bossface { width: 46px; height: 46px; }
+  #bossface, #bossface2 { width: 46px; height: 46px; }
   /* 手机竖屏：选择栏三张卡并排，字小一号，名字和图标上下排 */
   #levelup { width: calc(100% - 12px); padding: 6px; gap: 5px; }
   #lu-title { font-size: 19px; }
@@ -386,8 +395,9 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <div class="bossinfo">
         <div id="bossname">华雄</div>
         <div id="bosstitle">董卓帐下骁将</div>
-        <div id="bosshp"><div id="bossfill"></div><div id="bossshield"></div></div>
+        <div id="bosshp"><div id="bossfill"></div><div id="bossshield"></div><div id="bossfill2"></div><div id="bossshield2"></div></div>
       </div>
+      <div id="bossface2" hidden></div>
     </div>
     <div id="cutin"><div id="cut-art"></div><div class="cut-text"><b id="cut-name"></b><span id="cut-title"></span><span id="cut-line"></span></div></div>
     <div id="banner"><b></b><span></span></div>

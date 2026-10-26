@@ -372,6 +372,16 @@ window.Sprites = (() => {
         g.fillStyle = '#f2ead8'; g.font = '900 13px serif'; g.textAlign = 'center'; g.fillText('药', 38, 76);
         for (const [x, y, r] of [[70, 20, 6], [76, 10, 8], [84, 2, 9]]) { g.fillStyle = 'rgba(150,220,160,.55)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); } // 药烟
         break;
+      case 'lianyu': // 炼狱虎牢关：黑石关墙、两座箭楼，城门里透出血红的光，关楼上悬着一轮血月
+        shape(g, '#2a1c20', s => rr(s, 6, 56, 108, 48, 2));                                  // 关墙
+        for (let x = 8; x < 112; x += 12) shape(g, '#3a262a', s => rr(s, x, 48, 8, 10, 1), 1);  // 垛口
+        for (const x of [8, 88]) { shape(g, '#2a1c20', s => rr(s, x, 26, 24, 78, 2)); roof(g, x - 2, 14, 28, 14, '#1a0c10'); } // 两座箭楼
+        shape(g, '#120608', s => { s.moveTo(44, 104); s.lineTo(44, 74); s.quadraticCurveTo(60, 58, 76, 74); s.lineTo(76, 104); s.closePath(); }); // 城门
+        g.fillStyle = 'rgba(220,30,50,.75)'; g.beginPath(); g.moveTo(48, 104); g.lineTo(48, 76); g.quadraticCurveTo(60, 64, 72, 76); g.lineTo(72, 104); g.closePath(); g.fill();
+        g.fillStyle = 'rgba(200,20,40,.9)'; g.beginPath(); g.arc(60, 22, 12, 0, Math.PI * 2); g.fill(); // 血月
+        g.fillStyle = 'rgba(40,0,8,.6)'; g.beginPath(); g.arc(64, 20, 10, 0, Math.PI * 2); g.fill();
+        for (const [x, y] of [[20, 70], [100, 66], [30, 88]]) line(g, x, y, x + 8, y + 6, 'rgba(200,30,50,.8)', 1.2); // 墙上的血纹
+        break;
       case 'yaoding': // 药鼎：一只青铜三足鼎，鼎里冒着青绿的药气
         line(g, 44, 104, 40, 88, '#6a6040', 3.5); line(g, 76, 104, 80, 88, '#6a6040', 3.5); line(g, 60, 104, 60, 92, '#6a6040', 3.5); // 三足
         shape(g, '#8a7a48', s => { s.moveTo(34, 64); s.quadraticCurveTo(34, 96, 60, 96); s.quadraticCurveTo(86, 96, 86, 64); s.closePath(); });

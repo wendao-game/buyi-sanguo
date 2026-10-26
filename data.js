@@ -33,7 +33,10 @@ window.GAME_DATA = {
   },
   // 周郎琴、寒玉笛的音波：后期范围、冷却叠得太狠会一圈接一圈铺满屏幕、看不清地图（玩家反馈）。
   // 半径最多到本级的 area 倍，两轮之间至少隔 cd 秒；超出的范围每多 1 倍折算成 areaDmg 倍伤害，被压住的冷却按比例折算成伤害
-  sonicCap: { area: 1.5, cd: 0.9, areaDmg: 0.5 },
+  sonicCap: { area: 1.3, cd: 1.6, areaDmg: 0.5 }, // 玩家反馈后期音波圈太多太亮：半径最多 1.3 倍、两轮至少隔 1.6 秒
+  // 冷却上限：武器、技能最快到满级冷却的 minCd 倍（原来兵书 × 孙子兵法 × 突破能压到 14%，一秒放好几轮，满屏光污染）；
+  // 超出上限的那部分按比例折算成伤害，总伤害基本不变。神兵同样最快到自身冷却的 minCd 倍
+  cdCap: { minCd: 0.4 },
 
   // 升级所需经验：前期很快，越往后越慢（指数增长，到 capLv 级后改为每级固定多加 latePerLv）
   // = base + (等级-1)×perLv + expA×(expG^(等级-1) - 1)
@@ -679,6 +682,18 @@ window.GAME_DATA = {
         { cd: 6, radius: 150, life: 5, slow: 0.3, tick: 0.5, dmg: 26, note: '一服麻沸，刮骨不觉' },
       ],
     },
+    // 连环锁：每隔 cd 秒，用红线把附近 range 内最强的 count 个敌人连起来，持续 life 秒；打中其中一个，其余的也受到 share 比例的伤害
+    lianhuansuo: {
+      name: '连环锁', icon: '锁', type: 'linkChain', general: '魔貂蝉',
+      desc: '魔貂蝉的连环计：定时用血红丝线把附近最强的几个敌人连在一起，打中其中一个，其余的也一起受伤。',
+      levels: [
+        { cd: 10, count: 3, range: 450, life: 5, share: 0.3 },
+        { cd: 9.5, count: 4, range: 460, life: 5, share: 0.35, note: '多连一个，分担更多' },
+        { cd: 9, count: 4, range: 480, life: 6, share: 0.4, note: '连得更久' },
+        { cd: 8, count: 5, range: 500, life: 6, share: 0.45, note: '多连一个，分担更多' },
+        { cd: 7, count: 6, range: 540, life: 7, share: 0.55, note: '一环扣一环，环环见血' },
+      ],
+    },
   },
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
@@ -728,6 +743,10 @@ window.GAME_DATA = {
     // 冢虎：生命跌破 below 时诈死脱身（无敌 iframes 秒，回复 heal 比例的生命），每 cd 秒一次
     zhonghu: { name: '冢虎', icon: '虎', max: 1, unique: true, general: '司马懿', desc: '冢虎隐忍：生命上限 +40，伤害 +10%；生命跌到 25% 以下时诈死脱身，2 秒无敌并回复 30% 生命（每 60 秒一次）', effects: { maxHp: 40, dmgMul: 0.1 }, feign: { below: 0.25, heal: 0.3, iframes: 2, cd: 60 } },
     // 五禽戏：闪现后 dur 秒内一共回复 heal 比例的生命，每 cd 秒最多一次（要主动闪现才回血）
+    // 无双魔印：伤害、暴击伤害大涨，但受到的伤害 +hurt
+    moyin: { name: '无双魔印', icon: '印', max: 1, unique: true, general: '魔吕布', desc: '魔吕布的血色印玺：伤害 +30%，暴击伤害 +50%；但受到的伤害 +10%', effects: { dmgMul: 0.3, critMul: 0.5 }, hurt: 0.1 },
+    // 倾城血玉：每 cd 秒完全挡下一次伤害
+    xueyu: { name: '倾城血玉', icon: '玉', max: 1, unique: true, general: '魔貂蝉', desc: '魔貂蝉的血玉坠：每 10 秒完全挡下一次伤害；生命上限 +60', effects: { maxHp: 60 }, block: { cd: 10 } },
     wuqinxi: { name: '五禽戏', icon: '禽', max: 1, unique: true, general: '华佗', desc: '华佗所创导引之术：生命上限 +30，移动速度 +8%；每次闪现后 3 秒内回复 6% 生命（每 10 秒最多一次）', effects: { maxHp: 30, speedMul: 0.08 }, blinkHeal: { heal: 0.06, dur: 3, cd: 10 } },
   },
 
@@ -881,24 +900,30 @@ window.GAME_DATA = {
     // 走到 aggroR 以内才会放箭、派兵；有别的名将在场时府门紧闭打不动。攻破后大乔现身，击败大乔后小乔现身。
     qiaofu: { name: '乔府', icon: '乔', hp: 1800, r: 52, xp: 40, special: true, aggroR: 460, wake: ['乔府警觉', '府中放出莲灯，弓手登上院墙'], reward: { type: 'qiao' },
       shoot: { range: 480, cd: 1.1, dmg: 11, speed: 250, count: 3, spread: 0.5, lantern: true }, spawn: { type: 'archer', every: 7, max: 4 },
-      desc: '江东乔府 · 攻破后大乔现身' },
+      desc: '江东乔府 · 府中隐约传来琴声' },
     // 西凉营地：群雄逐鹿开场出现在你的左上方，规则和乔府一样（走近才动手、别的名将在场时营门紧闭）。攻破后马超骑白马杀出
     xiliangying: { name: '西凉营地', icon: '西', seal: '营门紧闭', hp: 2000, r: 54, xp: 40, special: true, aggroR: 480, wake: ['西凉营地警觉', '营中铁骑杀了出来'], reward: { type: 'general', gid: 'machao', msg: '营门大开……马超杀出！' },
       shoot: { range: 500, cd: 1.3, dmg: 12, speed: 300, count: 2, spread: 0.3 }, spawn: { type: 'cavalry', every: 5, max: 5 },
-      desc: '西凉营地 · 攻破后马超杀出' },
+      desc: '西凉营地 · 营中似有猛将坐镇' },
     // 孤冢：赤壁之战里诸葛亮登场之后出现在你的西北方，规则和西凉营地一样。冢里鬼火乱飞、死士往外爬，攻破后司马懿破冢而出
     zhong: { name: '孤冢', icon: '冢', seal: '冢门封死', hp: 2100, r: 52, xp: 40, special: true, aggroR: 470, wake: ['孤冢异动', '鬼火四起，死士从冢里爬了出来'], reward: { type: 'general', gid: 'simayi', msg: '孤冢崩裂……冢虎出世！' },
       shoot: { range: 480, cd: 1.4, dmg: 12, speed: 230, count: 3, spread: 0.6, soul: true }, spawn: { type: 'shade', every: 5, max: 6 },
-      desc: '孤冢 · 攻破后司马懿现身' },
+      desc: '孤冢 · 冢中似有异动' },
     // 疑冢：司马懿大招「冢虎疑冢」时立起的一圈坟（只有一座是真的），不会自己刷出来
     yizhong: { name: '疑冢', icon: '冢', hp: 320, r: 30, xp: 0, special: true, tomb: true, desc: '真假难辨 · 打破真冢逼出司马懿' },
     // 药庐：打完黄巾之战（第二章开场）出现在你的西南方，规则和西凉营地一样（走近才动手、别的名将在场时闭门），但血厚一倍、不放箭不派兵：
     // calm 秒没挨打就每秒回 regen 比例的血（没法路过磨一点）；走近后药香飘出，aura 范围里的敌兵每秒回 auraHeal 比例的血。攻破后华佗现身
     yaolu: { name: '药庐', icon: '庐', seal: '药庐闭门', hp: 4000, r: 50, xp: 40, special: true, aggroR: 460, wake: ['药庐飘出药香', '附近敌兵的伤口在慢慢愈合'], reward: { type: 'general', gid: 'huatuo', msg: '药庐门开……神医华佗现身' },
       regen: 0.03, calm: 4, aura: 300, auraHeal: 0.05,
-      desc: '药庐 · 攻破后华佗现身' },
+      desc: '药庐 · 药香里似有人影' },
     // 药鼎：华佗大招「百草药鼎」时立在他身边的药鼎（活着就给他回血，打碎时药雾给你回血），不会自己刷出来
     yaoding: { name: '药鼎', icon: '鼎', hp: 200, r: 26, xp: 0, special: true, pot: true, desc: '打碎药鼎 · 断他药力' },
+    // 炼狱虎牢关：玩家升到 unlockLv 级，就在正北方升起（战役、无尽征途都算）。不闭门；走进 aggroR 就被心魔缠身：武器、技能、神兵的冷却 ×demon。
+    // 攻破后魔吕布、魔貂蝉一起现身（twins）；两人都倒下 again 秒后关隘再次升起，每多一轮血量 +roundHp、伤害 +roundDmg
+    lianyu: { name: '炼狱虎牢关', icon: '关', hp: 10000, r: 66, xp: 80, special: true, noSeal: true, aggroR: 600, demon: 1.4, unlockLv: 80, again: 480, roundHp: 0.5, roundDmg: 0.25,
+      wake: ['心魔缠身', '关上魔气缭绕，出手变慢了……'], reward: { type: 'twins', gids: ['molubu', 'modiaochan'], msg: '关门崩裂……魔吕布与魔貂蝉现身！' },
+      shoot: { range: 620, cd: 1.2, dmg: 30, speed: 320, count: 3, spread: 0.5, soul: true }, spawn: { type: 'cavalry', every: 4, max: 6 },
+      desc: '炼狱虎牢关 · 关上心魔缭绕……' },
   },
 
   // 神祠祝福：随机给一项，可以叠加
@@ -1280,6 +1305,48 @@ window.GAME_DATA = {
       slain: ['神医华佗倒下', '青囊遗术，就此传你'],
       look: { skin: '#e6c8a4', skinShade: '#c4a47e', robe: '#4f7458', trim: '#e8e0c8', armor: false, beard: 'long', beardColor: '#ece8de', eyes: 'calm', brows: 'thin', head: 'scholar', headColor: '#2e3a2e', weapon: 'scrolls', aura: '#5aa070', artFace: [0.5, 0.19, 0.28] },
     },
+    // —— 魔吕布、魔貂蝉：后期 boss。玩家 80 级时正北升起炼狱虎牢关，攻破后两人一起现身（twin：只从关隘出来，不进无尽征途的随机名单）。
+    // 魔幻风：黑金魔铠、血月、彼岸花。普通大招没有特写（noCutin），只有两人的组合大招（D.twin.combos）才有宽幅特写。
+    // bleed：被他们打中会「黑血侵蚀」，回血效果大减（见 D.twin）。大招里的 pct：至少掉你生命上限的这么多，血再厚也得躲
+    molubu: {
+      name: '魔吕布', title: '炼狱魔将 · 吕奉先', icon: '魔', hp: 16000, speed: 110, dmg: 30, r: 38, color: '#3a0a10', twin: true, bleed: true, noCutin: true,
+      attacks: ['charge3', 'slam', 'charge3', 'slam'], interval: 2.6, slamR: 200, chargeSpeed: 760, rideCharge: true, mount: '#2a0808',
+      rewards: ['moyin', 'xueyu', 'lianhuansuo'],
+      ultRgb: '220,30,50', ultEvery: 13,
+      ults: [
+        { id: 'hengjiang', name: '魔戟横江', type: 'bigSlash', R: 430, half: 2.62, dmg: 2.4, pct: 0.25, follow: 0 }, // 横扫 300°，背后留 60° 的缺口
+        { id: 'tayan', name: '赤焰踏阵', type: 'mountDash', count: 3, speed: 1250, len: 680, tele: 0.6, dmg: 1.8, pct: 0.2, trail: true },
+      ],
+      banner: '炼狱虎牢关 · 魔吕布', line: '“炼狱之中，我依旧天下无双！”', rage: '“心魔噬骨……痛快！”',
+      look: { skin: '#d8c0b0', skinShade: '#a88878', robe: '#1a0c10', trim: '#b0182a', armor: true, armorColor: '#2a1418', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'pheasant', weapon: 'ji', aura: '#8a0f1a', artFace: [0.56, 0.26, 0.28] },
+    },
+    modiaochan: {
+      name: '魔貂蝉', title: '血月魔姬 · 貂蝉', icon: '魅', hp: 16000, speed: 106, dmg: 26, r: 30, color: '#5a0f2a', twin: true, bleed: true, noCutin: true,
+      attacks: ['volley', 'meteor', 'volley', 'meteor'], interval: 2.4, kite: 260,
+      volley: { count: 9, spread: 1.2, speed: 320, dmg: 18, petal: true },
+      meteor: { count: 6, radius: 74, delay: 1.0, dmg: 30, rgb: '200,30,70', petal: true },
+      rewards: ['moyin', 'xueyu', 'lianhuansuo'],
+      ultRgb: '200,30,80', ultEvery: 13,
+      ults: [
+        { id: 'meiying', name: '血月魅影', type: 'charm', radius: 300, tele: 1.0, pull: 340, dur: 1.8, dmg: 1.0, pct: 0.15 },
+        { id: 'bianhua', name: '彼岸花雨', type: 'petalRain', count: 36, dur: 3.6, r: 100, dmg: 1.4, pct: 0.2 },
+      ],
+      banner: '炼狱虎牢关 · 魔貂蝉', line: '“将军，这一次，妾身陪你堕入炼狱。”', rage: '“血月为证，谁也别想分开我们。”',
+      look: { skin: '#f0d8d0', skinShade: '#c8a8a0', robe: '#3a0a1c', trim: '#d02040', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#120a10', pin: '#ff3a5a', weapon: 'ribbon', ribbon: '#c0103a', aura: '#8a1030', female: true, artFace: [0.52, 0.25, 0.28] },
+    },
+  },
+  // 魔吕布、魔貂蝉两人一组的规则
+  //   黑血守护：代替护甲，等于最大生命的 shield，打破后僵直、易伤，不会自己回（搭档魂缚时回满）；两人相距 linkR 以内时「黑血相连」，都减伤 linkDr——拉开打更快
+  //   魂缚：一人血量打空不会死，变成残魂（打不动），另一人狂怒（出招间隔 ×rage、黑血至少回到 rageShield）；down 秒内把另一人也打空，两人一起倒下，否则残魂以 revive 的血量复活
+  //   黑血侵蚀：被他们打中后 bleed 秒内，你的回血效果只剩 bleedHeal
+  //   组合大招：两人都在、都没被魂缚时，每 every 秒轮流放一招；合计血量低于一半时必放一次「无双·倾城」。只有组合大招有特写（assets/cutins/combo_<id>.png）
+  twin: {
+    shield: 0.4, linkDr: 0.4, linkR: 360, down: 18, revive: 0.4, rage: 0.7, rageShield: 0.5, bleed: 4, bleedHeal: 0.4, every: 22,
+    combos: [
+      { id: 'xueyue', name: '辕门·血月', waves: 3, count: 8, r: 92, spread: 320, delay: 1.0, gap: 0.6, dmg: 1.5, pct: 0.35 },
+      { id: 'suoxin', name: '连环·锁心', leash: 260, sweeps: 3, R: 480, half: 0.9, tele: 0.85, gap: 0.45, dmg: 1.8, pct: 0.4 },
+      { id: 'qingcheng', name: '无双·倾城', below: 0.5, dur: 7, ringR: 380, petals: 28, gap: 1.1, spin: 0.9, every: 0.38, speed: 240, dmg: 1.0, pct: 0.22 },
+    ],
   },
 
   // 名将语音：登场用 generals 里的 line，半血暴怒用 rage，这里补上阵亡和每个大招的台词（全部原创，不照搬别的游戏）。
@@ -1308,6 +1375,8 @@ window.GAME_DATA = {
     guojia: { death: '天不假年……奉孝，先走一步……', ult: { shisheng: '十胜十败，一步错，步步错。', liaodi: '你的下一步，我早已算到。', guimou: '鬼谋入雾，生路何在？' } },
     xiahoudun: { death: '孟德……元让……先走一步了……', ult: { ganglie: '有本事，再打一刀试试！', danqi: '来！一对一，生死各安天命！', danjing: '父精母血，不可弃也！' } },
     simayi: { death: '算尽天下……终究……算不过天……', ult: { sishi: '死士三千，听我号令——起！', langgu: '我不必回头，也看得见你。', yizhong: '哪一座才是我的冢？你猜。' } },
+    molubu: { death: '貂蝉……这一回……我没能护住你……', ult: { hengjiang: '魔戟横江，一个不留！', tayan: '赤兔，踏碎这人间！', combo_xueyue: '给我碎！', combo_suoxin: '逃？往哪逃！', combo_qingcheng: '天下无双，就在此刻！' } },
+    modiaochan: { death: '将军……下一世……再见……', ult: { meiying: '看着我……忘了你自己。', bianhua: '彼岸花开，黄泉路远。', combo_xueyue: '血月当空——', combo_suoxin: '连环一线，锁你心魂。', combo_qingcheng: '为君一舞，倾城倾国——' } },
     huatuo: { death: '青囊之术……可惜……无人可传了……', ult: { qingnang: '青囊在手，百病可医。', yaoding: '百草入鼎，药香自来。', guagu: '刮骨去毒，忍一时之痛！' } },
   },
 
@@ -1514,6 +1583,9 @@ window.GAME_DATA = {
       desc: '四块黑石墓碑从天而降砸进敌群，砸晕落点的敌人；片刻后墓碑里再炸出一圈幽冥鬼火。' },
     // 青囊书：药香绕身 dur 秒，每 tick 秒伤害 radius 内的敌人；每打中一个敌人回复 heal 比例的生命，每次最多回复 cap（再掉一次 +capLv）；
     // 药香绕身时受到的伤害 -guard。玩家反馈原来太弱（不如五禽戏），加强：范围、伤害、回血上限都提高，并加上减伤
+    // 血月方天戟：击败魔吕布、魔貂蝉直接到手（再打一次就升级）。朝敌群掷出一轮血月，片刻后碎成 count 道月刃砸进敌群
+    molubu: { name: '血月方天戟', icon: '戟', iconFrom: 'halberd', rgb: '220,30,50', cd: 6, type: 'bloodMoon', dmg: 90, count: 8, radius: 85, spread: 220,
+      desc: '画戟掷出一轮血月悬在敌群上空，片刻后碎成八道月刃砸下，每道都炸开一圈血光。' },
     huatuo: { name: '青囊书', icon: '书', iconFrom: 'baicao', rgb: '120,220,140', cd: 5.5, type: 'herbRing', dmg: 55, radius: 210, dur: 3, tick: 0.4, heal: 0.008, cap: 0.1, capLv: 0.02, guard: 0.3,
       desc: '青囊书在身边翻开，药香绕身 3 秒：不断伤害圈里的敌人，每打中一个敌人回复 0.8% 生命（每次最多 10%），药香里受到的伤害 -30%。' },
   },
