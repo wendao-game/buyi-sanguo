@@ -1149,10 +1149,30 @@ function cloudUpload() {
   try {
     fs.writeFile({ filePath: cloudFile(), data: JSON.stringify(Object.assign({ v: 1, at: Date.now() }, save)), encoding: 'utf8', fail,
       success: () => {
-        const done = { archiveMetaData: meta, archiveFilePath: cloudFile(), fail, success: r => { cloud.busy = false; if (r && r.uuid) cloud.uuid = r.uuid; } };
+        const done = { archiveMetaData: meta, archiveFilePath: cloudFile(), fail, success: r => { cloud.busy = false; if (r && r.uuid) { cloud.uuid = r.uuid; setOwner(r.uuid); } } }; // 记下这台设备现在是哪个账号的存档
         if (cloud.uuid) cm.updateArchive(Object.assign({ archiveUUID: cloud.uuid }, done)); else cm.createArchive(done);
       } });
   } catch (e) { fail(); }
+}
+// 换账号：本机存档不分账号（PC 上换 TapTap 账号，本地存储还是同一份），小游戏又拿不到账号 ID，
+// 所以记下本机上次同步的云存档编号（每个账号的存档编号都不同）。进游戏时云端的编号对不上、或者这个账号云端还没有存档，就是换了账号：
+// 把本机这份（局外进度、纪录、图鉴、没打完的那一局）按旧编号收起来，换成这个账号自己的——以前在本机收起来过就拿回来，没有就从头开始。
+// 第一次用到这个版本的老玩家（本机还没记过编号）照常合并。没取到云端列表（没网等）只会重试，不会当成换号
+const ACCT_KEYS = [...CLOUD_KEYS, 'buyi-run'], OWNER_KEY = 'buyi-cloud-uuid';
+const owner = () => { try { return localStorage.getItem(OWNER_KEY); } catch (e) { return null; } };
+function setOwner(uuid) { try { if (uuid) localStorage.setItem(OWNER_KEY, uuid); } catch (e) { /* ignore */ } }
+function switchAccount(oldId, newId) {
+  try {
+    const stash = {};
+    for (const k of ACCT_KEYS) { const v = localStorage.getItem(k); if (v !== null) stash[k] = v; localStorage.removeItem(k); }
+    if (Object.keys(stash).length) localStorage.setItem('buyi-acct:' + oldId, JSON.stringify(stash));
+    const back = newId && localStorage.getItem('buyi-acct:' + newId);
+    if (back) { const o = JSON.parse(back); for (const k in o) localStorage.setItem(k, o[k]); localStorage.removeItem('buyi-acct:' + newId); }
+    localStorage.removeItem(OWNER_KEY);
+  } catch (e) { /* 存储不可用时忽略 */ }
+  META = null;
+  if (!$('title').hidden) { refreshTitle(); renderOrigins(); }
+  toast('', '', '已切换到这个账号的存档', '上一个账号的进度留在本机，换回去还在');
 }
 // 进游戏：下载云端存档，和本机合并。下载失败（没网等）就过 30 秒再试——合并之前不上传，免得本机的旧档盖掉云端
 function cloudInit() {
@@ -1178,8 +1198,10 @@ function cloudLoad() {
     cm.getArchiveList({ fail: retry,
       success: res => {
         const a = (res && res.saves || []).find(s => s.name === CS.name);
-        if (!a) { start(null); return; } // 云端还没有：这是第一次，把本机的传上去
-        cloud.uuid = a.uuid;
+        const prev = owner();
+        if (!a) { if (prev) switchAccount(prev, null); start(null); return; } // 云端还没有：第一次用云存档就把本机的传上去；本机记着别的账号的编号，就是换了新账号，从头开始
+        if (prev && prev !== a.uuid) switchAccount(prev, a.uuid); // 换了账号
+        cloud.uuid = a.uuid; setOwner(a.uuid);
         cm.getArchiveData({ archiveUUID: a.uuid, archiveFileId: a.fileId, targetFilePath: `${t.env.USER_DATA_PATH}/${CS.name}_cloud.json`, fail: retry,
           success: d => fs.readFile({ filePath: d.filePath || `${t.env.USER_DATA_PATH}/${CS.name}_cloud.json`, encoding: 'utf8', fail: retry,
             success: f => { let o = null; try { o = JSON.parse(f.data); } catch (e) { /* 坏档当作没有 */ } start(o); } }) });
