@@ -1512,9 +1512,10 @@ window.GAME_DATA = {
       desc: '敌群上空睁开一只血红的独眼，随后一柄巨刀落下，十字劈开，被劈中的敌人僵住片刻。' },
     simayi: { name: '冢虎墓碑', icon: '碑', iconFrom: 'langgu', rgb: '170,90,230', cd: 6, type: 'tombDrop', dmg: 75, count: 4, radius: 95, stun: 1, nova: 0.8,
       desc: '四块黑石墓碑从天而降砸进敌群，砸晕落点的敌人；片刻后墓碑里再炸出一圈幽冥鬼火。' },
-    // 青囊书：药香绕身 dur 秒，每 tick 秒伤害 radius 内的敌人；每打中一个敌人回复 heal 比例的生命，每次最多回复 cap（身边要有敌人才回血）
-    huatuo: { name: '青囊书', icon: '书', iconFrom: 'baicao', rgb: '120,220,140', cd: 6.5, type: 'herbRing', dmg: 40, radius: 170, dur: 2.4, tick: 0.4, heal: 0.005, cap: 0.06,
-      desc: '青囊书在身边翻开，药香绕身 2.4 秒，不断伤害圈里的敌人；每打中一个敌人回复 0.5% 生命，每次最多回复 6%。' },
+    // 青囊书：药香绕身 dur 秒，每 tick 秒伤害 radius 内的敌人；每打中一个敌人回复 heal 比例的生命，每次最多回复 cap（再掉一次 +capLv）；
+    // 药香绕身时受到的伤害 -guard。玩家反馈原来太弱（不如五禽戏），加强：范围、伤害、回血上限都提高，并加上减伤
+    huatuo: { name: '青囊书', icon: '书', iconFrom: 'baicao', rgb: '120,220,140', cd: 5.5, type: 'herbRing', dmg: 55, radius: 210, dur: 3, tick: 0.4, heal: 0.008, cap: 0.1, capLv: 0.02, guard: 0.3,
+      desc: '青囊书在身边翻开，药香绕身 3 秒：不断伤害圈里的敌人，每打中一个敌人回复 0.8% 生命（每次最多 10%），药香里受到的伤害 -30%。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大

@@ -836,7 +836,8 @@ let atkEl = null, atkSrc = null;
 function hurtPlayer(amount, el = atkEl, src = atkSrc) {
   const p = S.player;
   if (p.iframes > 0 || S.over || S.god || S.t < S.rampageT) return;
-  const dmg = Math.max(1, Math.round(amount * (S.t < S.pCurseT ? 1 + D.bossElement.dark.amp : 1) - p.armor)); // 被噬魂：多受伤害
+  const guard = S.sbHerb && S.t < S.sbHerb.until ? 1 - S.sbHerb.guard : 1; // 青囊书：药香绕身时受到的伤害降低
+  const dmg = Math.max(1, Math.round(amount * guard * (S.t < S.pCurseT ? 1 + D.bossElement.dark.amp : 1) - p.armor)); // 被噬魂：多受伤害
   p.hp -= dmg;
   if (el && D.bossElement[el]) playerEl(el, dmg, src);
   p.iframes = 0.45;
@@ -4921,7 +4922,7 @@ function castShenbing(sb) {
     }
     case 'herbRing': { // 青囊书：药香绕身几秒，伤害圈里的敌人，按打中的敌人数回血（每次有上限）
       const R = def.radius * p.areaMul;
-      S.sbHerb = { until: S.t + def.dur, R, dmg, tick: 0, every: def.tick, heal: def.heal, cap: def.cap, healed: 0 };
+      S.sbHerb = { until: S.t + def.dur, R, dmg, tick: 0, every: def.tick, heal: def.heal, cap: def.cap + def.capLv * (sb.lv - 1), guard: def.guard, healed: 0 }; // 再掉一次：回血上限更高
       fxTex('circle', 0, 0, { follow: p, oy: 6, w: R * 2.1, h: R * 2.1, rgb, under: true, flat: 0.55, life: def.dur, spin: 1.5, fadeIn: 0.1, core: 0.3 });
       pages(p.x, p.y - 40, 8, 120, 7);
       break;
