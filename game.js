@@ -613,10 +613,10 @@ function recomputeStats() {
   p.arrowCount = Math.floor(add.arrowCount); p.arrowDmg = add.arrowDmg; p.arrowPierce = Math.floor(add.arrowPierce);
   p.spellDmg = add.spellDmg; p.skillCd = Math.min(0.5, add.skillCd); p.spellArea = add.spellArea;
   p.speed = b.speed * (o.speedMul || 1) * (1 + Math.min(1.5, add.speedMul));
-  p.armor = add.armor;
+  p.armor = (o.armor || 0) + add.armor;
   p.regen = (o.regen || 0) + add.regen;
   p.pickup = b.pickup * (o.pickupMul || 1) * (1 + add.pickupMul);
-  p.dmgMul = 1 + add.dmgMul;
+  p.dmgMul = 1 + (o.dmg || 0) + add.dmgMul;
   p.cdMul = Math.max(0.4, (o.cdMul || 1) * (1 + add.cdMul));
   p.areaMul = 1 + add.areaMul;
   p.crit = Math.min(0.75, b.crit + (o.crit || 0) + add.crit);

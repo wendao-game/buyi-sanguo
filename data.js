@@ -59,8 +59,8 @@ window.GAME_DATA = {
     {
       id: 'farmer', name: '农夫', icon: '农', weapon: 'hoe', focus: 'body', focusName: '炼体',
       desc: '种了半辈子地，身子骨硬朗。',
-      perks: ['生命上限 130', '每秒回复 0.4 生命', '炼体：更容易刷到生命、护甲、回复'],
-      stats: { maxHp: 130, regen: 0.4 },
+      perks: ['生命上限 150，护甲 +2', '每秒回复 0.8 生命，伤害 +12%', '炼体：更容易刷到生命、护甲、回复'],
+      stats: { maxHp: 150, regen: 0.8, armor: 2, dmg: 0.12 }, // 原来 130 血、0.4 回复，明显弱于猎户书生（玩家反馈），补上护甲和伤害
       look: { skin: '#c48a58', skinShade: '#9c6a40', robe: '#8c7b5a', trim: '#5e5040', armor: false, beard: 'stubble', beardColor: '#2a2018', eyes: 'normal', brows: 'sharp', head: 'straw', weapon: 'hoe', aura: '#6b7a4a', artFace: [0.50, 0.31, 0.36], extras: ['patches', 'towel'] },
     },
     {
