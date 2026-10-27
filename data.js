@@ -1739,5 +1739,8 @@ window.GAME_DATA = {
     // 据点：开局 3 个，地图上最多同时 4 个，被摧毁后隔一段时间补上
     buildingStart: 3, buildingMax: 4, buildingEvery: 35,
     endlessBossEvery: 70,   // 无尽征途里每隔多少秒出一名武将
+    // lv 级以后地上的掉落精简（后期满地掉落会卡）：经验、元宝攒够 every 份才掉一个大的，肉包少掉 every 倍、一个回 every 倍；
+    // 地上超过 cap 个东西就把新经验并进离得最近的一颗（军令不限：后期主要靠军令把满地经验一次吸过来）
+    lateDrop: { lv: 80, every: 5, cap: 120 },
   },
 };

@@ -1018,7 +1018,7 @@ function killEnemy(e) {
   if (e.ai) { // 精英：多掉经验、金币，大概率掉补给
     { const G = D.meta.gold.elite; dropGold(e.x, e.y, Math.round(rand(G[0], G[1]))); }
     for (let i = 0; i < 6; i++) dropXp(e.x + rand(-30, 30), e.y + rand(-30, 30), Math.max(2, Math.round(e.def.xp / 3 * (1 + S.t / 300))));
-    if (Math.random() < 0.45) S.pickups.push({ kind: 'heal', x: e.x + 14, y: e.y, v: 30, mag: false, vel: 0 });
+    dropHeal(e.x + 14, e.y, 0.45, 30);
     if (Math.random() < 0.25) S.pickups.push({ kind: 'vacuum', x: e.x - 14, y: e.y, v: 0, mag: false, vel: 0 });
     sparks(e.x, e.y - 20, 0, 18, '255,210,120', 460, Math.PI, 2.4);
     smoke(e.x, e.y - 14, 5, '38,32,24', 12, 14, 0.7);
@@ -1028,8 +1028,7 @@ function killEnemy(e) {
   // 经验随时间增长，保证后期也能持续升级
   dropXp(e.x, e.y, Math.max(1, Math.round(e.def.xp * (1 + Math.max(0, S.t - D.stage.xpGrowthStart) / D.stage.xpGrowthSec) * (e.elite ? 5 : 1))));
   if (Math.random() < (e.elite ? 0.5 : D.meta.gold.minion)) dropGold(e.x, e.y, e.elite ? D.meta.gold.eliteSoldier : 1);
-  if (Math.random() < (e.elite ? 0.25 : 0.012)) S.pickups.push({ kind: 'heal', x: e.x, y: e.y, v: 25, mag: false, vel: 0 });
-  else if (Math.random() < (e.elite ? 0.15 : 0.002)) S.pickups.push({ kind: 'vacuum', x: e.x, y: e.y, v: 0, mag: false, vel: 0 });
+  if (!dropHeal(e.x, e.y, e.elite ? 0.25 : 0.012, 25) && Math.random() < (e.elite ? 0.15 : 0.002)) S.pickups.push({ kind: 'vacuum', x: e.x, y: e.y, v: 0, mag: false, vel: 0 });
   // 倒下：一团墨烟 + 几块碎屑；精英多一道金光
   smoke(e.x, e.y - e.r * 0.6, e.elite ? 5 : 2, '38,32,24', e.r * 0.6, e.r * 0.5, 0.5);
   for (let i = 0; i < 3; i++) particle(e.x, e.y - e.r * 0.5, e.def.color, 160);
@@ -1625,12 +1624,30 @@ function say(e, text) {
 }
 
 // ============ 掉落 ============
+// 后期（data.js 的 stage.lateDrop.lv 级以后）：经验、元宝攒够 every 份才掉一个大的，肉包少掉几倍但一个回得多，
+// 总量不变，地上的东西少几倍（群友反馈后期满地掉落会卡）
+function lateDrop() {
+  const L = D.stage.lateDrop;
+  if (S.player.level < L.lv) return null;
+  if (!S.dropBank) S.dropBank = { xp: 0, xn: 0, gold: 0, gn: 0 };
+  return L;
+}
 function dropXp(x, y, v) {
-  if (S.pickups.length > (fxLite() ? 150 : 320)) { // 地上的经验太多就并进已有的（精简模式并得更早，少画几百颗）
-    const g = S.pickups[Math.floor(Math.random() * S.pickups.length)];
-    if (g.kind === 'xp') { g.v += v; return; }
+  const L = lateDrop();
+  if (L) { const B = S.dropBank; B.xp += v; if (++B.xn < L.every) return; v = B.xp; B.xp = 0; B.xn = 0; }
+  if (S.pickups.length > (L ? L.cap : fxLite() ? 150 : 320)) { // 地上的东西太多就并进离这里最近的经验（精简模式并得更早，少画几百颗）；
+    let best = null, bd = Infinity;                                // 并进最近的而不是随便一颗，经验才不会跑到你走不到的地方
+    for (const g of S.pickups) if (g.kind === 'xp') { const d = dist2(g.x, g.y, x, y); if (d < bd) { bd = d; best = g; } }
+    if (best) { best.v += v; best.big = best.big || !!L; return; }
   }
-  S.pickups.push({ kind: 'xp', x: x + rand(-5, 5), y: y + rand(-5, 5), v, mag: false, vel: 0 });
+  S.pickups.push({ kind: 'xp', x: x + rand(-5, 5), y: y + rand(-5, 5), v, mag: false, vel: 0, big: !!L });
+}
+// 肉包：按 chance 掉，回 v 点血；后期少掉 every 倍、一个回 every 倍。掉了返回 true
+function dropHeal(x, y, chance, v) {
+  const k = lateDrop() ? D.stage.lateDrop.every : 1;
+  if (Math.random() >= chance / k) return false;
+  S.pickups.push({ kind: 'heal', x, y, v: v * k, mag: false, vel: 0, big: k > 1 });
+  return true;
 }
 function addXp(v) {
   const p = S.player;
@@ -6161,6 +6178,41 @@ function buildList() {
 function buildChips() {
   return buildList().map(([k, id, lv]) => `<div class="chip">${slotHtml(k, id, lv)}${defOf(k, id).name} Lv${lv}</div>`).join('');
 }
+// 暂停界面「查看属性」：这一局现在的各项属性（群友想看自己堆了多少）
+let statsView = false;
+function statsRows() {
+  const p = S.player, pct = v => `${v >= 0 ? '+' : ''}${Math.round(v * 100)}%`;
+  const lust = S.lust * (S.lustPer || 0), dmg = p.dmgMul * (1 + S.wsb) * (1 + lust) * (1 + jjBonus()) - 1;
+  const rows = [
+    ['生命', `${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}`],
+    ['每秒回血', p.regen.toFixed(1)],
+    ['伤害', pct(dmg)],
+    ['护甲', p.armor >= 0.5 ? `每下 -${Math.round(p.armor)}` : '0'],
+    ['暴击率', `${Math.round(p.crit * 100)}%`],
+    ['暴击伤害', `${Math.round(p.critMul * 100)}%`],
+    ['冷却缩减', `${Math.round((1 - p.cdMul) * 100)}%`],
+    ['范围', pct(p.areaMul - 1)],
+    ['移动速度', Math.round(p.speed)],
+    ['拾取范围', Math.round(p.pickup)],
+    ['经验加成', pct(S.xpMul || 0)],
+    ['闪现冷却', `${(p.blinkCd || D.blink.cd).toFixed(1)} 秒`],
+  ];
+  if (p.arrowCount || p.arrowDmg || p.arrowPierce) rows.push(['连珠箭', `+${p.arrowCount} 支`], ['箭矢伤害', pct(p.arrowDmg)], ['箭矢穿透', `+${p.arrowPierce}`]);
+  if (p.spellDmg || p.skillCd || p.spellArea) rows.push(['计策伤害', pct(p.spellDmg)], ['技能冷却', `-${Math.round(p.skillCd * 100)}%`], ['计策范围', pct(p.spellArea)]);
+  if (lust) rows.push(['战意', pct(lust)]);
+  if (S.passives.juejing) rows.push(['绝境', pct(jjBonus())]);
+  const perm = S.allies.filter(a => !a.until).length;
+  if (perm) rows.push(['随从', `${perm} / ${D.allyCap}`]);
+  const els = Object.entries(S.elements).filter(([, lv]) => lv > 0).map(([id, lv]) => `${D.elements[id].name} Lv${lv}`);
+  if (els.length) rows.push(['属性', els.join(' · '), true]);
+  if (S.blessings.length) rows.push(['祝福', S.blessings.join('、'), true]);
+  return rows.map(([k, v, wide]) => `<div${wide ? ' class="wide"' : ''}><span>${k}</span><b>${v}</b></div>`).join('');
+}
+function pauseView() {
+  $('pause-stats').innerHTML = statsRows();
+  $('pause-stats').hidden = !statsView; $('pause-build').hidden = statsView; // 手机上放不下两样，属性和装备二选一
+  $('btn-stats').textContent = statsView ? '查看装备' : '查看属性';
+}
 
 function updateHud() {
   const p = S.player;
@@ -6252,7 +6304,11 @@ function addGold(v, x, y) {
   if (x !== undefined) addNumber(x, y - 26, `+金 ${v}`, '#ffd75a', 15);
   saveMeta();
 }
-function dropGold(x, y, v) { S.pickups.push({ kind: 'gold', x: x + rand(-8, 8), y: y + rand(-8, 8), v, mag: false, vel: 0 }); }
+function dropGold(x, y, v) {
+  const L = lateDrop(); // 后期：攒够几份才掉一个大元宝
+  if (L) { const B = S.dropBank; B.gold += v; if (++B.gn < L.every) return; v = B.gold; B.gold = 0; B.gn = 0; }
+  S.pickups.push({ kind: 'gold', x: x + rand(-8, 8), y: y + rand(-8, 8), v, mag: false, vel: 0, big: !!L });
+}
 // 开局：把这个出身买过的装备加到本局（起手武器伤害 / 等级、属性加成）
 function applyGear() {
   const gear = D.meta.gear[S.origin.id] || [];
@@ -6523,7 +6579,7 @@ function togglePause() {
   if (S.modal) return;
   S.paused = true;
   saveRun();
-  $('pause-build').innerHTML = buildChips();
+  $('pause-build').innerHTML = buildChips(); pauseView();
   $('pause').hidden = false;
   $('btn-resume').focus();
 }
@@ -6721,6 +6777,7 @@ const audioLabels = () => {
   $('btn-music').textContent = `音乐：${musicOn ? '开' : '关'}`; $('btn-voice').textContent = `语音：${voiceOn ? '开' : '关'}`;
   $('btn-pickpause').textContent = `选卡暂停：${pickPause ? '开' : '关'}`; $('btn-shake').textContent = `镜头震动：${shakeOn ? '开' : '关'}`;
 };
+$('btn-stats').addEventListener('click', () => { statsView = !statsView; pauseView(); });
 $('btn-pickpause').addEventListener('click', () => { pickPause = !pickPause; try { localStorage.setItem('buyi-pickpause', pickPause ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
 $('btn-shake').addEventListener('click', () => { shakeOn = !shakeOn; try { localStorage.setItem('buyi-shake', shakeOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
 // 特效：自动 → 完整 → 精简 → 自动；切回自动时重新看帧率
@@ -7207,14 +7264,15 @@ function drawTelegraphs() {
 
 function drawPickups() {
   for (const g of S.pickups) {
-    if (g.kind === 'heal') {
+    if (g.kind === 'heal') { // 肉包（后期的大肉包大一圈）
+      const s = g.big ? 1.4 : 1;
       ctx.fillStyle = '#f3ead6'; ctx.strokeStyle = '#6b5a3a'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(g.x, g.y, 8 * s, 0, TAU); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(g.x - 4 * s, g.y - 2 * s); ctx.quadraticCurveTo(g.x, g.y - 7 * s, g.x + 4 * s, g.y - 2 * s); ctx.stroke();
       continue;
     }
     if (g.kind === 'gold') { // 金元宝：船形金锭，带一点闪光
-      const s = 1 + Math.min(1, g.v / 10) * 0.5, bob = Math.sin(S.t * 4 + g.x) * 1.5;
+      const s = g.big ? 1.8 : 1 + Math.min(1, g.v / 10) * 0.5, bob = Math.sin(S.t * 4 + g.x) * 1.5; // 后期的大元宝更大
       ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, g.x, g.y - 2 + bob, 16 * s, '255,200,80', 0.45); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
       const gr = ctx.createLinearGradient(0, g.y - 9 * s + bob, 0, g.y + 5 * s + bob);
       gr.addColorStop(0, '#fff2b0'); gr.addColorStop(0.5, '#e8b440'); gr.addColorStop(1, '#a86e14');
@@ -7235,8 +7293,9 @@ function drawPickups() {
       continue;
     }
     // 铜钱：外圆内方
-    const big = g.v >= 10, mid = g.v >= 3;
-    const r = big ? 7 : mid ? 6 : 4.5;
+    const huge = g.big, big = huge || g.v >= 10, mid = g.v >= 3; // huge：后期攒成的大铜钱
+    const r = huge ? 9.5 : big ? 7 : mid ? 6 : 4.5;
+    if (huge) { ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, g.x, g.y, 34, '255,215,110', 0.3 + 0.1 * Math.sin(S.t * 4 + g.x * 0.05)); }
     // 身上一层淡淡的光，在地上能看出来就行（亮度慢慢起伏）
     ctx.globalCompositeOperation = 'lighter';
     FX.glow(ctx, g.x, g.y, Math.max(16, r * 3), big ? '255,205,90' : mid ? '200,215,235' : '240,170,95', (big || mid ? 0.2 : 0.28) + 0.06 * Math.sin(S.t * 3 + g.x * 0.05));
