@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- 字体不挡住页面：国内网络连谷歌可能很慢或连不上，先用系统字体显示，字体到了再换上 -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700;900&display=swap" media="print" onload="this.media='all'">
+<!-- 谷歌字体由 game.js 在页面 load 之后再加（见 loadAll）：写在这里的话 load 事件要等它，国内连不上谷歌就一直等，图片也就一直不开始下 -->
 <style>
 /* Layout: full-bleed battlefield canvas; DOM overlays float above it as paper slips with vermilion seals. */
 :root {

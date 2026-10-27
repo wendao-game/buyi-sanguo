@@ -6073,8 +6073,12 @@ function buildTitle() {
 
 // 美术图等页面 load 过了再开始下：new Image() 会拖住页面的 load 事件，TapTap 的加载页要等 load 才收，
 // 几十 MB 的图全下完它才让玩家看到我们自己的进度条（反馈过「卡在 TapTap 加载页」）。图还是一次全下完才进游戏，不分批
-const loadAll = () => { window.Assets.init(D); Music.preload(); }; // 图片和背景音乐一起下
-if (document.readyState === 'complete') loadAll(); else addEventListener('load', loadAll);
+// 图片和背景音乐一起下。load 迟迟不来（有外网资源连不上之类）也最多等 3 秒就开始，不然国内玩家会一直停在 0%
+let loadStarted = false;
+const loadAll = () => { if (loadStarted) return; loadStarted = true; window.Assets.init(D); Music.preload(); };
+// 谷歌字体（标题的毛笔字）只在 load 之后再要：写在 HTML 里 load 事件会等它，国内连不上谷歌就一直等。连不上就用系统字体
+const loadFonts = () => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700;900&display=swap'; document.head.appendChild(l); };
+if (document.readyState === 'complete') { loadAll(); loadFonts(); } else { addEventListener('load', () => { loadAll(); loadFonts(); }); setTimeout(loadAll, 3000); }
 // 美术图加载完成后刷新用到它的地方
 FX.setArt(k => window.Assets.get('fxs:' + k));
 let assetRefresh = 0;
