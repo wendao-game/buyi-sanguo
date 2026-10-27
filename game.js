@@ -1202,7 +1202,8 @@ const lbCall = (fn, args, cb) => { try { tapApi().getLeaderboardManager()[fn](Ob
 // 按这一局达到的等级排名（等级没有上限）。打的过程中升级了就提交（最多半分钟一次），结算时再提交一次：
 // 中途闪退、PC 端结算提交失败，榜上也有成绩。结果记在 lb 里，结算页显示；失败带错误码，玩家截图就能看到原因
 const lb = { at: -1e9, lv: 0, msg: '', ok: false };
-function lbErr(e) { if (!e) return '未知错误'; if (typeof e === 'string') return e; const pick = ks => { for (const k of ks) if (e[k] !== undefined && e[k] !== null && e[k] !== '') return e[k]; }; const code = pick(['errorCode', 'code', 'errCode', 'status']), msg = pick(['errorMsg', 'errMsg', 'message', 'msg']); return [code, msg].filter(x => x !== undefined).join(' ') || JSON.stringify(e).slice(0, 80); }
+// TapTap 的失败回调是 onFailure(code, message) 两个参数（文档里的写法）；万一传的是错误对象也能读出来
+function lbErr(e, m) { if (e === undefined || e === null || e === '') return m ? String(m) : '未知错误'; if (typeof e !== 'object') return m ? `${e} ${m}` : String(e); const pick = ks => { for (const k of ks) if (e[k] !== undefined && e[k] !== null && e[k] !== '') return e[k]; }; const code = pick(['errorCode', 'code', 'errCode', 'status']), msg = pick(['errorMsg', 'errMsg', 'message', 'msg']); return [code, msg].filter(x => x !== undefined).join(' ') || JSON.stringify(e).slice(0, 80); }
 function submitScore(final) {
   if (!lbOK() || !S) return;
   const lv = S.player.level;
@@ -1210,7 +1211,7 @@ function submitScore(final) {
   lb.at = performance.now(); lb.lv = lv;
   lbCall('submitScores', { scores: [{ leaderboardId: TT.leaderboardId, score: lv }] }, {
     onSuccess() { lb.ok = true; lb.msg = `排行榜已记录 Lv ${lv}`; if (final) showLbMsg(); },
-    onFailure(e) { lb.ok = false; lb.lv = 0; lb.msg = `排行榜提交失败：${lbErr(e)}`; if (final) showLbMsg(); },
+    onFailure(e, m) { lb.ok = false; lb.lv = 0; lb.msg = `排行榜提交失败：${lbErr(e, m)}`; if (final) showLbMsg(); },
   });
 }
 function showLbMsg() { const el = $('end-lb'); if (!el) return; el.hidden = !lb.msg; el.textContent = lb.msg; el.classList.toggle('bad', !lb.ok); }
