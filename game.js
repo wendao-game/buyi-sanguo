@@ -154,7 +154,7 @@ try {
   autoLite = localStorage.getItem('buyi-fx-auto') === '1'; // 这台设备以前卡过：自动模式直接精简
 } catch (e) { /* 存储不可用时忽略 */ }
 const AUDIO = { bgm: {}, voice: {}, loop: {}, loopFrom: {} };
-fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
+const audioReady = fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
   if (!m) return;
   for (const id of m.bgm || []) AUDIO.bgm[id] = `${ASSET_BASE}bgm/${id}.mp3`;
   Object.assign(AUDIO.loop, m.loop || {}); // 每首的循环长度（采样帧，44.1 kHz），用来做无缝循环
@@ -249,11 +249,20 @@ const Music = (() => {
     }, 90);
   }
   // 音乐文件：解码成整段音频，用 Web Audio 无缝循环（<audio loop> 循环时会有一小段空白）。
-  // 解码后的音频很占内存，只留最近用过的 2 首。
-  const decoded = new Map();
+  // 文件本身在加载画面里就跟图片一起下好（bytes，7 首 11 MB），换曲时不用再等网络（玩家反馈音乐慢半拍）；
+  // 解码后的音频很占内存，只留最近用过的 2 首。decodeAudioData 会把传进去的 ArrayBuffer 掏空，所以给它一份拷贝
+  const decoded = new Map(), bytes = new Map();
+  let preTotal = 0, preDone = 0;
+  function fetchBytes(id) {
+    if (!bytes.has(id)) { const p = fetch(AUDIO.bgm[id]).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }); p.catch(() => bytes.delete(id)); bytes.set(id, p); }
+    return bytes.get(id);
+  }
+  function preload() { // 加载画面调用：把全部背景音乐下下来，下不到的不卡进度
+    return audioReady.then(() => { const ids = Object.keys(AUDIO.bgm); preTotal = ids.length; for (const id of ids) fetchBytes(id).catch(() => {}).then(() => { preDone++; }); });
+  }
   function load(id) {
     if (decoded.has(id)) { const p = decoded.get(id); decoded.delete(id); decoded.set(id, p); return p; }
-    const p = fetch(AUDIO.bgm[id]).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => actx.decodeAudioData(b, ok, no)));
+    const p = fetchBytes(id).then(b => new Promise((ok, no) => actx.decodeAudioData(b.slice(0), ok, no)));
     decoded.set(id, p);
     while (decoded.size > 2) decoded.delete(decoded.keys().next().value);
     p.catch(() => decoded.delete(id));
@@ -288,6 +297,7 @@ const Music = (() => {
     else if (D.bgm[id]) startSynth(id, D.bgm[id]);
   }
   return {
+    preload, get preloadProgress() { return preTotal ? preDone / preTotal : 0; },
     want(id) { if (id === cur && (live || !actx || muted || !musicOn)) return; cur = id; start(id); },
     refresh() { start(cur); },
     // 换了新的 AudioContext：旧的节点和解码好的音乐都作废（不去碰已经关掉的旧 context），下一帧 want() 会在新的上面接着放当前这首
@@ -6063,7 +6073,8 @@ function buildTitle() {
 
 // 美术图等页面 load 过了再开始下：new Image() 会拖住页面的 load 事件，TapTap 的加载页要等 load 才收，
 // 几十 MB 的图全下完它才让玩家看到我们自己的进度条（反馈过「卡在 TapTap 加载页」）。图还是一次全下完才进游戏，不分批
-if (document.readyState === 'complete') window.Assets.init(D); else addEventListener('load', () => window.Assets.init(D));
+const loadAll = () => { window.Assets.init(D); Music.preload(); }; // 图片和背景音乐一起下
+if (document.readyState === 'complete') loadAll(); else addEventListener('load', loadAll);
 // 美术图加载完成后刷新用到它的地方
 FX.setArt(k => window.Assets.get('fxs:' + k));
 let assetRefresh = 0;
@@ -6089,7 +6100,7 @@ window.Assets.onLoad(() => {
   };
   (function tick() {
     if (closed) return;
-    const p = window.Assets.progress;
+    const p = window.Assets.progress * 0.65 + Music.preloadProgress * 0.35; // 按字节量粗分：图片约 19 MB、音乐约 11 MB
     $('ld-fill').style.width = (p * 100).toFixed(1) + '%';
     $('ld-text').textContent = '加载中 ' + Math.floor(p * 100) + '%';
     if (p >= 1) { setTimeout(close, 250); return; }
