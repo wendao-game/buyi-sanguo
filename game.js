@@ -6061,8 +6061,10 @@ function buildTitle() {
   refreshTitle();
 }
 
+// 美术图等页面 load 过了再开始下：new Image() 会拖住页面的 load 事件，TapTap 的加载页要等 load 才收，
+// 几十 MB 的图全下完它才让玩家看到我们自己的进度条（反馈过「卡在 TapTap 加载页」）。图还是一次全下完才进游戏，不分批
+if (document.readyState === 'complete') window.Assets.init(D); else addEventListener('load', () => window.Assets.init(D));
 // 美术图加载完成后刷新用到它的地方
-window.Assets.init(D);
 FX.setArt(k => window.Assets.get('fxs:' + k));
 let assetRefresh = 0;
 window.Assets.onLoad(() => {
@@ -6076,9 +6078,8 @@ window.Assets.onLoad(() => {
   }, 50);
 });
 
-// 加载画面：进度条跟着美术图走；网不好超过 8 秒可以先进游戏，图片在后台继续加载
+// 加载画面：进度条跟着美术图走，图全部到齐才进游戏（不提供“直接进入”：图没到会影响体验）
 (() => {
-  const t0 = performance.now();
   let closed = false;
   const close = () => {
     if (closed || !$('ld-err').hidden) return; // 出错了就留着错误信息给玩家截图
@@ -6086,14 +6087,12 @@ window.Assets.onLoad(() => {
     $('loader').classList.add('done');
     setTimeout(() => { $('loader').hidden = true; }, 450);
   };
-  $('ld-skip').addEventListener('click', () => { $('ld-err').hidden = true; close(); });
   (function tick() {
     if (closed) return;
     const p = window.Assets.progress;
     $('ld-fill').style.width = (p * 100).toFixed(1) + '%';
     $('ld-text').textContent = '加载中 ' + Math.floor(p * 100) + '%';
     if (p >= 1) { setTimeout(close, 250); return; }
-    if (performance.now() - t0 > 8000) $('ld-skip').hidden = false;
     setTimeout(tick, 100); // 不用 requestAnimationFrame：页面在后台时它会停住
   })();
 })();

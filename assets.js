@@ -79,8 +79,8 @@ window.Assets = (() => {
     get: key => imgs[key] || null,
     onLoad: fn => listeners.push(fn),
     get loading() { return pending > 0; },
-    // 加载进度 0~1（缺图也算加载完）
-    get progress() { return total ? 1 - pending / total : 1; },
+    // 加载进度 0~1（缺图也算加载完）；还没开始下是 0（图等页面 load 过了才开始下，见 game.js）
+    get progress() { return total ? 1 - pending / total : 0; },
     // 图标：有图片就用图片，否则显示一个字
     icon(id, fallbackChar, name) {
       const img = imgs['icon:' + id];
