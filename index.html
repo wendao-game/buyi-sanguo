@@ -318,6 +318,8 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
 .howto b { color: var(--text); font-weight: 700; }
 
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 28px; font-size: 15px; min-width: min(320px, 100%); }
+#end-lb { font-size: 13px; color: var(--gold); opacity: .9; } /* TapTap 排行榜提交结果；失败时红字带错误码 */
+#end-lb.bad { color: #e0603a; }
 .stats div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed rgba(235,224,197,.2); padding-bottom: 4px; }
 .stats span { color: var(--muted); }
 .stats b { font-variant-numeric: tabular-nums; }
@@ -507,6 +509,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <h2 id="end-title">战死沙场</h2>
     <div class="sub" id="end-sub"></div>
     <div class="stats" id="end-stats"></div>
+    <div class="lb" id="end-lb" hidden></div>
     <div class="build" id="end-build"></div>
     <div class="btns" id="end-btns"></div>
   </div>

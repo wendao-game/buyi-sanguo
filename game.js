@@ -1139,8 +1139,22 @@ function watchAd(cb) {
   ad.show().then(shown).catch(() => ad.load().then(() => ad.show()).then(shown).catch(() => adEnd(false, 'noad')));
 }
 function lbOK() { const t = tapApi(); return !!(t && t.getLeaderboardManager && TT.leaderboardId); }
-const lbCall = (fn, args) => { try { tapApi().getLeaderboardManager()[fn](Object.assign({ leaderboardId: TT.leaderboardId, callback: { onSuccess() {}, onFailure() {} } }, args)); } catch (e) { /* 排行榜出错不影响游戏 */ } };
-function submitScore() { if (lbOK() && S) lbCall('submitScores', { scores: [{ leaderboardId: TT.leaderboardId, score: S.player.level }] }); } // 按这一局达到的等级排名（等级没有上限）
+const lbCall = (fn, args, cb) => { try { tapApi().getLeaderboardManager()[fn](Object.assign({ leaderboardId: TT.leaderboardId, callback: Object.assign({ onSuccess() {}, onFailure() {} }, cb) }, args)); } catch (e) { if (cb && cb.onFailure) cb.onFailure(e); } }; // 排行榜出错不影响游戏
+// 按这一局达到的等级排名（等级没有上限）。打的过程中升级了就提交（最多半分钟一次），结算时再提交一次：
+// 中途闪退、PC 端结算提交失败，榜上也有成绩。结果记在 lb 里，结算页显示；失败带错误码，玩家截图就能看到原因
+const lb = { at: -1e9, lv: 0, msg: '', ok: false };
+function lbErr(e) { if (!e) return '未知错误'; if (typeof e === 'string') return e; const pick = ks => { for (const k of ks) if (e[k] !== undefined && e[k] !== null && e[k] !== '') return e[k]; }; const code = pick(['errorCode', 'code', 'errCode', 'status']), msg = pick(['errorMsg', 'errMsg', 'message', 'msg']); return [code, msg].filter(x => x !== undefined).join(' ') || JSON.stringify(e).slice(0, 80); }
+function submitScore(final) {
+  if (!lbOK() || !S) return;
+  const lv = S.player.level;
+  if (!final && (lv <= lb.lv || performance.now() - lb.at < 30000)) return;
+  lb.at = performance.now(); lb.lv = lv;
+  lbCall('submitScores', { scores: [{ leaderboardId: TT.leaderboardId, score: lv }] }, {
+    onSuccess() { lb.ok = true; lb.msg = `排行榜已记录 Lv ${lv}`; if (final) showLbMsg(); },
+    onFailure(e) { lb.ok = false; lb.lv = 0; lb.msg = `排行榜提交失败：${lbErr(e)}`; if (final) showLbMsg(); },
+  });
+}
+function showLbMsg() { const el = $('end-lb'); if (!el) return; el.hidden = !lb.msg; el.textContent = lb.msg; el.classList.toggle('bad', !lb.ok); }
 function openLeaderboard() { if (lbOK()) lbCall('openLeaderboard', {}); }
 
 // 云存档：只在 TapTap 里有（tap.getCloudSaveManager）。进游戏时先下载云端那份和本机合并，之后有变化就上传（每分钟最多一次）。
@@ -1158,7 +1172,7 @@ function mergeSaves(loc, cl) {
   const m1 = loc['buyi-meta'], m2 = cl['buyi-meta'];
   out['buyi-meta'] = m2 && newer(m2, m1) ? m2 : m1 || m2;
   const b1 = loc['buyi-best'], b2 = cl['buyi-best'];
-  out['buyi-best'] = !b1 ? b2 : !b2 ? b1 : (b2.t > b1.t ? b2 : b1);
+  out['buyi-best'] = !b1 ? b2 : !b2 ? b1 : (betterBest(b2, b1) ? b2 : b1);
   const s1 = loc['buyi-slain'] || {}, s2 = cl['buyi-slain'] || {}, s = Object.assign({}, s1);
   for (const g in s2) s[g] = Math.max(s[g] || 0, s2[g]);
   out['buyi-slain'] = s;
@@ -1427,6 +1441,7 @@ function addXp(v) {
     const after = rankOf(p.level);
     if (after !== before) S.rankUp = after;
   }
+  submitScore(false); // TapTap 排行榜：升级了就提交一次
 }
 function updatePickups(dt) {
   const p = S.player, pr2 = p.pickup * p.pickup;
@@ -5870,6 +5885,7 @@ function refreshTitle() {
 }
 
 // 最佳纪录只存在本机浏览器里，不影响下一局的强度
+function betterBest(a, b) { return (a.lv || 0) !== (b.lv || 0) ? (a.lv || 0) > (b.lv || 0) : a.t > b.t; } // 先比等级，一样再比坚持时间（老存档没有 lv 的按 0 算）
 function loadBest() {
   try { return JSON.parse(localStorage.getItem('buyi-best')) || null; } catch (e) { return null; }
 }
@@ -5924,7 +5940,7 @@ function showBestOnTitle() {
 function showEnd() {
   const p = S.player;
   const prev = loadBest();
-  const isBest = !prev || S.t > prev.t;
+  const isBest = !prev || betterBest({ t: S.t, lv: p.level }, prev); // 和排行榜一致：先比等级，一样再比坚持时间
   if (isBest) saveBest({ t: S.t, lv: p.level, kills: S.kills, origin: S.origin.name });
   const best = isBest ? null : prev;
   const names = [...new Set(S.defeated)];
@@ -5939,7 +5955,8 @@ function showEnd() {
   ].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join(''); };
   fill();
   $('end-build').innerHTML = buildChips();
-  submitScore(); // TapTap 排行榜：提交这一局的等级
+  lb.msg = lbOK() ? '排行榜提交中…' : ''; lb.ok = true; showLbMsg();
+  submitScore(true); // TapTap 排行榜：提交这一局的等级
   const btns = $('end-btns');
   btns.innerHTML = '';
   const mk = (text, primary, fn) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = text; b.addEventListener('click', fn); btns.appendChild(b); return b; };
