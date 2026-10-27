@@ -20,10 +20,10 @@ const IMG = '.png';
 window.Assets = (() => {
   const imgs = {};
   const listeners = [];
-  let pending = 0;
+  let pending = 0, total = 0;
 
   function load(key, src) {
-    pending++;
+    pending++; total++;
     const img = new Image();
     img.onload = () => { imgs[key] = img; pending--; listeners.forEach(f => f(key)); };
     img.onerror = () => { pending--; };
@@ -79,6 +79,8 @@ window.Assets = (() => {
     get: key => imgs[key] || null,
     onLoad: fn => listeners.push(fn),
     get loading() { return pending > 0; },
+    // 加载进度 0~1（缺图也算加载完）
+    get progress() { return total ? 1 - pending / total : 1; },
     // 图标：有图片就用图片，否则显示一个字
     icon(id, fallbackChar, name) {
       const img = imgs['icon:' + id];

@@ -6021,7 +6021,7 @@ function buildTitle() {
   renderOrigins();
   addEventListener('keydown', e => {
     const m = /^(?:Digit|Numpad)([1-3])$/.exec(e.code);
-    if (m && !$('title').hidden) startGame(D.origins[+m[1] - 1].id);
+    if (m && !$('title').hidden && $('loader').hidden) startGame(D.origins[+m[1] - 1].id);
   });
   refreshTitle();
 }
@@ -6040,6 +6040,28 @@ window.Assets.onLoad(() => {
     if (!$('codex').hidden) openCodex();
   }, 50);
 });
+
+// 加载画面：进度条跟着美术图走；网不好超过 8 秒可以先进游戏，图片在后台继续加载
+(() => {
+  const t0 = performance.now();
+  let closed = false;
+  const close = () => {
+    if (closed || !$('ld-err').hidden) return; // 出错了就留着错误信息给玩家截图
+    closed = true;
+    $('loader').classList.add('done');
+    setTimeout(() => { $('loader').hidden = true; }, 450);
+  };
+  $('ld-skip').addEventListener('click', () => { $('ld-err').hidden = true; close(); });
+  (function tick() {
+    if (closed) return;
+    const p = window.Assets.progress;
+    $('ld-fill').style.width = (p * 100).toFixed(1) + '%';
+    $('ld-text').textContent = '加载中 ' + Math.floor(p * 100) + '%';
+    if (p >= 1) { setTimeout(close, 250); return; }
+    if (performance.now() - t0 > 8000) $('ld-skip').hidden = false;
+    setTimeout(tick, 100); // 不用 requestAnimationFrame：页面在后台时它会停住
+  })();
+})();
 
 $('btn-codex').addEventListener('click', openCodex);
 $('btn-rank').addEventListener('click', openLeaderboard); // TapTap 排行榜（只在 TapTap 里显示）

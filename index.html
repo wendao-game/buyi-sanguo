@@ -5,7 +5,8 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700;900&display=swap">
+<!-- 字体不挡住页面：国内网络连谷歌可能很慢或连不上，先用系统字体显示，字体到了再换上 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700;900&display=swap" media="print" onload="this.media='all'">
 <style>
 /* Layout: full-bleed battlefield canvas; DOM overlays float above it as paper slips with vermilion seals. */
 :root {
@@ -296,6 +297,18 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
 .card.origin .oart { background: #2a241b; border-radius: 2px; aspect-ratio: 4 / 5; overflow: hidden; }
 .card.origin .oart svg, .card.origin .oart img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
 
+/* 加载画面：进度条跟着美术图走 */
+#loader { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+  background: radial-gradient(ellipse at 50% 40%, #2b2619, #100d09); transition: opacity .4s; }
+#loader.done { opacity: 0; pointer-events: none; }
+#loader h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(56px, 14vw, 110px); line-height: 1; color: var(--paper);
+  text-shadow: 0 4px 0 var(--ink), 0 0 40px rgba(181,55,42,.35); }
+#loader h1 em { font-style: normal; color: var(--seal); }
+.ld-bar { width: min(72vw, 360px); height: 10px; border: 1px solid rgba(207,163,74,.7); border-radius: 6px; background: rgba(0,0,0,.45); overflow: hidden; }
+#ld-fill { height: 100%; width: 0; background: linear-gradient(90deg, #8f7a3a, var(--gold)); transition: width .2s; }
+#ld-text { color: var(--muted); font-size: 14px; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+#ld-err { max-width: min(90vw, 560px); color: #ff9c8a; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; text-align: center; }
+
 #title { background: radial-gradient(ellipse at 50% 40%, rgba(39,35,26,.55), rgba(16,13,9,.94)); }
 #title h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(64px, 16vw, 132px); line-height: 1; color: var(--paper);
   text-shadow: 0 4px 0 var(--ink), 0 0 40px rgba(181,55,42,.35); }
@@ -499,6 +512,30 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
   </div>
 </div>
 
+<div id="loader">
+  <h1>布衣<em>三国</em></h1>
+  <div class="ld-bar"><div id="ld-fill"></div></div>
+  <div id="ld-text">加载中</div>
+  <button class="btn" id="ld-skip" hidden>直接进入（图片在后台继续加载）</button>
+  <div id="ld-err" hidden></div>
+</div>
+<script>
+// 加载时出错就把错误写在加载画面上，玩家截图发来就知道原因；进了游戏以后不再弹
+(() => {
+  const show = msg => {
+    const l = document.getElementById('loader'), e = document.getElementById('ld-err');
+    if (!l || l.hidden || l.classList.contains('done')) return;
+    e.hidden = false; e.textContent += (e.textContent ? '\n' : '出错了，请截图发到论坛：\n') + msg;
+  };
+  addEventListener('error', ev => {
+    const t = ev.target;
+    if (t && t.tagName === 'SCRIPT') return show('文件没加载成功：' + t.src.split('/').pop());
+    if (t && t !== window) return; // 图片缺了没关系，游戏会用代码画的版本
+    show((ev.message || '未知错误') + '（' + (ev.filename || '').split('/').pop() + ':' + (ev.lineno || '') + '）');
+  }, true);
+  addEventListener('unhandledrejection', ev => show(String(ev.reason)));
+})();
+</script>
 <script src="data.js"></script>
 <script src="assets.js"></script>
 <script src="portrait.js"></script>
