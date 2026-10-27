@@ -21,12 +21,30 @@ window.Assets = (() => {
   const imgs = {};
   const listeners = [];
   let pending = 0, total = 0;
+  const retrying = new Set(); // 因为网络问题正在重试的图
 
+  // 图片没下到：分清是本来就没画（404，游戏用代码画的版本，不再要）还是网络问题（超时、断线、服务器出错）。
+  // 网络问题就隔一会儿重试（1、2、4、8 秒），这期间加载画面接着等；四次都不行才放行，之后在后台每 20 秒再试，下到了自动换上。
+  // 玩家反馈过网不好时「加载半天进去了没有建模图片」：以前出错一次就当加载完了
+  const RETRY = [1000, 2000, 4000, 8000], BG_EVERY = 20000, BG_TRIES = 15;
+  const local = location.protocol === 'file:'; // 双击 index.html 打开的：查不了 404，出错就当没画
   function load(key, src) {
     pending++; total++;
+    let tries = 0, counted = false;
+    const settle = () => { if (!counted) { counted = true; pending--; } };
     const img = new Image();
-    img.onload = () => { imgs[key] = img; pending--; listeners.forEach(f => f(key)); };
-    img.onerror = () => { pending--; };
+    img.onload = () => { retrying.delete(key); imgs[key] = img; settle(); listeners.forEach(f => f(key)); };
+    img.onerror = () => {
+      const again = () => { tries++; img.src = src + (src.includes('?') ? '&' : '?') + 'retry=' + tries; };
+      if (local) return settle();
+      fetch(src, { method: 'HEAD', cache: 'no-store' }).then(r => r.status >= 400 && r.status < 500 && r.status !== 408 && r.status !== 429 ? 'missing' : 'net', () => 'net').then(why => {
+        if (why === 'missing') { retrying.delete(key); return settle(); } // 本来就没有这张图
+        retrying.add(key);
+        if (tries < RETRY.length) { setTimeout(again, RETRY[tries]); return; }
+        settle(); // 加载画面不再等它，后台接着试
+        if (tries < RETRY.length + BG_TRIES) setTimeout(again, BG_EVERY); else retrying.delete(key);
+      });
+    };
     img.src = src;
   }
 
@@ -81,6 +99,7 @@ window.Assets = (() => {
     get loading() { return pending > 0; },
     // 加载进度 0~1（缺图也算加载完）；还没开始下是 0（图等页面 load 过了才开始下，见 game.js）
     get progress() { return total ? 1 - pending / total : 0; },
+    get retrying() { return retrying.size; }, // 网络不好、正在重试的图有几张
     // 图标：有图片就用图片，否则显示一个字
     icon(id, fallbackChar, name) {
       const img = imgs['icon:' + id];

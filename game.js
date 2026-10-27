@@ -6138,7 +6138,8 @@ window.Assets.onLoad(() => {
     if (closed) return;
     const p = window.Assets.progress * 0.65 + Music.preloadProgress * 0.35; // 按字节量粗分：图片约 19 MB、音乐约 11 MB
     $('ld-fill').style.width = (p * 100).toFixed(1) + '%';
-    $('ld-text').textContent = '加载中 ' + Math.floor(p * 100) + '%';
+    const rt = window.Assets.retrying;
+    $('ld-text').textContent = '加载中 ' + Math.floor(p * 100) + '%' + (rt ? ` · 网络不稳，正在重试 ${rt} 张图` : '');
     if (p >= 1) { setTimeout(close, 250); return; }
     setTimeout(tick, 100); // 不用 requestAnimationFrame：页面在后台时它会停住
   })();
