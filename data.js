@@ -388,6 +388,17 @@ window.GAME_DATA = {
         { dmg: 30, cd: 0.6, count: 5, speed: 410, pierce: 3, note: '蝶影翩跹，彩蝶 +1' },
       ],
     },
+    luori: {
+      name: '落日弓', icon: '弓', type: 'projectile', general: '黄忠', tags: ['bow'],
+      desc: '黄忠的落日弓。穿透力极强的长箭，离目标越远伤害越高（百步穿杨）。',
+      levels: [ // far：飞出 600 以外时伤害最多再加这么多（按飞过的距离算）
+        { dmg: 20, cd: 0.85, count: 1, speed: 900, pierce: 3, far: 0.6 },
+        { dmg: 26, cd: 0.8, count: 1, speed: 930, pierce: 3, far: 0.7, note: '伤害 +6，越远越痛' },
+        { dmg: 30, cd: 0.75, count: 2, speed: 960, pierce: 4, far: 0.8, note: '一次两箭，穿透 4 个', fan: 0.1 },
+        { dmg: 37, cd: 0.7, count: 2, speed: 980, pierce: 5, far: 0.9, note: '伤害 +7，穿透 5 个', fan: 0.1 },
+        { dmg: 48, cd: 0.6, count: 3, speed: 1020, pierce: 6, far: 1.0, note: '一次三箭，百步穿杨', fan: 0.1 },
+      ],
+    },
   },
 
   // 技能：只能从武将处获得，之后升级时可以强化
@@ -696,6 +707,28 @@ window.GAME_DATA = {
         { cd: 7, count: 6, range: 540, life: 7, share: 0.55, note: '一环扣一环，环环见血' },
       ],
     },
+    longhun: {
+      name: '龙魂', icon: '魂', type: 'dragonSoul', general: '神赵云',
+      desc: '神赵云的四色龙魂：定时按 青龙回血、赤龙火龙枪、白龙闪身无敌、玄龙解除减益 的顺序轮流生效。',
+      levels: [
+        { cd: 6, heal: 0.06, dmg: 140, len: 620, w: 60, iframes: 1.0 },
+        { cd: 5.5, heal: 0.07, dmg: 170, len: 660, w: 64, iframes: 1.1, note: '更快、更强' },
+        { cd: 5, heal: 0.08, dmg: 210, len: 700, w: 70, iframes: 1.2, note: '回血更多，火龙枪更长' },
+        { cd: 4.5, heal: 0.09, dmg: 250, len: 760, w: 74, iframes: 1.3, note: '伤害 +40' },
+        { cd: 4, heal: 0.1, dmg: 300, len: 820, w: 80, iframes: 1.5, note: '四象轮转，生生不息' },
+      ],
+    },
+    liegong: {
+      name: '烈弓', icon: '烈', type: 'pierceShot', general: '黄忠',
+      desc: '黄忠的烈弓：定时朝敌人最密的方向射出一支贯穿全场的重箭，箭不可挡。',
+      levels: [
+        { cd: 6, dmg: 120, len: 1400, w: 50, count: 1 },
+        { cd: 5.5, dmg: 150, len: 1400, w: 54, count: 1, note: '伤害 +30' },
+        { cd: 5, dmg: 180, len: 1500, w: 58, count: 2, note: '一次两箭' },
+        { cd: 4.5, dmg: 215, len: 1500, w: 64, count: 2, note: '伤害 +35，箭更粗' },
+        { cd: 3.5, dmg: 260, len: 1600, w: 70, count: 3, note: '一次三箭，弦不虚发' },
+      ],
+    },
   },
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
@@ -750,6 +783,9 @@ window.GAME_DATA = {
     // 倾城血玉：每 cd 秒完全挡下一次伤害
     xueyu: { name: '倾城血玉', icon: '玉', max: 1, unique: true, general: '魔貂蝉', desc: '魔貂蝉的血玉坠：每 10 秒完全挡下一次伤害；生命上限 +60', effects: { maxHp: 60 }, block: { cd: 10 } },
     wuqinxi: { name: '五禽戏', icon: '禽', max: 1, unique: true, general: '华佗', desc: '华佗所创导引之术：生命上限 +30，移动速度 +8%；每次闪现后 3 秒内回复 6% 生命（每 10 秒最多一次）', effects: { maxHp: 30, speedMul: 0.08 }, blinkHeal: { heal: 0.06, dur: 3, cd: 10 } },
+    juejing: { name: '绝境', icon: '境', max: 1, unique: true, general: '神赵云', desc: '血越少越强：生命每少一截，伤害和出手速度就提高一截，生命 30% 以下时最多 +50%；生命上限 +40', effects: { maxHp: 40 }, low: { max: 0.5, at: 0.3 } },
+    yinan: { name: '白马银鞍', icon: '鞍', max: 1, unique: true, general: '神赵云', desc: '长坂坡的白马：移动速度 +15%；每次闪现后 1.5 秒内伤害 +30%', effects: { speedMul: 0.15 }, blinkDmg: { dmg: 0.3, dur: 1.5 } },
+    laodang: { name: '老当益壮', icon: '壮', max: 1, unique: true, general: '黄忠', desc: '“老当益壮，宁移白首之心”：生命上限 +30；每 10 级伤害 +3%，不封顶', effects: { maxHp: 30 }, perTen: 0.03 },
   },
 
   // 属性：冰火雷风。升级时有几率刷到（Lv 3 起），每种最高 5 级，四种都能学。
@@ -926,6 +962,12 @@ window.GAME_DATA = {
       wake: ['心魔缠身', '关上魔气缭绕，出手变慢了……'], reward: { type: 'twins', gids: ['molubu', 'modiaochan'], msg: '关门崩裂……魔吕布与魔貂蝉现身！' },
       shoot: { range: 620, cd: 1.2, dmg: 30, speed: 320, count: 3, spread: 0.5, soul: true }, spawn: { type: 'cavalry', every: 4, max: 6 },
       desc: '炼狱虎牢关 · 关上心魔缭绕……' },
+    // 玩家 100 级时正南升起；走近了冢边的残枪一根根拔地而起，沿直线刺向你（spears：每 every 秒 count 根，先亮预警线）
+    // 攻破后神赵云现身（shen），被击败 again 秒后再起，每多一轮血量 +roundHp、伤害 +roundDmg
+    qianghun: { name: '枪魂冢', icon: '枪', hp: 12000, r: 64, xp: 90, special: true, noSeal: true, aggroR: 620, unlockLv: 100, again: 480, roundHp: 0.5, roundDmg: 0.25,
+      wake: ['枪鸣四起', '冢边的残枪一根根拔地而起……'], reward: { type: 'shen', gid: 'shenzhaoyun', msg: '枪冢崩裂……一条银龙破土而出！' },
+      spears: { every: 1.7, count: 3, spread: 0.5, len: 760, w: 54, tele: 0.8, dmg: 40 }, spawn: { type: 'cavalry', every: 4, max: 6 },
+      desc: '枪魂冢 · 冢中枪鸣不绝……' },
   },
 
   // 神祠祝福：随机给一项，可以叠加
@@ -1336,7 +1378,49 @@ window.GAME_DATA = {
       banner: '炼狱虎牢关 · 魔貂蝉', line: '“将军，这一次，妾身陪你堕入炼狱。”', rage: '“血月为证，谁也别想分开我们。”',
       look: { skin: '#f0d8d0', skinShade: '#c8a8a0', robe: '#3a0a1c', trim: '#d02040', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#120a10', pin: '#ff3a5a', weapon: 'ribbon', ribbon: '#c0103a', aura: '#8a1030', female: true, artFace: [0.52, 0.25, 0.28] },
     },
+    // —— 神赵云：100 级后正南方的枪魂冢放出。四色龙魂轮转（每 15 秒换一色）、绝境复生一次，比魔吕布魔貂蝉难一档；规则见 shen ——
+    shenzhaoyun: {
+      name: '神赵云', title: '龙魂 · 常山赵子龙', icon: '龙', hp: 33000, speed: 135, dmg: 34, r: 36, color: '#c8d4e4', shen: true,
+      attacks: ['charge3', 'volley', 'charge3', 'meteor'], interval: 2.2, chargeSpeed: 900,
+      homing: 2.6, rideCharge: true, mount: '#f4f6fa', dragonTrail: true, // 骑白马追着你冲，身后一条银龙
+      volley: { count: 9, spread: 1.0, speed: 480, dmg: 20, arrow: true, wrgb: '200,225,255' }, // 掷出一排银枪
+      meteor: { count: 6, radius: 80, delay: 0.9, dmg: 30, rgb: '190,220,255' },
+      rewards: ['longhun', 'juejing', 'yinan'],
+      ultRgb: '170,215,255', ultEvery: 14,
+      ults: [
+        { id: 'yinlong', name: '七进七出 · 银龙', type: 'sevenDash', count: 7, speed: 1500, len: 620, w: 64, tele: 0.36, dmg: 1.6, pct: 0.18, home: 2.2, scar: { delay: 0.6, w: 70, dmg: 0.9 } }, // 每道突进留下一道银龙枪痕，0.6 秒后炸开
+        { id: 'changban', name: '长坂单骑', type: 'ringRide', ringR: 420, shrink: 0.55, rideT: 2.4, burn: 4, dashes: 3, tele: 0.45, dashSpeed: 1500, w: 70, dmg: 1.6, pct: 0.2, spears: { every: 0.16, speed: 560, dmg: 0.8 } }, // 绕着你越转越小，边转边往圈里掷枪
+        { id: 'qiangyu', name: '龙胆 · 枪雨', type: 'spearRain', waves: 5, row: 7, gap: 72, lead: 0.7, tele: 0.75, every: 0.55, r: 44, dmg: 1.2, pct: 0.16 }, // 预判你的走位，一排排银枪从天而降
+        { id: 'sixiang', name: '龙魂 · 四象', type: 'fourDragons', afterRevive: true, tele: 0.9, gap: 0.55, w: 150, speed: 1300, dmg: 2.0, pct: 0.3 }, // 绝境后：红橙青紫四条龙从四个方向依次横扫
+      ],
+      banner: '枪魂冢 · 神赵云', line: '“龙魂不灭，此枪不倒！”', rage: '“绝境之中，方见龙胆！”',
+      look: { skin: '#f2dcc0', skinShade: '#d0b090', robe: '#eef2f8', trim: '#d8b860', armor: true, armorColor: '#e6ecf4', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#eef2f8', plume: '#9fd0ff', weapon: 'spear', aura: '#9fc4ff', artFace: [0.55, 0.31, 0.34] },
+    },
+    // —— 黄忠：第四章赤壁之战，孙尚香之后登场。远程狙击手：一直拉开距离，红线锁定、定住的瞬间一箭射穿 ——
+    huangzhong: {
+      name: '黄忠', el: 'fire', title: '老当益壮 · 定军山', icon: '忠', hp: 6000, speed: 110, dmg: 24, r: 32, color: '#8a5a2a',
+      attacks: ['volley', 'volley', 'meteor'], interval: 2.3, kite: 400,
+      volley: { count: 5, spread: 0.45, speed: 620, dmg: 15, arrow: true, wrgb: '255,170,80' },
+      meteor: { count: 5, radius: 72, delay: 1.0, dmg: 22, rgb: '255,140,60' }, // 火箭落点
+      rewards: ['luori', 'liegong', 'laodang'],
+      ultRgb: '255,170,70', ultEvery: 10,
+      ults: [
+        { id: 'baibu', name: '百步穿杨', type: 'snipe', count: 3, track: 1.2, lock: 0.3, speedUp: 0.75, len: 1300, w: 30, dmg: 1.5 }, // 烈弓：红线跟着你 1.2 秒，定住 0.3 秒后射穿整条线
+        { id: 'dingjun', name: '定军山', type: 'dingjun', pins: 7, ringR: 190, pinR: 46, pinT: 3, tele: 0.8, dashSpeed: 1400, len: 900, w: 80, cleaveR: 170, dmg: 1.8 }, // 一圈钉地箭封住走位，再拔刀冲来斩一刀
+        { id: 'laodang', name: '老当益壮', type: 'frenzy', hpBelow: 0.5, dur: 7, rain: { every: 0.9, count: 3, r: 80, delay: 0.9, dmg: 0.9 } }, // 血过半：出手更快，火箭雨落在你周围
+      ],
+      banner: '长沙 · 黄忠 老当益壮', line: '“老夫虽老，弓马不让少年！”', rage: '“老当益壮，宁移白首之心！”',
+      look: { skin: '#ecc9a4', skinShade: '#c9a07a', robe: '#a83a22', trim: '#d8b060', armor: true, armorColor: '#8a6a3a', beard: 'long', beardColor: '#e8e4dc', eyes: 'normal', brows: 'bushy', head: 'helmet', headColor: '#8a6a3a', plume: '#d8b060', weapon: 'bow', aura: '#b0602a', artFace: [0.58, 0.37, 0.34] },
+    },
   },
+  // 神赵云的规则
+  //   四色龙魂：每 suitEvery 秒换一色（青 → 赤 → 白 → 玄）；绝境复生后四色同时生效
+  //     青龙回春：heal.dur 秒内每秒回 heal.rate 的血，这期间被打掉 heal.interrupt 的血就打断
+  //     赤龙焚天：出手间隔 ×fireAtk，冲锋时脚下留火
+  //     白龙游身：dodge 的概率闪掉你的攻击
+  //     玄龙不动：免疫减速、定身、冰冻，前 blocks 次受击无效
+  //   绝境：第一次被打空血不会死，juejing.dur 秒无敌后以 juejing.revive 的血复生（只有一次），之后才会放「龙魂 · 四象」
+  shen: { suitEvery: 15, heal: { dur: 5, rate: 0.006, interrupt: 0.015 }, fireAtk: 0.7, dodge: 0.3, blocks: 5, juejing: { dur: 5, revive: 0.4 } },
   // 魔吕布、魔貂蝉两人一组的规则
   //   黑血守护：代替护甲，等于最大生命的 shield，打破后僵直、易伤，不会自己回（搭档魂缚时回满）；两人相距 linkR 以内时「黑血相连」，都减伤 linkDr——拉开打更快
   //   魂缚：一人血量打空不会死，变成残魂（打不动），另一人狂怒（出招间隔 ×rage、黑血至少回到 rageShield）；down 秒内把另一人也打空，两人一起倒下，否则残魂以 revive 的血量复活
@@ -1354,6 +1438,8 @@ window.GAME_DATA = {
   // 名将语音：登场用 generals 里的 line，半血暴怒用 rage，这里补上阵亡和每个大招的台词（全部原创，不照搬别的游戏）。
   // 有配音文件就播放（assets/voice/<武将>_enter / _rage / _death / _ult_<大招id>.mp3），没有就只显示字幕。
   voice: {
+    shenzhaoyun: { death: '七进七出……这一次……出不去了……', ult: { yinlong: '银龙出海，七进七出！', changban: '长坂坡前，单骑何惧！', qiangyu: '龙胆在手，枪落如雨！', sixiang: '四象归一，龙魂现世！', juejing: '绝境……亦是生路！' } },
+    huangzhong: { death: '老夫……终究是……老了……', ult: { baibu: '百步之外，取你首级！', dingjun: '定军山下，斩将夺旗！', laodang: '黄忠在此，谁敢言老！' } },
     chengyuanzhi: { death: '大贤良师……救我……', ult: { axe: '开山！给我破！', mob: '黄巾儿郎，随我杀！' } },
     zhangbao: { death: '地公……也会死么……', ult: { beans: '撒豆成兵，起！', bolt: '妖雷，落！' } },
     zhangjiao: { death: '黄天……终究未立……', ult: { thunder: '天公雷罚，降！', host: '黄天当立，众生听令！', pool: '雷池之中，寸步难行！' } },
@@ -1479,7 +1565,8 @@ window.GAME_DATA = {
         { t: 150, type: 'ambush', enemy: 'foot', count: 48, text: '曹军南下' },
         { t: 165, type: 'boss', id: 'zhaoyun' },
         { t: 210, type: 'boss', id: 'sunshangxiang' },
-        { t: 265, type: 'boss', id: 'zhouyu', final: true },
+        { t: 240, type: 'boss', id: 'huangzhong' }, // 赤壁之后刘备取长沙，老将黄忠归附
+        { t: 290, type: 'boss', id: 'zhouyu', final: true },
       ],
     },
   ],
@@ -1590,6 +1677,10 @@ window.GAME_DATA = {
       desc: '画戟掷出一轮血月悬在敌群上空，片刻后碎成八道月刃砸下，每道都炸开一圈血光。' },
     huatuo: { name: '青囊书', icon: '书', iconFrom: 'baicao', rgb: '120,220,140', cd: 5.5, type: 'herbRing', dmg: 55, radius: 210, dur: 3, tick: 0.4, heal: 0.008, cap: 0.1, capLv: 0.02, guard: 0.3,
       desc: '青囊书在身边翻开，药香绕身 3 秒：不断伤害圈里的敌人，每打中一个敌人回复 0.8% 生命（每次最多 10%），药香里受到的伤害 -30%。' },
+    shenzhaoyun: { name: '龙魂涯角枪', icon: '龙', iconFrom: 'longhun', rgb: '190,220,255', cd: 5, type: 'dragonSpear', dmg: 110, len: 760, w: 80, guard: { dur: 5, cd: 90 },
+      desc: '银龙绕枪而出，刺穿一整条线上的敌人。绝境：受到致死伤害时 5 秒内不会倒下（每 90 秒一次）。' },
+    huangzhong: { name: '定军宝雕弓', icon: '弓', iconFrom: 'luori', rgb: '255,160,70', cd: 5.5, type: 'sunArrow', dmg: 100, len: 1100, w: 60, radius: 150,
+      desc: '拉满宝雕弓，一支裹着烈焰的重箭射穿敌阵，在敌人最密处炸开一团火。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大

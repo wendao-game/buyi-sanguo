@@ -82,8 +82,9 @@ window.Assets = (() => {
     load('sprite:lubu_mounted', `${ASSET_BASE}sprites/lubu_mounted${IMG}`);
     load('sprite:machao_mounted', `${ASSET_BASE}sprites/machao_mounted${IMG}`); // 马超骑白马
     load('sprite:molubu_mounted', `${ASSET_BASE}sprites/molubu_mounted${IMG}`); // 魔吕布骑魔赤兔（没有图时用代码画的马驮着魔吕布的小人）
+    load('sprite:shenzhaoyun_mounted', `${ASSET_BASE}sprites/shenzhaoyun_mounted${IMG}`); // 神赵云骑照夜玉狮子
     // 特效贴图：龙首（白龙 = 赵云七进七出，青龙 = 关羽刀气）、坐骑
-    for (const id of ['dragon_white', 'dragon_azure']) load('fx:' + id, `${ASSET_BASE}fx/${id}${IMG}`);
+    for (const id of ['dragon_white', 'dragon_azure', 'dragon_shen']) load('fx:' + id, `${ASSET_BASE}fx/${id}${IMG}`); // dragon_shen：神赵云龙魂·四象的龙首（没画好时借白龙）
     // 招式特效贴图（黑底发光图，叠加着画）：刀光、冲击环、爆裂、雷电、枪芒、旋风、火焰、法阵、光柱
     for (const id of ['slash', 'ring', 'burst', 'bolt', 'thrust', 'whirl', 'flame', 'circle', 'pillar']) load('fxs:' + id, `${ASSET_BASE}fx/${id}${IMG}`);
     load('mount:white', `${ASSET_BASE}mounts/white${IMG}`);
