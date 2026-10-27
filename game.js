@@ -928,7 +928,7 @@ function hurtPlayer(amount, el = atkEl, src = atkSrc) {
   const lb = S.bossList.find(b => b.leechT > S.t);
   if (lb) { lb.hp = Math.min(lb.maxHp, lb.hp + lb.maxHp * lb.leech); addNumber(lb.x, lb.y - lb.r * 3, `+${Math.round(lb.maxHp * lb.leech)}`, '#ff6a5a', 14); }
   retaliate(src);
-  if (bloodRage() || feignDeath() || dragonGuard()) return;
+  if (lastStand()) return;
   if (p.hp <= 0) { p.hp = 0; gameOver(); }
 }
 // 刚烈（夏侯惇的技能）：每次受伤，朝打你的敌人劈回一道血色刀光；打你的不是敌人（落点、飞弹）就劈向附近最强的敌人
@@ -947,10 +947,18 @@ function retaliate(src) {
   sparks(p.x, p.y - 16, a, 8, '255,90,70', 420, 0.5, 2.2);
   sfx('swing');
 }
-// 啖睛（夏侯惇的物品）：生命跌破一定比例时回一大截血，并狂暴几秒（伤害、移速提高），有冷却
-function bloodRage() {
+// 保命效果（啖睛、冢虎、龙魂涯角枪「绝境」）：同时有好几个能触发时随机挑一个，只有它进冷却，别的留到下次（以前固定啖睛先、绝境最后）
+function lastStand() {
+  const p = S.player;
+  if (p.hp <= 0 && S.t < S.guardUntil) { p.hp = 1; return true; } // 绝境的几秒里一直不倒，这期间别的不再触发
+  const ready = [bloodRage, feignDeath, dragonGuard].filter(f => f(true));
+  return ready.length > 0 && ready[Math.floor(Math.random() * ready.length)]();
+}
+// 啖睛（夏侯惇的物品）：生命跌破一定比例时回一大截血，并狂暴几秒（伤害、移速提高），有冷却。check：只看现在能不能触发
+function bloodRage(check) {
   const p = S.player, R = S.passives.danjing && D.passives.danjing.rage;
   if (!R || S.t < S.danjingT || p.hp > p.maxHp * R.below) return false;
+  if (check) return true;
   S.danjingT = S.t + R.cd; S.rageT = S.t + R.dur;
   p.hp = Math.min(p.maxHp, Math.max(1, p.hp) + p.maxHp * R.heal); p.iframes = Math.max(p.iframes, 0.5);
   fxTex('pillar', 0, 0, { follow: p, oy: -90, w: 90, h: 280, rgb: '255,50,40', life: 0.8, sx: 0.5, core: 0.6 });
@@ -959,10 +967,11 @@ function bloodRage() {
   screenFlash('255,40,30', 0.25); sfx('boss');
   return true;
 }
-// 冢虎：生命跌破一定比例时诈死脱身——倒地化作一缕黑烟，几秒无敌并回一截血（有冷却）
-function feignDeath() {
+// 冢虎：生命跌破一定比例时诈死脱身——倒地化作一缕黑烟，几秒无敌并回一截血（有冷却）。check：只看现在能不能触发
+function feignDeath(check) {
   const p = S.player, F = S.passives.zhonghu && D.passives.zhonghu.feign;
   if (!F || S.t < S.feignT || p.hp > p.maxHp * F.below) return false;
+  if (check) return true;
   S.feignT = S.t + F.cd;
   p.hp = Math.max(1, p.hp) + p.maxHp * F.heal; p.iframes = F.iframes;
   soulBurst(p.x, p.y, 120);
@@ -2015,7 +2024,7 @@ function updatePlayer(dt) {
   if (S.t < S.pBurnT && !S.god) { // 被火属性名将点着：持续掉血
     p.hp -= S.pBurnDps * dt;
     if (Math.random() < 0.4) embers(p.x + rand(-8, 8), p.y - 14, 1, D.elements.fire.rgb, 30, 50, 5, 0.45);
-    if (!bloodRage() && !feignDeath() && !dragonGuard() && p.hp <= 0 && !S.over) { p.hp = 0; gameOver(); }
+    if (!lastStand() && p.hp <= 0 && !S.over) { p.hp = 0; gameOver(); }
   }
   p.iframes = Math.max(0, p.iframes - dt);
   recordTrail(p, p.x, p.y - 22, S.t < S.rampageT, 14, 22); // 七进七出：身后一条白龙
@@ -3291,12 +3300,8 @@ function runUlt(e, dt) {
       const R = u.ringR;
       if (U.phase === 0) { U.cx = p.x; U.cy = p.y; U.a0 = angleTo(p.x, p.y, e.x, e.y); U.phase = 1; U.t = u.rideT; e.mounted = true; tele({ kind: 'ring', x: U.cx, y: U.cy, r: R, life: u.rideT, rgb }); }
       if (U.phase === 1) {
-        const f = clamp(1 - U.t / u.rideT, 0, 1), a = U.a0 + f * TAU, Rf = R * (u.shrink ? 1 - (1 - u.shrink) * f : 1); // shrink：神赵云越转越小
-        e.x = U.cx + Math.cos(a) * Rf; e.y = U.cy + Math.sin(a) * Rf;
-        if (u.spears) { // 边转边往圈里掷银枪
-          U.st = (U.st || 0) - dt;
-          if (U.st <= 0) { U.st = u.spears.every; const b = angleTo(e.x, e.y, U.cx, U.cy) + rand(-0.25, 0.25); S.eproj.push({ kind: 'bigArrow', x: e.x, y: e.y - 14, vx: Math.cos(b) * u.spears.speed, vy: Math.sin(b) * u.spears.speed, r: 9, dmg: DMG(u.spears.dmg), life: 1.6, rgb }); }
-        }
+        const f = clamp(1 - U.t / u.rideT, 0, 1), a = U.a0 + f * TAU;
+        e.x = U.cx + Math.cos(a) * R; e.y = U.cy + Math.sin(a) * R;
         fxp({ type: 'spark', x: e.x + rand(-10, 10), y: e.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-90, -20), drag: 2, life: 0.5, rgb: '190,220,255', size: 2 });
         if (U.t <= 0) { S.pools.push({ kind: 'firering', x: U.cx, y: U.cy, R, band: 38, born: S.t, until: S.t + u.burn, dmg: DMG(0.55), tick: 0 }); U.phase = 2; U.k = 0; U.t = 0.15; sfx('slam'); }
       } else if (U.phase === 2 && U.t <= 0) {
@@ -3311,6 +3316,52 @@ function runUlt(e, dt) {
         if (!U.hit && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r + u.w * 0.3) ** 2) { U.hit = true; hurtPlayer(DMG(u.dmg)); p.kvx += Math.cos(U.da) * 600; p.kvy += Math.sin(U.da) * 600; }
         if (Math.random() < 0.8) fxp({ type: 'spark', x: e.x, y: e.y - 10, vx: -Math.cos(U.da) * 200, vy: -Math.sin(U.da) * 200, drag: 3, life: 0.35, rgb: '200,225,255', size: 2.4 });
         if (U.trav >= R * 2 + 40) { U.k++; U.phase = 2; U.t = 0.12; }
+      }
+      break;
+    }
+    // 长坂单骑（神赵云）：先绕着你骑一整圈画出银环，再沿五角星的五条边连冲五次，留下的五道枪痕和星心最后一起炸开——
+    // 躲进五个星角里，或者跑出圈外（和马超的环骑不同：不围困你；星心也炸，所以站着不动躲不过）
+    case 'starRide': {
+      const R = u.ringR, V = i => [U.cx + Math.cos(U.a0 + i * TAU / 5) * R, U.cy + Math.sin(U.a0 + i * TAU / 5) * R];
+      if (U.phase === 0) { U.cx = p.x; U.cy = p.y; U.a0 = angleTo(p.x, p.y, e.x, e.y); U.phase = 1; U.t = u.rideT; e.mounted = true; U.scars = []; U.ring = tele({ kind: 'ring', x: U.cx, y: U.cy, r: R, life: 0.5, rgb }); }
+      for (const s of U.phase < 5 ? [U.ring, U.core, ...U.scars] : [U.ring]) if (s) s.life = s.max = 0.5; // 银环、星心和枪痕一直留着（大招被打断时半秒内自己消失）；银环只是标出圈在哪，不铺满，免得像整圈都要炸
+      if (U.phase === 1) { // 画圆
+        const a = U.a0 + clamp(1 - U.t / u.rideT, 0, 1) * TAU;
+        e.x = U.cx + Math.cos(a) * R; e.y = U.cy + Math.sin(a) * R;
+        if (!U.hit && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r) ** 2) { U.hit = true; hurtPlayer(DMG(u.dmg * 0.6)); }
+        fxp({ type: 'spark', x: e.x + rand(-10, 10), y: e.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-90, -20), drag: 2, life: 0.6, rgb: '200,225,255', size: 2.2 });
+        if (U.t <= 0) { [e.x, e.y] = V(0); U.phase = 2; U.k = 0; U.t = 0.1; U.core = tele({ kind: 'circle', x: U.cx, y: U.cy, r: R * u.burst.core, life: 0.5, rgb }); sfx('slam'); }
+      } else if (U.phase === 2 && U.t <= 0) {
+        if (U.k >= 5) { // 星成：五道枪痕亮起，片刻后一起炸
+          U.phase = 5; U.t = u.burst.delay;
+          for (const s of [U.core, ...U.scars]) s.life = s.max = u.burst.delay;
+          say(e, '“星芒，破！”');
+          break;
+        }
+        const [x0, y0] = V(U.k * 2 % 5), [x1, y1] = V((U.k + 1) * 2 % 5); // 0→2→4→1→3→0：一笔画出五角星
+        U.x0 = x0; U.y0 = y0; U.da = Math.atan2(y1 - y0, x1 - x0); U.len = Math.hypot(x1 - x0, y1 - y0); U.trav = 0; U.hit = false;
+        e.x = x0; e.y = y0;
+        tele({ kind: 'line', x: x0, y: y0, a: U.da, len: U.len, w: u.w, life: u.tele, rgb });
+        U.phase = 3; U.t = u.tele;
+      } else if (U.phase === 3) {
+        if (U.t <= 0) U.phase = 4;
+      } else if (U.phase === 4) { // 沿星芒冲过去
+        const st = Math.min(u.dashSpeed * dt, U.len - U.trav); e.x += Math.cos(U.da) * st; e.y += Math.sin(U.da) * st; U.trav += st;
+        if (!U.hit && dist2(e.x, e.y, p.x, p.y) < (u.w / 2 + p.r) ** 2) { U.hit = true; hurtPlayer(DMG(u.dmg)); p.kvx += Math.cos(U.da) * 500; p.kvy += Math.sin(U.da) * 500; } // 只撞预警线宽度以内的，星角里是安全的
+        if (Math.random() < 0.8) fxp({ type: 'spark', x: e.x, y: e.y - 10, vx: -Math.cos(U.da) * 200, vy: -Math.sin(U.da) * 200, drag: 3, life: 0.35, rgb: '200,225,255', size: 2.4 });
+        if (U.trav >= U.len) { U.scars.push(tele({ kind: 'line', x: U.x0, y: U.y0, a: U.da, len: U.len, w: u.burst.w, life: 0.5, rgb: '200,225,255' })); U.k++; U.phase = 2; U.t = 0.06; }
+      } else if (U.phase === 5 && U.t <= 0) { // 星芒炸开：站在任何一道枪痕上或星心里都挨一下（只算一次）
+        let hit = dist2(p.x, p.y, U.cx, U.cy) < (R * u.burst.core + p.r) ** 2;
+        for (const s of U.scars) {
+          if (segDist(p.x, p.y, s.x, s.y, s.a, s.len) < s.w / 2 + p.r) hit = true;
+          fxTex('thrust', s.x + Math.cos(s.a) * s.len / 2, s.y - 10 + Math.sin(s.a) * s.len / 2, { w: s.len * 1.1, h: s.w * 1.8, rot: s.a, rgb, life: 0.4, sx: 1.2, core: 0.9, hostile: true });
+          s.life = 0;
+        }
+        if (hit) hurtPlayer(DMG(u.burst.dmg));
+        U.ring.life = 0; U.core.life = 0;
+        fxTex('burst', U.cx, U.cy, { w: R * 1.2, h: R * 1.2, rgb, life: 0.45, grow: 1.4, hostile: true });
+        screenFlash('200,225,255', 0.3); S.shake = Math.max(S.shake, 14); punch(0.5); sfx('slam');
+        ultDone(e, 0.6);
       }
       break;
     }
@@ -4590,12 +4641,12 @@ function shenDefeated(e) {
   applyChoice({ kind: 'shenbing', id: 'shenzhaoyun' }); // 神兵直接到手
   S.pendingReward = { gid: 'shenzhaoyun', t: 0.8, legend: false };
 }
-// 龙魂涯角枪「绝境」：受到致死伤害时 dur 秒内不会倒下（每 cd 秒一次）
-function dragonGuard() {
+// 龙魂涯角枪「绝境」：受到致死伤害时 dur 秒内不会倒下（每 cd 秒一次；这几秒里不倒见 lastStand）。check：只看现在能不能触发
+function dragonGuard(check) {
   const p = S.player;
   if (p.hp > 0) return false;
-  if (S.t < S.guardUntil) { p.hp = 1; return true; }
   if (!S.shenbing.some(x => x.gid === 'shenzhaoyun') || S.t < (S.guardCd || 0)) return false;
+  if (check) return true;
   const G = D.shenbing.shenzhaoyun.guard;
   S.guardUntil = S.t + G.dur; S.guardCd = S.t + G.cd; p.hp = 1;
   fxTex('pillar', 0, 0, { follow: p, oy: -90, w: 100, h: 300, rgb: '200,225,255', life: 1.0, sx: 0.5, core: 0.7 });
@@ -6257,11 +6308,26 @@ function updateHud() {
     $('bossname').textContent = boss.def.name + (boss.def.el ? ` · ${D.elements[boss.def.el].icon}` : '') + (boss.vanish ? ' · 藏身疑冢' : boss.chan ? ' · 青囊回春' : boss.weakT > S.t ? ' · 元气大伤' : boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '');
     }
   }
-  if (S.buildDirty) {
+  if (S.buildDirty && $('slots').offsetParent) { // 看得见时才排（要量每一格在第几行）
     S.buildDirty = false;
-    $('slots').innerHTML = buildList().map(([k, id, lv]) => slotHtml(k, id, lv)).join('');
+    const box = $('slots');
+    box.innerHTML = buildList().map(([k, id, lv]) => slotHtml(k, id, lv)).join('');
+    // 后期东西太多：左上角只留两行，多出来的收进最后一格「+N」，点一下展开、再点收起（群友反馈状态栏占了半个屏幕）
+    const kids = [...box.children], rowTops = [];
+    for (const c of kids) if (!rowTops.some(t => Math.abs(t - c.offsetTop) < 10)) rowTops.push(c.offsetTop);
+    if (rowTops.length > 2) {
+      if (slotsOpen) box.insertAdjacentHTML('beforeend', '<div class="slot more" title="收起">收</div>');
+      else {
+        const keep = kids.filter(c => c.offsetTop < rowTops[2] - 5).length - 1; // 第二行最后一格让给「+N」
+        for (const c of kids.slice(keep)) c.remove();
+        box.insertAdjacentHTML('beforeend', `<div class="slot more" title="还有 ${kids.length - keep} 样，点开看全部">+${kids.length - keep}</div>`);
+      }
+    }
   }
 }
+let slotsOpen = false;
+$('slots').addEventListener('click', e => { if (S && e.target.closest('.more')) { slotsOpen = !slotsOpen; S.buildDirty = true; } });
+addEventListener('resize', () => { if (S) S.buildDirty = true; }); // 屏幕转向、窗口变宽：一行放得下的格数变了，重新排
 
 // ---------- 局外成长：金币与装备（存在本机浏览器里） ----------
 let META = null;
