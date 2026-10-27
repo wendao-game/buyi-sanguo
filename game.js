@@ -928,7 +928,7 @@ function hurtPlayer(amount, el = atkEl, src = atkSrc) {
   const lb = S.bossList.find(b => b.leechT > S.t);
   if (lb) { lb.hp = Math.min(lb.maxHp, lb.hp + lb.maxHp * lb.leech); addNumber(lb.x, lb.y - lb.r * 3, `+${Math.round(lb.maxHp * lb.leech)}`, '#ff6a5a', 14); }
   retaliate(src);
-  if (bloodRage() || feignDeath() || dragonGuard()) return;
+  if (lastStand()) return;
   if (p.hp <= 0) { p.hp = 0; gameOver(); }
 }
 // 刚烈（夏侯惇的技能）：每次受伤，朝打你的敌人劈回一道血色刀光；打你的不是敌人（落点、飞弹）就劈向附近最强的敌人
@@ -947,10 +947,18 @@ function retaliate(src) {
   sparks(p.x, p.y - 16, a, 8, '255,90,70', 420, 0.5, 2.2);
   sfx('swing');
 }
-// 啖睛（夏侯惇的物品）：生命跌破一定比例时回一大截血，并狂暴几秒（伤害、移速提高），有冷却
-function bloodRage() {
+// 保命效果（啖睛、冢虎、龙魂涯角枪「绝境」）：同时有好几个能触发时随机挑一个，只有它进冷却，别的留到下次（以前固定啖睛先、绝境最后）
+function lastStand() {
+  const p = S.player;
+  if (p.hp <= 0 && S.t < S.guardUntil) { p.hp = 1; return true; } // 绝境的几秒里一直不倒，这期间别的不再触发
+  const ready = [bloodRage, feignDeath, dragonGuard].filter(f => f(true));
+  return ready.length > 0 && ready[Math.floor(Math.random() * ready.length)]();
+}
+// 啖睛（夏侯惇的物品）：生命跌破一定比例时回一大截血，并狂暴几秒（伤害、移速提高），有冷却。check：只看现在能不能触发
+function bloodRage(check) {
   const p = S.player, R = S.passives.danjing && D.passives.danjing.rage;
   if (!R || S.t < S.danjingT || p.hp > p.maxHp * R.below) return false;
+  if (check) return true;
   S.danjingT = S.t + R.cd; S.rageT = S.t + R.dur;
   p.hp = Math.min(p.maxHp, Math.max(1, p.hp) + p.maxHp * R.heal); p.iframes = Math.max(p.iframes, 0.5);
   fxTex('pillar', 0, 0, { follow: p, oy: -90, w: 90, h: 280, rgb: '255,50,40', life: 0.8, sx: 0.5, core: 0.6 });
@@ -959,10 +967,11 @@ function bloodRage() {
   screenFlash('255,40,30', 0.25); sfx('boss');
   return true;
 }
-// 冢虎：生命跌破一定比例时诈死脱身——倒地化作一缕黑烟，几秒无敌并回一截血（有冷却）
-function feignDeath() {
+// 冢虎：生命跌破一定比例时诈死脱身——倒地化作一缕黑烟，几秒无敌并回一截血（有冷却）。check：只看现在能不能触发
+function feignDeath(check) {
   const p = S.player, F = S.passives.zhonghu && D.passives.zhonghu.feign;
   if (!F || S.t < S.feignT || p.hp > p.maxHp * F.below) return false;
+  if (check) return true;
   S.feignT = S.t + F.cd;
   p.hp = Math.max(1, p.hp) + p.maxHp * F.heal; p.iframes = F.iframes;
   soulBurst(p.x, p.y, 120);
@@ -2015,7 +2024,7 @@ function updatePlayer(dt) {
   if (S.t < S.pBurnT && !S.god) { // 被火属性名将点着：持续掉血
     p.hp -= S.pBurnDps * dt;
     if (Math.random() < 0.4) embers(p.x + rand(-8, 8), p.y - 14, 1, D.elements.fire.rgb, 30, 50, 5, 0.45);
-    if (!bloodRage() && !feignDeath() && !dragonGuard() && p.hp <= 0 && !S.over) { p.hp = 0; gameOver(); }
+    if (!lastStand() && p.hp <= 0 && !S.over) { p.hp = 0; gameOver(); }
   }
   p.iframes = Math.max(0, p.iframes - dt);
   recordTrail(p, p.x, p.y - 22, S.t < S.rampageT, 14, 22); // 七进七出：身后一条白龙
@@ -4590,12 +4599,12 @@ function shenDefeated(e) {
   applyChoice({ kind: 'shenbing', id: 'shenzhaoyun' }); // 神兵直接到手
   S.pendingReward = { gid: 'shenzhaoyun', t: 0.8, legend: false };
 }
-// 龙魂涯角枪「绝境」：受到致死伤害时 dur 秒内不会倒下（每 cd 秒一次）
-function dragonGuard() {
+// 龙魂涯角枪「绝境」：受到致死伤害时 dur 秒内不会倒下（每 cd 秒一次；这几秒里不倒见 lastStand）。check：只看现在能不能触发
+function dragonGuard(check) {
   const p = S.player;
   if (p.hp > 0) return false;
-  if (S.t < S.guardUntil) { p.hp = 1; return true; }
   if (!S.shenbing.some(x => x.gid === 'shenzhaoyun') || S.t < (S.guardCd || 0)) return false;
+  if (check) return true;
   const G = D.shenbing.shenzhaoyun.guard;
   S.guardUntil = S.t + G.dur; S.guardCd = S.t + G.cd; p.hp = 1;
   fxTex('pillar', 0, 0, { follow: p, oy: -90, w: 100, h: 300, rgb: '200,225,255', life: 1.0, sx: 0.5, core: 0.7 });
