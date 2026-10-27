@@ -271,15 +271,18 @@ const Music = (() => {
     }
     return bytes.get(id);
   }
-  function preload() { // 加载画面调用：把全部背景音乐下下来，下不到的不卡进度；关了音乐的不下；音乐清单没拿到也算下完（不然进度条卡住）
+  // 加载画面调用：先下 ids 这几首（标题、第一章、名将登场的曲子），加载画面等它们；下不到的不卡进度；关了音乐的不下；音乐清单没拿到也算下完（不然进度条卡住）
+  function preload(want) {
     if (pre.started) return; pre.started = true;
     audioReady.then(() => {
-      const ids = musicOn ? Object.keys(AUDIO.bgm) : [];
+      const ids = musicOn ? want.filter((id, i) => AUDIO.bgm[id] && want.indexOf(id) === i) : [];
       pre.ids = ids; let left = ids.length;
       if (!left) { pre.settled = true; return; }
       for (const id of ids) fetchBytes(id).catch(() => {}).then(() => { pre.done[id] = true; if (!--left) pre.settled = true; });
     });
   }
+  // 其余几首：进了标题、第二批图也下完后在后台下，打到后面几章时已经在手里
+  function preloadRest() { if (musicOn) for (const id of Object.keys(AUDIO.bgm)) fetchBytes(id).catch(() => {}); }
   function preloadProgress() {
     if (pre.settled) return 1;
     if (!pre.ids) return 0;
@@ -324,7 +327,7 @@ const Music = (() => {
     else if (D.bgm[id]) startSynth(id, D.bgm[id]);
   }
   return {
-    preload, get preloadProgress() { return preloadProgress(); },
+    preload, preloadRest, get preloadStarted() { return pre.started; }, get preloadProgress() { return preloadProgress(); },
     want(id) { if (id === cur && (live || !actx || muted || !musicOn)) return; cur = id; start(id); },
     refresh() { start(cur); },
     // 换了新的 AudioContext：旧的节点和解码好的音乐都作废（不去碰已经关掉的旧 context），下一帧 want() 会在新的上面接着放当前这首
@@ -6241,13 +6244,25 @@ function buildTitle() {
 
 // 美术图等页面 load 过了再开始下：new Image() 会拖住页面的 load 事件，TapTap 的加载页要等 load 才收，
 // 几十 MB 的图全下完它才让玩家看到我们自己的进度条（反馈过「卡在 TapTap 加载页」）。图还是一次全下完才进游戏，不分批
-// 先下图片，图片下完再下背景音乐：音乐请求的优先级比图片高，一起下会先把连接占满，网慢时进度条前十几秒一直是 0%。
+// 下载顺序：第一批图（开局要用的）→ 标题、第一章、名将登场的音乐（加载画面等到这里，约 10 MB）
+// → 进标题后在后台下第二批图（精英和名将的立绘、特写，军需图标）→ 其余音乐。一个接一个，不互相抢网速：
+// 音乐请求的优先级比图片高，一起下会先把连接占满，网慢时进度条前十几秒一直是 0%。
+// 以前加载画面要等全部 29 MB，国内网慢的要一分钟（玩家反馈）；第二批在第一个名将登场（一分钟左右）前早就下完了。
 // load 迟迟不来（有外网资源连不上之类）也最多等 3 秒就开始，不然国内玩家会一直停在 0%
 let loadStarted = false;
+const firstMusic = () => { const r = loadRun(); return ['title', D.chapters[0].id, 'boss', ...(r ? [r.endless ? 'endless' : (D.chapters[r.ch] || {}).id] : [])]; }; // 有没打完的一局：它那一章的曲子也先下
 const loadAll = () => {
   if (loadStarted) return; loadStarted = true;
   window.Assets.init(D);
-  const wait = setInterval(() => { if (window.Assets.progress >= 1) { clearInterval(wait); Music.preload(); } }, 100);
+  const t0 = performance.now();
+  const step = setInterval(() => {
+    if (window.Assets.progress < 1) return;
+    if (!Music.preloadStarted) Music.preload(firstMusic());
+    if (Music.preloadProgress < 1) return;
+    clearInterval(step);
+    window.Assets.startLate();
+    const rest = setInterval(() => { if (window.Assets.lateLeft === 0 || performance.now() - t0 > 120000) { clearInterval(rest); Music.preloadRest(); } }, 500);
+  }, 100);
 };
 // 谷歌字体（标题的毛笔字）只在 load 之后再要：写在 HTML 里 load 事件会等它，国内连不上谷歌就一直等。连不上就用系统字体
 const loadFonts = () => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700;900&display=swap'; document.head.appendChild(l); };
@@ -6263,6 +6278,7 @@ window.Assets.onLoad(() => {
     renderOrigins();
     if (S) { S.buildDirty = true; S.faceGid = null; }
     if (!$('codex').hidden) openCodex();
+    if (!$('shop').hidden) renderShop(); // 军需图标是第二批下的：开着军需页时下到了就换上
   }, 50);
 });
 
@@ -6277,7 +6293,7 @@ window.Assets.onLoad(() => {
   };
   (function tick() {
     if (closed) return;
-    const p = window.Assets.progress * 0.65 + Music.preloadProgress * 0.35; // 按字节量粗分：图片约 19 MB、音乐约 11 MB
+    const p = window.Assets.progress * 0.65 + Music.preloadProgress * 0.35; // 按字节量粗分：第一批图约 7.5 MB、开局音乐约 3.8 MB
     $('ld-fill').style.width = (p * 100).toFixed(1) + '%';
     const rt = window.Assets.retrying;
     $('ld-text').textContent = '加载中 ' + Math.floor(p * 100) + '%' + (rt ? ` · 网络不稳，正在重试 ${rt} 张图` : '');
