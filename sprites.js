@@ -382,6 +382,21 @@ window.Sprites = (() => {
         g.fillStyle = 'rgba(40,0,8,.6)'; g.beginPath(); g.arc(64, 20, 10, 0, Math.PI * 2); g.fill();
         for (const [x, y] of [[20, 70], [100, 66], [30, 88]]) line(g, x, y, x + 8, y + 6, 'rgba(200,30,50,.8)', 1.2); // 墙上的血纹
         break;
+      case 'qianghun': // 枪魂冢：一座青灰石冢，冢上冢边插满残枪，正中一杆银枪发着冷光
+        shape(g, '#4a5058', s => { s.moveTo(6, 104); s.quadraticCurveTo(60, 28, 114, 104); s.closePath(); });
+        g.fillStyle = 'rgba(0,0,0,.22)'; g.beginPath(); g.moveTo(60, 50); g.quadraticCurveTo(100, 64, 114, 104); g.lineTo(70, 104); g.closePath(); g.fill();
+        for (const [x, y, a] of [[18, 92, -0.5], [32, 74, -0.3], [88, 72, 0.35], [102, 90, 0.55], [46, 64, -0.15], [74, 62, 0.2]]) { // 残枪
+          const ex = x + Math.sin(a) * 40, ey = y - Math.cos(a) * 40;
+          line(g, x, y, ex, ey, '#3a2e24', 2.2);
+          shape(g, '#9aa2aa', s => { s.moveTo(ex - 3, ey + 2); s.lineTo(ex + Math.sin(a) * 10, ey - Math.cos(a) * 10); s.lineTo(ex + 3, ey + 2); s.closePath(); }, 1);
+          g.fillStyle = '#a83030'; g.beginPath(); g.arc(ex, ey + 4, 2.4, 0, Math.PI * 2); g.fill(); // 红缨
+        }
+        g.fillStyle = 'rgba(190,220,255,.35)'; g.beginPath(); g.ellipse(60, 30, 16, 30, 0, 0, Math.PI * 2); g.fill(); // 银枪的冷光
+        line(g, 60, 78, 60, 8, '#e8eef6', 3);                                                  // 正中的银枪
+        shape(g, '#f4f8ff', s => { s.moveTo(55, 12); s.lineTo(60, -2); s.lineTo(65, 12); s.closePath(); }, 1.2);
+        shape(g, '#5a6068', s => { s.moveTo(46, 104); s.lineTo(46, 80); s.quadraticCurveTo(60, 72, 74, 80); s.lineTo(74, 104); s.closePath(); }, 1.6); // 石碑
+        g.fillStyle = '#d8e8ff'; g.font = '900 15px serif'; g.textAlign = 'center'; g.fillText('枪', 60, 98);
+        break;
       case 'yaoding': // 药鼎：一只青铜三足鼎，鼎里冒着青绿的药气
         line(g, 44, 104, 40, 88, '#6a6040', 3.5); line(g, 76, 104, 80, 88, '#6a6040', 3.5); line(g, 60, 104, 60, 92, '#6a6040', 3.5); // 三足
         shape(g, '#8a7a48', s => { s.moveTo(34, 64); s.quadraticCurveTo(34, 96, 60, 96); s.quadraticCurveTo(86, 96, 86, 64); s.closePath(); });
