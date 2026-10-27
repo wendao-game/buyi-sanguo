@@ -6308,11 +6308,26 @@ function updateHud() {
     $('bossname').textContent = boss.def.name + (boss.def.el ? ` · ${D.elements[boss.def.el].icon}` : '') + (boss.vanish ? ' · 藏身疑冢' : boss.chan ? ' · 青囊回春' : boss.weakT > S.t ? ' · 元气大伤' : boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '');
     }
   }
-  if (S.buildDirty) {
+  if (S.buildDirty && $('slots').offsetParent) { // 看得见时才排（要量每一格在第几行）
     S.buildDirty = false;
-    $('slots').innerHTML = buildList().map(([k, id, lv]) => slotHtml(k, id, lv)).join('');
+    const box = $('slots');
+    box.innerHTML = buildList().map(([k, id, lv]) => slotHtml(k, id, lv)).join('');
+    // 后期东西太多：左上角只留两行，多出来的收进最后一格「+N」，点一下展开、再点收起（群友反馈状态栏占了半个屏幕）
+    const kids = [...box.children], rowTops = [];
+    for (const c of kids) if (!rowTops.some(t => Math.abs(t - c.offsetTop) < 10)) rowTops.push(c.offsetTop);
+    if (rowTops.length > 2) {
+      if (slotsOpen) box.insertAdjacentHTML('beforeend', '<div class="slot more" title="收起">收</div>');
+      else {
+        const keep = kids.filter(c => c.offsetTop < rowTops[2] - 5).length - 1; // 第二行最后一格让给「+N」
+        for (const c of kids.slice(keep)) c.remove();
+        box.insertAdjacentHTML('beforeend', `<div class="slot more" title="还有 ${kids.length - keep} 样，点开看全部">+${kids.length - keep}</div>`);
+      }
+    }
   }
 }
+let slotsOpen = false;
+$('slots').addEventListener('click', e => { if (S && e.target.closest('.more')) { slotsOpen = !slotsOpen; S.buildDirty = true; } });
+addEventListener('resize', () => { if (S) S.buildDirty = true; }); // 屏幕转向、窗口变宽：一行放得下的格数变了，重新排
 
 // ---------- 局外成长：金币与装备（存在本机浏览器里） ----------
 let META = null;
