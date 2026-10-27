@@ -1389,7 +1389,7 @@ window.GAME_DATA = {
       ultRgb: '170,215,255', ultEvery: 14,
       ults: [
         { id: 'yinlong', name: '七进七出 · 银龙', type: 'sevenDash', count: 7, speed: 1500, len: 620, w: 64, tele: 0.36, dmg: 1.6, pct: 0.18, home: 2.2, scar: { delay: 0.6, w: 70, dmg: 0.9 } }, // 每道突进留下一道银龙枪痕，0.6 秒后炸开
-        { id: 'changban', name: '长坂单骑', type: 'ringRide', ringR: 420, shrink: 0.55, rideT: 2.4, burn: 4, dashes: 3, tele: 0.45, dashSpeed: 1500, w: 70, dmg: 1.6, pct: 0.2, spears: { every: 0.16, speed: 560, dmg: 0.8 } }, // 绕着你越转越小，边转边往圈里掷枪
+        { id: 'changban', name: '长坂单骑', type: 'starRide', ringR: 400, rideT: 1.4, tele: 0.35, dashSpeed: 1800, w: 60, dmg: 1.2, pct: 0.15, burst: { delay: 0.9, w: 64, dmg: 1.6, core: 0.3 } }, // 骑一圈画出银环，再沿五角星的五条边连冲，最后五道枪痕和星心一起炸开（core：星心半径占圈的比例）
         { id: 'qiangyu', name: '龙胆 · 枪雨', type: 'spearRain', waves: 5, row: 7, gap: 72, lead: 0.7, tele: 0.75, every: 0.55, r: 44, dmg: 1.2, pct: 0.16 }, // 预判你的走位，一排排银枪从天而降
         { id: 'sixiang', name: '龙魂 · 四象', type: 'fourDragons', afterRevive: true, tele: 0.9, gap: 0.55, w: 150, speed: 1300, dmg: 2.0, pct: 0.3 }, // 绝境后：红橙青紫四条龙从四个方向依次横扫
       ],

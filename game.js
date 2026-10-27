@@ -3300,12 +3300,8 @@ function runUlt(e, dt) {
       const R = u.ringR;
       if (U.phase === 0) { U.cx = p.x; U.cy = p.y; U.a0 = angleTo(p.x, p.y, e.x, e.y); U.phase = 1; U.t = u.rideT; e.mounted = true; tele({ kind: 'ring', x: U.cx, y: U.cy, r: R, life: u.rideT, rgb }); }
       if (U.phase === 1) {
-        const f = clamp(1 - U.t / u.rideT, 0, 1), a = U.a0 + f * TAU, Rf = R * (u.shrink ? 1 - (1 - u.shrink) * f : 1); // shrink：神赵云越转越小
-        e.x = U.cx + Math.cos(a) * Rf; e.y = U.cy + Math.sin(a) * Rf;
-        if (u.spears) { // 边转边往圈里掷银枪
-          U.st = (U.st || 0) - dt;
-          if (U.st <= 0) { U.st = u.spears.every; const b = angleTo(e.x, e.y, U.cx, U.cy) + rand(-0.25, 0.25); S.eproj.push({ kind: 'bigArrow', x: e.x, y: e.y - 14, vx: Math.cos(b) * u.spears.speed, vy: Math.sin(b) * u.spears.speed, r: 9, dmg: DMG(u.spears.dmg), life: 1.6, rgb }); }
-        }
+        const f = clamp(1 - U.t / u.rideT, 0, 1), a = U.a0 + f * TAU;
+        e.x = U.cx + Math.cos(a) * R; e.y = U.cy + Math.sin(a) * R;
         fxp({ type: 'spark', x: e.x + rand(-10, 10), y: e.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-90, -20), drag: 2, life: 0.5, rgb: '190,220,255', size: 2 });
         if (U.t <= 0) { S.pools.push({ kind: 'firering', x: U.cx, y: U.cy, R, band: 38, born: S.t, until: S.t + u.burn, dmg: DMG(0.55), tick: 0 }); U.phase = 2; U.k = 0; U.t = 0.15; sfx('slam'); }
       } else if (U.phase === 2 && U.t <= 0) {
@@ -3320,6 +3316,52 @@ function runUlt(e, dt) {
         if (!U.hit && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r + u.w * 0.3) ** 2) { U.hit = true; hurtPlayer(DMG(u.dmg)); p.kvx += Math.cos(U.da) * 600; p.kvy += Math.sin(U.da) * 600; }
         if (Math.random() < 0.8) fxp({ type: 'spark', x: e.x, y: e.y - 10, vx: -Math.cos(U.da) * 200, vy: -Math.sin(U.da) * 200, drag: 3, life: 0.35, rgb: '200,225,255', size: 2.4 });
         if (U.trav >= R * 2 + 40) { U.k++; U.phase = 2; U.t = 0.12; }
+      }
+      break;
+    }
+    // 长坂单骑（神赵云）：先绕着你骑一整圈画出银环，再沿五角星的五条边连冲五次，留下的五道枪痕和星心最后一起炸开——
+    // 躲进五个星角里，或者跑出圈外（和马超的环骑不同：不围困你；星心也炸，所以站着不动躲不过）
+    case 'starRide': {
+      const R = u.ringR, V = i => [U.cx + Math.cos(U.a0 + i * TAU / 5) * R, U.cy + Math.sin(U.a0 + i * TAU / 5) * R];
+      if (U.phase === 0) { U.cx = p.x; U.cy = p.y; U.a0 = angleTo(p.x, p.y, e.x, e.y); U.phase = 1; U.t = u.rideT; e.mounted = true; U.scars = []; U.ring = tele({ kind: 'ring', x: U.cx, y: U.cy, r: R, life: 0.5, rgb }); }
+      for (const s of U.phase < 5 ? [U.ring, U.core, ...U.scars] : [U.ring]) if (s) s.life = s.max = 0.5; // 银环、星心和枪痕一直留着（大招被打断时半秒内自己消失）；银环只是标出圈在哪，不铺满，免得像整圈都要炸
+      if (U.phase === 1) { // 画圆
+        const a = U.a0 + clamp(1 - U.t / u.rideT, 0, 1) * TAU;
+        e.x = U.cx + Math.cos(a) * R; e.y = U.cy + Math.sin(a) * R;
+        if (!U.hit && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r) ** 2) { U.hit = true; hurtPlayer(DMG(u.dmg * 0.6)); }
+        fxp({ type: 'spark', x: e.x + rand(-10, 10), y: e.y + rand(-6, 6), vx: rand(-60, 60), vy: rand(-90, -20), drag: 2, life: 0.6, rgb: '200,225,255', size: 2.2 });
+        if (U.t <= 0) { [e.x, e.y] = V(0); U.phase = 2; U.k = 0; U.t = 0.1; U.core = tele({ kind: 'circle', x: U.cx, y: U.cy, r: R * u.burst.core, life: 0.5, rgb }); sfx('slam'); }
+      } else if (U.phase === 2 && U.t <= 0) {
+        if (U.k >= 5) { // 星成：五道枪痕亮起，片刻后一起炸
+          U.phase = 5; U.t = u.burst.delay;
+          for (const s of [U.core, ...U.scars]) s.life = s.max = u.burst.delay;
+          say(e, '“星芒，破！”');
+          break;
+        }
+        const [x0, y0] = V(U.k * 2 % 5), [x1, y1] = V((U.k + 1) * 2 % 5); // 0→2→4→1→3→0：一笔画出五角星
+        U.x0 = x0; U.y0 = y0; U.da = Math.atan2(y1 - y0, x1 - x0); U.len = Math.hypot(x1 - x0, y1 - y0); U.trav = 0; U.hit = false;
+        e.x = x0; e.y = y0;
+        tele({ kind: 'line', x: x0, y: y0, a: U.da, len: U.len, w: u.w, life: u.tele, rgb });
+        U.phase = 3; U.t = u.tele;
+      } else if (U.phase === 3) {
+        if (U.t <= 0) U.phase = 4;
+      } else if (U.phase === 4) { // 沿星芒冲过去
+        const st = Math.min(u.dashSpeed * dt, U.len - U.trav); e.x += Math.cos(U.da) * st; e.y += Math.sin(U.da) * st; U.trav += st;
+        if (!U.hit && dist2(e.x, e.y, p.x, p.y) < (u.w / 2 + p.r) ** 2) { U.hit = true; hurtPlayer(DMG(u.dmg)); p.kvx += Math.cos(U.da) * 500; p.kvy += Math.sin(U.da) * 500; } // 只撞预警线宽度以内的，星角里是安全的
+        if (Math.random() < 0.8) fxp({ type: 'spark', x: e.x, y: e.y - 10, vx: -Math.cos(U.da) * 200, vy: -Math.sin(U.da) * 200, drag: 3, life: 0.35, rgb: '200,225,255', size: 2.4 });
+        if (U.trav >= U.len) { U.scars.push(tele({ kind: 'line', x: U.x0, y: U.y0, a: U.da, len: U.len, w: u.burst.w, life: 0.5, rgb: '200,225,255' })); U.k++; U.phase = 2; U.t = 0.06; }
+      } else if (U.phase === 5 && U.t <= 0) { // 星芒炸开：站在任何一道枪痕上或星心里都挨一下（只算一次）
+        let hit = dist2(p.x, p.y, U.cx, U.cy) < (R * u.burst.core + p.r) ** 2;
+        for (const s of U.scars) {
+          if (segDist(p.x, p.y, s.x, s.y, s.a, s.len) < s.w / 2 + p.r) hit = true;
+          fxTex('thrust', s.x + Math.cos(s.a) * s.len / 2, s.y - 10 + Math.sin(s.a) * s.len / 2, { w: s.len * 1.1, h: s.w * 1.8, rot: s.a, rgb, life: 0.4, sx: 1.2, core: 0.9, hostile: true });
+          s.life = 0;
+        }
+        if (hit) hurtPlayer(DMG(u.burst.dmg));
+        U.ring.life = 0; U.core.life = 0;
+        fxTex('burst', U.cx, U.cy, { w: R * 1.2, h: R * 1.2, rgb, life: 0.45, grow: 1.4, hostile: true });
+        screenFlash('200,225,255', 0.3); S.shake = Math.max(S.shake, 14); punch(0.5); sfx('slam');
+        ultDone(e, 0.6);
       }
       break;
     }
