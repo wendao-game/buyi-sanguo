@@ -251,14 +251,41 @@ const Music = (() => {
   // 音乐文件：解码成整段音频，用 Web Audio 无缝循环（<audio loop> 循环时会有一小段空白）。
   // 文件本身在加载画面里就跟图片一起下好（bytes，7 首 11 MB），换曲时不用再等网络（玩家反馈音乐慢半拍）；
   // 解码后的音频很占内存，只留最近用过的 2 首。decodeAudioData 会把传进去的 ArrayBuffer 掏空，所以给它一份拷贝
-  const decoded = new Map(), bytes = new Map();
-  let preTotal = 0, preDone = 0;
+  // 预加载的进度按字节算（边下边数），一首 1~4 MB，按文件数算的话网慢时进度条半天不动
+  const decoded = new Map(), bytes = new Map(), pre = { started: false, settled: false, ids: null, got: {}, size: {}, done: {} };
+  const EST = 1.6 * 1048576; // 还没拿到大小的先按 1.6 MB 估
   function fetchBytes(id) {
-    if (!bytes.has(id)) { const p = fetch(AUDIO.bgm[id]).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }); p.catch(() => bytes.delete(id)); bytes.set(id, p); }
+    if (!bytes.has(id)) {
+      const p = fetch(AUDIO.bgm[id]).then(r => {
+        if (!r.ok) throw new Error(r.status);
+        const len = +r.headers.get('content-length') || 0; if (len) pre.size[id] = len;
+        if (!r.body || !r.body.getReader) return r.arrayBuffer();
+        const reader = r.body.getReader(), parts = []; let n = 0;
+        const pump = () => reader.read().then(({ done, value }) => {
+          if (done) { const out = new Uint8Array(n); let o = 0; for (const c of parts) { out.set(c, o); o += c.length; } return out.buffer; }
+          parts.push(value); n += value.length; pre.got[id] = n; return pump();
+        });
+        return pump();
+      });
+      p.catch(() => bytes.delete(id)); bytes.set(id, p);
+    }
     return bytes.get(id);
   }
-  function preload() { // 加载画面调用：把全部背景音乐下下来，下不到的不卡进度
-    return audioReady.then(() => { const ids = Object.keys(AUDIO.bgm); preTotal = ids.length; for (const id of ids) fetchBytes(id).catch(() => {}).then(() => { preDone++; }); });
+  function preload() { // 加载画面调用：把全部背景音乐下下来，下不到的不卡进度；关了音乐的不下；音乐清单没拿到也算下完（不然进度条卡住）
+    if (pre.started) return; pre.started = true;
+    audioReady.then(() => {
+      const ids = musicOn ? Object.keys(AUDIO.bgm) : [];
+      pre.ids = ids; let left = ids.length;
+      if (!left) { pre.settled = true; return; }
+      for (const id of ids) fetchBytes(id).catch(() => {}).then(() => { pre.done[id] = true; if (!--left) pre.settled = true; });
+    });
+  }
+  function preloadProgress() {
+    if (pre.settled) return 1;
+    if (!pre.ids) return 0;
+    let got = 0, tot = 0;
+    for (const id of pre.ids) { const s = pre.size[id] || EST; tot += s; got += pre.done[id] ? s : Math.min(pre.got[id] || 0, s); }
+    return tot ? got / tot : 1;
   }
   function load(id) {
     if (decoded.has(id)) { const p = decoded.get(id); decoded.delete(id); decoded.set(id, p); return p; }
@@ -297,7 +324,7 @@ const Music = (() => {
     else if (D.bgm[id]) startSynth(id, D.bgm[id]);
   }
   return {
-    preload, get preloadProgress() { return preTotal ? preDone / preTotal : 0; },
+    preload, get preloadProgress() { return preloadProgress(); },
     want(id) { if (id === cur && (live || !actx || muted || !musicOn)) return; cur = id; start(id); },
     refresh() { start(cur); },
     // 换了新的 AudioContext：旧的节点和解码好的音乐都作废（不去碰已经关掉的旧 context），下一帧 want() 会在新的上面接着放当前这首
@@ -6073,9 +6100,14 @@ function buildTitle() {
 
 // 美术图等页面 load 过了再开始下：new Image() 会拖住页面的 load 事件，TapTap 的加载页要等 load 才收，
 // 几十 MB 的图全下完它才让玩家看到我们自己的进度条（反馈过「卡在 TapTap 加载页」）。图还是一次全下完才进游戏，不分批
-// 图片和背景音乐一起下。load 迟迟不来（有外网资源连不上之类）也最多等 3 秒就开始，不然国内玩家会一直停在 0%
+// 先下图片，图片下完再下背景音乐：音乐请求的优先级比图片高，一起下会先把连接占满，网慢时进度条前十几秒一直是 0%。
+// load 迟迟不来（有外网资源连不上之类）也最多等 3 秒就开始，不然国内玩家会一直停在 0%
 let loadStarted = false;
-const loadAll = () => { if (loadStarted) return; loadStarted = true; window.Assets.init(D); Music.preload(); };
+const loadAll = () => {
+  if (loadStarted) return; loadStarted = true;
+  window.Assets.init(D);
+  const wait = setInterval(() => { if (window.Assets.progress >= 1) { clearInterval(wait); Music.preload(); } }, 100);
+};
 // 谷歌字体（标题的毛笔字）只在 load 之后再要：写在 HTML 里 load 事件会等它，国内连不上谷歌就一直等。连不上就用系统字体
 const loadFonts = () => { const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@500;700;900&display=swap'; document.head.appendChild(l); };
 if (document.readyState === 'complete') { loadAll(); loadFonts(); } else { addEventListener('load', () => { loadAll(); loadFonts(); }); setTimeout(loadAll, 3000); }
