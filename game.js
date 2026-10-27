@@ -1009,7 +1009,8 @@ function onBossDeath(e) {
   if (g.twin) { twinDefeated(e); return; } // 魔吕布、魔貂蝉：两人一起倒下，只结算一次
   if (!g.passive) S.nextBossOk = S.t + D.stage.bossGap; // 华佗倒下不耽误后面的名将
   for (const o of S.enemies) if (o.pot && o.pot.boss === e) { o.dead = true; smoke(o.x, o.y - 16, 4, '60,90,60', 12, 14, 0.7); } // 药鼎跟着散掉
-  if (e.gid === 'daqiao') later(1.6, () => { spawnBoss('xiaoqiao', false, e.x, e.y); banner('小乔现身', '姐姐的仇，由妹妹来报'); }); // 击败大乔，小乔从原地现身
+  // 击败大乔，小乔从原地现身——只在这一局第一次见到小乔时。无尽征途里大乔是随机轮到的，再跟着出一个小乔，看起来就像刚打死的小乔复活了
+  if (e.gid === 'daqiao' && !S.seen.xiaoqiao) { S.lastBoss = 'xiaoqiao'; later(1.6, () => { if (!S.bossList.some(b => b.gid === 'xiaoqiao' && !b.dead)) { spawnBoss('xiaoqiao', false, e.x, e.y); banner('小乔现身', '姐姐的仇，由妹妹来报'); } }); } // lastBoss：下一位随机名将别又是小乔
   // 章末武将倒下：敌军溃散，几秒后进入下一章（最后一章之后进入无尽征途）
   if (e.final && !S.endless) {
     for (const m of S.enemies) if (!m.dead && !m.boss && !m.building) killEnemy(m);
