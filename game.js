@@ -1029,6 +1029,7 @@ function onBossDeath(e) {
   S.bossList = S.bossList.filter(b => b !== e);
   S.defeated.push(g.name);
   markSlain(e.gid);
+  achBoss(e); // TapTap 成就：首斩、虎牢扬名、快刀斩乱麻、宿敌、图鉴……
   if (D.voice[e.gid]) speak(e.gid, 'death', `“${D.voice[e.gid].death}”`);
   S.shake = 18; S.slowmo = 1.0;
   sfx('slam');
@@ -1052,6 +1053,8 @@ function onBossDeath(e) {
   if (e.final && !S.endless) {
     for (const m of S.enemies) if (!m.dead && !m.boss && !m.building) killEnemy(m);
     const next = D.chapters[S.ch + 1];
+    if (S.ch === 0) achGet('huangjin');
+    if (!next) achGet('chibi');
     banner(chap().clear, next ? `下一章 · ${next.name.split(' · ')[1]}` : '天下三分 · 征途无尽');
     addGold(D.meta.gold.chapterClear, S.player.x, S.player.y - 20); // 过章奖励
     S.chapterT = S.t + D.stage.chapterGap;
@@ -1087,6 +1090,7 @@ function nextChapter() {
 
 function onBuildingDestroyed(e) {
   const def = e.def, rw = def.reward, p = S.player;
+  achBuilding(e); // TapTap 成就：拔寨、扫荡、破关
   // 倒塌：木屑、烟尘、火星、地面裂纹
   for (let i = 0; i < 18; i++) particle(e.x + rand(-e.r, e.r), e.y - rand(0, e.r * 1.4), i % 2 ? '#6b4a2e' : '#8a6a48', 320);
   smoke(e.x, e.y - 20, 9, '40,34,26', 20, e.r * 0.7, 1.1);
@@ -1209,6 +1213,137 @@ function submitScore(final) {
 function showLbMsg() { const el = $('end-lb'); if (!el) return; el.hidden = !lb.msg; el.textContent = lb.msg; el.classList.toggle('bad', !lb.ok); }
 function openLeaderboard() { if (lbOK()) lbCall('openLeaderboard', {}); }
 
+// TapTap 成就（tap.createAchievementManager，基础库 1.5.0 起）。ID 和后台一一对应（成就清单.md），分步成就的总步数在 TT.achSteps。
+// 达成条件记在局外存档 meta.ach 里（跟着云存档走）：want 达成了的、done TapTap 确认解锁了的、sent 分步成就已经报了多少步、
+// cnt 累计的据点和斩敌、sb 拿到过的神兵。TapTap 没回成功的下次再发（解锁重复发没关系）；分步成就只报差额，换设备、清缓存也不会多加。
+// 网页版没有 tap：照样记达成，只是不发
+const ACH_STEPS = TT.achSteps || {};
+const ACH_EVERY = 1; // 每局的条件每秒查一次
+let achMgr = null;
+const achBusy = {}; // 正在等 TapTap 回音的：'unlock' 或这次报的步数
+const achOK = () => { const t = tapApi(); return !!(t && t.createAchievementManager); };
+function achMeta() {
+  const m = loadMeta();
+  const A = m.ach || (m.ach = {});
+  for (const k of ['want', 'done', 'sent', 'cnt']) A[k] = A[k] || {};
+  A.sb = A.sb || [];
+  return A;
+}
+const achDirty = () => { loadMeta()._dirty = true; saveMeta(); };
+function achInit() {
+  if (achMgr || !achOK()) return;
+  try {
+    achMgr = tapApi().createAchievementManager({ toastEnable: true }); // 解锁时 TapTap 自己弹提示
+    achMgr.registerListener({
+      onAchievementSuccess: (code, a) => {
+        const id = a && a.achievementId; if (!id) return;
+        const A = achMeta();
+        if (achBusy[id] === 'unlock' || !ACH_STEPS[id]) A.done[id] = true;
+        delete achBusy[id]; achDirty();
+      },
+      onAchievementFailure: (id, code, msg) => { // 后台还没建这条、没网……：分步的把这次的步数退回来，下次再报
+        const A = achMeta(), b = achBusy[id];
+        if (typeof b === 'number') A.sent[id] = Math.max(0, (A.sent[id] || 0) - b);
+        delete achBusy[id]; achDirty();
+      },
+    });
+  } catch (e) { achMgr = null; }
+  if (Object.values(loadSlain()).some(n => n >= 10)) achGet('rival'); // 老玩家以前就斩够了的
+  achFlush();
+}
+function openAchievements() { achInit(); try { if (achMgr) achMgr.showAchievements(); } catch (e) { /* 打不开就算了 */ } }
+// 达成一条普通成就
+function achGet(id) {
+  const A = achMeta();
+  if (A.want[id]) return;
+  A.want[id] = true; achDirty(); achFlush();
+}
+// 分步成就现在应该到第几步（都从局外记录里算，所以老玩家第一次进来会把以前的进度一次补上）
+function achTargets() {
+  const A = achMeta(), s = loadSlain(), ids = Object.keys(D.generals);
+  const distinct = ids.filter(g => s[g] > 0).length, total = ids.reduce((n, g) => n + (s[g] || 0), 0);
+  return { codex10: distinct, codexAll: distinct, boss100: total, sbAll: A.sb.length, camp100: A.cnt.camps || 0, kills100k: A.cnt.kills || 0 };
+}
+// 把还没报给 TapTap 的都报上去
+function achFlush() {
+  if (!achMgr) return;
+  const A = achMeta();
+  for (const id in A.want) if (!A.done[id] && !achBusy[id]) {
+    achBusy[id] = 'unlock';
+    try { achMgr.unlockAchievement({ achievementId: id }); } catch (e) { delete achBusy[id]; }
+  }
+  const T = achTargets();
+  for (const id in ACH_STEPS) {
+    const diff = Math.min(T[id] || 0, ACH_STEPS[id]) - (A.sent[id] || 0);
+    if (diff <= 0 || achBusy[id]) continue;
+    achBusy[id] = diff; A.sent[id] = (A.sent[id] || 0) + diff; achDirty();
+    try { achMgr.incrementAchievement({ achievementId: id, steps: diff }); } catch (e) { A.sent[id] -= diff; delete achBusy[id]; }
+  }
+}
+// 这一局的斩敌数记进累计（S.achKills：已经记过的部分，存进这一局的存档，继续征战时不会重复算）
+function achKillsIn() {
+  const n = S.kills - (S.achKills || 0);
+  if (n <= 0) return;
+  const A = achMeta(); A.cnt.kills = (A.cnt.kills || 0) + n; S.achKills = S.kills; achDirty();
+}
+// 每局的条件：每秒查一次
+function achTick(dt) {
+  S.achT = (S.achT || 0) - dt;
+  if (S.achT > 0) return;
+  S.achT = ACH_EVERY;
+  const p = S.player, has = gid => S.shenbing.some(s => s.gid === gid);
+  if (S.t >= 1200) achGet('survive20');
+  if (S.t >= 2400) achGet('survive40');
+  if (p.level >= 50) achGet('lv50');
+  if (p.level >= 80) achGet('lv80');
+  if (p.level >= 120) achGet('lv120');
+  if (S.defeated.length >= 10) achGet('streak10');
+  if (S.shenbing.length >= 5) achGet('sb5');
+  if (S.shenbing.some(s => s.lv >= 5)) achGet('sbMax');
+  if (has('lubu') && has('diaochan')) achGet('fengyiting');
+  if (has('zhangjiao') && has('zhangbao') && has('chengyuanzhi')) achGet('huangtian');
+  if (p.level >= 60 && D.meta.gear[S.origin.id].every(g => !gearLv(g.id))) achGet('noGear');
+  if (S.allies.filter(a => !a.until).length >= D.allyCap) achGet('allies8');
+  if (['fire', 'ice', 'thunder', 'wind'].every(k => S.elements[k] > 0)) achGet('fourEl');
+  if (S.elements.dark > 0) achGet('darkEl');
+  if (S.revivedAt !== undefined && S.t - S.revivedAt >= 600) achGet('revive10');
+  S.achKillT = (S.achKillT || 0) + ACH_EVERY;
+  if (S.achKillT >= 15) { S.achKillT = 0; achKillsIn(); achFlush(); } // 累计斩敌：15 秒记一次、报一次
+}
+// 斩将
+function achBoss(e) {
+  achGet('firstBoss');
+  if (e.gid === 'lubu') { achGet('beatLubu'); achGet({ farmer: 'farmerLubu', hunter: 'hunterLubu', scholar: 'scholarLubu' }[S.origin.id]); }
+  if (e.bornT !== undefined && S.t - e.bornT <= 20) achGet('quickKill');
+  if (Object.values(loadSlain()).some(n => n >= 10)) achGet('rival');
+  achFlush(); // 图鉴、累计斩将这几条分步的
+}
+// 攻破据点（6 种普通据点一局全打过一遍算扫荡）
+const ACH_SWEEP = ['camp', 'tower', 'granary', 'stable', 'forge', 'shrine'];
+function achBuilding(e) {
+  const A = achMeta(); A.cnt.camps = (A.cnt.camps || 0) + 1; achDirty();
+  if (e.bid === 'lianyu') achGet('gate');
+  S.achBuilt = S.achBuilt || [];
+  if (ACH_SWEEP.includes(e.bid) && !S.achBuilt.includes(e.bid)) S.achBuilt.push(e.bid);
+  if (ACH_SWEEP.every(b => S.achBuilt.includes(b))) achGet('sweep');
+  achFlush();
+}
+// 拿到神兵
+function achShenbing(gid) {
+  achGet('sbFirst');
+  const A = achMeta();
+  if (!A.sb.includes(gid)) { A.sb.push(gid); achDirty(); achFlush(); }
+}
+// 一局结束（战死或收兵）
+function achRunEnd() {
+  achGet('firstRun');
+  if (!S.retreat) {
+    if (S.t <= 10) achGet('earlyDeath');
+    if (S.bossList.some(b => !b.dead && (b.gid === 'lubu' || b.gid === 'molubu'))) achGet('byLubu'); // 吕布（魔吕布也算）还在场上时倒下
+  }
+  achKillsIn(); achFlush();
+}
+
 // 云存档：只在 TapTap 里有（tap.getCloudSaveManager）。进游戏时先下载云端那份和本机合并，之后有变化就上传（每分钟最多一次）。
 // 合并规则：局外进度取累计赚过金币更多的那份（一样多就取更新的，买装备不加累计金币）；最佳纪录取更好的；图鉴每位武将取次数更多的。
 const CS = TT.cloudSave, CLOUD_KEYS = ['buyi-meta', 'buyi-best', 'buyi-slain'];
@@ -1306,7 +1441,7 @@ function cloudLoad() {
 // 看广告复活：满血、短暂无敌，身边的敌人被震开，名将的锁链、冻结、迷惑全部解除
 function revive() {
   const p = S.player;
-  S.revived = true; S.over = false; S.modal = false;
+  S.revived = true; S.over = false; S.modal = false; S.revivedAt = S.t; // revivedAt：东山再起（复活后再坚持 10 分钟）
   $('end').hidden = true;
   p.hp = p.maxHp; p.iframes = TT.reviveIframes;
   S.hook = null; S.rootT = 0; S.frozenT = 0; S.pChillT = 0; S.charm = null; S.pSlowT = 0; S.pBurnT = 0;
@@ -1611,7 +1746,7 @@ function spawnBoss(gid, final, atX, atY) {
   const lb = lateBoost(), mul = Math.pow(1 + S.t / 240, D.stage.bossHpExp) * (S.endless ? lb : 1 + (lb - 1) * D.stage.bossLateMul);
   const hp = (S.endless ? Math.max(g.hp, D.stage.endlessBossHp) : g.hp) * mul * D.stage.bossHpMul;
   const e = {
-    id: nextId++, gid, def: g, x, y, r: g.r, hp, maxHp: hp, final: !!final,
+    id: nextId++, gid, def: g, x, y, r: g.r, hp, maxHp: hp, final: !!final, bornT: S.t,
     speed: g.speed, dmg: g.dmg * (S.endless ? (1 + S.t / 700) * Math.sqrt(lateBoost()) : 1 + S.t / 1000),
     kvx: 0, kvy: 0, flash: 0, slowT: 0, slowF: 1, boss: true,
     state: 'chase', atkT: 1.4, atkIdx: 0, stateT: 0, stateMax: 1, ang: 0, charges: 0, enraged: false, ultT: 4.5,
@@ -4005,6 +4140,7 @@ function twinTick(e, dt) {
 // 两人都倒下：血月方天戟直接到手（再打一次就升级），再三选一；过一会儿关隘再起
 function twinDefeated(e) {
   if (e.noReward) return;
+  achGet('twins'); // TapTap 成就：斩魔
   const G = D.buildings.lianyu;
   S.gateRound = (S.gateRound || 0) + 1; S.gateAgainAt = S.t + G.again;
   S.combo = null; S.tether = null; S.inferno = null;
@@ -5414,6 +5550,7 @@ function update(dt) {
   }
   if (S.rankUp) { banner(`晋升 · ${S.rankUp}`, `Lv ${p.level}`); S.rankUp = null; }
   S.saveT -= dt; if (S.saveT <= 0) { S.saveT = 15; saveRun(); } // 每 15 秒自动存档
+  achTick(dt); // TapTap 成就：每秒查一次这一局的条件
   // 选择栏默认不暂停游戏（设置里可以改成暂停）：有待选的升级 / 斩将奖励 / 铁匠铺时，在屏幕上方弹出
   if (!S.over && !S.choice && (S.rewardReady || S.forgeReady || S.pendingLevels > 0)) nextModal();
 }
@@ -5603,6 +5740,7 @@ function applyChoice(o) {
   } else if (o.kind === 'shenbing') { // 神兵入手：金光冲天
     const sb = S.shenbing.find(x => x.gid === o.id);
     if (sb) sb.lv++; else S.shenbing.push({ gid: o.id, lv: 1, t: 1.2, flash: 0 });
+    achShenbing(o.id); // TapTap 成就：神兵初现、神兵谱
     fxTex('pillar', 0, 0, { follow: p, oy: -120, w: 110, h: 360, rgb: '255,215,90', life: 1.0, sx: 0.5, core: 0.8 });
     fxTex('circle', 0, 0, { follow: p, oy: 8, w: 240, h: 240, rgb: '255,205,80', under: true, flat: 0.55, life: 1.4, spin: 2 });
     banner(`神兵 · ${D.shenbing[o.id].name}`, sb ? `升至 Lv ${sb.lv}` : '悬于身侧，随你征战');
@@ -5853,6 +5991,7 @@ function snapshot() {
     v: 1, saved: Date.now(), origin: S.origin.id, t: S.t, kills: S.kills,
     ch: S.ch, chStart: S.chStart, chapterT: S.chapterT, nextBossOk: S.nextBossOk, evIdx: S.evIdx,
     endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone, specialDone: S.specialDone, revived: !!S.revived, adGold: !!S.adGold, gateRound: S.gateRound || 0, gateAgainAt: S.gateAgainAt || 0,
+    achKills: S.achKills || 0, achBuilt: S.achBuilt || [], revivedAt: S.revivedAt,
     player: { level: p.level, xp: p.xp, hp: p.hp },
     weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
     passives: S.passives, elements: S.elements, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
@@ -5880,7 +6019,7 @@ function continueRun() {
   newState(r.origin);
   const p = S.player;
   for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
-    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'specialDone', 'revived', 'adGold', 'gateRound', 'gateAgainAt']) if (r[k] !== undefined) S[k] = r[k];
+    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'specialDone', 'revived', 'adGold', 'gateRound', 'gateAgainAt', 'achKills', 'achBuilt', 'revivedAt']) if (r[k] !== undefined) S[k] = r[k];
   S.weapons = r.weapons.map(w => ({ id: w.id, lv: w.lv, t: 0.3 }));
   S.skills = r.skills.map(s => ({ id: s.id, lv: s.lv, t: 1 }));
   S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0 }));
@@ -5926,6 +6065,7 @@ function refreshTitle() {
   $('btn-rank').hidden = !lbOK(); // TapTap 排行榜：只在 TapTap 里显示
   getRewardAd(); // 在标题页就创建激励视频并预加载（没有 tap 时什么也不做）
   cloudInit();   // 云存档：第一次到标题页时下载、合并（只做一次；没有 tap 时什么也不做）
+  $('btn-ach').hidden = !achOK(); achInit(); // TapTap 成就：只在 TapTap 里显示
   showBestOnTitle();
   $('title-gold').textContent = `金 ${loadMeta().gold}`;
   const r = loadRun();
@@ -6009,6 +6149,7 @@ function showEnd() {
   $('end-build').innerHTML = buildChips();
   lb.msg = lbOK() ? '排行榜提交中…' : ''; lb.ok = true; showLbMsg();
   submitScore(true); // TapTap 排行榜：提交这一局的等级
+  achRunEnd(); // TapTap 成就：初出茅庐、出师未捷、人中吕布，累计斩敌
   const btns = $('end-btns');
   btns.innerHTML = '';
   const mk = (text, primary, fn) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = text; b.addEventListener('click', fn); btns.appendChild(b); return b; };
@@ -6147,6 +6288,7 @@ window.Assets.onLoad(() => {
 
 $('btn-codex').addEventListener('click', openCodex);
 $('btn-rank').addEventListener('click', openLeaderboard); // TapTap 排行榜（只在 TapTap 里显示）
+$('btn-ach').addEventListener('click', openAchievements); // TapTap 成就（只在 TapTap 里显示）
 $('btn-shop').addEventListener('click', openShop);
 $('btn-shop-close').addEventListener('click', closeShop);
 $('btn-continue').addEventListener('click', continueRun);
