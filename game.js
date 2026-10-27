@@ -1095,48 +1095,62 @@ function onBuildingDestroyed(e) {
 // 只有在 TapTap 里打开时才有全局对象 tap；网页版、本地测试时没有，相关按钮全部不显示
 const TT = D.taptap;
 const tapApi = () => window.tap || null;
-// 激励视频：有时广告平台拉不到广告（库存不足、手机关了个性化广告等），这时 show / load 可能既不成功也不报错，
-// 只在 onError 里报一声。所以：出错或 adWait 秒还没播出来，就当这次没有广告，按钮恢复成“点击重试”。
-// 已经超时放弃了、广告却晚一步播出来并看完的，照样给奖励（adLate，回调自己判断还能不能领）
-let rewardAd = null, adDone = null, adOn = false, adShown = false, adTimer = 0, adLate = null;
-const adWait = 10;
+// 激励视频：有时广告平台拉不到广告（1004 没有合适的广告、1000 / 1003 平台临时出错……），这时 show / load 可能既不成功也不报错，
+// 只在 onError 里报一声。所以：出错或 adWait 秒还没播出来，就当这次没有广告，按钮恢复成“点击重试”，后面带上错误码（玩家截图就知道原因）。
+// 已经超时放弃了、广告却晚一步播出来的：按钮改回“广告播放中”，看完照样给奖励（adLate，回调自己判断还能不能领）。
+// 文档说组件创建后会自己拉广告，看完或关掉后也会自动拉下一条，所以只在 show 失败时才手动 load：多余的 load 会被当成高频请求限流，反而更容易“没有广告”
+let rewardAd = null, adDone = null, adOn = false, adShown = false, adTimer = 0, adLate = null, adErr = '', adShowing = false; // adShowing：上一次 show() 还没回音
+const adWait = 20, adLateFor = 180000, adPlayMax = 150, adBackWait = 3000;
+// 玩家反馈过按钮一直停在“广告加载中”：show() 说放出来了，之后既没有 onClose 也没有 onError。两道保险：
+// 切回前台 adBackWait 后还没回调，或者放了 adPlayMax 秒还没回调，就当这条广告丢了，按钮恢复可重试；之后真有 onClose 看完，adLate 照样补奖励
+function adBackCheck() { if (adOn && adShown) setTimeout(() => { if (adOn && adShown) adEnd(false, 'lost'); }, adBackWait); }
+function adErrStr(e) { if (!e || typeof e !== 'object') return e ? String(e).slice(0, 30) : ''; const c = e.errCode !== undefined ? e.errCode : e.code, m = e.errMsg || e.message || ''; return [c, String(m).slice(0, 24)].filter(x => x !== undefined && x !== '').join(' '); }
 function adOK() { const t = tapApi(); return !!(t && t.createRewardedVideoAd && TT.rewardedAdUnitId); }
 function getRewardAd() {
   if (rewardAd || !adOK()) return rewardAd;
-  rewardAd = tapApi().createRewardedVideoAd({ adUnitId: TT.rewardedAdUnitId }); // 单例：整局游戏只创建一次
-  rewardAd.onError(() => { if (adOn && !adShown) adEnd(false, 'noad'); }); // 拉不到广告：不再干等
-  rewardAd.load().catch(() => {}); // 先预加载一条，玩家点按钮时能直接播
-  rewardAd.onClose(res => { // 只有完整看完（isEnded）才给奖励
+  rewardAd = tapApi().createRewardedVideoAd({ adUnitId: TT.rewardedAdUnitId }); // 单例：整局游戏只创建一次，创建后它自己会拉广告
+  rewardAd.onError(e => { // 拉不到广告：不再干等；错误码记下来显示在按钮上。播到一半出错的按没看完处理，别让按钮一直卡在“播放中”
+    adErr = adErrStr(e);
+    if (adOn) adEnd(false, adShown ? 'closed' : 'noad');
+  });
+  rewardAd.onClose(res => { // 只有完整看完（isEnded）才给奖励；关掉后它自己会拉下一条
     const ended = !!(res && res.isEnded);
     if (adOn) adEnd(ended, ended ? 'ok' : 'closed');
-    else if (ended && adLate && performance.now() < adLate.until) { const cb = adLate.cb; adLate = null; rebuildAudioSoon(); cb(true, 'ok'); } // 超时之后才播出来的
-    preloadAd();
+    else if (adLate && performance.now() < adLate.until) { const cb = adLate.cb; adLate = null; rebuildAudioSoon(); cb(ended, ended ? 'ok' : 'closed', adErr); } // 超时之后才播出来的
   });
   return rewardAd;
 }
-function preloadAd() { if (rewardAd) rewardAd.load().catch(() => {}); } // 为下一次预加载
 // 广告结束的唯一出口（看完 / 没看完关掉 / 没有广告）：先安排重建音频，再把结果交给回调，回调里出错也不影响声音恢复
-// why：'ok' 看完、'closed' 没看完就关了、'noad' 这次拉不到广告（出错或超时）
+// why：'ok' 看完、'closed' 没看完就关了、'noad' 这次拉不到广告（出错或超时）、'lost' 说放出来了却一直没回音
 function adEnd(ok, why) {
   if (!adOn) return; // onClose、出错、超时可能都来，只处理一次
   adOn = false; clearTimeout(adTimer);
   rebuildAudioSoon();
   const cb = adDone; adDone = null;
-  if (why === 'noad') { adLate = { cb, until: performance.now() + 120000 }; preloadAd(); } else adLate = null;
-  if (cb) cb(ok, why);
+  adLate = ok ? null : { cb, until: performance.now() + adLateFor }; // 放弃之后广告才播出来并看完：照样给
+  if (cb) cb(ok, why, adErr);
 }
 // 播一条激励视频：看完 cb(true, 'ok')，没看完 cb(false, 'closed')，没有广告 cb(false, 'noad')。
 // 同时只放一条：上一条还没结束时再点不理会（结算页的两个广告按钮在此期间都是灰的）
 function watchAd(cb) {
   const ad = getRewardAd();
-  if (!ad) { cb(false, 'noad'); return; }
+  if (!ad) { cb(false, 'noad', ''); return; }
   if (adOn) return;
-  adDone = cb; adOn = true; adShown = false; adLate = null;
+  adDone = cb; adOn = true; adShown = false; adLate = null; adErr = '';
   if (actx && actx.state === 'running') actx.suspend().catch(() => {}); // 放广告时游戏静音
   clearTimeout(adTimer);
   adTimer = setTimeout(() => { if (adOn && !adShown) adEnd(false, 'noad'); }, adWait * 1000);
-  const shown = () => { adShown = true; clearTimeout(adTimer); };
-  ad.show().then(shown).catch(() => ad.load().then(() => ad.show()).then(shown).catch(() => adEnd(false, 'noad')));
+  // 上一次点的 show() 还没回音（安卓上广告加载慢，可能几十秒才播出来），这次只是重新等它，不再叫一次 show / load：
+  // 之前的版本超时后马上 load 下一条，把正在加载的那条冲掉了，安卓玩家就一直“暂时没有广告”
+  if (adShowing) return;
+  const shown = () => { // 放出来了：等 onClose；放了太久没回音就当丢了。超时放弃之后才播出来的：按钮改回“广告播放中”
+    adShown = true; clearTimeout(adTimer);
+    if (adOn) adTimer = setTimeout(() => { if (adOn) adEnd(false, 'lost'); }, adPlayMax * 1000);
+    else if (adLate) adLate.cb(false, 'late', '');
+  };
+  adShowing = true;
+  const fail = e => { adShowing = false; if (!adErr) adErr = adErrStr(e); adEnd(false, 'noad'); };
+  ad.show().then(() => { adShowing = false; shown(); }).catch(() => ad.load().then(() => ad.show()).then(() => { adShowing = false; shown(); }).catch(fail));
 }
 function lbOK() { const t = tapApi(); return !!(t && t.getLeaderboardManager && TT.leaderboardId); }
 const lbCall = (fn, args, cb) => { try { tapApi().getLeaderboardManager()[fn](Object.assign({ leaderboardId: TT.leaderboardId, callback: Object.assign({ onSuccess() {}, onFailure() {} }, cb) }, args)); } catch (e) { if (cb && cb.onFailure) cb.onFailure(e); } }; // 排行榜出错不影响游戏
@@ -5962,14 +5976,16 @@ function showEnd() {
   const mk = (text, primary, fn) => { const b = document.createElement('button'); b.className = 'btn' + (primary ? ' primary' : ''); b.textContent = text; b.addEventListener('click', fn); btns.appendChild(b); return b; };
   // 两个广告按钮同时只能放一条：一个在加载 / 播放时，另一个先变灰；结束后没领过的恢复。run：这一局（已经再来一局、回到标题的就不再发奖励）
   const run = S, adBtns = [], adBusy = on => { for (const b of adBtns) if (!b.done) b.disabled = on; };
-  const failText = why => why === 'noad' ? '暂时没有广告 · 点击重试' : '没看完广告 · 再试一次';
+  const failText = (why, err) => why === 'noad' ? `暂时没有广告 · 点击重试${err ? `（${err}）` : ''}` : why === 'lost' ? '广告没有播出来 · 点击重试' : '没看完广告 · 再试一次';
+  const late = (why, b) => { if (why !== 'late') return false; adBusy(true); b.textContent = '广告播放中…'; return true; }; // 超时放弃之后广告才播出来
   // TapTap 激励视频：看完广告原地复活（每局一次）
   const rv = adOK() && !S.revived && !S.retreat && mk('看广告复活', true, () => {
     adBusy(true); rv.textContent = '广告加载中…';
-    watchAd((ok, why) => {
-      if (S !== run || !S.over) return;
+    watchAd((ok, why, err) => {
+      if (S !== run || !S.over || rv.done) return;
       if (ok) { rv.done = true; revive(); return; }
-      adBusy(false); rv.textContent = failText(why);
+      if (late(why, rv)) return;
+      adBusy(false); rv.textContent = failText(why, err);
     });
   });
   const again = mk('再来一局', !rv, () => startGame(S.origin.id));
@@ -5978,10 +5994,11 @@ function showEnd() {
   const bonus = Math.max(1, Math.round(S.goldRun * TT.adGoldBonus));
   const gb = adOK() && S.goldRun > 0 && !S.adGold && mk(`看广告 金币 +${Math.round(TT.adGoldBonus * 100)}%（+${bonus}）`, false, () => {
     adBusy(true); gb.textContent = '广告加载中…';
-    watchAd((ok, why) => {
+    watchAd((ok, why, err) => {
       if (S !== run || run.adGold) return;
       if (ok) { gb.done = true; S.adGold = true; addGold(bonus); saveMeta(true); fill(); adBusy(false); gb.disabled = true; gb.textContent = `已领取 +${bonus} 金币`; return; }
-      adBusy(false); gb.textContent = `${failText(why)}（+${bonus}）`;
+      if (late(why, gb)) return;
+      adBusy(false); gb.textContent = `${failText(why, err)} · +${bonus}`;
     });
   });
   for (const b of [rv, gb]) if (b) adBtns.push(b);
@@ -6199,9 +6216,9 @@ for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, ch
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause();
   if (document.hidden) { saveRun(); saveMeta(true); cloudUpload(); Music.want(null); }
-  else rebuildAudioSoon(); // 切回前台：iOS 上旧的 AudioContext 可能已经没声音了
+  else { rebuildAudioSoon(); adBackCheck(); } // 切回前台：iOS 上旧的 AudioContext 可能已经没声音了；广告关了却没回调的，几秒后放开按钮
 });
-try { if (tapApi() && tapApi().onShow) tapApi().onShow(rebuildAudioSoon); } catch (e) { /* TapTap 容器里切回前台可能只发这个 */ }
+try { if (tapApi() && tapApi().onShow) tapApi().onShow(() => { rebuildAudioSoon(); adBackCheck(); }); } catch (e) { /* TapTap 容器里切回前台可能只发这个 */ }
 addEventListener('pagehide', () => { saveRun(); saveMeta(true); cloudUpload(); });
 
 // ============ 绘制 ============
