@@ -500,10 +500,12 @@ function near(x, y, r, fn) {
     }
   }
 }
+// 打不到的敌人：魂缚倒地的残魂、藏进疑冢的司马懿、绝境中的神赵云。不当目标，不然文气、火球这些追踪弹追过去碰不到，会绕着它一直转
+const untargetable = e => e.dead || e.downed || e.vanish || e.juejing;
 function nearest(x, y, maxR) {
   let best = null, bd = maxR * maxR;
   for (const e of S.enemies) {
-    if (e.dead) continue;
+    if (untargetable(e)) continue;
     const d = dist2(x, y, e.x, e.y);
     if (d < bd) { bd = d; best = e; }
   }
@@ -520,7 +522,7 @@ function pickTarget(x, y, maxR) {
   if (aimMode === 'boss') {
     let best = null, bk = Infinity;
     for (const e of S.enemies) {
-      if (e.dead || !(e.boss || e.ai)) continue;
+      if (untargetable(e) || !(e.boss || e.ai)) continue;
       const d = dist2(x, y, e.x, e.y);
       const k = d + (e.boss ? 0 : 1e9); // 名将比精英优先，同类里挑最近的
       if (d < r2 && k < bk) { bk = k; best = e; }
@@ -528,7 +530,7 @@ function pickTarget(x, y, maxR) {
     return best || nearest(x, y, maxR);
   }
   const pool = [];
-  for (const e of S.enemies) if (!e.dead && dist2(x, y, e.x, e.y) < r2) pool.push(e);
+  for (const e of S.enemies) if (!untargetable(e) && dist2(x, y, e.x, e.y) < r2) pool.push(e);
   return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
@@ -5303,7 +5305,7 @@ function updateProjectiles(dt) {
     b.life -= dt;
     if (b.life <= 0) { b.dead = true; continue; }
     if (b.homing) {
-      if (!b.target || b.target.dead) b.target = pickTarget(b.x, b.y, D.aim.orbSeek);
+      if (!b.target || untargetable(b.target)) b.target = pickTarget(b.x, b.y, D.aim.orbSeek); // 目标倒地、藏起来了：换一个追
       if (b.target) b.a += clamp(angDiff(b.a, angleTo(b.x, b.y, b.target.x, b.target.y)), -6 * dt, 6 * dt);
       b.vx = Math.cos(b.a) * b.speed; b.vy = Math.sin(b.a) * b.speed;
     }
