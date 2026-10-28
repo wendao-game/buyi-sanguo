@@ -21,7 +21,7 @@ window.GAME_DATA = {
     // TapTap 限制每分钟最多上传一次，所以有变化后至少隔 every 秒才传；name 是云端存档名（不能有空格和中文）
     cloudSave: { name: 'buyi_save', every: 65 },
     // TapTap 成就（ID 和后台一一对应，见 assets/achievements/成就清单.md；发布后 ID 不能改）。这里只列分步成就和它们的总步数，其余都是达成即解锁
-    achSteps: { codex10: 10, codexAll: 26, boss100: 100, sbAll: 25, camp100: 100, kills100k: 100000 } },
+    achSteps: { codex10: 10, codexAll: 28, boss100: 100, sbAll: 27, camp100: 100, kills100k: 100000 } },
 
   // 无限成长：武器 / 技能满 5 级后的“突破”规则
   breakthrough: {
