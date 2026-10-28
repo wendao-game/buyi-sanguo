@@ -40,6 +40,15 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => spri
 // 同时响很多声也不会爆音。音阶用五声音阶（宫商角徵羽），听起来更像古风。
 let actx = null, noiseBuf = null, muted = false, bus = null, voices = 0;
 const sfxLast = {};
+// 声音排查（TapTap 里声音卡、网页版不卡时用）：暂停界面连点「暂停」标题 5 次打开面板。记下 TapTap 接口、重建音频、解码、卡帧发生的时刻，
+// 还能单独关掉成就上报、排行榜、云存档、广告、合成音效，或者把背景音乐换成 <audio> 标签播放，看关掉哪个声音就不卡了。开关记在本机
+const DBG = { on: false, ach: true, lb: true, cloud: true, ad: true, sfx: true, el: false, log: [], cnt: {}, clock: 1 };
+try { const o = JSON.parse(localStorage.getItem('buyi-dbg') || '{}'); for (const k of ['on', 'ach', 'lb', 'cloud', 'ad', 'sfx', 'el']) if (typeof o[k] === 'boolean') DBG[k] = o[k]; } catch (e) { /* 存储不可用时忽略 */ }
+function dbg(key, detail) {
+  DBG.cnt[key] = (DBG.cnt[key] || 0) + 1;
+  DBG.log.push(`${(performance.now() / 1000).toFixed(1)}s ${key}${detail !== undefined ? ' ' + detail : ''}`);
+  if (DBG.log.length > 12) DBG.log.shift();
+}
 const MAX_VOICES = 16; // 同时发声上限，大混战时不至于一片嘈杂
 try { muted = localStorage.getItem('buyi-muted') === '1'; } catch (e) { /* 存储不可用时忽略 */ }
 function audio() {
@@ -94,7 +103,7 @@ function noise(dur, vol, o = {}) {
 }
 const PENTA = [262, 294, 330, 392, 440, 523, 587, 659, 784, 880]; // 五声音阶
 function sfx(name) {
-  if (!actx || muted) return;
+  if (!actx || muted || !DBG.sfx) return;
   const now = performance.now();
   const gap = { pick: 45, swing: 90, hurt: 150, slam: 110, boss: 400, ult: 400 }[name] || 0;
   if (gap && now - (sfxLast[name] || 0) < gap) return;
@@ -282,7 +291,10 @@ const Music = (() => {
     });
   }
   // 其余几首：进了标题、第二批图也下完后在后台下，打到后面几章时已经在手里
-  function preloadRest() { if (musicOn) for (const id of Object.keys(AUDIO.bgm)) fetchBytes(id).catch(() => {}); }
+  function preloadRest() {
+    if (musicOn) for (const id of Object.keys(AUDIO.bgm)) fetchBytes(id).catch(() => {});
+    prefetchVoices();
+  }
   function preloadProgress() {
     if (pre.settled) return 1;
     if (!pre.ids) return 0;
@@ -292,15 +304,35 @@ const Music = (() => {
   }
   function load(id) {
     if (decoded.has(id)) { const p = decoded.get(id); decoded.delete(id); decoded.set(id, p); return p; }
-    const p = fetchBytes(id).then(b => new Promise((ok, no) => actx.decodeAudioData(b.slice(0), ok, no)));
+    const p = fetchBytes(id).then(b => { const t0 = performance.now(); return new Promise((ok, no) => actx.decodeAudioData(b.slice(0), ok, no)).then(buf => { dbg('解码', `${id} ${Math.round(performance.now() - t0)}ms`); return buf; }); });
     decoded.set(id, p);
     while (decoded.size > 2) decoded.delete(decoded.keys().next().value);
     p.catch(() => decoded.delete(id));
     return p;
   }
   let src = null, srcGain = null, token = 0;
+  // play：正在放的这首（id、开始放的时刻 t0、从第几秒放起、循环段）；resume：被打断时放到了第几秒，回来接着放
+  let play = null, resume = null;
+  function posOf(a) {
+    if (!play || !a) return 0;
+    let p = play.from + (a.currentTime - play.t0);
+    if (p >= play.le) p = play.ls + ((p - play.ls) % (play.le - play.ls));
+    return p;
+  }
+  // 排查用：背景音乐改用 <audio> 标签放（不走 Web Audio 解码，直接用下好的文件）
+  let el = null, elOn = false; const elUrl = {};
+  function startEl(id, my) {
+    fetchBytes(id).then(b => {
+      if (my !== token || cur !== id || !live) return;
+      if (!elUrl[id]) elUrl[id] = URL.createObjectURL(new Blob([b], { type: 'audio/mpeg' }));
+      if (!el) { el = new Audio(); el.loop = true; }
+      el.src = elUrl[id]; el.volume = VOL_FILE; elOn = true;
+      el.play().then(() => dbg('audio标签', id)).catch(e => dbg('audio标签播放失败', e && e.name));
+    }).catch(() => {});
+  }
   function startFile(id) {
     const my = ++token;
+    if (DBG.el) { startEl(id, my); return; }
     load(id).then(buf => {
       if (my !== token || cur !== id || !live) return; // 解码期间已经换了曲子
       const a = actx, s = a.createBufferSource(), g = a.createGain();
@@ -308,13 +340,17 @@ const Music = (() => {
       const frames = AUDIO.loop[id];
       const from = (AUDIO.loopFrom[id] || 0) / 44100;
       if (frames && from + frames / 44100 <= buf.duration + 0.01) { s.loopStart = from; s.loopEnd = Math.min(buf.duration, from + frames / 44100); }
-      g.gain.setValueAtTime(0.0001, a.currentTime); g.gain.linearRampToValueAtTime(VOL_FILE * (performance.now() < duckUntil ? 0.35 : 1), a.currentTime + 1.5);
-      s.connect(g).connect(a.destination); s.start(0, from);
+      const back = resume && resume.id === id && performance.now() - resume.at < 600000, at = back ? resume.pos : from; resume = null; // 切后台、重建音频回来：接着刚才的地方放
+      g.gain.setValueAtTime(0.0001, a.currentTime); g.gain.linearRampToValueAtTime(VOL_FILE * (performance.now() < duckUntil ? 0.35 : 1), a.currentTime + (back ? 0.4 : id === 'boss' ? 0.5 : 1.5)); // 名将登场：战曲半秒就起来
+      s.connect(g).connect(a.destination); s.start(0, at);
       src = s; srcGain = g;
+      play = { id, t0: a.currentTime, from: at, ls: s.loopEnd ? s.loopStart : 0, le: s.loopEnd || buf.duration };
+      if (id !== 'boss' && AUDIO.bgm.boss && !decoded.has('boss')) setTimeout(() => { if (cur === id && actx) load('boss').catch(() => {}); }, 4000); // 趁现在闲，先把名将战曲解码好
     }).catch(() => { if (my === token && cur === id && D.bgm[id]) startSynth(id, D.bgm[id]); }); // 文件坏了就退回合成音乐
   }
   function stop() {
-    live = false; token++;
+    live = false; token++; play = null;
+    if (elOn) { elOn = false; if (el) el.pause(); }
     if (timer) { clearInterval(timer); timer = null; }
     if (gain) { const g = gain; gain = null; g.gain.cancelScheduledValues(actx.currentTime); g.gain.setValueAtTime(g.gain.value, actx.currentTime); g.gain.linearRampToValueAtTime(0.0001, actx.currentTime + 1.2); setTimeout(() => g.disconnect(), 1500); }
     if (src) { const s = src, g = srcGain; src = srcGain = null; const t = actx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + 1.2); s.stop(t + 1.3); }
@@ -330,21 +366,26 @@ const Music = (() => {
     preload, preloadRest, get preloadStarted() { return pre.started; }, get preloadProgress() { return preloadProgress(); },
     want(id) { if (id === cur && (live || !actx || muted || !musicOn)) return; cur = id; start(id); },
     refresh() { start(cur); },
-    // 换了新的 AudioContext：旧的节点和解码好的音乐都作废（不去碰已经关掉的旧 context），下一帧 want() 会在新的上面接着放当前这首
-    reset() {
-      live = false; token++;
+    // 换了新的 AudioContext：旧的节点作废（不去碰已经关掉的旧 context），下一帧 want() 会在新的上面接着放当前这首，从刚才放到的地方接着放。
+    // 解码好的音乐留着：AudioBuffer 不属于哪个 context，新的照样能放，不用再解码一遍（以前每次切回前台都要重新解码，手机上没声好几秒）
+    reset(old) {
+      if (src && play && old) resume = { id: play.id, pos: posOf(old), at: performance.now() };
+      live = false; token++; play = null;
       if (timer) { clearInterval(timer); timer = null; }
       gain = src = srcGain = null;
-      decoded.clear();
     },
     // 名将说话时把音乐压低
     duck(sec) {
       duckUntil = performance.now() + sec * 1000;
       if (gain) { const t = actx.currentTime; gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(gain.gain.value, t); gain.gain.linearRampToValueAtTime(VOL_SYNTH * 0.35, t + 0.15); gain.gain.setValueAtTime(VOL_SYNTH * 0.35, t + sec); gain.gain.linearRampToValueAtTime(VOL_SYNTH, t + sec + 0.6); }
+      if (elOn && el) { el.volume = VOL_FILE * 0.35; clearTimeout(this.elDuck); this.elDuck = setTimeout(() => { if (el) el.volume = VOL_FILE; }, sec * 1000); }
       if (srcGain) { const g = srcGain, t = actx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(VOL_FILE * 0.35, t + 0.15); g.gain.setValueAtTime(VOL_FILE * 0.35, t + sec); g.gain.linearRampToValueAtTime(VOL_FILE, t + sec + 0.6); }
     },
+    // 切到后台：停下来，记住放到哪了，回来接着放
+    pause() { if (src && play && actx) resume = { id: play.id, pos: posOf(actx), at: performance.now() }; cur = null; stop(); },
     get current() { return cur; },
-    get playing() { return src ? 'file' : timer ? 'synth' : null; },
+    get playing() { return elOn ? 'audio' : src ? 'file' : timer ? 'synth' : null; },
+    get position() { return play && actx ? +posOf(actx).toFixed(2) : null; },
   };
 })();
 // 正在和你交手的名将：不出手的名将（华佗）不算，他在场时照样放音乐、刷精英、让后面的名将登场
@@ -358,11 +399,83 @@ function musicTrack() {
   return (D.chapters[S.ch] || {}).id || 'endless';
 }
 
+// 排查面板：每秒量一次音频时钟走了多少（声音卡的时候时钟会跟不上真实时间），每 0.25 秒刷新面板
+let dbgBox = null, clockW = null;
+function dbgTick(now) {
+  if (actx && actx.state === 'running') {
+    if (!clockW || clockW.a !== actx) clockW = { a: actx, t: now, ct: actx.currentTime };
+    else if (now - clockW.t > 1000) { const r = (actx.currentTime - clockW.ct) / ((now - clockW.t) / 1000); DBG.clock = r; if (r < 0.9 || r > 1.1) dbg('音频时钟', Math.round(r * 100) + '%'); clockW = { a: actx, t: now, ct: actx.currentTime }; }
+  }
+  if (!dbgBox || now - (dbgTick.t || 0) < 250) return;
+  dbgTick.t = now;
+  const c = DBG.cnt, m = performance.memory, n = k => c[k] || 0;
+  dbgBox.firstChild.textContent = [
+    `声音 ${actx ? actx.state + ' ' + actx.sampleRate + 'Hz' : '还没建'} · 时钟 ${Math.round(DBG.clock * 100)}% · ${IOS ? 'iOS' : '非iOS'}`,
+    `音乐 ${Music.current || '-'} / ${Music.playing || '没在放'}${Music.position !== null ? ' ' + Music.position + 's' : ''}`,
+    `重建 ${n('重建音频')} · onShow ${n('onShow')} · onHide ${n('onHide')} · 隐藏 ${n('页面隐藏')} · 卡帧 ${n('卡帧')}`,
+    `解码 ${n('解码')} · 成就 ${n('成就进度') + n('成就解锁')} · 排行 ${n('排行榜上报')} · 云存 ${n('云存档上传')} · 广告 ${n('创建广告')}`,
+    m ? `内存 ${Math.round(m.usedJSHeapSize / 1048576)} / ${Math.round(m.jsHeapSizeLimit / 1048576)} MB` : '内存 -',
+    '—— 最近 ——', ...DBG.log.slice().reverse(),
+  ].join('\n');
+}
+function dbgSave() { try { localStorage.setItem('buyi-dbg', JSON.stringify({ on: DBG.on, ach: DBG.ach, lb: DBG.lb, cloud: DBG.cloud, ad: DBG.ad, sfx: DBG.sfx, el: DBG.el })); } catch (e) { /* 存储不可用时忽略 */ } }
+function dbgPanel() {
+  if (dbgBox) { dbgBox.remove(); dbgBox = null; }
+  if (!DBG.on) return;
+  dbgBox = document.createElement('div');
+  dbgBox.style.cssText = 'position:fixed;left:6px;bottom:80px;z-index:999;width:260px;max-height:55vh;overflow:auto;background:rgba(0,0,0,.78);color:#e8f0e0;font:11px/1.35 monospace;padding:6px;border:1px solid #6b5a3a;border-radius:4px;pointer-events:auto';
+  const txt = document.createElement('pre'); txt.style.cssText = 'margin:0 0 6px;white-space:pre-wrap'; dbgBox.appendChild(txt);
+  const row = document.createElement('div'); row.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px'; dbgBox.appendChild(row);
+  const sw = (k, on, off, after) => {
+    const b = document.createElement('button'); b.style.cssText = 'font:11px sans-serif;padding:3px 5px;background:#3a2e22;color:#ebe0c5;border:1px solid #6b5a3a';
+    const label = () => { b.textContent = DBG[k] ? on : off; };
+    b.onclick = e => { e.stopPropagation(); DBG[k] = !DBG[k]; label(); dbgSave(); dbg('开关', b.textContent); if (after) after(); };
+    label(); row.appendChild(b);
+  };
+  sw('ach', '成就上报：开', '成就上报：关');
+  sw('lb', '排行榜：开', '排行榜：关');
+  sw('cloud', '云存档：开', '云存档：关');
+  sw('ad', '广告：开', '广告：关（重开游戏生效）');
+  sw('sfx', '合成音效：开', '合成音效：关');
+  sw('el', '音乐：audio标签', '音乐：WebAudio', () => Music.refresh());
+  const close = document.createElement('button'); close.textContent = '关面板'; close.style.cssText = 'font:11px sans-serif;padding:3px 5px;background:#5a1e18;color:#ebe0c5;border:1px solid #6b5a3a';
+  close.onclick = e => { e.stopPropagation(); DBG.on = false; dbgSave(); dbgPanel(); }; row.appendChild(close);
+  ['pointerdown', 'touchstart'].forEach(t => dbgBox.addEventListener(t, ev => ev.stopPropagation()));
+  document.body.appendChild(dbgBox);
+}
+
 // 名将语音：同时只说一句，重要的（阵亡 > 大招 > 登场 > 暴怒）可以打断不重要的；有字幕，有配音就播放
 const VOICE_PRI = { death: 4, ult: 3, enter: 2, rage: 1 };
 let vClip = null, vPri = 0, vUntil = 0;
-const voiceBufs = new Map(); // 解码好的配音文件（每位名将一个，很小）
-const voiceBuf = src => { if (!voiceBufs.has(src)) { const p = fetch(src).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => actx.decodeAudioData(b, ok, no))); p.catch(() => voiceBufs.delete(src)); voiceBufs.set(src, p); } return voiceBufs.get(src); };
+// 配音文件：原始字节在后台预先下好（全部约 5.5 MB）；解码好的只留最近用过的 8 个（以前一直不放，后期全员出过场光配音就占一百多 MB）
+const voiceBytes = new Map(), voiceBufs = new Map();
+function voiceFetch(src) {
+  if (!voiceBytes.has(src)) { const p = fetch(src).then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }); p.catch(() => voiceBytes.delete(src)); voiceBytes.set(src, p); }
+  return voiceBytes.get(src);
+}
+// 一个一个下（不和游戏抢网速），按清单顺序，大致就是登场顺序
+function prefetchVoices() {
+  if (!voiceOn) return;
+  const srcs = [...new Set(Object.values(AUDIO.voice).map(c => c.src))];
+  const next = () => { const s = srcs.shift(); if (s) voiceFetch(s).catch(() => {}).then(next); };
+  next();
+}
+// 解码出来是双声道、和设备一样的采样率（多半 48k）；配音录的是 24k，压成单声道、一半采样率听不出差别，内存只要四分之一
+function compactVoice(buf) {
+  if (buf.sampleRate < 32000) return buf;
+  const n = Math.floor(buf.length / 2), out = actx.createBuffer(1, n, buf.sampleRate / 2), o = out.getChannelData(0), chs = [];
+  for (let c = 0; c < buf.numberOfChannels; c++) chs.push(buf.getChannelData(c));
+  const k = 0.5 / chs.length;
+  for (let i = 0; i < n; i++) { let s = 0; for (const d of chs) s += d[2 * i] + d[2 * i + 1]; o[i] = s * k; }
+  return out;
+}
+const voiceBuf = src => {
+  if (voiceBufs.has(src)) { const p = voiceBufs.get(src); voiceBufs.delete(src); voiceBufs.set(src, p); return p; } // 最近用过的排到最后
+  const p = voiceFetch(src).then(b => new Promise((ok, no) => actx.decodeAudioData(b.slice(0), ok, no))).then(compactVoice); // 字节留着，下次被挤掉了还能再解码
+  p.catch(() => voiceBufs.delete(src)); voiceBufs.set(src, p);
+  while (voiceBufs.size > 8) voiceBufs.delete(voiceBufs.keys().next().value);
+  return p;
+};
 function stopVoice() { if (vClip) { try { vClip.stop(); } catch (e) { /* 已经停了 */ } vClip = null; } }
 function speak(gid, key, text, subtitle = true) {
   const g = D.generals[gid];
@@ -404,10 +517,10 @@ let audioCheck = false, rebuildTimer = 0;
 function rebuildAudio() {
   const old = actx;
   if (!old) return; // 还没出过声：第一次触摸时 audio() 会新建
+  dbg('重建音频', old.state);
   stopVoice();
-  actx = bus = noiseBuf = speak.out = null;
-  voiceBufs.clear();
-  Music.reset();
+  actx = bus = noiseBuf = speak.out = null; // 解码好的配音和音乐都留着，新的 context 照样能放
+  Music.reset(old);
   try { old.close().catch(() => {}); } catch (e) { /* 已经关了 */ }
   audio();
   audioCheck = true;
@@ -500,10 +613,12 @@ function near(x, y, r, fn) {
     }
   }
 }
+// 打不到的敌人：魂缚倒地的残魂、藏进疑冢的司马懿、绝境中的神赵云。不当目标，不然文气、火球这些追踪弹追过去碰不到，会绕着它一直转
+const untargetable = e => e.dead || e.downed || e.vanish || e.juejing;
 function nearest(x, y, maxR) {
   let best = null, bd = maxR * maxR;
   for (const e of S.enemies) {
-    if (e.dead) continue;
+    if (untargetable(e)) continue;
     const d = dist2(x, y, e.x, e.y);
     if (d < bd) { bd = d; best = e; }
   }
@@ -520,7 +635,7 @@ function pickTarget(x, y, maxR) {
   if (aimMode === 'boss') {
     let best = null, bk = Infinity;
     for (const e of S.enemies) {
-      if (e.dead || !(e.boss || e.ai)) continue;
+      if (untargetable(e) || !(e.boss || e.ai)) continue;
       const d = dist2(x, y, e.x, e.y);
       const k = d + (e.boss ? 0 : 1e9); // 名将比精英优先，同类里挑最近的
       if (d < r2 && k < bk) { bk = k; best = e; }
@@ -528,7 +643,7 @@ function pickTarget(x, y, maxR) {
     return best || nearest(x, y, maxR);
   }
   const pool = [];
-  for (const e of S.enemies) if (!e.dead && dist2(x, y, e.x, e.y) < r2) pool.push(e);
+  for (const e of S.enemies) if (!untargetable(e) && dist2(x, y, e.x, e.y) < r2) pool.push(e);
   return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
 }
 
@@ -1111,6 +1226,7 @@ function nextChapter() {
 
 function onBuildingDestroyed(e) {
   const def = e.def, rw = def.reward, p = S.player;
+  dbg('打掉建筑', e.bid);
   achBuilding(e); // TapTap 成就：拔寨、扫荡、破关
   // 倒塌：木屑、烟尘、火星、地面裂纹
   for (let i = 0; i < 18; i++) particle(e.x + rand(-e.r, e.r), e.y - rand(0, e.r * 1.4), i % 2 ? '#6b4a2e' : '#8a6a48', 320);
@@ -1175,8 +1291,9 @@ function adBackCheck() { if (adOn && adShown) setTimeout(() => { if (adOn && adS
 function adErrStr(e) { if (!e || typeof e !== 'object') return e ? String(e).slice(0, 30) : ''; const c = e.errCode !== undefined ? e.errCode : e.code, m = e.errMsg || e.message || ''; return [c, String(m).slice(0, 24)].filter(x => x !== undefined && x !== '').join(' '); }
 function adOK() { const t = tapApi(); return !!(t && t.createRewardedVideoAd && TT.rewardedAdUnitId); }
 function getRewardAd() {
-  if (rewardAd || !adOK()) return rewardAd;
+  if (rewardAd || !adOK() || !DBG.ad) return rewardAd;
   rewardAd = tapApi().createRewardedVideoAd({ adUnitId: TT.rewardedAdUnitId }); // 单例：整局游戏只创建一次，创建后它自己会拉广告
+  dbg('创建广告'); try { if (rewardAd.onLoad) rewardAd.onLoad(() => dbg('广告加载完')); } catch (e) { /* 没有 onLoad 就算了 */ }
   rewardAd.onError(e => { // 拉不到广告：不再干等；错误码记下来显示在按钮上。播到一半出错的按没看完处理，别让按钮一直卡在“播放中”
     adErr = adErrStr(e);
     if (adOn) adEnd(false, adShown ? 'closed' : 'noad');
@@ -1228,10 +1345,11 @@ const lb = { at: -1e9, lv: 0, msg: '', ok: false };
 // TapTap 的失败回调是 onFailure(code, message) 两个参数（文档里的写法）；万一传的是错误对象也能读出来
 function lbErr(e, m) { if (e === undefined || e === null || e === '') return m ? String(m) : '未知错误'; if (typeof e !== 'object') return m ? `${e} ${m}` : String(e); const pick = ks => { for (const k of ks) if (e[k] !== undefined && e[k] !== null && e[k] !== '') return e[k]; }; const code = pick(['errorCode', 'code', 'errCode', 'status']), msg = pick(['errorMsg', 'errMsg', 'message', 'msg']); return [code, msg].filter(x => x !== undefined).join(' ') || JSON.stringify(e).slice(0, 80); }
 function submitScore(final) {
-  if (!lbOK() || !S) return;
+  if (!lbOK() || !S || !DBG.lb || (!final && inBattle())) return; // 打的过程中不提交，暂停时再提交（见 togglePause）
   const lv = S.player.level;
   if (!final && (lv <= lb.lv || performance.now() - lb.at < 30000)) return;
   lb.at = performance.now(); lb.lv = lv;
+  dbg('排行榜上报', lv);
   lbCall('submitScores', { scores: [{ leaderboardId: TT.leaderboardId, score: lv }] }, {
     onSuccess() { lb.ok = true; lb.msg = `排行榜已记录 Lv ${lv}`; if (final) showLbMsg(); },
     onFailure(e, m) { lb.ok = false; lb.lv = 0; lb.msg = `排行榜提交失败：${lbErr(e, m)}`; if (final) showLbMsg(); },
@@ -1258,7 +1376,7 @@ function achMeta() {
 }
 const achDirty = () => { loadMeta()._dirty = true; saveMeta(); };
 function achInit() {
-  if (achMgr || !achOK()) return;
+  if (achMgr || !achOK() || !DBG.ach) return;
   try {
     achMgr = tapApi().createAchievementManager({ toastEnable: true }); // 解锁时 TapTap 自己弹提示
     achMgr.registerListener({
@@ -1292,19 +1410,22 @@ function achTargets() {
   return { codex10: distinct, codexAll: distinct, boss100: total, sbAll: A.sb.length, camp100: A.cnt.camps || 0, kills100k: A.cnt.kills || 0 };
 }
 // 把还没报给 TapTap 的都报上去
+// 正在打（没暂停、没结束、不在标题）：这时不调 TapTap 的成就、排行榜、云存档接口——在 TapTap 里每调一次声音就卡一下
+// （打掉据点报「拔寨」进度、每 15 秒报斩敌进度、斩将报图鉴……，网页版没有这些接口所以不卡）。达成的照样马上记进存档，暂停、结算、回标题、切后台时再一起报
+const inBattle = () => !!S && !S.over && !S.paused && $('title').hidden;
 function achFlush() {
-  if (!achMgr) return;
+  if (!achMgr || !DBG.ach || inBattle()) return;
   const A = achMeta();
   for (const id in A.want) if (!A.done[id] && !achBusy[id]) {
     achBusy[id] = 'unlock';
-    try { achMgr.unlockAchievement({ achievementId: id }); } catch (e) { delete achBusy[id]; }
+    try { dbg('成就解锁', id); achMgr.unlockAchievement({ achievementId: id }); } catch (e) { delete achBusy[id]; }
   }
   const T = achTargets();
   for (const id in ACH_STEPS) {
     const diff = Math.min(T[id] || 0, ACH_STEPS[id]) - (A.sent[id] || 0);
     if (diff <= 0 || achBusy[id]) continue;
     achBusy[id] = diff; A.sent[id] = (A.sent[id] || 0) + diff; achDirty();
-    try { achMgr.incrementAchievement({ achievementId: id, steps: diff }); } catch (e) { A.sent[id] -= diff; delete achBusy[id]; }
+    try { dbg('成就进度', `${id}+${diff}`); achMgr.incrementAchievement({ achievementId: id, steps: diff }); } catch (e) { A.sent[id] -= diff; delete achBusy[id]; }
   }
 }
 // 这一局的斩敌数记进累计（S.achKills：已经记过的部分，存进这一局的存档，继续征战时不会重复算）
@@ -1397,7 +1518,8 @@ function mergeSaves(loc, cl) {
 // 有变化：标记一下，由定时器按频率限制上传
 function cloudDirty() { if (cloud.ready) cloud.dirty = true; }
 function cloudUpload() {
-  if (!cloud.ready || cloud.busy || !cloud.dirty || performance.now() - cloud.lastUp < CS.every * 1000) return;
+  if (!DBG.cloud || inBattle() || !cloud.ready || cloud.busy || !cloud.dirty || performance.now() - cloud.lastUp < CS.every * 1000) return;
+  dbg('云存档上传');
   const t = tapApi(), cm = t.getCloudSaveManager(), fs = t.getFileSystemManager(), save = cloudLocal(), m = save['buyi-meta'] || {}, b = save['buyi-best'];
   cloud.busy = true; cloud.dirty = false; cloud.lastUp = performance.now();
   const fail = () => { cloud.busy = false; cloud.dirty = true; }; // 失败了下一轮再传
@@ -5303,7 +5425,7 @@ function updateProjectiles(dt) {
     b.life -= dt;
     if (b.life <= 0) { b.dead = true; continue; }
     if (b.homing) {
-      if (!b.target || b.target.dead) b.target = pickTarget(b.x, b.y, D.aim.orbSeek);
+      if (!b.target || untargetable(b.target)) b.target = pickTarget(b.x, b.y, D.aim.orbSeek); // 目标倒地、藏起来了：换一个追
       if (b.target) b.a += clamp(angDiff(b.a, angleTo(b.x, b.y, b.target.x, b.target.y)), -6 * dt, 6 * dt);
       b.vx = Math.cos(b.a) * b.speed; b.vy = Math.sin(b.a) * b.speed;
     }
@@ -6645,6 +6767,7 @@ function togglePause() {
   if (S.modal) return;
   S.paused = true;
   saveRun();
+  achFlush(); submitScore(false); // 打的过程中攒下的成就、排行榜成绩，趁暂停一起报（切到后台也会自动暂停）
   $('pause-build').innerHTML = buildChips(); pauseView();
   $('pause').hidden = false;
   $('btn-resume').focus();
@@ -6844,6 +6967,8 @@ const audioLabels = () => {
   $('btn-pickpause').textContent = `选卡暂停：${pickPause ? '开' : '关'}`; $('btn-shake').textContent = `镜头震动：${shakeOn ? '开' : '关'}`;
 };
 $('btn-stats').addEventListener('click', () => { statsView = !statsView; pauseView(); });
+{ let n = 0, t = 0; $('pause').querySelector('h2').addEventListener('click', () => { const now = performance.now(); n = now - t < 700 ? n + 1 : 1; t = now; if (n >= 5) { n = 0; DBG.on = !DBG.on; dbgSave(); dbgPanel(); } }); } // 声音排查面板
+dbgPanel();
 $('btn-pickpause').addEventListener('click', () => { pickPause = !pickPause; try { localStorage.setItem('buyi-pickpause', pickPause ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
 $('btn-shake').addEventListener('click', () => { shakeOn = !shakeOn; try { localStorage.setItem('buyi-shake', shakeOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
 // 特效：自动 → 完整 → 精简 → 自动；切回自动时重新看帧率
@@ -6873,10 +6998,29 @@ audioLabels();
 for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, checkAudio, { capture: true, passive: true });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause();
-  if (document.hidden) { saveRun(); saveMeta(true); cloudUpload(); Music.want(null); }
-  else { rebuildAudioSoon(); adBackCheck(); } // 切回前台：iOS 上旧的 AudioContext 可能已经没声音了；广告关了却没回调的，几秒后放开按钮
+  if (document.hidden) { saveRun(); saveMeta(true); cloudUpload(); Music.pause(); }
+  else backToFront(); // 切回前台：iOS 上旧的 AudioContext 可能已经没声音了；广告关了却没回调的，几秒后放开按钮
 });
-try { if (tapApi() && tapApi().onShow) tapApi().onShow(() => { rebuildAudioSoon(); adBackCheck(); }); } catch (e) { /* TapTap 容器里切回前台可能只发这个 */ }
+// 真的去过后台（切出去、锁屏）才重建音频；没先收到「切到后台」的 onShow 不重建，只是确认一下声音在走（以前每次 onShow 都重建，音乐要从头解码，会断好几秒）
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => { dbg(document.hidden ? '页面隐藏' : '页面显示'); if (document.hidden) hiddenAt = hiddenAt || performance.now(); });
+const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function backToFront() {
+  const away = hiddenAt && performance.now() - hiddenAt > 800; dbg('回前台', hiddenAt ? Math.round(performance.now() - hiddenAt) + 'ms' : '没先切后台'); hiddenAt = 0;
+  adBackCheck();
+  if (!away) { audio(); return; }
+  if (IOS) { rebuildAudioSoon(); return; } // iOS：切后台回来可能「显示 running 却没声音」，查不出来，只能重建
+  // 其他系统：先 resume，半秒后时钟还不走才重建（TapTap 弹它自己的界面时也可能发「切到后台 / 回到前台」，以前每次都重建、音乐从头放）
+  audio();
+  const a = actx; if (!a) return;
+  const ct = a.currentTime;
+  setTimeout(() => { if (a === actx && (a.state !== 'running' || a.currentTime <= ct)) rebuildAudio(); }, 500);
+}
+try {
+  const tap = tapApi();
+  if (tap && tap.onHide) tap.onHide(() => { dbg('onHide'); hiddenAt = hiddenAt || performance.now(); });
+  if (tap && tap.onShow) tap.onShow(() => { dbg('onShow'); if (!tap.onHide) hiddenAt = hiddenAt || 1; backToFront(); }); // 没有 onHide 的老容器：照旧每次都重建
+} catch (e) { /* TapTap 容器里切回前台可能只发这个 */ }
 addEventListener('pagehide', () => { saveRun(); saveMeta(true); cloudUpload(); });
 
 // ============ 绘制 ============
@@ -8205,6 +8349,8 @@ function watchFps(raw) {
   }
 }
 function frame(now) {
+  if (now - last > 150 && last && document.visibilityState === 'visible') dbg('卡帧', Math.round(now - last) + 'ms');
+  dbgTick(now);
   const raw = Math.min(0.05, (now - last) / 1000);
   if (S && !S.paused && !S.modal && !S.over) watchFps((now - last) / 1000);
   last = now;
@@ -8237,8 +8383,10 @@ window.BUYI = {
   shenbing(gid) { if (S) { applyChoice({ kind: 'shenbing', id: gid }); } }, // 直接拿到一件神兵（测试用）
   xp(v) { if (S) addXp(v); },
   god(on = true) { if (S) S.god = on; },
+  rebuildAudio() { rebuildAudio(); }, // 调试：模拟切后台回来重建音频
+  simBack(ms) { hiddenAt = performance.now() - ms; backToFront(); }, // 调试：模拟在后台待了 ms 毫秒后回到前台
   bot(fn) { botMove = fn || null; },
-  get audio() { return { track: Music.current, playing: Music.playing, voice: vClip && vClip.buffer ? +vClip.buffer.duration.toFixed(2) : null, ctx: actx && actx.state, musicOn, voiceOn, muted, files: AUDIO }; }, // 调试：现在放的是哪首
+  get audio() { return { track: Music.current, playing: Music.playing, pos: Music.position, voice: vClip && vClip.buffer ? +vClip.buffer.duration.toFixed(2) : null, ctx: actx && actx.state, musicOn, voiceOn, muted, files: AUDIO }; }, // 调试：现在放的是哪首
   start(originId) { startGame(originId); },
   // 快进模拟：autoPick 为 true 时自动选择第一张卡；也可以传一个函数 (opts) => 第几张
   step(sec, autoPick) {
@@ -8252,7 +8400,7 @@ window.BUYI = {
       }
       update(1 / 60);
     }
-    render(0); updateHud();
+    Music.want(musicTrack()); dbgTick(performance.now()); render(0); updateHud(); // 音乐也跟着走（浏览器面板在后台时每帧的循环不跑）
   },
 };
 })();
