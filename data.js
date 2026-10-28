@@ -399,6 +399,17 @@ window.GAME_DATA = {
         { dmg: 48, cd: 0.6, count: 3, speed: 1020, pierce: 6, far: 1.0, note: '一次三箭，百步穿杨', fan: 0.1 },
       ],
     },
+    hujia: {
+      name: '胡笳', icon: '笳', type: 'jiaWave', general: '蔡文姬', tags: ['spell'],
+      desc: '蔡文姬的胡笳。朝敌人吹出一道弯弯的声浪，一路穿过敌群，被扫到的敌人走不快。',
+      levels: [ // w：声浪宽度；range：传多远；slow：被扫到后的移动速度倍率（1.2 秒）
+        { dmg: 22, cd: 1.3, count: 1, speed: 520, w: 70, range: 520, slow: 0.6 },
+        { dmg: 28, cd: 1.2, count: 1, speed: 540, w: 80, range: 560, slow: 0.55, note: '伤害 +6，声浪更宽' },
+        { dmg: 30, cd: 1.15, count: 2, speed: 560, w: 80, range: 580, slow: 0.55, note: '一次两道' },
+        { dmg: 37, cd: 1.05, count: 2, speed: 580, w: 90, range: 620, slow: 0.5, note: '伤害 +7，走得更慢' },
+        { dmg: 46, cd: 0.95, count: 3, speed: 600, w: 100, range: 660, slow: 0.45, note: '一次三道，胡笳悲鸣' },
+      ],
+    },
   },
 
   // 技能：只能从武将处获得，之后升级时可以强化
@@ -729,6 +740,17 @@ window.GAME_DATA = {
         { cd: 3.5, dmg: 260, len: 1600, w: 70, count: 3, note: '一次三箭，弦不虚发' },
       ],
     },
+    shibapai: {
+      name: '十八拍', icon: '拍', type: 'beats', general: '蔡文姬',
+      desc: '蔡文姬的《胡笳十八拍》：定时奏一曲，单数拍震身边的内圈、双数拍震外圈，最后一拍内外齐震（伤害 ×1.5）。',
+      levels: [ // r1：内圈半径；r2：外圈半径；beat：每拍隔几秒
+        { cd: 9, beats: 6, beat: 0.28, dmg: 26, r1: 120, r2: 240 },
+        { cd: 8.5, beats: 6, beat: 0.27, dmg: 32, r1: 130, r2: 260, note: '伤害 +6，圈更大' },
+        { cd: 8, beats: 12, beat: 0.26, dmg: 30, r1: 130, r2: 270, note: '一曲十二拍' },
+        { cd: 7.5, beats: 12, beat: 0.25, dmg: 38, r1: 140, r2: 290, note: '伤害 +8，圈更大' },
+        { cd: 7, beats: 18, beat: 0.22, dmg: 40, r1: 150, r2: 310, note: '十八拍全曲' },
+      ],
+    },
   },
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
@@ -786,6 +808,7 @@ window.GAME_DATA = {
     juejing: { name: '绝境', icon: '境', max: 1, unique: true, general: '神赵云', desc: '血越少越强：生命每少一截，伤害和出手速度就提高一截，生命 30% 以下时最多 +50%；生命上限 +40', effects: { maxHp: 40 }, low: { max: 0.5, at: 0.3 } },
     yinan: { name: '白马银鞍', icon: '鞍', max: 1, unique: true, general: '神赵云', desc: '长坂坡的白马：移动速度 +15%；每次闪现后 1.5 秒内伤害 +30%', effects: { speedMul: 0.15 }, blinkDmg: { dmg: 0.3, dur: 1.5 } },
     laodang: { name: '老当益壮', icon: '壮', max: 1, unique: true, general: '黄忠', desc: '“老当益壮，宁移白首之心”：生命上限 +30；每 10 级伤害 +3%，不封顶', effects: { maxHp: 30 }, perTen: 0.03 },
+    bowen: { name: '博闻强识', icon: '博', max: 5, unique: true, general: '蔡文姬', desc: '凭记忆默写出父亲四百余篇藏书：经验获取 +5%/级（每次击败蔡文姬都能再升一级，最多 5 级）', effects: {}, xp: 0.05 },
   },
 
   // 属性：冰火雷风。升级时有几率刷到（Lv 3 起），每种最高 5 级，四种都能学。
@@ -872,6 +895,19 @@ window.GAME_DATA = {
     cavalry: { name: '铁骑', icon: '骑', hp: 24, speed: 122, dmg: 12, xp: 3, r: 15, color: '#8a3a2c', kbResist: 0.3, h: 52, mount: '#5a3a24',
       look: { skin: '#d0a070', robe: '#8a3a2c', trim: '#c9a046', armor: true, armorColor: '#7a3a2c', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#6b4a2e', plume: '#2b2622', weapon: 'spear' } },
 
+    // —— 名军（升级兵种）：无尽后期由上面四种普通兵升级而来，一个顶几个（见 stage.upgrade）。背上插一面写着 icon 的小旗（flag 是旗色）
+    // 血量、经验按普通兵写，刷出来时再乘倍率；base：还没有自己的小人图时，用这个普通兵的图放大
+    xianzhen: { name: '陷阵营', icon: '陷', up: true, base: 'foot', hp: 11, speed: 72, dmg: 8, xp: 1, r: 17, color: '#3a2420', kbResist: 1, h: 50, flag: '#8a2a22',
+      look: { skin: '#d0a070', robe: '#3a2420', trim: '#a8322a', armor: true, armorColor: '#2e2a2a', beard: 'short', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#2a2424', plume: '#a8322a', weapon: 'dao' } },
+    daji: { name: '大戟士', icon: '戟', up: true, base: 'shield', hp: 48, speed: 46, dmg: 12, xp: 3, r: 22, color: '#3e4a5e', kbResist: 0.95, h: 76, flag: '#34507a', flagY: 0.3, // 图里大戟高过头顶：画得高一些身子才和别的名军一样大；背旗从图顶往下 30%（头盔旁边）插，不挂在戟尖上
+      look: { skin: '#d0a070', robe: '#3e4a5e', armor: true, armorColor: '#5a6a80', beard: 'short', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#4a5668', trim: '#c9a046', weapon: 'shield' } },
+    yuanrong: { name: '元戎弩手', icon: '弩', up: true, base: 'archer', hp: 15, speed: 56, dmg: 6, xp: 2, r: 16, color: '#3e5a2a', kbResist: 0.3, h: 50, flag: '#3e6a2a',
+      ranged: { range: 300, cd: 2.8, speed: 260, dmg: 9, count: 3, spread: 0.22 }, // 一次三支，扇形散开
+      look: { skin: '#d9a878', robe: '#3e5a2a', trim: '#c9a046', armor: true, armorColor: '#4e5a3a', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#3e4a2e', weapon: 'crossbow' } },
+    hubao: { name: '虎豹骑', icon: '豹', up: true, base: 'cavalry', hp: 24, speed: 130, dmg: 12, xp: 3, r: 19, color: '#7a4a1a', kbResist: 0.6, h: 64, mount: '#2a2420', flag: '#b06a1a',
+      dash: { range: 320, every: 4.5, tele: 0.55, mul: 3.2, dur: 0.45 }, // 隔 every 秒（距离 range 内）朝你冲一段：先停 tele 秒、地上一道红线，再按 mul 倍速度冲 dur 秒
+      look: { skin: '#d0a070', robe: '#7a4a1a', trim: '#e0b040', armor: true, armorColor: '#5a3a1a', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#4a3418', plume: '#e0b040', weapon: 'spear' } },
+
     // —— 黄巾军（第一章）：衣衫褴褛的农民军，头裹黄巾 ——
     yt_foot: { name: '黄巾兵', icon: '巾', hp: 9, speed: 66, dmg: 7, xp: 1, r: 13, color: '#9a7a3a', h: 40,
       look: { skin: '#c99a68', robe: '#8a7a52', trim: '#5e5040', armor: false, beard: 'stubble', beardColor: '#2a2018', eyes: 'normal', brows: 'sharp', head: 'band', bandColor: '#e0b020', weapon: 'spear', extras: ['patches'] } },
@@ -947,6 +983,10 @@ window.GAME_DATA = {
     zhong: { name: '孤冢', icon: '冢', seal: '冢门封死', hp: 2100, r: 52, xp: 40, special: true, aggroR: 470, wake: ['孤冢异动', '鬼火四起，死士从冢里爬了出来'], reward: { type: 'general', gid: 'simayi', msg: '孤冢崩裂……冢虎出世！' },
       shoot: { range: 480, cd: 1.4, dmg: 12, speed: 230, count: 3, spread: 0.6, soul: true }, spawn: { type: 'shade', every: 5, max: 6 },
       desc: '孤冢 · 冢中似有异动' },
+    // 左贤王帐：群雄逐鹿里出现在你的右下方（和西凉营地一左上一右下），规则一样。帐里飘出胡笳声、胡骑冲出来；攻破后蔡文姬出帐
+    zuoxian: { name: '左贤王帐', icon: '胡', seal: '帐门紧闭', hp: 2000, r: 54, xp: 40, special: true, aggroR: 480, wake: ['左贤王帐警觉', '帐中胡笳声起，胡骑冲了出来'], reward: { type: 'general', gid: 'caiwenji', msg: '胡笳声歇……蔡文姬出帐' },
+      shoot: { range: 480, cd: 1.4, dmg: 11, speed: 300, count: 2, spread: 0.35 }, spawn: { type: 'cavalry', every: 5.5, max: 4 },
+      desc: '左贤王帐 · 帐中隐约传来胡笳声' },
     // 疑冢：司马懿大招「冢虎疑冢」时立起的一圈坟（只有一座是真的），不会自己刷出来
     yizhong: { name: '疑冢', icon: '冢', hp: 320, r: 30, xp: 0, special: true, tomb: true, desc: '真假难辨 · 打破真冢逼出司马懿' },
     // 药庐：打完黄巾之战（第二章开场）出现在你的西南方，规则和西凉营地一样（走近才动手、别的名将在场时闭门），但血厚一倍、不放箭不派兵：
@@ -1077,9 +1117,13 @@ window.GAME_DATA = {
       rewards: ['yudi', 'hanbing', 'luoshenfu'],
       ultRgb: '150,210,255', ultEvery: 10,
       ults: [
-        { id: 'lingbo', name: '凌波微步', type: 'sevenDash', count: 4, speed: 1150, len: 340, w: 40, tele: 0.38, dmg: 1.1, iceTrail: true },
+        // 翩若惊鸿：tele 秒的虚线预警后，沿 S 形路线（越过你再滑 reach、左右摆 amp）以 speed 滑过，撞到受伤；身后水痕 freeze 秒后冻成冰墙（宽 wallW）挡路，
+        // 一共滑 glides 次，冰墙立 life 秒后闪 crack 秒再碎，离墙 burstR 以内被冰屑扎到
+        { id: 'jinghong', name: '翩若惊鸿', type: 'iceWalls', glides: 2, tele: 0.6, speed: 760, reach: 420, amp: 140, waves: 1.5, freeze: 0.7, wallW: 28, life: 4, crack: 0.7, burstR: 60, dmg: 1.1, burstDmg: 1.2 },
         { id: 'frost', name: '洛水寒川', type: 'frostNova', radius: 140, tele: 1.15, dmg: 1.3, freeze: 0.9 },
-        { id: 'icering', name: '冰封千里', type: 'stoneRing', hpBelow: 0.5, R: 230, n: 16, dmg: 1.4, rgb: '170,220,255', ice: true },
+        // 冰封千里：R 以内铺成冰面（spread 秒铺开，冰面上打滑：速度每秒只跟上摇杆 grip 倍）；冰面持续 dur 秒，期间每 crackEvery 秒裂一道冰缝（共 cracks 道，单数道从你脚下经过），
+        // 预警 crackTele 秒后刺出冰棱；最后提前 warn 秒在她脚下亮圈，冰面从她脚下以 sealSpeed 往外冻实，追上你就冻住 sealFreeze 秒并受重伤
+        { id: 'icering', name: '冰封千里', type: 'iceField', hpBelow: 0.5, R: 520, spread: 1.2, dur: 9, grip: 1.8, cracks: 4, crackEvery: 1.9, crackTele: 1.0, crackLen: 1000, crackW: 46, crackDmg: 1.0, crackFreeze: 0.5, warn: 1.0, sealSpeed: 150, sealDmg: 1.6, sealFreeze: 1.2 },
       ],
       banner: '邺城 · 甄姬 凌波而来', line: '“翩若惊鸿，婉若游龙。”', rage: '“洛水寒，君可知？”',
       look: { skin: '#f4e0cc', skinShade: '#d6b8a0', robe: '#7aa8d8', trim: '#e6f2fa', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#141820', pin: '#bfe6ff', weapon: 'flute', aura: '#5a8ac0', female: true, artFace: [0.56, 0.29, 0.34] },
@@ -1412,6 +1456,23 @@ window.GAME_DATA = {
       banner: '长沙 · 黄忠 老当益壮', line: '“老夫虽老，弓马不让少年！”', rage: '“老当益壮，宁移白首之心！”',
       look: { skin: '#ecc9a4', skinShade: '#c9a07a', robe: '#a83a22', trim: '#d8b060', armor: true, armorColor: '#8a6a3a', beard: 'long', beardColor: '#e8e4dc', eyes: 'normal', brows: 'bushy', head: 'helmet', headColor: '#8a6a3a', plume: '#d8b060', weapon: 'bow', aura: '#b0602a', artFace: [0.58, 0.37, 0.34] },
     },
+    // 蔡文姬：没入匈奴十二年的才女，左贤王帐里的名将（群雄逐鹿，可选）。悲笳的音符打中会走不快；
+    // 胡笳十八拍要踩着节拍在内外圈之间换位置，每第六拍全场大震、只有金色音符圈安全；悲愤诗的墨字旋转着往外飞；血过半后胡骑成排冲阵
+    caiwenji: {
+      name: '蔡文姬', el: 'wind', title: '胡笳十八拍 · 文姬归汉', icon: '姬', hp: 5600, speed: 100, dmg: 20, r: 28, color: '#3a4a7a',
+      attacks: ['volley', 'meteor', 'volley'], interval: 2.4, kite: 340,
+      volley: { count: 5, spread: 0.8, speed: 240, dmg: 12, note: true, chill: 1.2 }, // 悲笳：一扇慢悠悠的音符，打中走不快
+      meteor: { count: 4, radius: 70, delay: 1.1, dmg: 18, rgb: '170,185,255' }, // 笳声震落的落点
+      rewards: ['hujia', 'shibapai', 'bowen'],
+      ultRgb: '150,170,255', ultEvery: 10,
+      ults: [ // 十八拍：beat 秒一拍，单数拍震内圈（0–r1）、双数拍震外圈（r1–r2），提前一拍亮起；每第 6 拍 r2 以内全场大震，只有 safe 个音符圈安全（提前 lead 拍亮起，有一个就在你附近）
+        { id: 'shiba', name: '胡笳十八拍', type: 'eighteenBeats', beat: 0.6, beats: 18, r1: 160, r2: 600, safe: 3, safeR: 60, lead: 3, dmg: 0.8, big: 1.4 },
+        { id: 'beifen', name: '悲愤诗', type: 'poemSpiral', arms: 4, every: 0.16, dur: 3.2, turn: 1.5, speed: 190, dmg: 0.6 },
+        { id: 'guihan', name: '文姬归汉', type: 'cavalryLanes', hpBelow: 0.5, lanes: 5, laneW: 120, span: 1300, tele: 1.0, gap: 0.4, riders: 3, speed: 950, dmg: 1.1, rounds: 3, onFoot: true, say: '“胡笳声里……我要归汉！”' },
+      ],
+      banner: '左贤王帐 · 蔡文姬 胡笳悲鸣', line: '“笳一会兮琴一拍，心愤怨兮无人知。”', rage: '“十二年了……这一曲，为汉家而奏！”',
+      look: { skin: '#f4e2d0', skinShade: '#d8bca4', robe: '#3a4a7a', trim: '#f0ece0', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#141820', pin: '#e0c070', weapon: 'flute', aura: '#6a7ad0', female: true, artFace: [0.53, 0.25, 0.34] },
+    },
   },
   // 神赵云的规则
   //   四色龙魂：每 suitEvery 秒换一色（青 → 赤 → 白 → 玄）；绝境复生后四色同时生效
@@ -1423,11 +1484,11 @@ window.GAME_DATA = {
   shen: { suitEvery: 15, heal: { dur: 5, rate: 0.006, interrupt: 0.015 }, fireAtk: 0.7, dodge: 0.3, blocks: 5, juejing: { dur: 5, revive: 0.4 } },
   // 魔吕布、魔貂蝉两人一组的规则
   //   黑血守护：代替护甲，等于最大生命的 shield，打破后僵直、易伤，不会自己回（搭档魂缚时回满）；两人相距 linkR 以内时「黑血相连」，都减伤 linkDr——拉开打更快
-  //   魂缚：一人血量打空不会死，变成残魂（打不动），另一人狂怒（出招间隔 ×rage、黑血至少回到 rageShield）；down 秒内把另一人也打空，两人一起倒下，否则残魂以 revive 的血量复活
+  //   魂缚：一人血量打空不会死，变成残魂（打不动），另一人狂怒（出招间隔 ×rage、黑血至少回到 rageShield），但孤身一人受到的伤害 +lonely；down 秒内把另一人也打空，两人一起倒下，否则残魂以 revive 的血量复活
   //   黑血侵蚀：被他们打中后 bleed 秒内，你的回血效果只剩 bleedHeal
   //   组合大招：两人都在、都没被魂缚时，每 every 秒轮流放一招；合计血量低于一半时必放一次「无双·倾城」。只有组合大招有特写（assets/cutins/combo_<id>.png）
   twin: {
-    shield: 0.4, linkDr: 0.4, linkR: 360, down: 18, revive: 0.4, rage: 0.7, rageShield: 0.5, bleed: 4, bleedHeal: 0.4, every: 22,
+    shield: 0.4, linkDr: 0.4, linkR: 360, down: 25, lonely: 0.5, revive: 0.4, rage: 0.7, rageShield: 0.5, bleed: 4, bleedHeal: 0.4, every: 22,
     combos: [
       { id: 'xueyue', name: '辕门·血月', waves: 3, count: 8, r: 92, spread: 320, delay: 1.0, gap: 0.6, dmg: 1.5, pct: 0.35 },
       { id: 'suoxin', name: '连环·锁心', leash: 260, sweeps: 3, R: 480, half: 0.9, tele: 0.85, gap: 0.45, dmg: 1.8, pct: 0.4 },
@@ -1439,6 +1500,7 @@ window.GAME_DATA = {
   // 有配音文件就播放（assets/voice/<武将>_enter / _rage / _death / _ult_<大招id>.mp3），没有就只显示字幕。
   voice: {
     shenzhaoyun: { death: '七进七出……这一次……出不去了……', ult: { yinlong: '银龙出海，七进七出！', changban: '长坂坡前，单骑何惧！', qiangyu: '龙胆在手，枪落如雨！', sixiang: '四象归一，龙魂现世！', juejing: '绝境……亦是生路！' } },
+    caiwenji: { death: '十二年……终于……能归汉了……', ult: { shiba: '胡笳一曲，十八拍断肠。', beifen: '悲愤成诗，字字是血！', guihan: '胡笳声里，我要归汉！' } },
     huangzhong: { death: '老夫……终究是……老了……', ult: { baibu: '百步之外，取你首级！', dingjun: '定军山下，斩将夺旗！', laodang: '黄忠在此，谁敢言老！' } },
     chengyuanzhi: { death: '大贤良师……救我……', ult: { axe: '开山！给我破！', mob: '黄巾儿郎，随我杀！' } },
     zhangbao: { death: '地公……也会死么……', ult: { beans: '撒豆成兵，起！', bolt: '妖雷，落！' } },
@@ -1446,7 +1508,7 @@ window.GAME_DATA = {
     huaxiong: { death: '关外……竟有此等人物……', ult: { leap: '斩将刀下，不留全尸！', whirl: '西凉狂刃，看你往哪逃！' } },
     lubu: { death: '我……天下无双……', ult: { chitu: '赤兔，随我踏平此阵！', yuanmen: '辕门射戟，一箭定乾坤！', wushuang: '画戟所向，片甲不留！' } },
     diaochan: { death: '妾身……终是一场空……', ult: { dance: '闭月一舞，与君同醉。', charm: '将军，看着妾身。', lianhuan: '一环扣一环，君已入局。' } },
-    zhenji: { death: '洛水……好冷……', ult: { lingbo: '凌波微步，罗袜生尘。', frost: '洛水寒川，冻彻君骨。', icering: '冰封千里，无处可逃。' } },
+    zhenji: { death: '洛水……好冷……', ult: { jinghong: '惊鸿照影，冰墙四起！', frost: '洛水寒川，冻彻君骨。', icering: '冰封千里，无处可逃。' } },
     sunshangxiang: { death: '哥哥……尚香尽力了……', ult: { feishan: '扇去扇回，看你躲得几次！', bingshu: '兵书万卷，一页一刃！', xiaoji: '枭姬之怒，你接得住吗！' } },
     yanliang: { death: '我……还未出刀……', ult: { baima: '白马冲阵，挡我者死！', sweep: '河北刀阵，一个不留！', flag: '斩你帅旗，夺你首级！' } },
     wenchou: { death: '兄长……我来了……', ult: { rain: '延津箭雨，万箭穿心！', pierce: '连环突刺，看枪！', blood: '兄长之仇，以血来偿！' } },
@@ -1537,6 +1599,7 @@ window.GAME_DATA = {
       ],
       events: [
         { t: 20, type: 'special', bid: 'xiliangying', dx: -820, dy: -560 }, // 西凉营地出现在左上方，什么时候去打都行
+        { t: 30, type: 'special', bid: 'zuoxian', dx: 820, dy: 560 }, // 左贤王帐出现在右下方（207 年文姬归汉），什么时候去打都行
         { t: 45, type: 'boss', id: 'dianwei' },
         { t: 75, type: 'boss', id: 'xiahoudun' }, // 下邳征吕布时被流矢射中左眼（198 年）
         { t: 105, type: 'boss', id: 'yanliang' },
@@ -1681,6 +1744,8 @@ window.GAME_DATA = {
       desc: '银龙绕枪而出，刺穿一整条线上的敌人。绝境：受到致死伤害时 5 秒内不会倒下（每 90 秒一次）。' },
     huangzhong: { name: '定军宝雕弓', icon: '弓', iconFrom: 'luori', rgb: '255,160,70', cd: 5.5, type: 'sunArrow', dmg: 100, len: 1100, w: 60, radius: 150,
       desc: '拉满宝雕弓，一支裹着烈焰的重箭射穿敌阵，在敌人最密处炸开一团火。' },
+    caiwenji: { name: '胡笳十八拍', icon: '谱', iconFrom: 'shibapai', rgb: '160,175,255', cd: 6, type: 'beatStorm', dmg: 70, beats: 6, beat: 0.2, r1: 180, r2: 360,
+      desc: '展开《胡笳十八拍》曲谱：六拍连奏，内外圈轮流震荡，最后一拍全圈齐震、把敌人震开。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大
@@ -1722,7 +1787,7 @@ window.GAME_DATA = {
     minionHpExp: 1.6,      // 小兵血量 = 基础 × (1 + 秒数×hpGrowth)^minionHpExp：越往后长得越快
     xpGain: 0.75,          // 所有经验获取倍率（真人试玩后调低）
     spawnMul: 1,           // 小兵刷新数量倍率（想让场面松一点就调小）
-    bossGap: 10,            // 两名武将之间至少隔几秒
+    bossGap: 10,            // 一名武将倒下后，至少隔几秒下一名才来（章节和无尽都算，留时间打建筑）
     chapterGap: 5,          // 章末武将倒下后几秒进入下一章
     hpGrowth: 1 / 75,       // 每过 75 秒，血量公式里的底数 +1（小兵按上面的指数再放大）
     lateStart: 420,         // 7 分钟后，敌人强度开始按平方额外增长
@@ -1742,5 +1807,12 @@ window.GAME_DATA = {
     // lv 级以后地上的掉落精简（后期满地掉落会卡）：经验、元宝攒够 every 份才掉一个大的，肉包少掉 every 倍、一个回 every 倍；
     // 地上超过 cap 个东西就把新经验并进离得最近的一颗（军令不限：后期主要靠军令把满地经验一次吸过来）
     lateDrop: { lv: 80, every: 5, cap: 120 },
+    // lv 级以后（或进了无尽、开了精简特效）同屏纯视觉的东西少一些（后期满屏混战会卡）：粒子、打敌人的伤害数字、你这边的特效上限，
+    // 暴击金光每帧最多 glints 个。文字提示、你掉血的数字、名将精英出招的特效不受限；屏幕外的伤害数字、粒子、你这边的特效任何时候都不生成
+    lateFx: { lv: 100, particles: 350, dmgNums: 40, effects: 60, glints: 12 },
+    // 升级兵种（只在无尽）：进无尽 from 秒后，刷出来的普通兵按比例换成名军（map），到 full 秒时占刷兵量的 share。
+    // 一个名军顶 weight 个普通兵：占同屏上限（420）的格数、经验、元宝和肉包的掉率、斩敌数（成就、血战）都按 weight 算；
+    // 血量 ×hpMul（比 weight 少一点：人少了，范围伤害一招打到的也少）、碰撞伤害 ×dmgMul
+    upgrade: { from: 300, full: 1200, share: 0.75, weight: 4, hpMul: 3, dmgMul: 1.5, map: { foot: 'xianzhen', shield: 'daji', archer: 'yuanrong', cavalry: 'hubao' } },
   },
 };

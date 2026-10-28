@@ -346,6 +346,17 @@ window.Sprites = (() => {
         shape(g, '#3a6ab8', s => { s.moveTo(60, 8); s.lineTo(90, 14); s.lineTo(86, 30); s.lineTo(60, 26); s.closePath(); }, 1.2);
         g.fillStyle = '#f2ead8'; g.font = '900 13px serif'; g.textAlign = 'center'; g.fillText('马', 74, 24);
         break;
+      case 'zuoxian': // 左贤王帐：一顶圆顶大毡帐（穹庐），门口挂毡帘，两边两顶小毡帐，帐前一杆狼头大纛
+        for (const [x, w, h] of [[6, 30, 26], [84, 30, 26]]) {
+          shape(g, '#d8cfb8', s => { s.moveTo(x, 96); s.lineTo(x, 96 - h * 0.45); s.quadraticCurveTo(x + w / 2, 96 - h * 1.3, x + w, 96 - h * 0.45); s.lineTo(x + w, 96); s.closePath(); });
+        }
+        shape(g, '#efe6d0', s => { s.moveTo(24, 100); s.lineTo(24, 66); s.quadraticCurveTo(60, 14, 96, 66); s.lineTo(96, 100); s.closePath(); });
+        line(g, 24, 66, 96, 66, '#8a5a2a', 2.4); line(g, 30, 56, 90, 56, '#a8322a', 1.6); // 帐身上的花纹带
+        shape(g, '#5a2a1a', s => { s.moveTo(50, 100); s.lineTo(50, 74); s.quadraticCurveTo(60, 68, 70, 74); s.lineTo(70, 100); s.closePath(); }, 1.2); // 毡帘门
+        line(g, 104, 100, 104, 10, '#3a2a1a', 2.6);
+        shape(g, '#2a2a3a', s => { s.moveTo(104, 12); s.lineTo(84, 18); s.lineTo(88, 26); s.lineTo(84, 34); s.lineTo(104, 30); s.closePath(); }, 1.2); // 狼头纛
+        g.fillStyle = '#e8dcc0'; g.font = '900 11px serif'; g.textAlign = 'center'; g.fillText('胡', 95, 27);
+        break;
       case 'zhong': // 孤冢：一座黑土大坟，前面立着石碑，两边插着招魂的黑幡，坟头冒着紫色鬼火
         shape(g, '#3a3240', s => { s.moveTo(8, 100); s.quadraticCurveTo(60, 14, 112, 100); s.closePath(); });
         g.fillStyle = 'rgba(0,0,0,.22)'; g.beginPath(); g.moveTo(60, 30); g.quadraticCurveTo(100, 50, 112, 100); g.lineTo(70, 100); g.closePath(); g.fill();
