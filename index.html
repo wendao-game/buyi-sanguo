@@ -148,7 +148,31 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 #title-gold { margin-left: 8px; color: #ffd75a; font-variant-numeric: tabular-nums; }
 .card .kit { font-size: 12px; font-weight: 700; color: #7a6a4c; border-top: 1px dashed rgba(42,33,22,.25); padding-top: 5px; }
 /* 军需 */
-.shop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; width: 100%; max-width: 980px; }
+.shop { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; width: 100%; max-width: 1240px; } /* 四个出身：放得下就一行四列，窄了自动换行 */
+/* 封神 · 入魔：两栏，每栏九级词条 */
+.shop.camp2 { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 820px; }
+.camp-cur { color: var(--paper); font-size: 14px; }
+.camp-cur b { color: #ffd75a; font-size: 18px; font-variant-numeric: tabular-nums; }
+.camp-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.camp-btns .buy { padding: 8px 12px; font: inherit; font-size: 13px; font-weight: 700; border: 0; border-radius: 2px; background: var(--seal); color: var(--paper); cursor: pointer; }
+.camp-btns .buy.alt { background: #6b5a3a; }
+.camp-btns .buy:disabled { background: #9a8f78; cursor: default; }
+.gear.camp-row { grid-template-columns: 40px minmax(0, 1fr); padding: 6px 8px; opacity: .6; }
+.gear.camp-row .seal { position: relative; width: 40px; height: 40px; font-size: 17px; grid-row: auto; }
+.gear.camp-row .seal i { position: absolute; right: 0; bottom: 0; font-style: normal; font-size: 10px; font-weight: 700; line-height: 1;
+  background: rgba(16,13,9,.82); color: var(--gold); padding: 2px 3px; border-top-left-radius: 3px; } /* 有图标时的等级 */
+/* 两条线各一种颜色：封神金白、入魔血红黑紫（没有图标时印章也分得开） */
+.camp-feng .seal { background: #a8802c; }
+.camp-ru .seal { background: #5e1f3f; }
+.camp-feng h3 { color: #ffe3a0; }
+.camp-ru h3 { color: #ffb0c0; }
+.camp-feng .gear.camp-row.next { outline-color: #e2b24a; }
+.camp-ru .gear.camp-row.next { outline-color: #b8324f; }
+.camp-emb { width: 36px; height: 36px; align-self: center; border-radius: 4px; flex: none; }
+.camp-coin { width: 22px; height: 22px; vertical-align: -6px; margin-right: 5px; border-radius: 3px; }
+.gear.camp-row .gn { white-space: normal; font-size: 13px; }
+.gear.camp-row.r3 { opacity: 1; }
+.gear.camp-row.next { opacity: 1; outline: 2px solid var(--seal); }
 .shop-col { background: rgba(235,224,197,.06); border: 1px solid rgba(235,224,197,.18); border-radius: 3px; padding: 10px; display: grid; gap: 8px; align-content: start; min-width: 0; }
 .shop-col h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; color: var(--paper); display: flex; align-items: baseline; gap: 8px; }
 .shop-col h3 small { font-family: var(--body); font-size: 12px; color: var(--gold); letter-spacing: .1em; }
@@ -167,7 +191,7 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 /* 存档码 */
 #save-text { width: min(640px, 100%); box-sizing: border-box; font: 12px/1.4 ui-monospace, Consolas, monospace; background: rgba(235,224,197,.08); color: var(--text); border: 1px solid rgba(235,224,197,.3); border-radius: 3px; padding: 8px; resize: vertical; }
 .save-msg { min-height: 1.4em; font-size: 14px; color: var(--gold); text-align: center; }
-@media (max-width: 760px) { .shop { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) { .shop, .shop.camp2 { grid-template-columns: minmax(0, 1fr); } }
 
 /* 武将图鉴 */
 .codex { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 14px; width: 100%; max-width: 960px; }
@@ -261,13 +285,20 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 @media (prefers-reduced-motion: reduce) { #banner.show { animation-duration: 2.6s; animation-name: bannerfade; } @keyframes bannerfade { 0%,85% { opacity: 1 } 100% { opacity: 0 } } }
 
 /* ---------- Overlays ---------- */
-.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; justify-content: safe center; gap: 18px;
+/* 内容不满一屏时上下居中，超出一屏时从顶上开始排、整页可滚：靠首尾两个空占位的 auto 外边距，不用 safe center
+   （TapTap 电脑版的旧内核不认识 safe center，退回 center 后图鉴顶上的标题和前几排名将会被截掉、滚不上去） */
+.overlay::before, .overlay::after { content: ''; flex: none; }
+.overlay::before { margin-top: auto; margin-bottom: -18px; } /* -18px：抵掉占位和内容之间多出的那道 gap */
+.overlay::after { margin-bottom: auto; margin-top: -18px; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 18px;
   background: var(--veil); overflow-y: auto;
   padding-block: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-bottom, 0px) + 24px);
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .overlay h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(34px, 6vw, 52px); color: var(--paper); text-wrap: balance; text-align: center; line-height: 1.1; }
 .overlay .sub { margin: -8px 0 0; color: var(--gold); letter-spacing: .15em; font-size: 14px; text-align: center; }
 .cards { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 760px; }
+#origins { max-width: 1040px; } /* 四个出身：宽屏一行四张；不够宽就两张一行，不会落单 */
+@media (max-width: 1080px) { #origins { max-width: 520px; } }
 .card { position: relative; flex: 1 1 200px; max-width: 240px; min-width: 0; text-align: left; border: 0; padding: 18px 16px 16px;
   background: var(--paper); color: var(--paper-ink); border-radius: 2px; box-shadow: 0 6px 18px rgba(0,0,0,.5);
   display: flex; flex-direction: column; gap: 8px; transition: transform .12s; }
@@ -445,12 +476,13 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="cards" id="origins"></div>
     <div class="btns">
       <button class="btn" id="btn-shop">军需 · 装备<span id="title-gold"></span></button>
+      <button class="btn" id="btn-camp">封神 · 入魔</button>
       <button class="btn" id="btn-codex">武将图鉴</button>
       <button class="btn" id="btn-rank" hidden>排行榜</button>
       <button class="btn" id="btn-ach" hidden>成就</button>
       <button class="btn" id="btn-save">存档码</button>
     </div>
-    <div class="howto"><b>WASD / 方向键</b> 移动 · 手机上 <b>按住拖动</b> 移动 · 攻击全自动 · <b>Esc</b> 暂停<br>击败武将可夺取其兵器或技能 · 武器满级后还能继续突破 · 黄巾 → 讨董 → 群雄 → 赤壁，之后天下三分、征途无尽</div>
+    <div class="howto"><b>WASD / 方向键</b> 移动 · 手机上 <b>按住拖动</b> 移动 · 攻击全自动 · <b>Esc</b> 暂停<br>击败武将可夺取其兵器或技能 · 武器满级后还能继续突破 · 黄巾 → 讨董 → 群雄 → 赤壁 → 三分，之后征途无尽</div>
   </div>
 
   <!-- 军需：用金币给三个出身买专属装备（局外成长） -->
@@ -459,6 +491,14 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="sub" id="shop-gold"></div>
     <div class="shop" id="shop-list"></div>
     <button class="btn primary" id="btn-shop-close">返回</button>
+  </div>
+
+  <!-- 封神 · 入魔：用魔血、神魂（或金币换）升级，只对神魔将生效（局外成长） -->
+  <div id="camp" class="overlay" hidden>
+    <h2>封神 · 入魔</h2>
+    <div class="sub" id="camp-sub"></div>
+    <div class="shop camp2" id="camp-list"></div>
+    <button class="btn primary" id="btn-camp-close">返回</button>
   </div>
 
   <!-- 存档码：把金币、装备、图鉴和当前这一局打包成一段文字，换设备时粘贴进来 -->
