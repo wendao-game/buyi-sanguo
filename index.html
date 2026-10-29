@@ -157,8 +157,19 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .camp-btns .buy { padding: 8px 12px; font: inherit; font-size: 13px; font-weight: 700; border: 0; border-radius: 2px; background: var(--seal); color: var(--paper); cursor: pointer; }
 .camp-btns .buy.alt { background: #6b5a3a; }
 .camp-btns .buy:disabled { background: #9a8f78; cursor: default; }
-.gear.camp-row { grid-template-columns: 34px minmax(0, 1fr); padding: 6px 8px; opacity: .6; }
-.gear.camp-row .seal { width: 34px; height: 34px; font-size: 16px; grid-row: auto; }
+.gear.camp-row { grid-template-columns: 40px minmax(0, 1fr); padding: 6px 8px; opacity: .6; }
+.gear.camp-row .seal { position: relative; width: 40px; height: 40px; font-size: 17px; grid-row: auto; }
+.gear.camp-row .seal i { position: absolute; right: 0; bottom: 0; font-style: normal; font-size: 10px; font-weight: 700; line-height: 1;
+  background: rgba(16,13,9,.82); color: var(--gold); padding: 2px 3px; border-top-left-radius: 3px; } /* 有图标时的等级 */
+/* 两条线各一种颜色：封神金白、入魔血红黑紫（没有图标时印章也分得开） */
+.camp-feng .seal { background: #a8802c; }
+.camp-ru .seal { background: #5e1f3f; }
+.camp-feng h3 { color: #ffe3a0; }
+.camp-ru h3 { color: #ffb0c0; }
+.camp-feng .gear.camp-row.next { outline-color: #e2b24a; }
+.camp-ru .gear.camp-row.next { outline-color: #b8324f; }
+.camp-emb { width: 36px; height: 36px; align-self: center; border-radius: 4px; flex: none; }
+.camp-coin { width: 22px; height: 22px; vertical-align: -6px; margin-right: 5px; border-radius: 3px; }
 .gear.camp-row .gn { white-space: normal; font-size: 13px; }
 .gear.camp-row.r3 { opacity: 1; }
 .gear.camp-row.next { opacity: 1; outline: 2px solid var(--seal); }

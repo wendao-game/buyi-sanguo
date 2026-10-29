@@ -6858,6 +6858,7 @@ function toast(kind, id, title, sub) {
   let face = '';
   if (kind === 'elite') face = window.Portrait.html('elite', id, { crop: true });
   else if (kind === 'building') face = `<span class="tico">${D.buildings[id].icon}</span>`;
+  else if (kind === 'icon') face = `<span class="tico">${window.Assets.icon(id, title.slice(0, 1), '')}</span>`; // 物品图标（没有图时用标题的第一个字）
   $('toast-face').innerHTML = face;
   $('toast-face').hidden = !face;
   $('toast-title').textContent = title;
@@ -7142,7 +7143,7 @@ function campGain(camp, n) {
   if (n <= 0) return;
   const line = campLine(camp), m = loadMeta();
   m[line.cur] = (m[line.cur] || 0) + n; m._dirty = true; saveMeta(true);
-  toast('', '', `${line.curName} +${n}`, `在标题页「封神 · 入魔」里升级${line.name}`);
+  toast('icon', line.cur, `${line.curName} +${n}`, `在标题页「封神 · 入魔」里升级${line.name}`);
 }
 // 一局结束时神魔将还没倒下：按这一轮打掉的血量比例给 0 ~ lose 份
 function campRunEnd() {
@@ -7160,17 +7161,20 @@ function openCamp() {
   $('btn-camp-close').focus();
 }
 function closeCamp() { $('camp').hidden = true; $('title').hidden = false; refreshTitle(); renderOrigins(); }
+// 封神 · 入魔的图标（第二十四批）：有图就用图，等级写在右下角；没有图就用字
+const campImg = (id, cls) => { const img = window.Assets.get('icon:' + id); return img ? `<img class="${cls}" src="${img.src}" alt="">` : ''; };
+const campSeal = (id, ch) => { const img = campImg(id, 'ico'); return `<div class="seal">${img ? img + `<i>${ch}</i>` : ch}</div>`; };
 function renderCamp() {
   const m = loadMeta();
   $('camp-sub').textContent = `金币 ${m.gold} · 只对神魔将生效，普通名将不受影响 · 打赢一轮掉 ${CU.win} 份，没打完按打掉的血量给 0 ~ ${CU.lose} 份`;
   $('camp-list').innerHTML = CU.lines.map(L => {
     const lv = campLv(L.id), have = m[L.cur] || 0, cost = campCost(lv);
-    const rows = CU.levels.map((x, i) => `<div class="gear camp-row${i < lv ? ' r3' : ''}${i === lv ? ' next' : ''}"><div class="seal">${i + 1}</div>` +
+    const rows = CU.levels.map((x, i) => `<div class="gear camp-row${i < lv ? ' r3' : ''}${i === lv ? ' next' : ''}">${campSeal(`camp_${L.id}_${i + 1}`, i + 1)}` +
       `<div class="gn">${x.text}<small>${i < lv ? '已领悟' : `第 ${i + 1} 级 · ${L.curName} ${CU.cost[i]}`}</small></div></div>`).join('');
-    const late = `<div class="gear camp-row${lv > CU.levels.length ? ' r3' : ''}"><div class="seal">∞</div><div class="gn">${CU.levels.length} 级以后每级伤害再 +${Math.round(CU.late.dmg * 100)}%` +
+    const late = `<div class="gear camp-row${lv > CU.levels.length ? ' r3' : ''}">${campSeal(`camp_${L.id}`, '∞')}<div class="gn">${CU.levels.length} 级以后每级伤害再 +${Math.round(CU.late.dmg * 100)}%` +
       `<small>${lv > CU.levels.length ? `现在额外 +${Math.round((lv - CU.levels.length) * CU.late.dmg * 100)}%` : '没有尽头'}</small></div></div>`;
-    return `<div class="shop-col"><h3>${L.name}<small>对${L.vs} · ${L.who}</small></h3>
-      <div class="camp-cur">${L.curName} <b>${have}</b> · ${L.name} ${lv} 级</div>
+    return `<div class="shop-col camp-${L.id}"><h3>${campImg(`camp_${L.id}`, 'camp-emb')}${L.name}<small>对${L.vs} · ${L.who}</small></h3>
+      <div class="camp-cur">${campImg(L.cur, 'camp-coin')}${L.curName} <b>${have}</b> · ${L.name} ${lv} 级</div>
       <div class="camp-btns"><button class="buy" data-up="${L.id}" ${have < cost ? 'disabled' : ''}>升到 ${lv + 1} 级 · ${L.curName} ${cost}</button>` +
       `<button class="buy alt" data-x="${L.id}" ${m.gold < CU.gold ? 'disabled' : ''}>金 ${CU.gold} 换 1 ${L.curName}</button></div>${rows}${late}</div>`;
   }).join('');
@@ -7489,6 +7493,7 @@ window.Assets.onLoad(() => {
     if (S) { S.buildDirty = true; S.faceGid = null; }
     if (!$('codex').hidden) openCodex();
     if (!$('shop').hidden) renderShop(); // 军需图标是第二批下的：开着军需页时下到了就换上
+    if (!$('camp').hidden) renderCamp(); // 封神 · 入魔的图标也是
   }, 50);
 });
 

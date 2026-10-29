@@ -99,6 +99,9 @@ window.Assets = (() => {
     }
     for (const c of (D.twin && D.twin.combos) || []) load('cutin:combo_' + c.id, `${ASSET_BASE}cutins/combo_${c.id}${IMG}`, true); // 魔吕布、魔貂蝉的组合大招特写
     for (const o in (D.meta && D.meta.gear) || {}) for (const g of D.meta.gear[o]) for (let lv = 1; lv <= 9; lv++) load(`icon:${g.id}_${lv}`, `${ASSET_BASE}icons/${g.id}_${lv}${IMG}`, true); // 军需图标
+    for (const L of (D.campUp && D.campUp.lines) || []) { // 封神 · 入魔：徽记 icons/camp_<线>.png、9 级图标 icons/camp_<线>_<级>.png、货币 icons/<魔血 / 神魂>.png
+      for (const id of [`camp_${L.id}`, L.cur, ...D.campUp.levels.map((x, i) => `camp_${L.id}_${i + 1}`)]) load('icon:' + id, `${ASSET_BASE}icons/${id}${IMG}`, true);
+    }
   }
 
   const esc = s => String(s).replace(/"/g, '&quot;');
