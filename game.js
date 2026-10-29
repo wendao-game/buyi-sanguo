@@ -2491,7 +2491,7 @@ function weaponTick(w, def, L, dt, p) {
         const a0 = angleTo(p.x, p.y, tgt.x, tgt.y);
         for (let i = 0; i < L.count; i++) {
           const a = a0 + (i - (L.count - 1) / 2) * 0.4;
-          S.proj.push({ kind: 'jia', x: p.x, y: p.y - 10, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, r: L.w * p.areaMul / 2, dmg: L.dmg, pierce: 999, life: range / L.speed, hit: new Set(), kb: 30, slow: L.slow, rgb: def.rgb }); // 瑶琴：同一种声浪，换个颜色
+          S.proj.push({ kind: 'jia', x: p.x, y: p.y - 10, x0: p.x, y0: p.y - 10, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, r: L.w * p.areaMul / 2, dmg: L.dmg, pierce: 999, life: range / L.speed, hit: new Set(), kb: 30, slow: L.slow, rgb: def.rgb }); // 瑶琴：同一种声浪，换个颜色
         }
         sfx('pick');
         break;
@@ -8487,8 +8487,10 @@ function drawElProj(b) {
     ctx.restore(); ctx.globalAlpha = 1;
     return true;
   }
+  // 胡笳、瑶琴的声浪很宽（r 是半个浪宽），属性光是直径近三百的一大团；刚出手时几道叠在人物身上一片白，晃眼睛：飞出 160 以内慢慢亮起来
+  const ramp = b.kind === 'jia' && b.x0 !== undefined ? Math.min(1, Math.hypot(b.x - b.x0, b.y - b.y0) / 160) : 1;
   ctx.globalCompositeOperation = 'lighter'; // 其他飞弹：外裹属性光
-  FX.glow(ctx, b.x, b.y, Math.max(16, b.r * 3), E.rgb, 0.55);
+  FX.glow(ctx, b.x, b.y, Math.max(16, b.r * 3), E.rgb, 0.55 * ramp);
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   return false;
 }
