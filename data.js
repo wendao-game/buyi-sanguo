@@ -82,6 +82,13 @@ window.GAME_DATA = {
       stats: { cdMul: 0.9, pickupMul: 1.3 },
       look: { skin: '#efd6b4', skinShade: '#cfb08a', robe: '#d9d3c2', trim: '#34465a', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'scholar', headColor: '#2a2f38', weapon: 'scrolls', aura: '#4f6577', artFace: [0.48, 0.22, 0.36], extras: ['sash'] },
     },
+    { // 才女：第一个带兵的出身，开局就不是一个人（allies：开局自带的随从，占随从名额）
+      id: 'cainv', name: '才女', icon: '琴', weapon: 'yaoqin', focus: 'art', focusName: '才艺',
+      desc: '自幼习琴读诗，出门总有两名家兵随行。',
+      perks: ['开局就带两名随从枪兵', '闪现冷却 -15%，随从血量 +40%', '才艺：更容易刷到音波、随从与魅惑'],
+      stats: { blinkCd: 0.15, allyHp: 0.4 }, allies: { type: 'ally_spear', n: 2 },
+      look: { skin: '#f4e4d2', skinShade: '#dcc2a8', robe: '#e6ebe8', trim: '#8fb8a8', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#16181e', pin: '#b08a5a', weapon: 'flute', aura: '#7aa89a', female: true, artFace: [0.5, 0.24, 0.34] },
+    },
   ],
 
   // 武器：type 决定攻击方式，levels 是每一级的数值
@@ -275,7 +282,7 @@ window.GAME_DATA = {
       ],
     },
     yudi: {
-      name: '寒玉笛', icon: '笛', type: 'sonic', general: '甄姬', tags: ['spell'], ice: true,
+      name: '寒玉笛', icon: '笛', type: 'sonic', general: '甄姬', tags: ['spell', 'art'], ice: true,
       desc: '甄姬的玉笛。笛声化作一圈圈寒气向外扩散，碰到的敌人受伤并被冻得行动迟缓。',
       levels: [
         { dmg: 22, cd: 1.5, ringR: 250, count: 1 },
@@ -297,7 +304,7 @@ window.GAME_DATA = {
       ],
     },
     zhouqin: {
-      name: '周郎琴', icon: '琴', type: 'sonic', general: '周瑜', tags: ['spell'],
+      name: '周郎琴', icon: '琴', type: 'sonic', general: '周瑜', tags: ['spell', 'art'],
       desc: '周瑜的古琴。琴音化作一圈圈音波向外扩散，穿过的敌人都会受伤。',
       levels: [
         { dmg: 24, cd: 1.6, ringR: 260, count: 1 },
@@ -400,7 +407,7 @@ window.GAME_DATA = {
       ],
     },
     hujia: {
-      name: '胡笳', icon: '笳', type: 'jiaWave', general: '蔡文姬', tags: ['spell'],
+      name: '胡笳', icon: '笳', type: 'jiaWave', general: '蔡文姬', tags: ['spell', 'art'],
       desc: '蔡文姬的胡笳。朝敌人吹出一道弯弯的声浪，一路穿过敌群，被扫到的敌人走不快。',
       levels: [ // w：声浪宽度；range：传多远；slow：被扫到后的移动速度倍率（1.2 秒）
         { dmg: 22, cd: 1.3, count: 1, speed: 520, w: 70, range: 520, slow: 0.6 },
@@ -410,12 +417,34 @@ window.GAME_DATA = {
         { dmg: 46, cd: 0.95, count: 3, speed: 600, w: 100, range: 660, slow: 0.45, note: '一次三道，胡笳悲鸣' },
       ],
     },
+    yaoqin: {
+      name: '瑶琴', icon: '琴', type: 'jiaWave', common: true, tags: ['art'], rgb: '150,235,205',
+      desc: '才女怀抱的瑶琴。朝最近的敌人弹出一道琴音，一路穿过敌群，被扫到的敌人走不快。',
+      levels: [ // 和胡笳同一种声浪：w 宽度、range 传多远、slow 被扫到后的移动速度倍率
+        { dmg: 14, cd: 1.1, count: 1, speed: 500, w: 60, range: 460, slow: 0.65 },
+        { dmg: 18, cd: 1.05, count: 1, speed: 520, w: 70, range: 500, slow: 0.6, note: '伤害 +4，琴音更宽' },
+        { dmg: 22, cd: 1.0, count: 1, speed: 540, w: 80, range: 540, slow: 0.6, note: '伤害 +4，传得更远' },
+        { dmg: 24, cd: 0.95, count: 2, speed: 560, w: 85, range: 580, slow: 0.55, note: '一次两道' },
+        { dmg: 32, cd: 0.9, count: 2, speed: 580, w: 95, range: 640, slow: 0.5, note: '伤害 +8，余音绕梁' },
+      ],
+    },
+    yitian: {
+      name: '倚天剑', icon: '剑', type: 'arc', general: '曹操',
+      desc: '曹操的佩剑。横斩出一道剑气，被斩中的敌人头顶落下雷霆。',
+      levels: [ // bolt：每一剑最多劈几个被斩中的敌人；boltDmg：雷的伤害是剑的几倍
+        { dmg: 42, cd: 1.3, range: 150, angle: 150, kb: 220, wave: 0.5, bolt: 2, boltDmg: 0.8, boltR: 60 },
+        { dmg: 52, cd: 1.24, range: 156, angle: 160, kb: 230, wave: 0.5, bolt: 2, boltDmg: 0.8, boltR: 60, note: '伤害 +10' },
+        { dmg: 62, cd: 1.18, range: 162, angle: 170, kb: 240, wave: 0.6, bolt: 3, boltDmg: 0.9, boltR: 66, note: '多劈一个，剑气更重' },
+        { dmg: 74, cd: 1.12, range: 168, angle: 180, kb: 250, wave: 0.7, bolt: 3, boltDmg: 1.0, boltR: 70, note: '雷与剑同伤' },
+        { dmg: 92, cd: 1.0, range: 180, angle: 190, kb: 280, wave: 0.9, bolt: 4, boltDmg: 1.1, boltR: 76, note: '挟天子以令诸侯：一剑四雷' },
+      ],
+    },
   },
 
   // 技能：只能从武将处获得，之后升级时可以强化
   skills: {
     biyue: {
-      name: '闭月', icon: '月', type: 'shockwave', general: '貂蝉', petal: true,
+      name: '闭月', icon: '月', type: 'shockwave', general: '貂蝉', tags: ['art'], petal: true,
       desc: '定时一舞，樱花如潮涌出：周围敌人受伤，并被迷住呆立片刻。',
       levels: [
         { dmg: 40, cd: 8, radius: 200, kb: 60, stun: 1.4 },
@@ -536,7 +565,7 @@ window.GAME_DATA = {
       ],
     },
     haoling: {
-      name: '黄巾号令', icon: '令', type: 'levy', general: '程远志',
+      name: '黄巾号令', icon: '令', type: 'levy', general: '程远志', tags: ['art'],
       desc: '定时振臂一呼，召来一队黄巾降卒随你冲杀，一段时间后散去。',
       levels: [
         { count: 3, cd: 12, life: 10, dmg: 14 },
@@ -671,7 +700,7 @@ window.GAME_DATA = {
     },
     // 死士：raise 是一次爬出几个死士（临时随从，不占名额），life 秒后散去，sdmg 是死士的伤害
     sishi: {
-      name: '死士', icon: '死', type: 'deadRise', general: '司马懿',
+      name: '死士', icon: '死', type: 'deadRise', general: '司马懿', tags: ['art'],
       desc: '定时在敌群脚下裂开几座孤坟，幽冥鬼火喷涌伤敌；坟里爬出死士随你作战，片刻后散去。',
       levels: [
         { count: 3, cd: 8, dmg: 55, radius: 80, raise: 1, life: 8, sdmg: 14 },
@@ -741,7 +770,7 @@ window.GAME_DATA = {
       ],
     },
     shibapai: {
-      name: '十八拍', icon: '拍', type: 'beats', general: '蔡文姬',
+      name: '十八拍', icon: '拍', type: 'beats', general: '蔡文姬', tags: ['art'],
       desc: '蔡文姬的《胡笳十八拍》：定时奏一曲，单数拍震身边的内圈、双数拍震外圈，最后一拍内外齐震（伤害 ×1.5）。',
       levels: [ // r1：内圈半径；r2：外圈半径；beat：每拍隔几秒
         { cd: 9, beats: 6, beat: 0.28, dmg: 26, r1: 120, r2: 240 },
@@ -749,6 +778,17 @@ window.GAME_DATA = {
         { cd: 8, beats: 12, beat: 0.26, dmg: 30, r1: 130, r2: 270, note: '一曲十二拍' },
         { cd: 7.5, beats: 12, beat: 0.25, dmg: 38, r1: 140, r2: 290, note: '伤害 +8，圈更大' },
         { cd: 7, beats: 18, beat: 0.22, dmg: 40, r1: 150, r2: 310, note: '十八拍全曲' },
+      ],
+    },
+    duangexing: {
+      name: '短歌行', icon: '歌', type: 'songRings', general: '曹操', tags: ['art'],
+      desc: '曹操的《短歌行》：定时高歌一段，几圈歌声向外扩散，扫到的敌人走不快、醉得东倒西歪；随从闻歌加速。',
+      levels: [ // rings：唱几圈；ringR：最远多大；slow：被扫到后的移动速度倍率；drunk：醉几秒；haste：随从加速（4 秒）
+        { cd: 9, rings: 3, ringR: 260, dmg: 30, slow: 0.6, drunk: 1.5, haste: 0.25 },
+        { cd: 8.5, rings: 3, ringR: 280, dmg: 38, slow: 0.55, drunk: 1.8, haste: 0.3, note: '伤害 +8，歌声更远' },
+        { cd: 8, rings: 4, ringR: 300, dmg: 42, slow: 0.55, drunk: 2, haste: 0.3, note: '多唱一圈' },
+        { cd: 7.5, rings: 4, ringR: 320, dmg: 52, slow: 0.5, drunk: 2.2, haste: 0.35, note: '伤害 +10，醉得更久' },
+        { cd: 7, rings: 5, ringR: 350, dmg: 60, slow: 0.45, drunk: 2.5, haste: 0.4, note: '对酒当歌，人生几何' },
       ],
     },
   },
@@ -773,6 +813,8 @@ window.GAME_DATA = {
     lianzhu: { origin: 'hunter', tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每次多射 1 支箭（一次最多 4 支，射满后改为伤害 +12%）', effects: { arrowCount: 1 } },
     chuanyang: { origin: 'hunter', tags: ['bow'], name: '百步穿杨', icon: '杨', max: 5, desc: '弓弩伤害 +15%，穿透 +1', effects: { arrowDmg: 0.15, arrowPierce: 1 } },
     // 书生 · 计策（对竹简、羽扇、符咒、法杖、古琴、火把和所有技能生效）
+    zhiyin: { origin: 'cainv', tags: ['art'], name: '知音', icon: '音', max: 3, desc: '随从每次出手都带出一小段琴音，震伤身边的敌人（每级范围、伤害提高）', effects: {}, wave: { r: 55, dmg: 0.5, perLv: 0.25 } },
+    shicai: { origin: 'cainv', tags: ['art'], name: '诗才', icon: '诗', max: 3, desc: '你每升 5 级，全体随从多算 1 级（每级再多算 1 级）', effects: {} },
     qimou: { origin: 'scholar', tags: ['spell'], name: '奇谋', icon: '谋', max: 5, desc: '计策与技能伤害 +15%', effects: { spellDmg: 0.15 } },
     bingfa: { origin: 'scholar', tags: ['spell'], name: '孙子兵法', icon: '孙', max: 5, desc: '计策与技能冷却 -8%，计策范围 +8%', effects: { skillCd: 0.08, spellArea: 0.08 } },
     xiliang: { name: '西凉铠', icon: '铠', max: 1, unique: true, general: '华雄', desc: '华雄的铁甲：护甲 +3，生命上限 +40', effects: { armor: 3, maxHp: 40 } },
@@ -808,6 +850,7 @@ window.GAME_DATA = {
     juejing: { name: '绝境', icon: '境', max: 1, unique: true, general: '神赵云', desc: '血越少越强：生命每少一截，伤害和出手速度就提高一截，生命 30% 以下时最多 +50%；生命上限 +40', effects: { maxHp: 40 }, low: { max: 0.5, at: 0.3 } },
     yinan: { name: '白马银鞍', icon: '鞍', max: 1, unique: true, general: '神赵云', desc: '长坂坡的白马：移动速度 +15%；每次闪现后 1.5 秒内伤害 +30%', effects: { speedMul: 0.15 }, blinkDmg: { dmg: 0.3, dur: 1.5 } },
     laodang: { name: '老当益壮', icon: '壮', max: 1, unique: true, general: '黄忠', desc: '“老当益壮，宁移白首之心”：生命上限 +30；每 10 级伤害 +3%，不封顶', effects: { maxHp: 30 }, perTen: 0.03 },
+    jianxiong: { name: '奸雄', icon: '雄', max: 1, unique: true, general: '曹操', desc: '“宁教我负天下人”：本局每斩一员名将，伤害 +5%（最多 +50%）', effects: {}, perKill: 0.05, cap: 0.5 },
     bowen: { name: '博闻强识', icon: '博', max: 5, unique: true, general: '蔡文姬', desc: '凭记忆默写出父亲四百余篇藏书：经验获取 +5%/级（每次击败蔡文姬都能再升一级，最多 5 级）', effects: {}, xp: 0.05 },
   },
 
@@ -1397,7 +1440,7 @@ window.GAME_DATA = {
     // 魔幻风：黑金魔铠、血月、彼岸花。普通大招没有特写（noCutin），只有两人的组合大招（D.twin.combos）才有宽幅特写。
     // bleed：被他们打中会「黑血侵蚀」，回血效果大减（见 D.twin）。大招里的 pct：至少掉你生命上限的这么多，血再厚也得躲
     molubu: {
-      name: '魔吕布', title: '炼狱魔将 · 吕奉先', icon: '魔', hp: 16000, speed: 110, dmg: 30, r: 38, color: '#3a0a10', twin: true, bleed: true, noCutin: true,
+      name: '魔吕布', title: '炼狱魔将 · 吕奉先', icon: '魔', hp: 16000, speed: 110, dmg: 30, r: 38, color: '#3a0a10', twin: true, bleed: true, noCutin: true, camp: 'mo',
       attacks: ['charge3', 'slam', 'charge3', 'slam'], interval: 2.6, slamR: 200, chargeSpeed: 760, rideCharge: true, mount: '#2a0808',
       rewards: ['moyin', 'xueyu', 'lianhuansuo'],
       ultRgb: '220,30,50', ultEvery: 13,
@@ -1409,7 +1452,7 @@ window.GAME_DATA = {
       look: { skin: '#d8c0b0', skinShade: '#a88878', robe: '#1a0c10', trim: '#b0182a', armor: true, armorColor: '#2a1418', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'pheasant', weapon: 'ji', aura: '#8a0f1a', artFace: [0.56, 0.26, 0.28] },
     },
     modiaochan: {
-      name: '魔貂蝉', title: '血月魔姬 · 貂蝉', icon: '魅', hp: 16000, speed: 106, dmg: 26, r: 30, color: '#5a0f2a', twin: true, bleed: true, noCutin: true,
+      name: '魔貂蝉', title: '血月魔姬 · 貂蝉', icon: '魅', hp: 16000, speed: 106, dmg: 26, r: 30, color: '#5a0f2a', twin: true, bleed: true, noCutin: true, camp: 'mo',
       attacks: ['volley', 'meteor', 'volley', 'meteor'], interval: 2.4, kite: 260,
       volley: { count: 9, spread: 1.2, speed: 320, dmg: 18, petal: true },
       meteor: { count: 6, radius: 74, delay: 1.0, dmg: 30, rgb: '200,30,70', petal: true },
@@ -1424,7 +1467,7 @@ window.GAME_DATA = {
     },
     // —— 神赵云：100 级后正南方的枪魂冢放出。四色龙魂轮转（每 15 秒换一色）、绝境复生一次，比魔吕布魔貂蝉难一档；规则见 shen ——
     shenzhaoyun: {
-      name: '神赵云', title: '龙魂 · 常山赵子龙', icon: '龙', hp: 33000, speed: 135, dmg: 34, r: 36, color: '#c8d4e4', shen: true,
+      name: '神赵云', title: '龙魂 · 常山赵子龙', icon: '龙', hp: 33000, speed: 135, dmg: 34, r: 36, color: '#c8d4e4', shen: true, camp: 'shen',
       attacks: ['charge3', 'volley', 'charge3', 'meteor'], interval: 2.2, chargeSpeed: 900,
       homing: 2.6, rideCharge: true, mount: '#f4f6fa', dragonTrail: true, // 骑白马追着你冲，身后一条银龙
       volley: { count: 9, spread: 1.0, speed: 480, dmg: 20, arrow: true, wrgb: '200,225,255' }, // 掷出一排银枪
@@ -1473,6 +1516,23 @@ window.GAME_DATA = {
       banner: '左贤王帐 · 蔡文姬 胡笳悲鸣', line: '“笳一会兮琴一拍，心愤怨兮无人知。”', rage: '“十二年了……这一曲，为汉家而奏！”',
       look: { skin: '#f4e2d0', skinShade: '#d8bca4', robe: '#3a4a7a', trim: '#f0ece0', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#141820', pin: '#e0c070', weapon: 'flute', aura: '#6a7ad0', female: true, artFace: [0.53, 0.25, 0.34] },
     },
+    // —— 曹操：乱世奸雄，第五章章末。玄黑配暗金、深红点缀，雷属性。平时挥倚天剑扇形剑气，隔一阵召一队虎豹骑 ——
+    caocao: {
+      name: '曹操', el: 'thunder', title: '乱世奸雄 · 魏武', icon: '曹', hp: 12000, speed: 104, dmg: 28, r: 34, color: '#2a2420',
+      attacks: ['cleave', 'summon', 'cleave', 'charge'], interval: 2.4, cleaveR: 220, chargeSpeed: 720, summon: 3, summonType: 'hubao',
+      rewards: ['yitian', 'duangexing', 'jianxiong'],
+      ultRgb: '190,150,255', ultEvery: 10,
+      ults: [
+        // 对酒当歌：一圈圈歌声扩散（每圈一道缺口），打中你就醉 drunk 秒（走路带惯性、东倒西歪）；全场小兵 morale.dur 秒内移速、伤害 +morale.k
+        { id: 'duange', name: '对酒当歌', type: 'soundRing', count: 4, speed: 300, R: 900, gap: 0.55, dmg: 1.0, drunk: 2, morale: { dur: 6, k: 0.3 } },
+        // 横槊赋诗：持槊冲锋，冲过的路上依次落下 n 道雷，每道一句诗
+        { id: 'hengshuo', name: '横槊赋诗', type: 'lanceDash', count: 1, len: 820, speed: 1100, w: 74, tele: 0.8, dmg: 1.3, poem: { n: 4, r: 95, gap: 0.32, dmg: 1.0, lines: ['对酒当歌', '人生几何', '譬如朝露', '去日苦多'] } },
+        // 吾好梦中杀人（血过半）：睡 dur 秒，R 以内有你、或者被打中，就闪到你身后一刀（cd 秒内不再暴起；无尽里至少扣生命上限的 endlessPct）；睡完没被惊扰就回 heal 的血
+        { id: 'mengzhong', name: '吾好梦中杀人', type: 'dreamKill', hpBelow: 0.5, dur: 4, R: 230, cd: 1.0, dmg: 1.6, endlessPct: 0.2, heal: 0.08 },
+      ],
+      banner: '洛阳 · 魏武 曹孟德', line: '“宁教我负天下人，休教天下人负我！”', rage: '“竖子！安敢欺我！”',
+      look: { skin: '#ecccaa', skinShade: '#c8a07c', robe: '#1e1a18', trim: '#c9a046', armor: true, armorColor: '#6a5428', beard: 'goatee', beardColor: '#1a1410', eyes: 'phoenix', brows: 'sharp', head: 'scholar', headColor: '#141210', weapon: 'sword', aura: '#8a6ad0', artFace: [0.5, 0.26, 0.32] },
+    },
   },
   // 神赵云的规则
   //   四色龙魂：每 suitEvery 秒换一色（青 → 赤 → 白 → 玄）；绝境复生后四色同时生效
@@ -1482,6 +1542,9 @@ window.GAME_DATA = {
   //     玄龙不动：免疫减速、定身、冰冻，前 blocks 次受击无效
   //   绝境：第一次被打空血不会死，juejing.dur 秒无敌后以 juejing.revive 的血复生（只有一次），之后才会放「龙魂 · 四象」
   shen: { suitEvery: 15, heal: { dur: 5, rate: 0.006, interrupt: 0.015 }, fireAtk: 0.7, dodge: 0.3, blocks: 5, juejing: { dur: 5, revive: 0.4 } },
+  // 神魔将（generals 里带 camp 的：魔将 mo、神将 shen）的通用规则，以后新出的神魔将带上 camp 就自动适用
+  //   late：无尽里吃多少后期加速（普通名将全额）；shield：护盾最多是最大血量的这么多（黑血守护、护甲都算）；heal：回血每秒最多回最大血量的这么多（青龙回春这类）
+  camp: { late: 0.8, shield: 0.25, heal: 0.003 },
   // 魔吕布、魔貂蝉两人一组的规则
   //   黑血守护：代替护甲，等于最大生命的 shield，打破后僵直、易伤，不会自己回（搭档魂缚时回满）；两人相距 linkR 以内时「黑血相连」，都减伤 linkDr——拉开打更快
   //   魂缚：一人血量打空不会死，变成残魂（打不动），另一人狂怒（出招间隔 ×rage、黑血至少回到 rageShield），但孤身一人受到的伤害 +lonely；down 秒内把另一人也打空，两人一起倒下，否则残魂以 revive 的血量复活
@@ -1500,6 +1563,7 @@ window.GAME_DATA = {
   // 有配音文件就播放（assets/voice/<武将>_enter / _rage / _death / _ult_<大招id>.mp3），没有就只显示字幕。
   voice: {
     shenzhaoyun: { death: '七进七出……这一次……出不去了……', ult: { yinlong: '银龙出海，七进七出！', changban: '长坂坡前，单骑何惧！', qiangyu: '龙胆在手，枪落如雨！', sixiang: '四象归一，龙魂现世！', juejing: '绝境……亦是生路！' } },
+    caocao: { death: '大业未竟……孤……不甘……', ult: { duange: '对酒当歌，人生几何！', hengshuo: '横槊赋诗，固一世之雄也！', mengzhong: '吾好梦中杀人……', mengzhong_wake: '谁！' } },
     caiwenji: { death: '十二年……终于……能归汉了……', ult: { shiba: '胡笳一曲，十八拍断肠。', beifen: '悲愤成诗，字字是血！', guihan: '胡笳声里，我要归汉！' } },
     huangzhong: { death: '老夫……终究是……老了……', ult: { baibu: '百步之外，取你首级！', dingjun: '定军山下，斩将夺旗！', laodang: '黄忠在此，谁敢言老！' } },
     chengyuanzhi: { death: '大贤良师……救我……', ult: { axe: '开山！给我破！', mob: '黄巾儿郎，随我杀！' } },
@@ -1632,6 +1696,21 @@ window.GAME_DATA = {
         { t: 290, type: 'boss', id: 'zhouyu', final: true },
       ],
     },
+    {
+      id: 'sanfen', name: '第五章 · 三分天下', sub: '公元 220 年 · 魏武挥鞭，天下三分', music: 'endless', // 还没有本章的配乐：先用天下三分那首
+      clear: '三分天下',
+      elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
+      ground: { bg: '#221e1c', grass: 'rgba(120,112,90,0.4)', blot: 'rgba(30,20,40,0.22)', flag: 'rgba(110,80,160,0.5)' },
+      waves: [
+        { t: 0, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } },
+        { t: 60, rates: { foot: 5.2, shield: 0.9, archer: 1.0, cavalry: 1.4 } },
+      ],
+      events: [ // 刘备、孙权以后加在曹操前面
+        { t: 20, type: 'ambush', enemy: 'hubao', count: 12, text: '虎豹骑 · 天下骁锐' },
+        { t: 50, type: 'ambush', enemy: 'foot', count: 50, text: '青州兵' },
+        { t: 75, type: 'boss', id: 'caocao', final: true },
+      ],
+    },
   ],
   // 战役打完之后：天下三分，无尽征途（所有武将轮番再战，敌人强度加速增长）
   endless: {
@@ -1679,7 +1758,40 @@ window.GAME_DATA = {
         { id: 'g_jinnang', name: '锦囊', icon: '囊', slot: '饰品', effects: { pickupMul: 0.09, xpMul: 0.045 }, desc: '拾取范围 +9%、经验 +4.5%/级',
           look: '书生随身的小物件', tiers: ['粗布书囊', '妙计锦囊', '青玉佩', '白玉如意', '铜星盘', '八卦铜镜', '紫檀罗盘', '七星宝灯', '天机锦囊'] },
       ],
+      cainv: [
+        { id: 'g_yaoqin', name: '琴', icon: '琴', slot: '武器', effects: { startDmg: 0.1 }, startLvEvery: 3, desc: '瑶琴伤害 +10%/级；每 3 级开局瑶琴 +1 级',
+          look: '才女怀抱的古琴（七弦琴）', tiers: ['桐木琴', '杉木素琴', '漆面七弦琴', '蕉叶琴', '绿绮', '焦尾琴', '号钟', '绕梁', '九霄环佩'] },
+        { id: 'g_yiqun', name: '衣裙', icon: '裙', slot: '护甲', effects: { allyHp: 0.04, maxHp: 6 }, desc: '随从血量 +4%、生命上限 +6/级',
+          look: '才女的衣裙，从素布襦裙到霞帔羽衣', tiers: ['素布襦裙', '青衣长裙', '月白襦裙', '绣花罗裙', '云锦长裙', '霞帔', '凤纹霞帔', '流光羽裙', '九天云裳'] },
+        { id: 'g_yuzan', name: '玉簪', icon: '簪', slot: '饰品', effects: { speedMul: 0.015, allyDmg: 0.03 }, desc: '移动速度 +1.5%、随从伤害 +3%/级',
+          look: '才女的发饰和随身香囊', tiers: ['布香囊', '木簪', '银簪', '玉簪', '珠花步摇', '翡翠簪', '凤钗', '金凤步摇', '九凤朝阳钗'] },
+      ],
     },
+  },
+
+  // 封神 / 入魔：局外成长，专门对付神魔将（generals 里带 camp 的）。封神用魔血、只对魔将生效；入魔用神魂、只对神将生效，两条线词条一样，普通名将不受影响。
+  // 魔血、神魂：打赢一轮掉 win 份；一局结束时他们还没倒下，按打掉的血量比例给 0 ~ lose 份；也能用 gold 金币换 1 份（只能金币换货币）。
+  // levels：第 n 级解锁的词条，后面写的同名词条覆盖前面的：dmg 对它的伤害加成；shield 打它护盾的伤害倍率；pct 每秒结算一次、额外扣它最大血量的比例（一秒里打一下和打两百下都只算一次）；
+  //   hurt 受它的伤害减少；heal 它回血、复生回复的倍率；time 它倒地、复生的时间缩短。9 级以后还能升：每级伤害再 +late.dmg，价格每级 ×late.cost
+  campUp: {
+    lines: [
+      { id: 'feng', camp: 'mo', name: '封神', cur: 'moxue', curName: '魔血', vs: '魔将', who: '魔吕布、魔貂蝉', rgb: '255,90,100' },
+      { id: 'ru', camp: 'shen', name: '入魔', cur: 'shenhun', curName: '神魂', vs: '神将', who: '神赵云', rgb: '170,215,255' },
+    ],
+    win: 3, lose: 2, gold: 500,
+    cost: [3, 5, 8, 12, 17, 23, 30, 38, 48],
+    levels: [
+      { dmg: 0.15, text: '伤害 +15%' },
+      { shield: 1.3, text: '破护：对其护盾伤害 ×1.3' },
+      { pct: 0.003, text: '每秒额外扣其最大血量 0.3%' },
+      { hurt: 0.1, text: '受其伤害 -10%' },
+      { dmg: 0.3, text: '伤害 +30%' },
+      { heal: 0.5, time: 0.2, text: '禁疗：其回血、复生回复减半，倒地、复生时间 -20%' },
+      { pct: 0.006, text: '每秒额外扣其最大血量 0.6%' },
+      { shield: 1.6, hurt: 0.2, text: '破护：对其护盾伤害 ×1.6，受其伤害 -20%' },
+      { dmg: 0.5, pct: 0.01, heal: 0.3, text: '伤害 +50%，每秒额外扣其最大血量 1%，禁疗：其回复只剩三成' },
+    ],
+    late: { dmg: 0.05, cost: 1.12 },
   },
 
   // 神兵：击败名将时小概率掉落的专属兵器（奖励里出现一张金色卡）。
@@ -1746,6 +1858,8 @@ window.GAME_DATA = {
       desc: '拉满宝雕弓，一支裹着烈焰的重箭射穿敌阵，在敌人最密处炸开一团火。' },
     caiwenji: { name: '胡笳十八拍', icon: '谱', iconFrom: 'shibapai', rgb: '160,175,255', cd: 6, type: 'beatStorm', dmg: 70, beats: 6, beat: 0.2, r1: 180, r2: 360,
       desc: '展开《胡笳十八拍》曲谱：六拍连奏，内外圈轮流震荡，最后一拍全圈齐震、把敌人震开。' },
+    caocao: { name: '倚天剑', icon: '剑', iconFrom: 'yitian', rgb: '200,170,255', cd: 5.5, type: 'yitianSword', dmg: 80, len: 560, w: 80, bolts: 3, boltR: 70, allyBolt: 0.3,
+      desc: '倚天剑悬在身边：定时斩出一道紫金剑气，沿途劈下三道雷；随从每次出手有 30% 几率引来一道雷。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大
@@ -1794,6 +1908,9 @@ window.GAME_DATA = {
     lateDiv: 650,
     endlessDiv: 300,        // 进入无尽征途后，再按平方加速增长
     endlessBossHp: 6000,    // 无尽征途里武将的最低基础血量
+    // 无尽里敌人打得动你（战役不变，挂机会死）：名将大招一下至少扣生命上限的 ult（神魔将 campUlt，组合技按自己的 pct）；精英每一下至少 elite（比小兵碰一下重）；
+    // 小兵每撞一下至少 contact（站在人堆里不动十秒左右会死）；回血、杀敌回血这些每秒合计最多回 healCap；护甲递减：实际减免 = 护甲 × armorK / (护甲 + armorK)，最多减掉这一下的一半
+    lethal: { ult: 0.1, campUlt: 0.2, elite: 0.1, contact: 0.085, healCap: 0.15, armorK: 30 },
     xpGrowthStart: 240,     // 4 分钟后小兵经验开始增长
     xpGrowthSec: 400,       // 之后每过 400 秒经验 +100%
     eliteChance: 0.04,      // 无尽阶段普通兵变精英的概率（血量 ×6，经验 ×5）
