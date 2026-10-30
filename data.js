@@ -84,9 +84,13 @@ window.GAME_DATA = {
     },
     { // 才女：第一个带兵的出身，开局就不是一个人（allies：开局自带的随从，占随从名额）
       id: 'cainv', name: '才女', icon: '琴', weapon: 'yaoqin', focus: 'art', focusName: '才艺',
-      desc: '自幼习琴读诗，出门总有两名家兵随行。',
-      perks: ['开局就带两名随从枪兵', '闪现冷却 -15%，随从血量 +40%', '才艺：更容易刷到音波、随从与魅惑'],
-      stats: { blinkCd: 0.15, allyHp: 0.4 }, allies: { type: 'ally_spear', n: 2 },
+      desc: '自幼习琴读诗，出门总有乐师随行。',
+      perks: ['开局带一名乐师；最多带 12 名随从，阵亡后会归队', '闪现冷却 -15%；随从血量 +40%，索敌更远、出手带属性', '才艺：召募乐师、白马义从、虎卫、连弩兵（各最多 3 名）；据点不给外兵，改为强化全体随从'],
+      // allySight：随从找敌人的范围倍率（近战 220、离你 380、弓手射程都乘它）；allyRespawn：阵亡几秒后归队；allyEl：随从出手带你的属性
+      // （还支持 allyMul：随从伤害单独再乘。随从上限 8 时模拟要 1.65 才比不投随从强两成；改成 12 名、每种 3 名以后不加也强两成上下，据点还另外加，就不加了）
+      stats: { blinkCd: 0.15, allyHp: 0.4, allySight: 1.35, allyRespawn: 20, allyEl: true }, allies: { type: 'ally_musician', n: 1 },
+      recruits: ['ally_musician', 'ally_baima', 'ally_huwei', 'ally_liannu'], // 升级时能刷到的召募卡（见 allies）；每张召 1 名，每种最多 recruitMax 名
+      recruitMax: 3, allyCap: 12, // 随从上限 12（别的出身 8，见 D.allyCap）；营寨、箭楼、马厩不给才女兵，每名改成全体随从伤害 +15%
       look: { skin: '#f4e4d2', skinShade: '#dcc2a8', robe: '#e6ebe8', trim: '#8fb8a8', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#16181e', pin: '#b08a5a', weapon: 'flute', aura: '#7aa89a', female: true, artFace: [0.5, 0.24, 0.34] },
     },
   ],
@@ -815,6 +819,11 @@ window.GAME_DATA = {
     // 书生 · 计策（对竹简、羽扇、符咒、法杖、古琴、火把和所有技能生效）
     zhiyin: { origin: 'cainv', tags: ['art'], name: '知音', icon: '音', max: 3, desc: '随从每次出手都带出一小段琴音，震伤身边的敌人（每级范围、伤害提高）', effects: {}, wave: { r: 55, dmg: 0.5, perLv: 0.25 } },
     shicai: { origin: 'cainv', tags: ['art'], name: '诗才', icon: '诗', max: 3, desc: '你每升 5 级，全体随从多算 1 级（每级再多算 1 级）', effects: {} },
+    // 才女的随从宝物：allyDmg 随从伤害；allyAtk 随从出手速度；allyRange 随从索敌范围（乘在出身的 allySight 上）；allySpeed 随从移速；allyRevive 阵亡归队时间缩短
+    lianbing: { origin: 'cainv', tags: ['art'], name: '练兵', icon: '练', max: 5, desc: '全体随从伤害 +15%', effects: { allyDmg: 0.15 } },
+    gujiao: { origin: 'cainv', tags: ['art'], name: '鼓角', icon: '鼓', max: 5, desc: '全体随从出手速度 +10%', effects: { allyAtk: 0.1 } },
+    zhentu: { origin: 'cainv', tags: ['art'], name: '阵图', icon: '阵', max: 5, desc: '随从索敌范围 +15%，移动速度 +10%', effects: { allyRange: 0.15, allySpeed: 0.1 } },
+    laojun: { origin: 'cainv', tags: ['art'], name: '犒军', icon: '犒', max: 5, desc: '随从血量 +20%，阵亡后归队快 15%', effects: { allyHp: 0.2, allyRevive: 0.15 } },
     qimou: { origin: 'scholar', tags: ['spell'], name: '奇谋', icon: '谋', max: 5, desc: '计策与技能伤害 +15%', effects: { spellDmg: 0.15 } },
     bingfa: { origin: 'scholar', tags: ['spell'], name: '孙子兵法', icon: '孙', max: 5, desc: '计策与技能冷却 -8%，计策范围 +8%', effects: { skillCd: 0.08, spellArea: 0.08 } },
     xiliang: { name: '西凉铠', icon: '铠', max: 1, unique: true, general: '华雄', desc: '华雄的铁甲：护甲 +3，生命上限 +40', effects: { armor: 3, maxHp: 40 } },
@@ -996,6 +1005,21 @@ window.GAME_DATA = {
       look: { skin: '#d9a878', robe: '#3a6a5a', trim: '#1e3a30', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'cap', headColor: '#2f8a6a', weapon: 'bow' } },
     ally_cavalry: { name: '随从骑兵', kind: 'melee', hp: 280, speed: 215, dmg: 20, range: 48, cd: 0.85, h: 52, r: 15, mount: '#e8e0d0',
       look: { skin: '#d0a070', robe: '#2f4f7a', trim: '#c9a046', armor: true, armorColor: '#5a6f8a', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#8a9aaa', plume: '#2f6fa8', weapon: 'spear' } },
+    // 才女召募的兵种：升级时刷到「召募」卡（出身 recruits 里列的），一次来 recruit 名，每种最多出身的 recruitMax 名；满员时替换随从枪兵。desc 写在卡上
+    // shot: 'wave' 弹出琴音（宽 w、穿透、减速到 slow）；burst/spread 一次几箭、扇形散开；pierce 箭能穿几个；随从有敌人就去打，但不出你身边一圈（见 game.js updateAllies）；
+    // dr 受到的伤害减少；taunt 这个距离内的小兵都改打他（比 allyHp.aggroR 远，而且比你近不近都打他）
+    ally_musician: { name: '乐师', icon: '乐', recruit: 1, kind: 'ranged', shot: 'wave', hp: 110, speed: 140, dmg: 10, range: 300, cd: 1.3, w: 56, slow: 0.7, h: 40, r: 12,
+      desc: '远远弹出一道琴音，穿过一排敌人，被扫到的走不快。',
+      look: { skin: '#f2dcc4', robe: '#cfe0f0', trim: '#3a6a9a', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#1a1a20', weapon: 'flute', female: true } }, // 随从统一蓝色系，和敌人分开
+    ally_baima: { name: '白马义从', icon: '骑', recruit: 1, kind: 'ranged', hp: 230, speed: 235, dmg: 12, range: 380, cd: 0.8, pierce: 2, h: 52, r: 15, mount: '#f2f0ea',
+      desc: '骑白马的弓骑，射得远、跑得快，一箭能穿两个。',
+      look: { skin: '#d8a878', robe: '#eef0f2', trim: '#2f6fa8', armor: true, armorColor: '#c9d0d6', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#d8dde2', plume: '#2f6fa8', weapon: 'bow' } },
+    ally_huwei: { name: '虎卫', icon: '卫', recruit: 1, kind: 'melee', hp: 600, speed: 140, dmg: 16, range: 46, cd: 0.9, dr: 0.4, taunt: 280, h: 46, r: 15,
+      desc: '重甲护卫：挨打少四成，身边的小兵都冲他去，替你挡刀。',
+      look: { skin: '#c99a68', robe: '#24344a', trim: '#c9a046', armor: true, armorColor: '#3a4a5e', beard: 'stubble', beardColor: '#2a2018', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#3a4a5e', plume: '#2f6fa8', weapon: 'dao' } },
+    ally_liannu: { name: '连弩兵', icon: '弩', recruit: 1, kind: 'ranged', hp: 120, speed: 140, dmg: 7, range: 330, cd: 1.4, burst: 3, spread: 0.14, h: 40, r: 12,
+      desc: '诸葛连弩：一次三箭扇形射出，专打成群的敌人。',
+      look: { skin: '#d9a878', robe: '#3a5a7a', trim: '#1e3248', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'cap', headColor: '#2f6fa8', weapon: 'crossbow' } },
     // 黄巾号令召来的临时降卒（不占随从名额，沿用黄巾兵的小人图）
     ally_yt: { name: '黄巾降卒', kind: 'melee', hp: 90, speed: 165, dmg: 14, range: 40, cd: 0.7, h: 40, r: 12, art: 'yt_foot', temp: true,
       look: { skin: '#c99a68', robe: '#8a7a52', trim: '#5e5040', armor: false, beard: 'stubble', beardColor: '#2a2018', eyes: 'normal', brows: 'sharp', head: 'band', bandColor: '#e0b020', weapon: 'spear' } },
