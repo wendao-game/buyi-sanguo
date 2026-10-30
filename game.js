@@ -746,6 +746,7 @@ function newState(originId) {
     weapons: [], skills: [], passives: {}, elements: {}, boltBudget: 6, gustT: 0,
     enemies: [], bossList: [], proj: [], eproj: [], zones: [], effects: [], rings: [], pickups: [], numbers: [], dnums: [], particles: [], hazards: [],
     rampageT: 0, thornsT: 0, seen: {},
+    dmgAll: 0, dmgAlly: 0, allyQueue: [], // 这一局打出的总伤害、其中随从打的（暂停菜单里看占比）；才女阵亡待归队的随从 { type, t }
     decals: [], ghosts: [], hurtFlash: 0, ghostT: 0,
     teles: [], ezones: [], ultFreeze: 0, pSlowT: 0, windT: 0, windX: 0, windY: 0, pBurnT: 0, pBurnDps: 0, blinkT: 0, blinkReq: false,
     pChillT: 0, frozenT: 0, charm: null, // 女将：冰冻减速、冻住不能动、被貂蝉迷住往她身边走
@@ -772,10 +773,13 @@ function newState(originId) {
   return S;
 }
 
+// 属性上限：冷却缩减最多 60%、暴击率最多 75%、移速最多 +150%、技能冷却最多 -50%。到顶以后只加这些的物品升级不再出现（见 levelOptions）
+const CAP = { cdMul: 0.4, crit: 0.75, speedMul: 1.5, skillCd: 0.5 };
 function recomputeStats() {
   const p = S.player, b = D.player.base, o = S.origin.stats;
   const add = { maxHp: 0, maxHpMul: 0, speedMul: 0, armor: 0, regen: 0, pickupMul: 0, dmgMul: 0, cdMul: 0, areaMul: 0, crit: 0, critMul: 0,
-    arrowCount: 0, arrowDmg: 0, arrowPierce: 0, spellDmg: 0, skillCd: 0, spellArea: 0, blinkDist: 0, blinkCd: 0, allyHp: 0, allyDmg: 0 };
+    arrowCount: 0, arrowDmg: 0, arrowPierce: 0, spellDmg: 0, skillCd: 0, spellArea: 0, blinkDist: 0, blinkCd: 0, allyHp: 0, allyDmg: 0,
+    allyAtk: 0, allyRange: 0, allySpeed: 0, allyRevive: 0 };
   for (const [id, lv] of Object.entries(S.passives)) {
     const def = D.passives[id], ef = def.effects, n = passiveEff(def, lv);
     for (const k in ef) add[k] += ef[k] * n;
@@ -789,21 +793,26 @@ function recomputeStats() {
   p.maxHp = Math.round(((o.maxHp || b.maxHp) + add.maxHp) * (1 + add.maxHpMul));
   // 出身专精：弓箭（连珠箭、百步穿杨）与计策（奇谋、孙子兵法）
   p.arrowCount = Math.floor(add.arrowCount); p.arrowDmg = add.arrowDmg; p.arrowPierce = Math.floor(add.arrowPierce);
-  p.spellDmg = add.spellDmg; p.skillCd = Math.min(0.5, add.skillCd); p.spellArea = add.spellArea;
-  p.speed = b.speed * (o.speedMul || 1) * (1 + Math.min(1.5, add.speedMul));
+  p.spellDmg = add.spellDmg; p.skillCd = Math.min(CAP.skillCd, add.skillCd); p.spellArea = add.spellArea;
+  p.speed = b.speed * (o.speedMul || 1) * (1 + Math.min(CAP.speedMul, add.speedMul));
   p.armor = (o.armor || 0) + add.armor;
   p.regen = (o.regen || 0) + add.regen;
   p.pickup = b.pickup * (o.pickupMul || 1) * (1 + add.pickupMul);
   p.dmgMul = 1 + (o.dmg || 0) + add.dmgMul;
-  p.cdMul = Math.max(0.4, (o.cdMul || 1) * (1 + add.cdMul));
+  const cdRaw = (o.cdMul || 1) * (1 + add.cdMul), critRaw = b.crit + (o.crit || 0) + add.crit;
+  p.cdMul = Math.max(CAP.cdMul, cdRaw);
   p.areaMul = 1 + add.areaMul;
-  p.crit = Math.min(0.75, b.crit + (o.crit || 0) + add.crit);
+  p.crit = Math.min(CAP.crit, critRaw);
+  p.capped = { cdMul: cdRaw <= CAP.cdMul, crit: critRaw >= CAP.crit, speedMul: add.speedMul >= CAP.speedMul, skillCd: add.skillCd >= CAP.skillCd }; // 哪些属性已经到顶
   p.critMul = b.critMul + add.critMul;
   if (S.passives.laodang) p.dmgMul += D.passives.laodang.perTen * Math.floor(p.level / 10); // 老当益壮：每 10 级伤害 +3%，不封顶
   if (S.passives.jianxiong) { const J = D.passives.jianxiong; p.dmgMul += Math.min(J.cap, J.perKill * (S.jxKills || 0)); } // 奸雄：本局每斩一将伤害 +5%
   p.blinkDist = D.blink.dist * (1 + add.blinkDist);                        // 铜雀春深：闪现更远
   p.blinkCd = D.blink.cd * (S.shenbing.some(sb => D.shenbing[sb.gid].blinkCd) ? 0.5 : 1) * (1 - Math.min(0.6, add.blinkCd + (o.blinkCd || 0))); // 流光蝶钗：闪现冷却减半；国色：再减 25%；才女：-15%
-  p.allyHp = (o.allyHp || 0) + add.allyHp; p.allyDmg = add.allyDmg;       // 才女：随从血量、伤害（出身、衣裙、玉簪）
+  p.allyHp = (o.allyHp || 0) + add.allyHp; p.allyDmg = add.allyDmg;       // 才女：随从血量、伤害（出身、衣裙、玉簪、犒军、练兵）
+  p.allyAtk = add.allyAtk; p.allySpeed = add.allySpeed;                  // 鼓角：出手速度；阵图：移速
+  p.allySight = (o.allySight || 1) * (1 + add.allyRange);                // 随从索敌范围倍率（才女出身 + 阵图）
+  p.allyRespawn = o.allyRespawn ? o.allyRespawn * Math.max(0.25, 1 - add.allyRevive) : 0; // 阵亡几秒后归队（才女；犒军缩短，最快四分之一）
   if (!oldMax) p.hp = p.maxHp;
   else if (p.maxHp > oldMax) p.hp += p.maxHp - oldMax;
   p.hp = Math.min(p.hp, p.maxHp);
@@ -847,6 +856,7 @@ function hitEnemy(e, base, opts) {
   const CF = campFxOf(e);
   if (CF) dmg *= 1 + CF.dmg;                          // 封神 / 入魔：对神魔将的伤害加成
   dmg = Math.max(1, Math.round(dmg * rand(0.92, 1.08)));
+  S.dmgAll += dmg; if (opts && opts.ally) S.dmgAlly += dmg; // 随从打的占多少（ally：随从的刀枪、箭、琴音、知音）
   e.hurtT = S.t;                                      // 药庐、华佗：一会儿没挨打才回血
   if (e.chan) e.chan.taken += dmg;                    // 华佗青囊回春：引导时挨够伤害就被打断
   if (e.shenHeal) e.shenHeal.taken += dmg;            // 神赵云青龙回春：回血时挨够伤害就被打断
@@ -1274,9 +1284,9 @@ function onBuildingDestroyed(e) {
   for (let i = 0; i < 8; i++) dropXp(e.x + rand(-40, 40), e.y + rand(-30, 30), Math.max(2, Math.round(def.xp / 4 * (1 + S.t / 300))));
   dropGold(e.x, e.y, D.meta.gold.building);
   // 奖励
-  let msg = def.desc.replace('摧毁后', '');
+  let msg = buildingDesc(def).replace('摧毁后', '');
   if (rw.bonus) for (const k in rw.bonus) S.bonus[k] = (S.bonus[k] || 0) + rw.bonus[k];
-  if (rw.type === 'recruit') addAllies(rw.ally, rw.count);
+  if (rw.type === 'recruit') { if (S.origin.recruits) S.allyPower += 0.15 * rw.count; else addAllies(rw.ally, rw.count); } // 才女：不收外兵，每名改成全体随从伤害 +15%
   else if (rw.type === 'feast') { recomputeStats(); p.hp = p.maxHp; embers(p.x, p.y, 20, '140,240,160', 60, 100, 7, 1); }
   else if (rw.type === 'forge') S.forgeReady++;
   else if (rw.type === 'general') { // 西凉营地：攻破后马超从营中杀出
@@ -2724,7 +2734,7 @@ function updateSkills(dt) {
         }
         if (s.t > 0) break;
         if (!nearest(p.x, p.y, 400)) { s.t = 0.25; break; }
-        s.t = L.cd * p.cdMul;
+        s.t = Math.max(L.cd * p.cdMul, L.dur * 2); // 冷却至少是无敌时间的两倍：以前满级叠满冷却缩减 60%，冷却 4 秒 = 无敌 4 秒，全程无敌（玩家反馈）
         S.rampageT = S.t + L.dur;
         S.rampageSpeed = L.speed;
         addNumber(p.x, p.y - 30, '七进七出！', '#e8eef2', 20);
@@ -5705,11 +5715,12 @@ function updateEnemies(dt) {
     else {
       const d0 = Math.hypot(p.x - e.x, p.y - e.y) || 1;
       if (d0 > farR) { const [x, y] = spawnPos(); e.x = x; e.y = y; continue; }
-      // 吸引仇恨：附近有比玩家更近的随从，就先去打随从
+      // 吸引仇恨：附近有比玩家更近的随从，就先去打随从；虎卫（taunt）身边的小兵不管你近不近都冲他去
       let tx = p.x, ty = p.y, d = d0;
       if (S.allies.length) for (const a of S.allies) {
         if (a.gone) continue;
         const ad = Math.hypot(a.x - e.x, a.y - e.y);
+        if (a.def.taunt && ad < a.def.taunt) { d = ad || 1; tx = a.x; ty = a.y; break; }
         if (ad < D.allyHp.aggroR && ad < d) { d = ad || 1; tx = a.x; ty = a.y; }
       }
       for (const o of S.decoys) { // 蝶影分身：附近的小兵改去追分身
@@ -5846,12 +5857,16 @@ function updateBuilding(e, dt) {
 }
 
 // ============ 随从 ============
+// 随从上限：才女 12，别的出身 8
+const allyCap = () => S.origin.allyCap || D.allyCap;
+// 某种随从现有几名：活着的加上阵亡待归队的（才女召募每种最多 recruitMax 名，待归队的也占着）
+const allyCount = type => S.allies.filter(a => !a.until && a.type === type).length + S.allyQueue.filter(q => q.type === type).length;
 // temp：{ life, dmg } 临时随从（黄巾号令），不占名额，到时散去
 function addAllies(type, n, temp) {
   const p = S.player;
   let added = 0;
   for (let i = 0; i < n; i++) {
-    if (!temp && S.allies.filter(a => !a.until).length >= D.allyCap) break;
+    if (!temp && S.allies.filter(a => !a.until).length >= allyCap()) break;
     const a = rand(0, TAU), ox = temp && temp.x !== undefined ? temp.x : p.x, oy = temp && temp.y !== undefined ? temp.y : p.y; // 死士从坟里 / 倒下的敌人身上爬出来
     const x = ox + Math.cos(a) * (ox === p.x ? 40 : 14), y = oy + Math.sin(a) * (ox === p.x ? 40 : 14);
     const mh = allyMaxHp(D.allies[type]);
@@ -5868,7 +5883,7 @@ function addAllies(type, n, temp) {
   return added;
 }
 // 随从按几级算：你的等级；诗才每级让你每 5 级多算 1 级
-const allyLv = () => { const p = S.player; return p.level + Math.floor(p.level / 5) * (S.passives.shicai || 0); };
+const allyLv = () => { const p = S.player, sc = S.passives.shicai; return p.level + Math.floor(p.level / 5) * (sc ? passiveEff(D.passives.shicai, sc) : 0); }; // 诗才满级后和别的物品一样效果减半（以前按原始等级算，刷到十几级随从等级会翻好几倍）
 // 随从血量：随等级和随从强化成长（才女：出身、衣裙再加）
 const allyMaxHp = def => Math.round(def.hp * (1 + (allyLv() - 1) * D.allyHp.perLv) * (1 + S.allyPower) * (1 + (S.player.allyHp || 0)));
 // 随从出手时：知音带出一小段琴音震伤身边的敌人；倚天剑（神兵）有几率引来一道雷
@@ -5876,7 +5891,7 @@ function allyProc(tgt, dmg) {
   const zy = S.passives.zhiyin;
   if (zy) {
     const Z = D.passives.zhiyin.wave, k = 1 + Z.perLv * (zy - 1), R = Z.r * k;
-    hitCircle(tgt.x, tgt.y, R, dmg * Z.dmg * k, 40);
+    hitCircle(tgt.x, tgt.y, R, dmg * Z.dmg * k, 40, 0, true);
     if (fxRoom(tgt.x, tgt.y, R)) S.effects.push({ kind: 'wave', x: tgt.x, y: tgt.y, r: R, life: 0.25, max: 0.25, color: '#8fe0c8' });
   }
   const sb = S.shenbing.find(x => x.gid === 'caocao'), def = D.shenbing.caocao;
@@ -5885,6 +5900,7 @@ function allyProc(tgt, dmg) {
 // 随从挨打：短暂无敌，打空就战死
 function hurtAlly(a, amount) {
   if (a.gone || S.t < a.iT) return;
+  amount *= 1 - (a.def.dr || 0); // 虎卫：重甲减伤
   a.hp -= amount; a.iT = S.t + 0.5; a.hitT = S.t; a.flash = 0.12;
   addNumber(a.x, a.y - a.def.h * 0.6, '-' + Math.round(amount), '#9cc4ff', 11);
   if (a.hp <= 0) {
@@ -5892,8 +5908,30 @@ function hurtAlly(a, amount) {
     smoke(a.x, a.y - 10, 4, '40,40,60', 10, 10, 0.6);
     for (let i = 0; i < 4; i++) particle(a.x, a.y - 12, a.def.look.robe, 180);
     addNumber(a.x, a.y - a.def.h - 6, '阵亡', '#9cc4ff', 13);
+    if (!a.until && S.player.allyRespawn) S.allyQueue.push({ type: a.type, t: S.t + S.player.allyRespawn }); // 才女：过一会儿归队
   }
 }
+// 才女召募：一次来 recruit 名；满员时先替换随从枪兵（最普通的那种），没有枪兵可换就按满员的老规矩强化全体随从。
+// 阵亡待归队的也占着名额（不然召满了，归队的回不来）
+function recruitAllies(type) {
+  const def = D.allies[type];
+  let left = Math.min(def.recruit || 1, (S.origin.recruitMax || 99) - allyCount(type));
+  const free = allyCap() - S.allies.filter(a => !a.until).length - S.allyQueue.length;
+  if (left > 0 && free > 0) left -= addAllies(type, Math.min(left, free));
+  for (const a of S.allies) {
+    if (left <= 0) break;
+    if (a.until || a.type !== 'ally_spear') continue;
+    a.type = type; a.def = def; a.maxHp = allyMaxHp(def); a.hp = a.maxHp; a.cdT = 0.3;
+    smoke(a.x, a.y - 10, 3, '200,170,80', 10, 8, 0.5); left--;
+  }
+  for (const q of S.allyQueue) if (left > 0 && q.type === 'ally_spear') { q.type = type; left--; } // 阵亡的枪兵归队时换成新兵
+  if (left > 0) { S.allyPower += 0.15 * left; toast('', '', '随从已满员', `全体随从伤害 +${Math.round(15 * left)}%`); } // 满员、也没有枪兵可换：强化全体随从
+  else toast('', '', `召募 · ${def.name}`, def.desc);
+  S.buildDirty = true;
+}
+// 据点说明：才女不收外兵，「获得 N 名随从××」写成全体随从伤害加成
+const buildingDesc = def => S.origin.recruits && def.reward && def.reward.type === 'recruit'
+  ? def.desc.replace(/获得 \d+ 名随从[^，]*/, `全体随从伤害 +${Math.round(15 * def.reward.count)}%`) : def.desc;
 function updateAllies(dt) {
   for (const a of S.allies) if (a.until && S.t > a.until) {
     a.gone = true; smoke(a.x, a.y - 10, 3, a.def.shade ? '40,16,60' : '200,170,80', 10, 8, 0.5);
@@ -5901,6 +5939,13 @@ function updateAllies(dt) {
     if (DL && DL.blast) { hitCircle(a.x, a.y, DL.blast * S.player.areaMul, a.dmg * 3, 140); soulBurst(a.x, a.y, DL.blast); } // 幽冥觉醒「冢中枯骨」：死士散去时炸开
   }
   if (S.allies.some(a => a.gone)) { S.allies = S.allies.filter(a => !a.gone); S.buildDirty = true; }
+  if (S.allyQueue.length && S.allyQueue[0].t <= S.t) { // 才女：阵亡的随从归队（满员了就不回来，名额已经被新召募的占了）
+    const q = S.allyQueue.shift();
+    if (S.allies.filter(a => !a.until).length < allyCap() && addAllies(q.type, 1)) {
+      const a = S.allies[S.allies.length - 1];
+      smoke(a.x, a.y - 10, 3, '200,170,80', 10, 8, 0.5); addNumber(a.x, a.y - a.def.h - 6, '归队', '#9cc4ff', 13);
+    }
+  }
   const p = S.player, n = S.allies.length, AH = D.allyHp;
   for (const a of S.allies) { // 升级后血量上限跟着涨；一段时间没挨打慢慢回血
     const mh = allyMaxHp(a.def);
@@ -5908,49 +5953,68 @@ function updateAllies(dt) {
     if (S.t - a.hitT > AH.regenDelay) a.hp = Math.min(a.maxHp, a.hp + a.maxHp * AH.regen * dt);
     a.flash = Math.max(0, a.flash - dt);
   }
-  const power = (1 + (allyLv() - 1) * 0.06) * (1 + S.allyPower) * (1 + (p.allyDmg || 0)), haste = S.t < S.allyHasteT ? 1 + S.allyHaste : 1; // 短歌行：随从闻歌加速
+  const power = (1 + (allyLv() - 1) * 0.06) * (1 + S.allyPower) * (1 + (p.allyDmg || 0)) * (S.origin.stats.allyMul || 1), haste = S.t < S.allyHasteT ? 1 + S.allyHaste : 1; // 短歌行：随从闻歌加速；才女：随从伤害单独再乘
+  // 才女：索敌范围（出身 + 阵图）、出手速度（鼓角）、移速（阵图）、出手带你的属性
+  const sight = p.allySight || 1, atk = 1 + (p.allyAtk || 0), mv = (1 + (p.allySpeed || 0)) * haste, elOn = S.origin.stats.allyEl;
   S.allies.forEach((a, i) => {
-    const d = a.def;
+    const d = a.def, ranged = d.kind === 'ranged', range = ranged ? d.range * sight : d.range;
     // 太远就传送回身边
-    if (dist2(a.x, a.y, p.x, p.y) > 600 * 600) { a.x = p.x + rand(-40, 40); a.y = p.y + rand(-40, 40); }
-    // 找附近的敌人（在自己 220 内、且离玩家不太远）
+    if (dist2(a.x, a.y, p.x, p.y) > (600 * sight) ** 2) { a.x = p.x + rand(-40, 40); a.y = p.y + rand(-40, 40); }
+    // 找附近的敌人（近战在自己 220 内，远程在射程内；都要离你不太远）
     let tgt = null, best = Infinity;
-    near(a.x, a.y, d.kind === 'ranged' ? d.range : 220, e => {
-      if (e.building && d.kind !== 'ranged') { /* 近战随从也打据点 */ }
+    const leash = (380 * sight) ** 2;
+    near(a.x, a.y, ranged ? range : 220 * sight, e => {
       const dd = dist2(a.x, a.y, e.x, e.y);
-      if (dd < best && dist2(e.x, e.y, p.x, p.y) < 380 * 380) { best = dd; tgt = e; }
+      if (dd < best && dist2(e.x, e.y, p.x, p.y) < leash) { best = dd; tgt = e; }
     });
-    let gx, gy;
+    // 身边的站位：随从多了排三圈
+    const slot = i / Math.max(1, n) * TAU + 0.6, rr = 58 + (i % 3) * 22;
+    // 有敌人就主动去打，但不出你身边一圈（远程 230、近战 270）；够得着了站住打，离你太远就边打边往你这边收（玩家反馈：一直贴着你也不好，站着不动又会落下）
+    const fromP = Math.hypot(a.x - p.x, a.y - p.y), LEASH = ranged ? 230 : 270;
+    let gx = p.x + Math.cos(slot) * rr, gy = p.y + Math.sin(slot) * rr, inReach = false;
     if (tgt) {
-      const dist = Math.sqrt(best), reach = d.kind === 'ranged' ? d.range * 0.85 : d.range + tgt.r;
-      if (dist > reach) { gx = tgt.x; gy = tgt.y; }
+      const dist = Math.sqrt(best), reach = ranged ? range * 0.85 : d.range + tgt.r;
+      inReach = dist <= reach + 4;
+      if (dist > reach) { // 往敌人那边走，但走到这一圈的边上就停
+        gx = tgt.x; gy = tgt.y;
+        const ox = gx - p.x, oy = gy - p.y, od = Math.hypot(ox, oy) || 1;
+        if (od > LEASH) { gx = p.x + ox / od * LEASH; gy = p.y + oy / od * LEASH; }
+      } else if (fromP > LEASH) { gx = p.x + (a.x - p.x) / fromP * LEASH * 0.8; gy = p.y + (a.y - p.y) / fromP * LEASH * 0.8; } // 够得着，但你走远了：往回收
+      else { gx = a.x; gy = a.y; } // 站住打
       a.cdT -= dt;
       if (dist <= reach + 4 && a.cdT <= 0) {
-        a.cdT = d.cd;
-        const ang = angleTo(a.x, a.y, tgt.x, tgt.y);
-        if (d.kind === 'ranged') {
-          S.proj.push({ kind: 'arrow', x: a.x, y: a.y - 10, vx: Math.cos(ang) * 560, vy: Math.sin(ang) * 560, r: 5, dmg: d.dmg * power, pierce: 1, life: 0.9, hit: new Set(), kb: 50, ally: true });
+        a.cdT = d.cd / atk;
+        const ang = angleTo(a.x, a.y, tgt.x, tgt.y), dmg = a.dmg || d.dmg * power, el = !a.until && elOn ? rollEl() : null;
+        if (d.shot === 'wave') { // 乐师：弹出一道琴音，穿过一排敌人
+          S.proj.push({ kind: 'jia', x: a.x, y: a.y - 10, x0: a.x, y0: a.y - 10, vx: Math.cos(ang) * 460, vy: Math.sin(ang) * 460, r: d.w / 2, dmg, pierce: 999, life: range / 460 + 0.2, hit: new Set(), kb: 20, slow: d.slow, rgb: '170,225,215', el, ally: true });
+        } else if (ranged) { // 弓手、白马义从一箭；连弩兵一次几箭扇形散开
+          const nb = d.burst || 1;
+          for (let k = 0; k < nb; k++) { const ak = ang + (k - (nb - 1) / 2) * (d.spread || 0); S.proj.push({ kind: 'arrow', x: a.x, y: a.y - 10, vx: Math.cos(ak) * 560, vy: Math.sin(ak) * 560, r: 5, dmg, pierce: d.pierce || 1, life: Math.max(0.9, range / 560 + 0.3), hit: new Set(), kb: 50, el, ally: true }); }
         } else {
-          hitEnemy(tgt, a.dmg || d.dmg * power, { kb: 90, kbAngle: ang, noEl: true });
+          hitEnemy(tgt, dmg, { kb: 90, kbAngle: ang, el, ally: true });
           S.effects.push({ kind: 'thrust', x: a.x, y: a.y - 10, a: ang, len: d.range + 14, w: 16, life: 0.14, max: 0.14, rgb: '170,210,255' });
         }
-        if (!a.until) allyProc(tgt, a.dmg || d.dmg * power); // 临时随从（降卒、死士）不带
+        if (!a.until) allyProc(tgt, dmg); // 临时随从（降卒、死士）不带
         a.fx = Math.cos(ang) >= 0 ? 1 : -1;
       }
-    } else { // 没敌人：回到玩家身边的站位
-      const slot = i / Math.max(1, n) * TAU + 0.6, rr = 58 + (i % 2) * 22;
-      gx = p.x + Math.cos(slot) * rr; gy = p.y + Math.sin(slot) * rr;
+    } // 没敌人：回到身边的站位（gx、gy 默认就是站位）
+    // 走路：速度慢慢加上去、慢慢停下来；离目标点 14 以上才起步、5 以内才停（进出有余量，不会一走一停地抖）
+    const dx = gx - a.x, dy = gy - a.y, dd = Math.hypot(dx, dy);
+    if (a.walk ? dd < 5 : dd > 14) a.walk = !a.walk;
+    let tvx = 0, tvy = 0;
+    if (a.walk) {
+      let sp = d.speed * (dd > 200 ? 1.5 : 1) * mv;
+      if (dd > 90 || fromP > LEASH) sp = Math.max(sp, p.speed); // 落在后面了：至少跟你一样快，跟得上
+      sp = Math.min(sp, dd * 6); // 快到了就慢下来
+      tvx = dx / dd * sp; tvy = dy / dd * sp;
     }
-    a.moving = false;
-    if (gx !== undefined) {
-      const dx = gx - a.x, dy = gy - a.y, dd = Math.hypot(dx, dy);
-      if (dd > 6) {
-        const sp = d.speed * (dd > 200 ? 1.5 : 1) * haste;
-        a.x += dx / dd * Math.min(dd, sp * dt); a.y += dy / dd * Math.min(dd, sp * dt);
-        a.moving = true;
-        if (Math.abs(dx) > 3) a.fx = dx > 0 ? 1 : -1;
-      }
-    }
+    const k = Math.min(1, dt * 8);
+    a.vx = (a.vx || 0) + (tvx - (a.vx || 0)) * k; a.vy = (a.vy || 0) + (tvy - (a.vy || 0)) * k;
+    a.x += a.vx * dt; a.y += a.vy * dt;
+    a.moving = Math.hypot(a.vx, a.vy) > 25;
+    // 朝向：在打就朝着敌人；走得够快才按走的方向转（白马义从以前一会儿朝左一会儿朝右，看着抖）
+    if (tgt && inReach) a.fx = tgt.x >= a.x ? 1 : -1;
+    else if (Math.abs(a.vx) > 40) a.fx = a.vx > 0 ? 1 : -1;
   });
 }
 
@@ -6011,7 +6075,7 @@ function updateProjectiles(dt) {
           b.dead = true;
           return;
         }
-        hitEnemy(e, b.far ? b.dmg * (1 + b.far * Math.min(1, Math.hypot(b.x - b.x0, b.y - b.y0) / 600)) : b.dmg, { kb: b.kb, kbAngle: Math.atan2(b.vy, b.vx), el: b.el || null }); // 落日弓：飞出 600 以外伤害最多 +far
+        hitEnemy(e, b.far ? b.dmg * (1 + b.far * Math.min(1, Math.hypot(b.x - b.x0, b.y - b.y0) / 600)) : b.dmg, { kb: b.kb, kbAngle: Math.atan2(b.vy, b.vx), el: b.el || null, ally: b.ally }); // 落日弓：飞出 600 以外伤害最多 +far
         if (b.slow && !e.building) { e.slowF = e.slowT > S.t ? Math.min(e.slowF, b.slow) : b.slow; e.slowT = Math.max(e.slowT, S.t + 1.2); } // 胡笳：扫到的走不快
         if (--b.pierce <= 0) b.dead = true;
       }
@@ -6264,11 +6328,11 @@ function densest(R) {
   return best;
 }
 // 范围伤害的几种形状
-function hitCircle(x, y, R, dmg, kb, stun) {
+function hitCircle(x, y, R, dmg, kb, stun, ally) {
   near(x, y, R + 48, e => {
     if (dist2(x, y, e.x, e.y) >= (R + e.r) ** 2) return;
     if (stun && !e.boss && !e.building) e.stunT = S.t + stun;
-    hitEnemy(e, dmg, { kb, kbAngle: angleTo(x, y, e.x, e.y), quiet: true });
+    hitEnemy(e, dmg, { kb, kbAngle: angleTo(x, y, e.x, e.y), quiet: true, ally });
   });
 }
 function hitWedge(x, y, a, R, half, dmg, kb) {
@@ -6680,11 +6744,17 @@ function focusMul(def, kind) {
   if (kind === 'skill' && f === 'spell') return 1.6;
   return 1;
 }
+// 升了也没用的不出现（玩家反馈）：
+// 突破只涨伤害、冷却、范围、数量、穿透这些（statsOf），满级那一级一样都没有的（血战）突破了什么也不变；
+// 物品加的全是已经到顶的属性（冷却缩减 60% 以后的兵书、暴击 75% 以后的鹰眼……）也不再出现，掉下来了再回到池子里
+const BREAK_KEYS = ['dmg', 'cd', 'tick', 'range', 'radius', 'ringR', 'len', 'count', 'pierce', 'blades', 'bonus'];
+const breakUseful = def => def.type === 'trample' || BREAK_KEYS.some(k => def.levels[def.levels.length - 1][k] !== undefined);
+const passiveUseful = def => { const ks = Object.keys(def.effects || {}), c = S.player.capped || {}; return !ks.length || !ks.every(k => c[k]); };
 function levelOptions() {
   const pool = [];
   // 没有等级上限：满级后继续出现“突破”选项，权重略低
-  for (const w of S.weapons) { const d = D.weapons[w.id]; pool.push({ kind: 'weapon', id: w.id, cur: w.lv, w: (w.lv < d.levels.length ? 3.6 : 1.8) * focusMul(d, 'weapon') }); }
-  for (const s of S.skills) { const d = D.skills[s.id]; pool.push({ kind: 'skill', id: s.id, cur: s.lv, w: (s.lv < d.levels.length ? 3.5 : 2) * focusMul(d, 'skill') }); }
+  for (const w of S.weapons) { const d = D.weapons[w.id]; if (w.lv < d.levels.length || breakUseful(d)) pool.push({ kind: 'weapon', id: w.id, cur: w.lv, w: (w.lv < d.levels.length ? 3.6 : 1.8) * focusMul(d, 'weapon') }); }
+  for (const s of S.skills) { const d = D.skills[s.id]; if (s.lv < d.levels.length || breakUseful(d)) pool.push({ kind: 'skill', id: s.id, cur: s.lv, w: (s.lv < d.levels.length ? 3.5 : 2) * focusMul(d, 'skill') }); }
   // 别的出身的起手武器（锄头、猎弓、竹简）和专精物品刷不到
   const otherStart = new Set(D.origins.filter(o => o.id !== S.origin.id).map(o => o.weapon));
   if (S.weapons.length < D.player.weaponSlots) {
@@ -6696,8 +6766,11 @@ function levelOptions() {
     if (def.unique || (def.origin && def.origin !== S.origin.id)) continue;
     const lv = S.passives[id] || 0;
     if (!lv && ownedPassives >= D.player.passiveSlots) continue;
+    if (!passiveUseful(def)) continue;
     pool.push({ kind: 'passive', id, cur: lv, w: (!lv ? 1.0 : lv < def.max ? 2.0 : 0.8) * focusMul(def, 'passive') });
   }
+  // 才女：召募兵种（cur 记现有几名，排序时按它排）；还没有的更容易出现
+  for (const id of S.origin.recruits || []) { const n = allyCount(id); if (n < (S.origin.recruitMax || 99)) pool.push({ kind: 'recruit', id, cur: n, w: n ? 1.1 : 1.5 }); } // 召满 recruitMax 名就不再出现
   // 属性：冰火雷风，Lv 3 起出现，每种最高 5 级；已经修了的更容易接着出现
   if (S.player.level >= D.elementFrom) {
     for (const id in D.elements) {
@@ -6711,8 +6784,10 @@ function levelOptions() {
   const arms = pool.filter(o => (o.kind === 'weapon' || o.kind === 'skill') && !res.includes(o));
   if (res.length === 3 && arms.length && !res.some(o => o.kind === 'weapon' || o.kind === 'skill')) res[2] = pickWeighted(arms, 1)[0];
   if (!res.length) res.push(healOpt());
-  return res;
+  return byLevel(res);
 }
+// 选项按现在的等级从左到右排，高的在前、没学过的在后（玩家反馈）
+const byLevel = opts => opts.sort((a, b) => (b.cur || 0) - (a.cur || 0));
 function rewardOptions(gid, legend) {
   const opts = D.generals[gid].rewards.map(id => {
     const kind = kindOf(id), def = defOf(kind, id), lv = ownedLv(kind, id);
@@ -6734,7 +6809,7 @@ function nextModal() {
 function openChoices(mode, gid, legend) {
   const p = S.player;
   const opts = mode === 'reward' ? rewardOptions(gid, legend)
-    : mode === 'forge' ? pickWeighted(S.weapons.map(w => ({ kind: 'weapon', id: w.id, cur: w.lv, w: 1 })), 3)
+    : mode === 'forge' ? byLevel(pickWeighted(S.weapons.map(w => ({ kind: 'weapon', id: w.id, cur: w.lv, w: 1 })), 3))
     : levelOptions();
   S.choice = { mode, gid, opts };
   $('lu-portrait').hidden = mode !== 'reward';
@@ -6789,6 +6864,11 @@ function makeCard(o, i) {
     desc = (o.cur ? L[o.cur].note : def.desc) + `<br><b class="eln">${elementLine(o.id, o.cur + 1)}</b>`;
     const others = Object.keys(S.elements).filter(id => id !== o.id && S.elements[id] > 0).map(id => D.elements[id].name);
     if (!o.cur && others.length) desc += `<br>与${others.join('、')}并存，每次出手随机其一`;
+  } else if (o.kind === 'recruit') { // 才女召募：卡上画兵种小人（还没有美术图时用字）
+    const def = D.allies[o.id], art = window.Assets.get('sprite:' + o.id);
+    icon = art ? `<img class="ico sb" src="${art.src}" alt="${def.name}">` : def.icon; name = def.name; kind = '召募 · 随从';
+    lvl = `召募 ${def.recruit} 名 · 现有 ${o.cur} / ${S.origin.recruitMax || '∞'}`;
+    desc = `${def.desc}<br>满员时替换随从枪兵`;
   } else if (o.kind === 'shenbing') { // 神兵：金色卡
     const def = D.shenbing[o.id];
     btn.className = 'card legend';
@@ -6830,6 +6910,8 @@ function applyChoice(o) {
   const p = S.player;
   if (o.kind === 'heal') {
     p.hp = Math.min(p.maxHp, p.hp + o.amount);
+  } else if (o.kind === 'recruit') {
+    recruitAllies(o.id);
   } else if (o.kind === 'shenbing') { // 神兵入手：金光冲天
     const sb = S.shenbing.find(x => x.gid === o.id);
     if (sb) sb.lv++; else S.shenbing.push({ gid: o.id, lv: 1, t: 1.2, flash: 0 });
@@ -6947,7 +7029,8 @@ function statsRows() {
   if (lust) rows.push(['战意', pct(lust)]);
   if (S.passives.juejing) rows.push(['绝境', pct(jjBonus())]);
   const perm = S.allies.filter(a => !a.until).length;
-  if (perm) rows.push(['随从', `${perm} / ${D.allyCap}`]);
+  if (perm || S.allyQueue.length) rows.push(['随从', `${perm} / ${allyCap()}${S.allyQueue.length ? `（${S.allyQueue.length} 名待归队）` : ''}`]);
+  if (S.dmgAlly) rows.push(['随从输出', `${Math.round(S.dmgAlly / Math.max(1, S.dmgAll) * 100)}%`]); // 这一局随从打的伤害占多少
   const els = Object.entries(S.elements).filter(([, lv]) => lv > 0).map(([id, lv]) => `${D.elements[id].name} Lv${lv}`);
   if (els.length) rows.push(['属性', els.join(' · '), true]);
   if (S.blessings.length) rows.push(['祝福', S.blessings.join('、'), true]);
@@ -6974,7 +7057,7 @@ function updateHud() {
     $('blink-cd').textContent = left > 0 ? left.toFixed(1) : matchMedia('(pointer: coarse)').matches ? '' : '空格'; }
   $('goldhud').textContent = `金 ${loadMeta().gold}（本局 +${S.goldRun}）`;
   const perm = S.allies.filter(a => !a.until).length, lust = Math.floor(S.lust);
-  const info = [perm ? `随从 ${perm}/${D.allyCap}` : '', S.blessings.length ? `祝福 ${S.blessings.length}` : '', lust ? `战意 ${lust}` : ''].filter(Boolean);
+  const info = [perm ? `随从 ${perm}/${allyCap()}` : '', S.blessings.length ? `祝福 ${S.blessings.length}` : '', lust ? `战意 ${lust}` : ''].filter(Boolean);
   $('allies').hidden = !info.length;
   $('allies').textContent = info.join(' · ');
   $('chap').textContent = S.endless ? '天下三分' : chap().name.split(' · ')[1];
@@ -7219,7 +7302,7 @@ function snapshot() {
     player: { level: p.level, xp: p.xp, hp: p.hp },
     weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
     passives: S.passives, elements: S.elements, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
-    bonus: S.bonus, blessings: S.blessings, allies: S.allies.filter(a => !a.until).map(a => a.type), allyPower: S.allyPower,
+    bonus: S.bonus, blessings: S.blessings, allies: [...S.allies.filter(a => !a.until).map(a => a.type), ...S.allyQueue.map(q => q.type)], allyPower: S.allyPower, // 待归队的也存上，继续征战时直接回来
     defeated: S.defeated, seen: S.seen, sbPity: S.sbPity, goldRun: S.goldRun, startDmg: S.startDmg, xpMul: S.xpMul,
     forgeReady: S.forgeReady + (ch && ch.mode === 'forge' ? 1 : 0),
     pendingLevels: S.pendingLevels + (ch && ch.mode === 'level' ? 1 : 0),
@@ -8370,8 +8453,9 @@ function drawBuilding(e) {
   }
   if (!def.tomb && !def.pot && dist2(e.x, e.y, p.x, p.y) < 380 * 380) { // 走近时提示奖励（疑冢一圈五座、药鼎一圈四座，不逐个写，横幅里说过了）
     ctx.font = `600 12px ${FONT}`; ctx.textAlign = 'center';
-    ctx.lineWidth = 3; ctx.strokeStyle = '#15120d'; ctx.strokeText(def.desc, e.x, footY + 18);
-    ctx.fillStyle = '#ffd98a'; ctx.fillText(def.desc, e.x, footY + 18);
+    const txt = buildingDesc(def);
+    ctx.lineWidth = 3; ctx.strokeStyle = '#15120d'; ctx.strokeText(txt, e.x, footY + 18);
+    ctx.fillStyle = '#ffd98a'; ctx.fillText(txt, e.x, footY + 18);
   }
 }
 
@@ -9186,6 +9270,7 @@ window.BUYI = {
   bot(fn) { botMove = fn || null; },
   get audio() { return { track: Music.current, playing: Music.playing, pos: Music.position, voice: vClip && vClip.buffer ? +vClip.buffer.duration.toFixed(2) : null, ctx: actx && actx.state, musicOn, voiceOn, muted, files: AUDIO }; }, // 调试：现在放的是哪首
   start(originId) { startGame(originId); },
+  get dmg() { return S ? { all: S.dmgAll, ally: S.dmgAlly } : null; }, // 调试：这一局的总伤害、随从伤害
   // 快进模拟：autoPick 为 true 时自动选择第一张卡；也可以传一个函数 (opts) => 第几张
   step(sec, autoPick) {
     const n = Math.round(sec * 60);
