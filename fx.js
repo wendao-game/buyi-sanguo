@@ -268,8 +268,11 @@ window.FX = (() => {
     slash: [512, 256], ring: [512, 512], burst: [512, 512], bolt: [256, 768], thrust: [768, 192],
     whirl: [512, 512], flame: [256, 512], circle: [512, 512], pillar: [256, 768],
   };
-  const genCache = new Map(), tintCache = new Map();
+  const genCache = new Map();
+  let tintCache = new WeakMap(); // 原图 → (颜色 → 染好的图)：按对象查，不用每次拼字符串当键（后期一帧上百次）
   let artOf = () => null; // 由 game.js 接上：返回 GPT 画的贴图
+  let artMemo = new Map(); // 每种贴图查一次有没有 GPT 的图（换图时 setArt 清掉）
+  const art = key => { let v = artMemo.get(key); if (v === undefined) { v = artOf(key) || null; artMemo.set(key, v); } return v; };
   const rnd = (a, b) => a + Math.random() * (b - a);
   function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return [c, c.getContext('2d')]; }
   const GEN = {
@@ -383,30 +386,32 @@ window.FX = (() => {
     },
   };
   function tex(key) {
-    const art = artOf(key);
-    if (art) return art;
+    const a = art(key);
+    if (a) return a;
     let c = genCache.get(key);
     if (!c) { const [w, h] = TEX[key]; let g; [c, g] = mk(w, h); GEN[key](g, w, h); genCache.set(key, c); }
     return c;
   }
   // 染色：亮的地方染成 rgb（乘法），黑底保持黑（叠加时看不见）
   function tinted(key, rgb) {
-    const src = tex(key), ck = key + '|' + rgb + '|' + (src.src || 'gen');
-    let c = tintCache.get(ck);
+    const src = tex(key);
+    let m = tintCache.get(src);
+    if (!m) tintCache.set(src, (m = new Map()));
+    let c = m.get(rgb);
     if (c) return c;
     const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
     let g; [c, g] = mk(w, h);
     g.drawImage(src, 0, 0);
     g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgb(${rgb})`; g.fillRect(0, 0, w, h);
     g.globalCompositeOperation = 'destination-in'; g.drawImage(src, 0, 0);
-    tintCache.set(ck, c);
+    m.set(rgb, c);
     return c;
   }
   // 画一张特效贴图：中心在 (x, y)，宽 w 高 h，转 rot；core 是额外叠一层不染色的白光（保留白热核心）
   function sprite(ctx, key, rgb, x, y, w, h, rot, a, core = 0.35, flat = 1) {
     a *= K;
     if (a <= 0) return;
-    if (artOf(key)) a *= 0.8; // 画的贴图比代码生成的亮，压一点免得刺眼
+    if (art(key)) a *= 0.8; // 画的贴图比代码生成的亮，压一点免得刺眼
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.translate(x, y); if (flat !== 1) ctx.scale(1, flat); if (rot) ctx.rotate(rot);
@@ -414,7 +419,7 @@ window.FX = (() => {
     if (!rgb || core > 0) { ctx.globalAlpha = Math.min(1, a * (rgb ? core : 1)); ctx.drawImage(tex(key), -w / 2, -h / 2, w, h); }
     ctx.restore();
   }
-  function setArt(fn) { artOf = fn; tintCache.clear(); }
+  function setArt(fn) { artOf = fn; artMemo = new Map(); tintCache = new WeakMap(); }
 
   // ---------- 女将的小物件：樱花瓣、冰晶、雪花、书页、折扇 ----------
   // 樱花瓣：一头尖、一头带小缺口的心形瓣，中间一道浅色
@@ -524,14 +529,16 @@ window.FX = (() => {
     ctx.restore();
   }
   // 莲灯：一朵粉白莲花托着一点烛光，外面一圈暖光
+  const LANTERN_K = [0.5, 0.15, -0.2], LANTERN_C = ['#e98fb0', '#f6c4d6', '#fde6ee']; // 莲灯三层花瓣的位置和颜色（放在外面，不用每盏每帧新建数组）
   function lantern(ctx, x, y, s, a, rgb = '255,200,120') {
     if (a <= 0) return;
     ctx.save(); ctx.globalAlpha = Math.min(1, a);
     ctx.globalCompositeOperation = 'lighter'; glow(ctx, x, y - s * 0.3, s * 2.6, rgb, 0.7 * a); ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = Math.min(1, a);
-    for (const [k, c] of [[0.5, '#e98fb0'], [0.15, '#f6c4d6'], [-0.2, '#fde6ee']]) { // 三层花瓣，越往里越浅
-      ctx.fillStyle = c;
-      for (const side of [-1, 0, 1]) {
+    for (let i = 0; i < 3; i++) { // 三层花瓣，越往里越浅
+      const k = LANTERN_K[i];
+      ctx.fillStyle = LANTERN_C[i];
+      for (let side = -1; side <= 1; side++) {
         ctx.save(); ctx.translate(x + side * s * 0.45 * (1 - k * 0.6), y + k * s * 0.3); ctx.rotate(side * 0.55);
         ctx.beginPath(); ctx.moveTo(0, s * 0.35); ctx.quadraticCurveTo(-s * 0.42, -s * 0.2, 0, -s * 0.8); ctx.quadraticCurveTo(s * 0.42, -s * 0.2, 0, s * 0.35); ctx.fill();
         ctx.restore();
