@@ -533,7 +533,7 @@ window.GAME_DATA = {
     },
     qijin: {
       name: '七进七出', icon: '进', type: 'rampage', general: '赵云',
-      desc: '定时骑上白龙驹杀入敌阵：数秒内无敌并加速，身后白龙相随，撞到的敌人全部受伤。',
+      desc: '定时骑上白龙驹杀入敌阵：数秒内无敌并加速，身后白龙相随，撞到的敌人全部受伤。冷却最短为持续时间的两倍。',
       levels: [
         { dmg: 30, cd: 14, dur: 2.5, speed: 0.6 },
         { dmg: 38, cd: 13, dur: 2.8, speed: 0.6, note: '持续更久' },

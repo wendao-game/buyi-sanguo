@@ -772,6 +772,8 @@ function newState(originId) {
   return S;
 }
 
+// 属性上限：冷却缩减最多 60%、暴击率最多 75%、移速最多 +150%、技能冷却最多 -50%。到顶以后只加这些的物品升级不再出现（见 levelOptions）
+const CAP = { cdMul: 0.4, crit: 0.75, speedMul: 1.5, skillCd: 0.5 };
 function recomputeStats() {
   const p = S.player, b = D.player.base, o = S.origin.stats;
   const add = { maxHp: 0, maxHpMul: 0, speedMul: 0, armor: 0, regen: 0, pickupMul: 0, dmgMul: 0, cdMul: 0, areaMul: 0, crit: 0, critMul: 0,
@@ -789,15 +791,17 @@ function recomputeStats() {
   p.maxHp = Math.round(((o.maxHp || b.maxHp) + add.maxHp) * (1 + add.maxHpMul));
   // 出身专精：弓箭（连珠箭、百步穿杨）与计策（奇谋、孙子兵法）
   p.arrowCount = Math.floor(add.arrowCount); p.arrowDmg = add.arrowDmg; p.arrowPierce = Math.floor(add.arrowPierce);
-  p.spellDmg = add.spellDmg; p.skillCd = Math.min(0.5, add.skillCd); p.spellArea = add.spellArea;
-  p.speed = b.speed * (o.speedMul || 1) * (1 + Math.min(1.5, add.speedMul));
+  p.spellDmg = add.spellDmg; p.skillCd = Math.min(CAP.skillCd, add.skillCd); p.spellArea = add.spellArea;
+  p.speed = b.speed * (o.speedMul || 1) * (1 + Math.min(CAP.speedMul, add.speedMul));
   p.armor = (o.armor || 0) + add.armor;
   p.regen = (o.regen || 0) + add.regen;
   p.pickup = b.pickup * (o.pickupMul || 1) * (1 + add.pickupMul);
   p.dmgMul = 1 + (o.dmg || 0) + add.dmgMul;
-  p.cdMul = Math.max(0.4, (o.cdMul || 1) * (1 + add.cdMul));
+  const cdRaw = (o.cdMul || 1) * (1 + add.cdMul), critRaw = b.crit + (o.crit || 0) + add.crit;
+  p.cdMul = Math.max(CAP.cdMul, cdRaw);
   p.areaMul = 1 + add.areaMul;
-  p.crit = Math.min(0.75, b.crit + (o.crit || 0) + add.crit);
+  p.crit = Math.min(CAP.crit, critRaw);
+  p.capped = { cdMul: cdRaw <= CAP.cdMul, crit: critRaw >= CAP.crit, speedMul: add.speedMul >= CAP.speedMul, skillCd: add.skillCd >= CAP.skillCd }; // 哪些属性已经到顶
   p.critMul = b.critMul + add.critMul;
   if (S.passives.laodang) p.dmgMul += D.passives.laodang.perTen * Math.floor(p.level / 10); // 老当益壮：每 10 级伤害 +3%，不封顶
   if (S.passives.jianxiong) { const J = D.passives.jianxiong; p.dmgMul += Math.min(J.cap, J.perKill * (S.jxKills || 0)); } // 奸雄：本局每斩一将伤害 +5%
@@ -2724,7 +2728,7 @@ function updateSkills(dt) {
         }
         if (s.t > 0) break;
         if (!nearest(p.x, p.y, 400)) { s.t = 0.25; break; }
-        s.t = L.cd * p.cdMul;
+        s.t = Math.max(L.cd * p.cdMul, L.dur * 2); // 冷却至少是无敌时间的两倍：以前满级叠满冷却缩减 60%，冷却 4 秒 = 无敌 4 秒，全程无敌（玩家反馈）
         S.rampageT = S.t + L.dur;
         S.rampageSpeed = L.speed;
         addNumber(p.x, p.y - 30, '七进七出！', '#e8eef2', 20);
@@ -6680,11 +6684,17 @@ function focusMul(def, kind) {
   if (kind === 'skill' && f === 'spell') return 1.6;
   return 1;
 }
+// 升了也没用的不出现（玩家反馈）：
+// 突破只涨伤害、冷却、范围、数量、穿透这些（statsOf），满级那一级一样都没有的（血战）突破了什么也不变；
+// 物品加的全是已经到顶的属性（冷却缩减 60% 以后的兵书、暴击 75% 以后的鹰眼……）也不再出现，掉下来了再回到池子里
+const BREAK_KEYS = ['dmg', 'cd', 'tick', 'range', 'radius', 'ringR', 'len', 'count', 'pierce', 'blades', 'bonus'];
+const breakUseful = def => def.type === 'trample' || BREAK_KEYS.some(k => def.levels[def.levels.length - 1][k] !== undefined);
+const passiveUseful = def => { const ks = Object.keys(def.effects || {}), c = S.player.capped || {}; return !ks.length || !ks.every(k => c[k]); };
 function levelOptions() {
   const pool = [];
   // 没有等级上限：满级后继续出现“突破”选项，权重略低
-  for (const w of S.weapons) { const d = D.weapons[w.id]; pool.push({ kind: 'weapon', id: w.id, cur: w.lv, w: (w.lv < d.levels.length ? 3.6 : 1.8) * focusMul(d, 'weapon') }); }
-  for (const s of S.skills) { const d = D.skills[s.id]; pool.push({ kind: 'skill', id: s.id, cur: s.lv, w: (s.lv < d.levels.length ? 3.5 : 2) * focusMul(d, 'skill') }); }
+  for (const w of S.weapons) { const d = D.weapons[w.id]; if (w.lv < d.levels.length || breakUseful(d)) pool.push({ kind: 'weapon', id: w.id, cur: w.lv, w: (w.lv < d.levels.length ? 3.6 : 1.8) * focusMul(d, 'weapon') }); }
+  for (const s of S.skills) { const d = D.skills[s.id]; if (s.lv < d.levels.length || breakUseful(d)) pool.push({ kind: 'skill', id: s.id, cur: s.lv, w: (s.lv < d.levels.length ? 3.5 : 2) * focusMul(d, 'skill') }); }
   // 别的出身的起手武器（锄头、猎弓、竹简）和专精物品刷不到
   const otherStart = new Set(D.origins.filter(o => o.id !== S.origin.id).map(o => o.weapon));
   if (S.weapons.length < D.player.weaponSlots) {
@@ -6696,6 +6706,7 @@ function levelOptions() {
     if (def.unique || (def.origin && def.origin !== S.origin.id)) continue;
     const lv = S.passives[id] || 0;
     if (!lv && ownedPassives >= D.player.passiveSlots) continue;
+    if (!passiveUseful(def)) continue;
     pool.push({ kind: 'passive', id, cur: lv, w: (!lv ? 1.0 : lv < def.max ? 2.0 : 0.8) * focusMul(def, 'passive') });
   }
   // 属性：冰火雷风，Lv 3 起出现，每种最高 5 级；已经修了的更容易接着出现
@@ -6711,8 +6722,10 @@ function levelOptions() {
   const arms = pool.filter(o => (o.kind === 'weapon' || o.kind === 'skill') && !res.includes(o));
   if (res.length === 3 && arms.length && !res.some(o => o.kind === 'weapon' || o.kind === 'skill')) res[2] = pickWeighted(arms, 1)[0];
   if (!res.length) res.push(healOpt());
-  return res;
+  return byLevel(res);
 }
+// 选项按现在的等级从左到右排，高的在前、没学过的在后（玩家反馈）
+const byLevel = opts => opts.sort((a, b) => (b.cur || 0) - (a.cur || 0));
 function rewardOptions(gid, legend) {
   const opts = D.generals[gid].rewards.map(id => {
     const kind = kindOf(id), def = defOf(kind, id), lv = ownedLv(kind, id);
@@ -6734,7 +6747,7 @@ function nextModal() {
 function openChoices(mode, gid, legend) {
   const p = S.player;
   const opts = mode === 'reward' ? rewardOptions(gid, legend)
-    : mode === 'forge' ? pickWeighted(S.weapons.map(w => ({ kind: 'weapon', id: w.id, cur: w.lv, w: 1 })), 3)
+    : mode === 'forge' ? byLevel(pickWeighted(S.weapons.map(w => ({ kind: 'weapon', id: w.id, cur: w.lv, w: 1 })), 3))
     : levelOptions();
   S.choice = { mode, gid, opts };
   $('lu-portrait').hidden = mode !== 'reward';
