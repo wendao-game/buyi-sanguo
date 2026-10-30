@@ -326,6 +326,10 @@ img.ico { display: block; width: 100%; height: 100%; object-fit: cover; border-r
 img.art-full { display: block; width: 100%; height: auto; }
 img.art-face { position: absolute; display: block; max-width: none; height: auto; }
 .card.origin { padding-top: 12px; }
+/* 有没打完的一局时点了出身：再点一次才开新局 */
+.card.origin.arm { outline: 3px solid var(--seal); outline-offset: 2px; }
+.card.origin.arm::after { content: '再点一次开新局'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; white-space: nowrap;
+  padding: 8px 14px; border-radius: 3px; background: var(--seal); color: var(--paper); font-weight: 900; font-size: 16px; box-shadow: 0 4px 14px rgba(0,0,0,.45); pointer-events: none; }
 .card.origin .oart { background: #2a241b; border-radius: 2px; aspect-ratio: 4 / 5; overflow: hidden; }
 .card.origin .oart svg, .card.origin .oart img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
 

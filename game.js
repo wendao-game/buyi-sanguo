@@ -7296,7 +7296,7 @@ function refreshTitle() {
   $('continue-box').hidden = !r;
   if (r) {
     const c = r.endless ? '天下三分' : D.chapters[r.ch].name.split(' · ')[1], o = D.origins.find(x => x.id === r.origin);
-    $('continue-note').textContent = `${o ? o.name : ''} · ${c} · Lv ${r.player.level} · ${fmtTime(r.t)}（选新出身会开新局，覆盖这一局）`;
+    $('continue-note').textContent = `${o ? o.name : ''} · ${c} · Lv ${r.player.level} · ${fmtTime(r.t)}（选新出身要点两下，会开新局、覆盖这一局）`;
   }
 }
 
@@ -7452,16 +7452,32 @@ function renderOrigins() {
       <div class="top"><div><div class="nm">${o.name}</div><div class="kind">初始武器 · ${D.weapons[o.weapon].name}</div></div></div>
       <div class="ds">${o.desc}</div><ul>${o.perks.map(x => `<li>${x}</li>`).join('')}</ul>
       <div class="kit">${D.meta.gear[o.id].map(g => { const lv = gearLv(g.id), st = gearStage(lv); return lv ? `<span style="color:${D.meta.rarity[st - 1].color}">${gearTierName(g, lv)}</span>` : ''; }).filter(Boolean).join(' · ') || '尚无军需装备'}</div>`;
-    b.addEventListener('click', () => startGame(o.id));
+    b.addEventListener('click', () => pickOrigin(o.id, b));
     box.appendChild(b);
   });
+}
+// 有没打完的一局时，选出身要点两下才开新局（第一下卡片上提示会覆盖那一局）：暂停回主界面后误点了人物，那一局就没了（玩家反馈）
+let originArm = null;
+function pickOrigin(id, card) {
+  const now = performance.now();
+  if (loadRun() && !(originArm && originArm.id === id && now < originArm.until)) {
+    const o = D.origins.find(x => x.id === id);
+    document.querySelectorAll('#origins .card.origin.arm').forEach(c => c.classList.remove('arm'));
+    if (card) card.classList.add('arm');
+    const arm = originArm = { id, until: now + 3000 };
+    setTimeout(() => { if (originArm === arm) { originArm = null; if (card) card.classList.remove('arm'); } }, 3000);
+    toast('', '', `再点一次「${o.name}」开新局`, '没打完的那一局会被覆盖；想接着打请点「继续征战」');
+    return;
+  }
+  originArm = null;
+  startGame(id);
 }
 
 function buildTitle() {
   renderOrigins();
   addEventListener('keydown', e => {
-    const m = /^(?:Digit|Numpad)([1-3])$/.exec(e.code);
-    if (m && !$('title').hidden && $('loader').hidden) startGame(D.origins[+m[1] - 1].id);
+    const m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code), i = m ? +m[1] - 1 : -1;
+    if (m && i < D.origins.length && !$('title').hidden && $('loader').hidden) pickOrigin(D.origins[i].id, $('origins').children[i]);
   });
   refreshTitle();
 }
