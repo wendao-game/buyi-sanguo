@@ -19,20 +19,22 @@ const DISPLAY = "'Ma Shan Zheng', 'STXingkai', 'KaiTi', serif";
 // ============ 画布 ============
 const cv = $('cv');
 const ctx = cv.getContext('2d');
-let W = 0, H = 0, DPR = 1, ZOOM = 1;
+let W = 0, H = 0, DPR = 1, ZOOM = 1, dprCap = 2; // dprCap：画布最多几倍分辨率（精简模式 1.5，见 fxRes）
 const spriteCache = new Map();
+let sprGen = 0; // 小人缓存换了几代：清缓存时加一，敌人记在身上的小人（sprMemo）跟着作废
+function clearSprites() { spriteCache.clear(); sprGen++; }
 function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  DPR = Math.min(window.devicePixelRatio || 1, dprCap);
   W = cv.clientWidth || innerWidth;
   H = cv.clientHeight || innerHeight;
   cv.width = Math.round(W * DPR);
   cv.height = Math.round(H * DPR);
   ZOOM = clamp(Math.min(W, H) / 760, 0.62, 1.15);
-  spriteCache.clear();
+  clearSprites();
 }
 addEventListener('resize', resize);
 resize();
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => spriteCache.clear());
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(clearSprites);
 
 // ============ 音效（无素材，直接合成） ============
 // 听感原则：只用正弦 / 三角这类圆润的波形，噪声一律走低通或带通（不要刺耳的高频嘶声），
@@ -153,7 +155,7 @@ function noiseBuffer() {
 // 音乐、语音文件由 assets/audio.json 列出（装素材时生成），没有清单时一律用合成的占位音乐、只显示字幕，不会去请求不存在的文件。
 let musicOn = true, voiceOn = true;
 let pickPause = false, shakeOn = true; // 设置：升级 / 斩将选卡时暂停（默认边打边选）、镜头震动（默认开）
-// 特效：auto 自动（帧率掉下来就自动精简）/ full 完整 / lite 精简（粒子、特效、伤害数字更少，发光更暗）
+// 特效：auto 自动（帧率掉下来就自动精简）/ full 完整 / lite 精简（粒子、特效、伤害数字更少，发光更暗、大光圈少画，画布分辨率降一档）
 let fxMode = 'auto', autoLite = false;
 const fxLite = () => fxMode === 'lite' || (fxMode === 'auto' && autoLite);
 try {
@@ -162,6 +164,9 @@ try {
   fxMode = ['full', 'lite'].includes(localStorage.getItem('buyi-fx')) ? localStorage.getItem('buyi-fx') : 'auto';
   autoLite = localStorage.getItem('buyi-fx-auto') === '1'; // 这台设备以前卡过：自动模式直接精简
 } catch (e) { /* 存储不可用时忽略 */ }
+// 精简模式画布降到 1.5 倍分辨率：像素少四成多。手机卡主要卡在 GPU 填像素（后期叠加发光一帧要盖满几十个屏幕），光调暗不省事
+function fxRes() { const cap = fxLite() ? 1.5 : 2; if (cap !== dprCap) { dprCap = cap; resize(); } }
+fxRes();
 const AUDIO = { bgm: {}, voice: {}, loop: {}, loopFrom: {} };
 const audioReady = fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
   if (!m) return;
@@ -594,13 +599,18 @@ function moveInput() {
 const CELL = 64;
 const grid = new Map();
 const cellKey = (cx, cy) => (cx + 32768) * 65536 + (cy + 32768);
+// 每帧重排一次：格子里的数组留着下帧接着用（只清空），不每帧新建；走过的格子攒太多了才整个清掉
+const gridUsed = [];
 function gridBuild() {
-  grid.clear();
+  for (const c of gridUsed) c.length = 0;
+  gridUsed.length = 0;
+  if (grid.size > 4096) grid.clear();
   for (const e of S.enemies) {
     if (e.dead || e.downed) continue; // 残魂：不会被瞄准、也不会被范围伤害打到
     const k = cellKey(Math.floor(e.x / CELL), Math.floor(e.y / CELL));
     let c = grid.get(k);
     if (!c) grid.set(k, (c = []));
+    if (!c.length) gridUsed.push(c);
     c.push(e);
   }
 }
@@ -7487,7 +7497,7 @@ let assetRefresh = 0;
 window.Assets.onLoad(() => {
   clearTimeout(assetRefresh);
   assetRefresh = setTimeout(() => {
-    spriteCache.clear();
+    clearSprites();
     FX.setArt(k => window.Assets.get('fxs:' + k)); // 换上 GPT 画的特效贴图
     renderOrigins();
     if (S) { S.buildDirty = true; S.faceGid = null; }
@@ -7620,7 +7630,7 @@ $('btn-fx').addEventListener('click', () => {
   fxMode = fxMode === 'auto' ? 'full' : fxMode === 'full' ? 'lite' : 'auto';
   if (fxMode === 'auto') { autoLite = false; fps.slowT = 0; }
   try { localStorage.setItem('buyi-fx', fxMode); if (fxMode === 'auto') localStorage.removeItem('buyi-fx-auto'); } catch (e) { /* ignore */ }
-  fxLabel();
+  fxLabel(); fxRes();
 });
 fxLabel();
 // 收兵结算：不用非得战死，随时结束这一局，照常结算金币、纪录和排行榜（点两下确认，免得误触）
@@ -8349,11 +8359,28 @@ function drawBuilding(e) {
   }
 }
 
+// 后期同屏两三百个敌人，每帧不新建东西：排序用的列表反复用；每个敌人记住自己的小人（普通、受击闪白各一张），
+// 不用每帧拼缓存键再查（clearSprites 换代时作废）
+const drawList = [], byY = (a, b) => a.y - b.y, sprMemo = new WeakMap();
+function enemySprite(e, d, h) {
+  let m = sprMemo.get(e);
+  if (!m || m.gen !== sprGen) sprMemo.set(e, (m = { gen: sprGen, n: null, f: null }));
+  const fl = e.flash > 0;
+  let s = fl ? m.f : m.n;
+  if (!s) {
+    s = unitSprite(d.base && !window.Assets.get('sprite:' + e.type) ? d.base : e.type, d.look, h, fl, d.mount || ''); // 名军还没有自己的图：用普通兵的图放大
+    if (fl) m.f = s; else m.n = s;
+  }
+  return s;
+}
 function drawEnemies() {
   const p = S.player;
   // 先画靠上的，再画靠下的，前后遮挡才自然
-  const list = [...S.enemies.filter(e => !e.boss), ...S.allies].sort((a, b) => a.y - b.y);
-  for (const e of list) {
+  drawList.length = 0;
+  for (const e of S.enemies) if (!e.boss) drawList.push(e);
+  for (const a of S.allies) drawList.push(a);
+  drawList.sort(byY);
+  for (const e of drawList) {
     if (e.building) { drawBuilding(e); continue; }
     if (e.def.kind === 'melee' || e.def.kind === 'ranged') { drawAlly(e); continue; }
     if (e.ai) { drawEliteUnit(e); continue; }
@@ -8364,7 +8391,7 @@ function drawEnemies() {
     }
     if (e.slowT > S.t) { ctx.strokeStyle = 'rgba(160,190,210,0.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.6, e.r + 3, e.r * 0.45, 0, 0, TAU); ctx.stroke(); }
     const h = (d.h || 36) * (e.elite ? 1.3 : 1);
-    const spr = unitSprite(d.base && !window.Assets.get('sprite:' + e.type) ? d.base : e.type, d.look, h, e.flash > 0, d.mount || ''); // 名军还没有自己的图：用普通兵的图放大
+    const spr = enemySprite(e, d, h);
     const moving = !stunned && !(d.ranged && Math.hypot(p.x - e.x, p.y - e.y) < d.ranged.range);
     const top = drawUnit(spr, e.x, e.y, e.r, faceToward(e, p.x), walkBob(e.id, moving));
     if (d.flag) { const fx = e.fx || 1, f = flagSprite(d, fx); ctx.drawImage(f.c, e.x - fx * spr.w * 0.22 - (fx > 0 ? f.w - 2 : 2), top + spr.h * (d.flagY || 0) - 18, f.w, f.h); } // 名军背旗：插在背后，旗面高过头顶（flagY：图顶上还有兵器时往下挪）
@@ -8450,10 +8477,12 @@ function drawEnemies() {
 }
 
 // 带属性的飞弹：箭矢、文气整个换成属性的样子（有 GPT 画的属性箭 / 属性弹就用图）；其他飞弹外面裹一层属性光
+const ELK = {}; // 属性飞弹每帧都要用的贴图键和颜色串：先拼好
+for (const id in D.elements) ELK[id] = { arrow: 'elfx:arrow_' + id, orb: 'elfx:orb_' + id, core: `rgb(${D.elements[id].core})` };
 function drawElProj(b) {
-  const E = D.elements[b.el], sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp, uy = b.vy / sp, ang = Math.atan2(uy, ux);
+  const E = D.elements[b.el], K = ELK[b.el], sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp, uy = b.vy / sp, ang = Math.atan2(uy, ux);
   if (b.kind === 'arrow') {
-    const img = window.Assets.get('elfx:arrow_' + b.el);
+    const img = window.Assets.get(K.arrow);
     if (img) { // 图里箭尖在最右边、箭杆在正中：箭尖对准飞弹位置稍前一点
       const w = 104, h = w * img.height / img.width;
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(b.x + ux * 8, b.y + uy * 8); ctx.rotate(ang);
@@ -8461,15 +8490,15 @@ function drawElProj(b) {
       return true;
     }
     FX.sprite(ctx, 'thrust', E.rgb, b.x - ux * 38, b.y - uy * 38, 100, 20, ang, 0.95, 0.55);
-    ctx.strokeStyle = `rgb(${E.core})`; ctx.lineWidth = 2.2;
+    ctx.strokeStyle = K.core; ctx.lineWidth = 2.2;
     ctx.beginPath(); ctx.moveTo(b.x - ux * 18, b.y - uy * 18); ctx.lineTo(b.x, b.y); ctx.stroke();
-    ctx.fillStyle = `rgb(${E.core})`;
+    ctx.fillStyle = K.core;
     ctx.beginPath(); ctx.moveTo(b.x + ux * 8, b.y + uy * 8); ctx.lineTo(b.x - uy * 3.5, b.y + ux * 3.5); ctx.lineTo(b.x + uy * 3.5, b.y - ux * 3.5); ctx.fill();
     ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, b.x, b.y, 12, E.rgb, 0.8); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     return true;
   }
   if (b.kind === 'orb') {
-    const img = window.Assets.get('elfx:orb_' + b.el), s = b.r * 5.5;
+    const img = window.Assets.get(K.orb), s = b.r * 5.5;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     if (img) { ctx.translate(b.x, b.y); ctx.rotate(S.t * 4 + b.x * 0.01); ctx.drawImage(img, -s / 2, -s / 2, s, s); }
     else {
@@ -8487,12 +8516,22 @@ function drawElProj(b) {
     ctx.restore(); ctx.globalAlpha = 1;
     return true;
   }
+  if (fxLite()) return false; // 精简：不裹属性光（后期一帧好几十团），属性拖尾照旧
   // 胡笳、瑶琴的声浪很宽（r 是半个浪宽），属性光是直径近三百的一大团；刚出手时几道叠在人物身上一片白，晃眼睛：飞出 160 以内慢慢亮起来
   const ramp = b.kind === 'jia' && b.x0 !== undefined ? Math.min(1, Math.hypot(b.x - b.x0, b.y - b.y0) / 160) : 1;
   ctx.globalCompositeOperation = 'lighter'; // 其他飞弹：外裹属性光
   FX.glow(ctx, b.x, b.y, Math.max(16, b.r * 3), E.rgb, 0.55 * ramp);
   ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   return false;
+}
+// 双铁戟的刀光、钢刃渐变：建一次反复用（以前每把每帧新建三个渐变，后期几十把就是上百个）。都按戟心为原点画
+let boomG = null;
+function boomGrads() {
+  if (boomG) return boomG;
+  let blade = 'rgba(220,228,236,0.35)';
+  if (ctx.createConicGradient) { blade = ctx.createConicGradient(-2.4, 0, 0); blade.addColorStop(0, 'rgba(200,210,225,0)'); blade.addColorStop(0.38, 'rgba(225,232,240,0.55)'); blade.addColorStop(0.4, 'rgba(0,0,0,0)'); }
+  const steel = ctx.createLinearGradient(0, -15, 0, 15); steel.addColorStop(0, '#f4f7fa'); steel.addColorStop(0.5, '#8d96a0'); steel.addColorStop(1, '#dfe5ea');
+  return (boomG = { blade, steel });
 }
 function drawProjectiles() {
   ctx.lineCap = 'round';
@@ -8519,7 +8558,7 @@ function drawProjectiles() {
       ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
       for (let k = 0; k < 3; k++) {
         const back = b.r * 0.9 + k * 12;
-        ctx.globalAlpha = (0.8 - k * 0.24) * fade; ctx.strokeStyle = k ? `rgb(${b.rgb || '140,160,255'})` : 'rgb(228,234,255)'; ctx.lineWidth = 4 - k;
+        ctx.globalAlpha = (0.8 - k * 0.24) * fade; ctx.strokeStyle = k ? b.rgbS || (b.rgbS = `rgb(${b.rgb || '140,160,255'})`) : 'rgb(228,234,255)'; ctx.lineWidth = 4 - k;
         ctx.beginPath(); ctx.arc(b.x - Math.cos(a) * back, b.y - Math.sin(a) * back, b.r, a - 0.75, a + 0.75); ctx.stroke();
       }
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
@@ -8561,15 +8600,14 @@ function drawProjectiles() {
       FX.fan(ctx, b.x, b.y + 6, 17, b.spin, '232,106,80', 1);
       ctx.globalAlpha = 1;
     } else if (b.kind === 'boom') { // 双铁戟：高速旋转的钢刃，只留下一圈金属反光
+      const G = boomGrads();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.lineCap = 'round';
+      ctx.lineCap = 'round'; ctx.lineWidth = 7; ctx.strokeStyle = G.blade;
       for (let k = 0; k < 2; k++) {
         const a0 = b.spin + k * Math.PI;
-        const g = ctx.createConicGradient ? ctx.createConicGradient(a0 - 2.4, b.x, b.y) : null;
-        if (g) { g.addColorStop(0, 'rgba(200,210,225,0)'); g.addColorStop(0.38, 'rgba(225,232,240,0.55)'); g.addColorStop(0.4, 'rgba(0,0,0,0)'); ctx.strokeStyle = g; }
-        else ctx.strokeStyle = 'rgba(220,228,236,0.35)';
-        ctx.lineWidth = 7;
-        ctx.beginPath(); ctx.arc(b.x, b.y, 15, a0 - 2.4, a0); ctx.stroke();
+        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(a0); // 刀光的渐变按转好的方向画（渐变只建一次）
+        ctx.beginPath(); ctx.arc(0, 0, 15, -2.4, 0); ctx.stroke();
+        ctx.restore();
         FX.glow(ctx, b.x + Math.cos(a0) * 15, b.y + Math.sin(a0) * 15, 9, '235,240,250', 0.9);
       }
       FX.glow(ctx, b.x, b.y, 22, '255,150,90', 0.25);
@@ -8577,9 +8615,8 @@ function drawProjectiles() {
       ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.spin);
       ctx.strokeStyle = 'rgba(58,42,30,0.9)'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(-13, 0); ctx.lineTo(13, 0); ctx.stroke();
-      const steel = ctx.createLinearGradient(0, -15, 0, 15); steel.addColorStop(0, '#f4f7fa'); steel.addColorStop(0.5, '#8d96a0'); steel.addColorStop(1, '#dfe5ea');
-      ctx.fillStyle = steel;
-      for (const s of [1, -1]) { ctx.beginPath(); ctx.moveTo(13 * s, -3 * s); ctx.quadraticCurveTo(21 * s, -14 * s, 8 * s, -15 * s); ctx.quadraticCurveTo(12 * s, -8 * s, 10 * s, -3 * s); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = G.steel;
+      for (let s = 1; s >= -1; s -= 2) { ctx.beginPath(); ctx.moveTo(13 * s, -3 * s); ctx.quadraticCurveTo(21 * s, -14 * s, 8 * s, -15 * s); ctx.quadraticCurveTo(12 * s, -8 * s, 10 * s, -3 * s); ctx.closePath(); ctx.fill(); }
       ctx.restore();
     } else if (b.kind === 'bean') { // 豆兵：一团金光里隐约的人形，拖着金色光尾
       const hop = Math.abs(Math.sin(S.t * 14 + b.seed)) * 4, sp = Math.hypot(b.vx, b.vy) || 1;
@@ -8722,21 +8759,20 @@ function drawProjectiles() {
 function drawZones() {
   for (const z of S.zones) {
     const a = Math.min(1, z.life / 0.6);
-    if (z.water) { // 春江：一片青绿的莲池，水面上漂着几朵莲花
-      ctx.fillStyle = `rgba(60,170,170,${0.28 * a})`;
+    if (z.water) { // 春江：一片青绿的莲池，水面上漂着几朵莲花（透明度用 globalAlpha，不每帧拼颜色串）
+      ctx.globalAlpha = 0.28 * a; ctx.fillStyle = 'rgb(60,170,170)';
       ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.75, 0, 0, TAU); ctx.fill();
-      ctx.strokeStyle = `rgba(190,250,245,${0.55 * a})`; ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.75, 0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 0.55 * a; ctx.strokeStyle = 'rgb(190,250,245)'; ctx.lineWidth = 1.6; ctx.stroke();
       for (let i = 0; i < 5; i++) { const t = z.id * 1.3 + i * 1.25, rr = z.r * (0.25 + 0.5 * ((i * 0.37) % 1)); FX.lantern(ctx, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.7 + Math.sin(S.t * 2 + i) * 2, 8, 0.85 * a); }
       ctx.globalAlpha = 1;
       continue;
     }
     if (z.fire) { // 火烧赤壁：焦黑地面 + 跳动的火光
-      ctx.fillStyle = `rgba(30,12,4,${0.3 * a})`;
+      ctx.globalAlpha = 0.3 * a; ctx.fillStyle = 'rgb(30,12,4)';
       ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.8, 0, 0, TAU); ctx.fill();
       ctx.globalCompositeOperation = 'lighter';
-      FX.glow(ctx, z.x, z.y, z.r * (1.15 + 0.08 * Math.sin(S.t * 14 + z.id)), '255,110,40', 0.5 * a);
-      const few = fxLite() || S.zones.length > 8; // 火太多或精简模式：火团、火舌少画几个
+      const lite = fxLite(), few = lite || S.zones.length > 8; // 火太多或精简模式：火团、火舌少画几个
+      FX.glow(ctx, z.x, z.y, z.r * (lite ? 0.8 : 1.15 + 0.08 * Math.sin(S.t * 14 + z.id)), '255,110,40', 0.5 * a); // 精简：外圈火光收进焦土里（面积少一半）
       for (let i = 0; i < (few ? 1 : 5); i++) {
         const t = z.id * 1.7 + i * 1.3, rr = z.r * 0.55 * ((i * 0.37) % 1);
         FX.glow(ctx, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.8, z.r * 0.4 * (0.8 + 0.25 * Math.sin(S.t * 17 + i * 2)), '255,170,70', 0.45 * a);
@@ -8749,16 +8785,17 @@ function drawZones() {
       continue;
     }
     if (z.ice) { // 冰封：一片泛着冷光的冰面，冰纹 + 几簇冰棱
-      ctx.fillStyle = `rgba(150,205,245,${0.22 * a})`;
+      ctx.globalAlpha = 0.22 * a; ctx.fillStyle = 'rgb(150,205,245)';
       ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.8, 0, 0, TAU); ctx.fill();
-      ctx.strokeStyle = `rgba(235,248,255,${0.55 * a})`; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.ellipse(z.x, z.y, z.r, z.r * 0.8, 0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 0.55 * a; ctx.strokeStyle = 'rgb(235,248,255)'; ctx.lineWidth = 1.5; ctx.stroke();
       ctx.beginPath();
       for (let i = 0; i < 9; i++) { const t = z.id * 0.7 + i * 0.7; ctx.moveTo(z.x + Math.cos(t) * z.r * 0.15, z.y + Math.sin(t) * z.r * 0.12); ctx.lineTo(z.x + Math.cos(t + 0.2) * z.r * 0.9, z.y + Math.sin(t + 0.2) * z.r * 0.72); }
-      ctx.stroke();
-      ctx.globalCompositeOperation = 'lighter';
-      FX.sprite(ctx, 'ring', '150,210,255', z.x, z.y, z.r * 2.2, z.r * 2.2, S.t * 0.4, 0.3 * a, 0.2, 0.8);
-      ctx.globalCompositeOperation = 'source-over';
+      ctx.stroke(); ctx.globalAlpha = 1;
+      if (!fxLite()) { // 精简：不画外圈冷光（冰面、冰纹、冰棱照旧）
+        ctx.globalCompositeOperation = 'lighter';
+        FX.sprite(ctx, 'ring', '150,210,255', z.x, z.y, z.r * 2.2, z.r * 2.2, S.t * 0.4, 0.3 * a, 0.2, 0.8);
+        ctx.globalCompositeOperation = 'source-over';
+      }
       for (let i = 0; i < 6; i++) { const t = z.id * 1.3 + i * 1.05, rr = z.r * (0.35 + 0.5 * ((i * 0.41) % 1)); FX.shard(ctx, z.x + Math.cos(t) * rr, z.y + Math.sin(t) * rr * 0.8 - 8, 12, 0, 0.85 * a); }
       ctx.globalAlpha = 1;
       continue;
@@ -8767,7 +8804,7 @@ function drawZones() {
       ctx.fillStyle = `rgba(30,50,60,${0.16 * a})`;
       ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, TAU); ctx.fill();
       FX.sprite(ctx, 'circle', '255,205,110', z.x, z.y, z.r * 2.1, z.r * 2.1, S.t * 0.35, 0.85 * a, 0.35);
-      FX.sprite(ctx, 'ring', '120,200,230', z.x, z.y, z.r * 2.2, z.r * 2.2, -S.t * 0.5, 0.35 * a, 0.2);
+      if (!fxLite()) FX.sprite(ctx, 'ring', '120,200,230', z.x, z.y, z.r * 2.2, z.r * 2.2, -S.t * 0.5, 0.35 * a, 0.2); // 精简：不画外圈光环
       ctx.globalAlpha = 1;
       continue;
     }
@@ -8822,11 +8859,12 @@ function drawZones() {
 
 // 特效贴图：放大、旋转、淡入淡出（贴地的 under 版本在角色下面画）
 function drawTexFx(f) {
-  const t = Math.max(0, f.life / f.max), prog = 1 - t, ease = 1 - Math.pow(1 - prog, 3);
+  const t = Math.max(0, f.life / f.max), prog = 1 - t, ease = 1 - Math.pow(1 - prog, 3), own = !(f.hostile || (f.follow && f.follow.boss));
   const s = 1 + (f.grow - 1) * ease, a = (f.fadeIn ? Math.min(1, prog / f.fadeIn) : 1) * Math.pow(t, 0.7) * (f.a === undefined ? 1 : f.a)
-    * (f.hostile || (f.follow && f.follow.boss) ? 1 : clamp(170 / Math.max(f.w, f.h), 0.3, 1)); // 你这边的特效越大越淡，不把名将盖住
+    * (own ? clamp(170 / Math.max(f.w, f.h), 0.3, 1) : 1); // 你这边的特效越大越淡，不把名将盖住
+  const k = own && fxLite() ? 0.75 : 1; // 精简：你这边的特效贴图小一圈（面积少四成多）
   const x = f.follow ? f.follow.x + (f.ox || 0) : f.x, y = f.follow ? f.follow.y + (f.oy || 0) : f.y;
-  FX.sprite(ctx, f.key, f.rgb, x, y, f.w * (f.sx ? 1 + (f.sx - 1) * ease : s), f.h * s, f.rot + f.spin * prog, a, f.core, f.flat);
+  FX.sprite(ctx, f.key, f.rgb, x, y, k * f.w * (f.sx ? 1 + (f.sx - 1) * ease : s), k * f.h * s, f.rot + f.spin * prog, a, f.core, f.flat);
 }
 function drawEffectsUnder() { for (const f of S.effects) if (f.kind === 'tex' && f.under) drawTexFx(f); }
 function drawEffects() {
@@ -8862,11 +8900,13 @@ function drawEffects() {
       const big = f.enemy || f.hostile ? 1 : clamp(110 / f.r, 0.3, 1) * (f.dim || 0.5); // 后期范围叠得很大的爆炸：越大越淡，免得一炸就是半屏白光；法球爆炸再淡一些
       if (prog < 0.25 && (f.enemy || f.hostile)) FX.glow(ctx, f.x, f.y, f.r * (0.6 + prog * 2), '255,250,235', (1 - prog / 0.25) * 0.9 * big); // 白热闪光只留给名将的爆炸（你这边的一秒几十下，白光会把名将整个盖住）
       FX.glow(ctx, f.x, f.y, f.r * (0.9 + 0.7 * Math.pow(prog, 0.5)), rgb, t * 0.85 * big);
-      const rr = f.r * (0.7 + 0.6 * Math.pow(prog, 0.6));
-      const g = ctx.createRadialGradient(f.x, f.y, rr * 0.7, f.x, f.y, rr);
-      g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(0.85, `rgba(${rgb},${0.35 * t})`); g.addColorStop(1, `rgba(${rgb},0)`);
-      ctx.globalAlpha = 1; ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(f.x, f.y, rr, 0, TAU); ctx.fill();
+      if (f.enemy || f.hostile || !fxLite()) { // 外沿的热浪圈（精简时你这边的不画）
+        const rr = f.r * (0.7 + 0.6 * Math.pow(prog, 0.6));
+        const g = ctx.createRadialGradient(f.x, f.y, rr * 0.7, f.x, f.y, rr);
+        g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(0.85, `rgba(${rgb},${0.35 * t})`); g.addColorStop(1, `rgba(${rgb},0)`);
+        ctx.globalAlpha = 1; ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(f.x, f.y, rr, 0, TAU); ctx.fill();
+      }
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     } else if (f.kind === 'levelup') { // 升级：金色光柱
       const p = S.player, a = Math.min(1, t * 1.8);
@@ -9085,7 +9125,7 @@ function watchFps(raw) {
   fps.ema += (raw - fps.ema) * 0.05;
   fps.slowT = fps.ema > 1 / 40 ? fps.slowT + raw : 0;
   if (fps.slowT > 4) {
-    autoLite = true; fxLabel();
+    autoLite = true; fxLabel(); fxRes();
     try { localStorage.setItem('buyi-fx-auto', '1'); } catch (e) { /* ignore */ }
     toast('', '', '画面有点卡，已自动精简特效', '暂停菜单里可以改回「完整」');
   }
