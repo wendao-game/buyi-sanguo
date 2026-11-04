@@ -19,6 +19,17 @@ const DISPLAY = "'Ma Shan Zheng', 'STXingkai', 'KaiTi', serif";
 // ============ 画布 ============
 const cv = $('cv');
 const ctx = cv.getContext('2d');
+// 你这边的发光（论坛：后期特效光太多「啥也看不清」）。只在画你这边的特效时打开（见 render 的 ownFx）：
+//   glowTrack：量这一帧叠加发光（lighter）盖了几个屏幕，按透明度加权（glowArea，单位是世界坐标的面积），下一帧按它调暗（glowK，见 glowBudget）
+//   glowFlat：暂停菜单「光效：关」——叠加（lighter，颜色一层层相加）换成 lighten（每个点只取最亮的那一层）：叠多少层也不会白成一片，贴图的黑底照样看不见
+const GCO = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'globalCompositeOperation');
+const DRAW_IMG = CanvasRenderingContext2D.prototype.drawImage;
+let glowTrack = false, glowFlat = false, glowArea = 0;
+Object.defineProperty(ctx, 'globalCompositeOperation', { configurable: true, get() { return GCO.get.call(this); }, set(v) { GCO.set.call(this, glowFlat && v === 'lighter' ? 'lighten' : v); } });
+ctx.drawImage = function (img, a, b, c, d, e, f, w, h) {
+  if (glowTrack && GCO.get.call(this) === 'lighter') { const n = arguments.length; glowArea += this.globalAlpha * (n >= 9 ? w * h : n >= 5 ? c * d : (img.width || 0) * (img.height || 0)); }
+  return DRAW_IMG.apply(this, arguments);
+};
 // dprCap：画布最多几倍分辨率；pxCap：画布最多多少像素（精简模式 1.5 倍、100 万，见 fxRes）。
 // 电脑全屏按窗口 × 系统缩放画，像素是手机的两三倍以上，TapTap 电脑版的旧内核画起来尤其吃力；超了就降分辨率，浏览器再放大显示。手机（150 万以内）不受影响
 let W = 0, H = 0, DPR = 1, ZOOM = 1, dprCap = 2, pxCap = 2.1e6;
@@ -161,11 +172,16 @@ let pickPause = false, shakeOn = true; // 设置：升级 / 斩将选卡时暂�
 // 特效：auto 自动（帧率掉下来就自动精简）/ full 完整 / lite 精简（粒子、特效、伤害数字更少，发光更暗、大光圈少画，画布分辨率降一档）
 let fxMode = 'auto', autoLite = false;
 const fxLite = () => fxMode === 'lite' || (fxMode === 'auto' && autoLite);
+// 光效（暂停菜单）：你这边的发光亮度——完整 / 柔和 / 暗 / 关（不叠加发光，只画形状）。名将的招式、预警、敌人不受影响
+const GLOW_MODES = [['full', '完整', 1], ['soft', '柔和', 0.6], ['dim', '暗', 0.3], ['off', '关', 0.8]];
+let glowMode = 'full', glowK = 1; // glowK：自动光效上限（见 render）
+const glowMul = () => GLOW_MODES.find(m => m[0] === glowMode)[2];
 try {
   musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0';
   pickPause = localStorage.getItem('buyi-pickpause') === '1'; shakeOn = localStorage.getItem('buyi-shake') !== '0';
   fxMode = ['full', 'lite'].includes(localStorage.getItem('buyi-fx')) ? localStorage.getItem('buyi-fx') : 'auto';
   autoLite = localStorage.getItem('buyi-fx-auto') === '1'; // 这台设备以前卡过：自动模式直接精简
+  const gm = localStorage.getItem('buyi-glow'); if (GLOW_MODES.some(m => m[0] === gm)) glowMode = gm;
 } catch (e) { /* 存储不可用时忽略 */ }
 // 精简模式画布降到 1.5 倍分辨率：像素少四成多。手机卡主要卡在 GPU 填像素（后期叠加发光一帧要盖满几十个屏幕），光调暗不省事。
 // 电脑屏幕缩放多是 1～1.5 倍，光限倍数降不下来，所以再限总像素：完整 210 万（1080p 一屏）、精简 100 万
@@ -564,6 +580,7 @@ addEventListener('keydown', e => {
   if (MOVE_KEYS[e.code]) { keys.add(e.code); e.preventDefault(); }
   if ((e.code === 'Escape' || e.code === 'KeyP') && S && !S.over) togglePause();
   if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (S && !S.over) { e.preventDefault(); S.blinkReq = true; } } // 闪现
+  if (e.code === 'KeyE' && S && !S.over && S.smj) S.smjReq = true; // 神魔技（WASD 旁边，空格已经给了闪现）
   const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code);
   if (m && !$('levelup').hidden && $('lu-cards').style.pointerEvents !== 'none') { const el = $('lu-cards').children[+m[1] - 1]; if (el) el.click(); }
 });
@@ -771,11 +788,16 @@ function newState(originId) {
     arena: null, flyArrows: [], bloodEyes: [], glT: 0, danjingT: 0, rageT: 0, dimT: 0, // 夏侯惇的单挑枪阵、飞箭、血眼；刚烈反击、啖睛的冷却和狂暴
     bagua: null, city: null, phantoms: [], bagDmgT: 0, starCd: 0, // 神诸葛的八门阵、空城；刘备桃园结义的关张虚影；锦囊妙计「奇谋」、七星灯续命的冷却
     tigers: [], navy: null, burn: null, wine: [], ironRage: 0, tyrK: 0, // 孙权的猛虎、江东水师；魔董卓的焚烧洛阳；酒池（技能）；铁布衫、暴政魔印的加成
+    lianhuan: null, phoenixes: [], valley: null, feathers: [], flags: [], sanceT: 0, sanceDr: 0, hongtuT: 20, // 庞统：献连环的铁索、火凤、落凤坡的山道；凤翎钉着的火羽、三策的令旗和减伤、鸿图的计时
+    fuseFx: [], // 融合神兵「龙凤双翎」盘旋的火龙火凤
+    skyBlade: null, guanCracks: [], wenjiu: null, timeStop: 0, guanWaves: [], guanBlack: -9, flood: null, smjPhantom: null, // 神关羽：天刀、刀落处的地裂、温酒斩（时间静止到几时）、法相的威压圈、显圣那一黑、水淹七军；神魔技「武圣显灵」的法相
+    smj: smjLoadout(), smjReq: false, smjZone: null, smjDrT: 0, smjDr: 0, // 神魔技：这一局带的哪个（几级、冷却）；八阵图的阵；七探冲刺中的减伤
     herbs: [], herbHasteT: 0, herbHaste: 0, wqT: 0, wqHeal: null, sbHerb: null, // 华佗：百草长出的草药、采药后的加速；五禽戏的冷却和回血；青囊书的药香
     moons: [], links: [], tether: null, inferno: null, combo: null, pBleedT: 0, demonT: 0, xueyuT: 0, // 炼狱虎牢关：血月、连环锁的红线、锁心红线、炼狱圈、组合大招；黑血侵蚀、心魔；倾城血玉的冷却
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
     spawnAcc: {}, evIdx: 0, defeated: [],
     ch: 0, chStart: 0, chapterT: 0, nextBossOk: 0,     // 当前章节、本章开始时间、换章倒计时、下一名武将最早登场时间
+    draws: {}, chEv: null,                             // 第三、四章这一局抽中了哪几位名将；chEv 是排好时间的本章事件（缓存）
     strikes: [], erings: [], lust: 0, lustT: 0, dash: null,
     shenbing: [], sbPity: 0, later: [], sbWhirl: null,   // 神兵：悬浮在身边的名将专属兵器
     goldRun: 0, startDmg: 0, xpMul: 0, saveT: 15, bakT: BAK.every, // 本局金币、局外装备加成、自动存档倒计时、本机文件备份倒计时
@@ -1100,6 +1122,8 @@ function hurtPlayer(amount, el = atkEl, src = atkSrc) {
   const XB = S.passives.xueyu && D.passives.xueyu.block; // 倾城血玉：每隔一会儿完全挡下一次
   if (XB && S.t >= S.xueyuT) { S.xueyuT = S.t + XB.cd; p.iframes = 0.45; addNumber(p.x, p.y - 50, '血玉护主', '#ff8090', 18); fxTex('ring', p.x, p.y - 10, { w: 90, h: 90, rgb: '255,60,90', life: 0.4, grow: 1.8, core: 0.5 }); return; }
   if (S.passives.moyin) amount *= 1 + D.passives.moyin.hurt; // 无双魔印：受到的伤害增加
+  if (S.t < S.smjDrT) amount *= 1 - S.smjDr;                // 神魔技「七探」：冲刺中减伤（不是无敌）
+  if (S.t < S.sanceT) amount *= 1 - S.sanceDr;              // 三策「下策」：退守时减伤
   if (S.endless) amount = lethalFloor(amount, src);
   const cs = src && (src.campSrc || (src.def && src.def.camp)), CF = cs && S.campFx && S.campFx[cs];
   if (CF) amount *= 1 - CF.hurt;                              // 封神 / 入魔：受神魔将（和他们放出来的东西）的伤害减少
@@ -1214,6 +1238,7 @@ function killEnemy(e) {
   if (e.def && e.def.twin && !e.twinFinal && twinDown(e)) return; // 魂缚：搭档还在，打空了也不算死
   if (e.def && e.def.shen && shenDown(e)) return; // 神赵云绝境：第一次打空不死
   if (e.def && e.def.wolong && wolongDown(e)) return; // 神诸葛七星禳星：第一次打空不死
+  if (e.def && e.def.wusheng && guanDown(e)) return; // 神关羽千里走单骑：第一次打空不死
   e.dead = true;
   if (e.tomb) { tombBroken(e); return; } // 司马懿的疑冢：不算杀敌、不掉东西
   if (e.pot) { potBroken(e); return; }   // 华佗的药鼎：同上，打碎时药雾给你回血
@@ -1258,6 +1283,7 @@ function onBossDeath(e) {
   S.bossList = S.bossList.filter(b => b !== e);
   S.defeated.push(g.name);
   markSlain(e.gid);
+  if (g.camp) smjOnKill(e.gid); // 神魔技：第一次斩解锁，斩够次数可以升级
   achBoss(e); // TapTap 成就：首斩、虎牢扬名、快刀斩乱麻、宿敌、图鉴……
   backupSoon(2); // 斩将：赏金、图鉴马上落盘
   if (D.voice[e.gid]) speak(e.gid, 'death', `“${D.voice[e.gid].death}”`);
@@ -1280,6 +1306,7 @@ function onBossDeath(e) {
   if (g.shen) { shenDefeated(e); return; } // 神赵云：神兵直接到手
   if (g.wolong) { wolongDefeated(e); return; } // 神诸葛：同上
   if (g.mowang) { mowangDefeated(e); return; } // 魔董卓：焚天赤锁直接到手
+  if (g.wusheng) { guanDefeated(e); return; } // 神关羽：冷艳锯直接到手
   for (const o of S.enemies) if (o.pot && o.pot.boss === e) { o.dead = true; smoke(o.x, o.y - 16, 4, '60,90,60', 12, 14, 0.7); } // 药鼎跟着散掉
   // 击败大乔，小乔从原地现身——只在这一局第一次见到小乔时。无尽征途里大乔是随机轮到的，再跟着出一个小乔，看起来就像刚打死的小乔复活了
   if (e.gid === 'daqiao' && !S.seen.xiaoqiao) { S.lastBoss = 'xiaoqiao'; later(1.6, () => { if (!S.bossList.some(b => b.gid === 'xiaoqiao' && !b.dead)) { spawnBoss('xiaoqiao', false, e.x, e.y); banner('小乔现身', '姐姐的仇，由妹妹来报'); } }); } // lastBoss：下一位随机名将别又是小乔
@@ -1297,7 +1324,7 @@ function onBossDeath(e) {
   } else if (g.slain) banner(g.slain[0], g.slain[1]); // 华佗：不说“斩”
   else banner(`斩 ${g.name}！`, '夺其兵器，承其武艺');
   // 神兵：小概率掉落（没掉就累积保底），掉了奖励里多一张金色卡
-  const SD = D.shenbingDrop, chance = Math.min(SD.max, SD.base + SD.pity * S.sbPity);
+  const SD = D.shenbingDrop, fk = D.shenbing[e.gid] ? fuseBoost(e.gid) : 1, chance = Math.min(SD.max * fk, (SD.base + SD.pity * S.sbPity) * fk); // fk：凑融合时组里还缺的这一位，几率翻倍
   const legend = !!D.shenbing[e.gid] && Math.random() < chance;
   if (legend) {
     S.sbPity = 0;
@@ -1314,6 +1341,7 @@ function nextChapter() {
   S.chStart = S.t; S.evIdx = 0; S.spawnAcc = {};
   if (S.ch + 1 < D.chapters.length) {
     S.ch++;
+    rollDraw(S.ch);
     banner(chap().name, chap().sub);
   } else {
     S.endless = true; S.endlessStart = S.t; S.endlessT = 20;
@@ -1348,7 +1376,7 @@ function onBuildingDestroyed(e) {
   }
   else if (rw.type === 'shen') { // 枪魂冢：神赵云现身；鱼腹浦八阵：神诸葛现身
     S.specialDone[e.bid] = true;
-    later(1.2, () => rw.gid === 'shenzhuge' ? spawnWolong(e.x, e.y + 20) : spawnShen(e.x, e.y + 20));
+    later(1.2, () => rw.gid === 'shenzhuge' ? spawnWolong(e.x, e.y + 20) : rw.gid === 'shenguanyu' ? spawnGuan(e.x, e.y + 20) : spawnShen(e.x, e.y + 20)); // 玉泉山：神关羽
     msg = rw.msg;
   }
   else if (rw.type === 'twins') { // 炼狱虎牢关：魔吕布、魔貂蝉一起现身
@@ -1450,6 +1478,7 @@ const lb = { at: -1e9, lv: 0, msg: '', ok: false };
 function lbErr(e, m) { if (e === undefined || e === null || e === '') return m ? String(m) : '未知错误'; if (typeof e !== 'object') return m ? `${e} ${m}` : String(e); const pick = ks => { for (const k of ks) if (e[k] !== undefined && e[k] !== null && e[k] !== '') return e[k]; }; const code = pick(['errorCode', 'code', 'errCode', 'status']), msg = pick(['errorMsg', 'errMsg', 'message', 'msg']); return [code, msg].filter(x => x !== undefined).join(' ') || JSON.stringify(e).slice(0, 80); }
 function submitScore(final) {
   if (!lbOK() || !S || !DBG.lb || (!final && inBattle())) return; // 打的过程中不提交，暂停时再提交（见 togglePause）
+  if (S.noRank) { if (final) { lb.ok = true; lb.msg = '这一局是从存档码读进来的，不计排行榜'; showLbMsg(); } return; } // 见 importCode
   const lv = S.player.level;
   if (!final && (lv <= lb.lv || performance.now() - lb.at < 30000)) return;
   lb.at = performance.now(); lb.lv = lv;
@@ -1543,14 +1572,14 @@ function achTick(dt) {
   S.achT = (S.achT || 0) - dt;
   if (S.achT > 0) return;
   S.achT = ACH_EVERY;
-  const p = S.player, has = gid => S.shenbing.some(s => s.gid === gid);
+  const p = S.player, has = hasSb; // 并进融合神兵的也算
   if (S.t >= 1200) achGet('survive20');
   if (S.t >= 2400) achGet('survive40');
   if (p.level >= 50) achGet('lv50');
   if (p.level >= 80) achGet('lv80');
   if (p.level >= 120) achGet('lv120');
   if (S.defeated.length >= 10) achGet('streak10');
-  if (S.shenbing.length >= 5) achGet('sb5');
+  if (S.shenbing.reduce((n, s) => n + (s.parts ? s.parts.length : 1), 0) >= 5) achGet('sb5'); // 融合神兵按并进去的件数算
   if (S.shenbing.some(s => s.lv >= 5)) achGet('sbMax');
   if (has('lubu') && has('diaochan')) achGet('fengyiting');
   if (has('zhangjiao') && has('zhangbao') && has('chengyuanzhi')) achGet('huangtian');
@@ -1617,7 +1646,7 @@ const readKey = k => { try { return JSON.parse(localStorage.getItem(k)) || null;
 function cloudLocal() { saveMeta(true); const o = {}; for (const k of CLOUD_KEYS) { const v = readKey(k); if (v) o[k] = v; } o.prefs = readPrefs(); return o; }
 // 设置（音乐、语音、静音、选卡暂停、镜头震动、特效、攻击目标）也跟着本机备份和云存档走（玩家说每进一局都要重新设置）：
 // 网页存储被清、换了设备，找回时只补本机没有的那几项，本机已经有的不动。不参与 mergeSaves，改了设置就标记上传
-const PREF_KEYS = ['buyi-music', 'buyi-voice', 'buyi-muted', 'buyi-pickpause', 'buyi-shake', 'buyi-fx', 'buyi-aim'];
+const PREF_KEYS = ['buyi-music', 'buyi-voice', 'buyi-muted', 'buyi-pickpause', 'buyi-shake', 'buyi-fx', 'buyi-glow', 'buyi-aim'];
 function readPrefs() { const o = {}; try { for (const k of PREF_KEYS) { const v = localStorage.getItem(k); if (v !== null) o[k] = v; } } catch (e) { /* 存储不可用时忽略 */ } return o; }
 function savePref(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } cloudDirty(); }
 function restorePrefs(p) {
@@ -2269,6 +2298,26 @@ function placeQiaofu() {
   for (const o of S.enemies) if (o.building && o !== e && !o.def.special && dist2(o.x, o.y, e.x, e.y) < 420 * 420) o.dead = true; // 让开位置
   toast('building', 'qiaofu', '江东乔府', '就在东南方向，走近了府中才会动手');
 }
+// 第三、四章的名将每局抽几位（data.js 章节的 draw 和 pool）：抽中的按史实先后放进 slots 的时间，存在 S.draws[章]，继续征战时不变
+function rollDraw(ci) {
+  const c = D.chapters[ci];
+  if (!c || !c.draw) return;
+  const pool = c.events.filter(ev => ev.pool).map(ev => ev.id), bag = pool.slice();
+  for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]]; }
+  const pick = bag.slice(0, c.draw.n);
+  S.draws[ci] = pool.filter(id => pick.includes(id));
+  S.chEv = null;
+}
+// 这一章实际的事件表；没有抽过的（更新前的老存档）照旧用全部名将，evIdx 不错位
+function chEvents(ci) {
+  const c = D.chapters[ci];
+  if (!c.draw || !S.draws[ci]) return c.events;
+  if (S.chEv && S.chEv.ci === ci) return S.chEv.list;
+  const list = c.events.filter(ev => !ev.pool).concat(S.draws[ci].map((id, i) => ({ t: c.draw.slots[i], type: 'boss', id })));
+  list.sort((a, b) => a.t - b.t || !!a.final - !!b.final);
+  S.chEv = { ci, list };
+  return list;
+}
 function runEvent(ev) {
   if (ev.type === 'boss') { spawnBoss(ev.id, ev.final); return; }
   if (ev.type === 'qiaofu') { placeQiaofu(); return; }
@@ -2291,10 +2340,11 @@ function director(dt) {
   shenDirector(); // 100 级：枪魂冢
   zhugeDirector(); // 150 级：鱼腹浦八阵
   meiwuDirector(); // 120 级：郿坞
-  const c = chap(), ct = ctime();
+  guanDirector(); // 180 级：玉泉山
+  const c = chap(), ct = ctime(), evs = S.endless ? null : chEvents(S.ch);
   // 本章事件：武将要等上一名倒下、并且隔一小会儿才登场
-  while (!S.endless && !S.chapterT && S.evIdx < c.events.length && ct >= c.events[S.evIdx].t) {
-    const ev = c.events[S.evIdx];
+  while (!S.endless && !S.chapterT && S.evIdx < evs.length && ct >= evs[S.evIdx].t) {
+    const ev = evs[S.evIdx];
     if (ev.type === 'boss' && (fighters().length || S.t < S.nextBossOk)) break; // 华佗在场不挡
     runEvent(ev); S.evIdx++;
   }
@@ -2303,9 +2353,10 @@ function director(dt) {
     if (S.endlessT <= 0 && !fighters().length && S.t >= S.nextBossOk) { // 计时到了、上一位倒下也满 bossGap 秒
       S.endlessT = st.endlessBossEvery;
       // 在全部武将里随机（不连续重复）；藏在建筑里的名将（马超、大小乔、司马懿）要这一局打掉过建筑、见过面才会出现
-      // 不出手的华佗只从药庐里出来，不进随机名单
+      // 不出手的华佗只从药庐里出来，不进随机名单；第三、四章没抽到的（这一局还没见过的）先出
       const ids = Object.keys(D.generals).filter(id => id !== S.lastBoss && !D.generals[id].passive && !D.generals[id].twin && !D.generals[id].shen && !D.generals[id].wolong && !D.generals[id].camp && (!HIDDEN_GENERALS.has(id) || S.seen[id]));
-      const gid = ids[Math.floor(Math.random() * ids.length)];
+      const fresh = ids.filter(id => !S.seen[id]), from = fresh.length ? fresh : ids;
+      const gid = from[Math.floor(Math.random() * from.length)];
       S.lastBoss = gid;
       spawnBoss(gid);
     }
@@ -2353,7 +2404,7 @@ function updatePlayer(dt) {
   const p = S.player;
   const [mx, my] = moveInput();
   const rampage = (S.t < S.rampageT ? 1 + S.rampageSpeed : 1) * (S.t < S.rageT ? 1 + D.passives.danjing.rage.speed : 1) * (S.t < S.herbHasteT ? 1 + S.herbHaste : 1); // 七进七出 / 啖睛狂暴 / 百草采药后加速
-  const slowed = (S.t < S.pSlowT ? 0.55 : 1) * (S.t < S.pChillT ? 0.6 : 1) * (S.t < S.frozenT ? 0 : 1); // 震慑 / 冰冻减速 / 冻住
+  const slowed = (S.t < S.pSlowT ? 0.55 : 1) * (S.t < S.pChillT ? 0.6 : 1) * (S.t < S.frozenT ? 0 : 1) * pangSlow() * floodSlow(); // 震慑 / 冰冻减速 / 冻住 / 庞统的铁索拖着兵 / 神关羽的大水
   const wind = S.t < S.windT ? 1 : 0;                     // 借东风：被风推着走
   let cx = 0, cy = 0;                                     // 被貂蝉迷住：不由自主地往她身边走
   const ch = S.charm;
@@ -2437,10 +2488,12 @@ function updatePlayer(dt) {
       sfx('swing');
     }
   }
-  if (S.dash) { // 冲阵：突进中无敌，沿途敌人受伤并被撞开
+  if (S.smjReq) { S.smjReq = false; if (S.smj && S.t >= S.smj.t && !(S.t < S.frozenT)) castSmj(); } // 神魔技
+  if (S.dash) { // 冲阵：突进中无敌，沿途敌人受伤并被撞开（神魔技「七探」不无敌，只减伤）
     const D2 = S.dash, ux = Math.cos(D2.a), uy = Math.sin(D2.a);
     p.x += ux * D2.len / D2.dur * dt; p.y += uy * D2.len / D2.dur * dt;
-    p.iframes = Math.max(p.iframes, 0.15); p.moving = true; p.facing = D2.a;
+    if (!D2.noIframe) p.iframes = Math.max(p.iframes, 0.15);
+    p.moving = true; p.facing = D2.a;
     near(p.x, p.y, D2.w + 48, e => {
       if (D2.hit.has(e.id) || dist2(p.x, p.y, e.x, e.y) > (D2.w / 2 + e.r) ** 2) return;
       D2.hit.add(e.id);
@@ -2464,7 +2517,8 @@ function updatePlayer(dt) {
 }
 
 // ============ 武器 ============
-function swing(a, range, L, def, rgbOver) { // rgbOver：雌雄双股剑一金一银、锄头重击土金
+// o.dir：刀光扫的方向；o.heavy：锄头重击（照常铺地面范围）
+function swing(a, range, L, def, rgbOver, o = {}) { // rgbOver：雌雄双股剑一金一银、锄头重击土金
   const p = S.player, half = L.angle / 2 * Math.PI / 180, hit = [];
   swung = true;
   near(p.x, p.y, range + 48, e => {
@@ -2481,16 +2535,21 @@ function swing(a, range, L, def, rgbOver) { // rgbOver：雌雄双股剑一金�
   // 刀光颜色：锄头土白、大刀金、青龙刀青、开山斧黄
   // 带属性的刀光换成属性色（火红、冰蓝、雷紫、风青），并叠一层刀光贴图
   const rgb = curEl ? D.elements[curEl].rgb : rgbOver || { hoe: '240,228,196', dadao: '255,200,100', qinglong: '130,240,185', kaishan: '255,215,80', yitian: '205,180,255', guding: '160,210,255' }[def.id] || (def.general ? '255,210,122' : '240,228,196');
-  S.effects.push({ kind: 'arc', x: p.x, y: p.y - 10, a, range, half, life: 0.26, max: 0.26, rgb });
-  if (curEl) for (let k = 0; k < 4; k++) { const t = a + rand(-half, half), rr = range * rand(0.6, 1); elSpark(curEl, p.x + Math.cos(t) * rr, p.y - 10 + Math.sin(t) * rr); }
+  // 后期晃眼（玩家反馈锄头「一直转看得晕」：一秒六刀、身前身后两刀同向扫成一个转动的轮子、半径比屏幕还大、地面一秒闪六下）：
+  //   刀光每刀左右交替、身后那刀反着扫（像来回锄地）；两刀间隔短于 swingFx.fast 秒时不铺地面范围、刀光按间隔变淡（最低 minA）；
+  //   刀光最大只画到 maxR，再大的范围在边上画一圈淡线。命中范围、伤害都不变
+  const SW = D.stage.swingFx, gap = L.cd * p.cdMul, k = clamp(gap / SW.fast, SW.minA, 1), vr = Math.min(range, SW.maxR);
+  S.effects.push({ kind: 'arc', x: p.x, y: p.y - 10, a, range: vr, edge: range > SW.maxR ? range : 0, half, life: 0.26, max: 0.26, rgb, dir: o.dir || 1, fast: gap < SW.fast && !o.heavy, k: o.heavy ? 1 : k });
+  if (curEl) for (let j = 0; j < 4; j++) { const t = a + rand(-half, half), rr = vr * rand(0.6, 1); elSpark(curEl, p.x + Math.cos(t) * rr, p.y - 10 + Math.sin(t) * rr); }
   // 武将兵器：叠一层刀光贴图，更厚重
-  if (def.general || curEl) fxTex('slash', p.x + Math.cos(a) * range * 0.55, p.y - 10 + Math.sin(a) * range * 0.55, { w: range * 2 * Math.min(1, Math.sin(Math.min(half, 1.5)) + 0.2), h: range * 0.75, rot: a + Math.PI / 2, rgb, life: 0.24, grow: 1.1, a: 0.75, core: 0.5 });
-  if (L.wave) fireCrescent(a, L.dmg * L.wave, 18);
+  if (def.general || curEl) fxTex('slash', p.x + Math.cos(a) * vr * 0.55, p.y - 10 + Math.sin(a) * vr * 0.55, { w: vr * 2 * Math.min(1, Math.sin(Math.min(half, 1.5)) + 0.2), h: vr * 0.75, rot: a + Math.PI / 2, rgb, life: 0.24, grow: 1.1, a: 0.75 * (o.heavy ? 1 : k), core: 0.5 });
+  if (L.wave) fireCrescent(a, L.dmg * L.wave, 18, 'moon');
 }
-// 贯穿全场的刀气（青龙偃月刀、武圣）
-function fireCrescent(a, dmg, r) {
+// 贯穿全场的刀气（青龙偃月刀、倚天剑、武圣）。look：'moon' 画成一道青色月牙刀光，不写就画成一条游动的小青龙；dim：龙的亮度。
+// 后期一秒十几条龙（每刀两条、武圣一圈十条）太亮太乱（玩家说「光污染」），所以武器每刀的刀气画月牙、武圣那一圈隔一道画龙；打中的范围一样
+function fireCrescent(a, dmg, r, look, dim) {
   const p = S.player, sp = 460;
-  S.proj.push({ kind: 'crescent', x: p.x, y: p.y, a, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: r * p.areaMul, dmg, pierce: 9999, life: 1.1, hit: new Set(), kb: 140, seed: rand(0, 9) });
+  S.proj.push({ kind: 'crescent', x: p.x, y: p.y, a, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: r * p.areaMul, dmg, pierce: 9999, life: 1.1, hit: new Set(), kb: 140, seed: rand(0, 9), look, dim });
 }
 // 直刺：命中从玩家出发、朝向 a 的一条长矩形内的所有敌人
 function thrust(a, L, def) {
@@ -2555,17 +2614,18 @@ function weaponTick(w, def, L, dt, p) {
         if (!tgt) { w.t = 0.08; break; }
         w.t = L.cd * p.cdMul;
         const a = angleTo(p.x, p.y, tgt.x, tgt.y), H = def.heavy;
+        w.dir = -(w.dir || 1); // 刀光一刀往左扫、一刀往右扫；身后那刀反着来
         if (H && (w.n = (w.n || 0) + 1) % H.every === 0) { // 锄头重击：每第 4 下，范围更大、击退翻倍、震晕小兵
           const R = range * H.area, LH = Object.assign({}, L, { kb: L.kb * H.kb, stun: H.stun });
-          swing(a, R, LH, def, '255,205,130');
-          if (L.back) swing(a + Math.PI, R, LH, def, '255,205,130');
+          swing(a, R, LH, def, '255,205,130', { dir: w.dir, heavy: true });
+          if (L.back) swing(a + Math.PI, R, LH, def, '255,205,130', { dir: -w.dir, heavy: true });
           groundImpact(p.x + Math.cos(a) * R * 0.5, p.y + Math.sin(a) * R * 0.5, R * 0.7);
           fxTex('ring', p.x, p.y, { w: R * 0.9, h: R * 0.9, rgb: '255,200,120', flat: 0.55, under: true, life: 0.35, grow: 1.6, core: 0.4 });
           S.shake = Math.max(S.shake, 5); sfx('slam');
           break;
         }
-        swing(a, range, L, def);
-        if (L.back) swing(a + Math.PI, range, L, def);
+        swing(a, range, L, def, undefined, { dir: w.dir });
+        if (L.back) swing(a + Math.PI, range, L, def, undefined, { dir: -w.dir });
         sfx('swing');
         break;
       }
@@ -2589,8 +2649,8 @@ function weaponTick(w, def, L, dt, p) {
         w.t = L.cd * p.cdMul;
         const a = angleTo(p.x, p.y, tgt.x, tgt.y);
         w.side = -(w.side || 1);
-        if (L.both) { swing(a - L.side, range, L, def, '255,215,110'); swing(a + L.side, range, L, def, '225,238,255'); }
-        else swing(a + L.side * w.side, range, L, def, w.side > 0 ? '225,238,255' : '255,215,110');
+        if (L.both) { swing(a - L.side, range, L, def, '255,215,110', { dir: 1 }); swing(a + L.side, range, L, def, '225,238,255', { dir: -1 }); }
+        else swing(a + L.side * w.side, range, L, def, w.side > 0 ? '225,238,255' : '255,215,110', { dir: w.side });
         sfx('swing');
         break;
       }
@@ -2607,6 +2667,19 @@ function weaponTick(w, def, L, dt, p) {
         w.t -= dt; if (w.t > 0 || w.queue > 0) break;
         if (!pickTarget(p.x, p.y, D.aim.arrowRange * 1.2)) { w.t = 0.08; break; }
         w.t = L.cd * p.cdMul; w.queue = L.burst; w.qt = 0;
+        sfx('swing');
+        break;
+      }
+      case 'featherDart': { // 凤翎：扇形射出几根火羽，钉进敌人，片刻后各自炸开（见 stickFeather）
+        w.t -= dt; if (w.t > 0) break;
+        const tgt = pickTarget(p.x, p.y, D.aim.arrowRange);
+        if (!tgt) { w.t = 0.08; break; }
+        w.t = L.cd * p.cdMul;
+        const a0 = angleTo(p.x, p.y, tgt.x, tgt.y), stick = { fuse: L.fuse, pop: L.dmg * L.pop, R: L.radius * p.areaMul, stack: L.stack };
+        for (let i = 0; i < L.count; i++) {
+          const a = a0 + (i - (L.count - 1) / 2) * L.fan;
+          S.proj.push({ kind: 'feather', x: p.x, y: p.y - 10, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, r: 6, dmg: L.dmg, pierce: 1, life: D.aim.arrowLife, hit: new Set(), kb: 30, stick });
+        }
         sfx('swing');
         break;
       }
@@ -2895,7 +2968,7 @@ function updateSkills(dt) {
         if (!nearest(p.x, p.y, 500)) { s.t = 0.25; break; }
         s.t = L.cd * p.cdMul;
         const off = rand(0, TAU);
-        for (let i = 0; i < L.count; i++) fireCrescent(off + i / L.count * TAU, L.dmg, 30);
+        for (let i = 0; i < L.count; i++) fireCrescent(off + i / L.count * TAU, L.dmg, 30, i % 2 ? 'moon' : undefined, 0.7); // 一圈里隔一道画龙
         glint(p.x, p.y - 14, 28, '150,255,200', 0.2);
         S.shake = Math.max(S.shake, 5);
         sfx('slam');
@@ -3087,6 +3160,15 @@ function updateSkills(dt) {
         sfx('pick');
         break;
       }
+      case 'threeCe': { // 三策：随机献一策；满级三策齐献（见 sanceUp / sanceMid / sanceLow）
+        s.t -= dt; if (s.t > 0) break;
+        if (!nearest(p.x, p.y, 520)) { s.t = 0.25; break; }
+        s.t = L.cd * p.cdMul;
+        const picks = L.all ? [0, 1, 2] : [Math.floor(Math.random() * 3)];
+        for (const k of picks) [sanceUp, sanceMid, sanceLow][k](L);
+        addNumber(p.x, p.y - 56, L.all ? '三策齐献' : ['上策 · 奇袭', '中策 · 诱敌', '下策 · 退守'][picks[0]], '#ffb070', 18);
+        break;
+      }
       case 'tigerAlly': { // 射虎：唤来猛虎替你作战，到时散去（不占随从名额）
         s.t -= dt; if (s.t > 0) break;
         if (!nearest(p.x, p.y, 450)) { s.t = 0.25; break; }
@@ -3248,6 +3330,7 @@ function tryUlt(e) {
   if (g.wolong && S.bagua) ok = ok.filter(u => u.type === 'dipperFall'); // 神诸葛：你还困在八门阵里，只放观星往阵里砸
   if (e.balance && e.balance.some(t => !t.dead)) ok = ok.filter(u => u.type !== 'checkBalance'); // 孙权：虚影还在，不再制衡
   if (e.demon) ok = ok.filter(u => u.type !== 'demonLord'); // 魔董卓：魔王降临只有一次
+  if (g.wusheng) ok = ok.filter(u => !(u.type === 'manifest' && e.manifest) && !(u.type === 'wineCut' && S.t < (e.wineCd || 0))); // 神关羽：玉泉显圣只有一次，温酒斩有冷却
   if (!ok.length) return false;
   e.ultUsed = e.ultUsed || {};
   // 登场的第一招（opener）最先，其次血量新解锁的大招，再其次不和上一次重复
@@ -3256,7 +3339,7 @@ function tryUlt(e) {
   e.ultUsed[u.id] = (e.ultUsed[u.id] || 0) + 1;
   e.lastUlt = u.id;
   e.ult = { u, t: 0, phase: 0, n: 0 };
-  e.ultT = (g.ultEvery || 11) * (e.enraged ? 0.75 : 1);
+  e.ultT = (g.ultEvery || 11) * (e.enraged ? 0.75 : 1) * (g.wusheng && e.revived ? WS.qianli.ultK : 1); // 神关羽单骑之后大招更勤
   if (g.noCutin) ultCallout(e, u); else showUltCutin(e, u); // 魔吕布、魔貂蝉：只有组合大招才有特写
   return true;
 }
@@ -4675,6 +4758,104 @@ function runUlt(e, dt) {
       ultDone(e, 0.6);
       break;
     }
+    // —— 神关羽（见「玉泉山：神关羽」）——
+    // 青龙偃月 · 天刀：画面压暗，天上悬着巨刀；月牙刀影跟着你、定住、劈下，连劈几刀，最后抡刀横扫一整圈（见 updateSkyBlade）。他站着抡刀不走
+    case 'skyBlade': {
+      if (U.phase === 0) {
+        const m = u.dmg / u.pct; // 保底按 pct 算：横扫 ringPct、地裂 crackPct
+        S.skyBlade = { boss: e, u, k: 0, phase: 'track', t: u.track, a: toP, cx: p.x, cy: p.y, dim: 0, drop: 0, dmg: DMG(u.dmg), ringDmg: DMG(u.ringPct * m), crackDmg: DMG(u.crackPct * m) };
+        banner('神关羽 · 青龙偃月', '天刀悬顶——月牙刀影落在哪，就别站在哪');
+        S.shake = Math.max(S.shake, 8); sfx('boss');
+        U.phase = 1;
+      } else if (!S.skyBlade || S.skyBlade.boss !== e) ultDone(e, 0.6);
+      e.kvx = e.kvy = 0;
+      break;
+    }
+    // 温酒斩：时间静止，他隐去身形；酒爵的热气冒完之前一道道亮出红线，热气一散六刀齐落（见 updateWine）。隐身时挪到谁也瞄不到的地方（同司马懿疑冢）
+    case 'wineCut': {
+      if (U.phase === 0) {
+        e.wineCd = S.t + u.cd;
+        S.wenjiu = { boss: e, u, born: S.t, end: S.t + u.dur, lines: [], next: S.t + 0.3, dmg: DMG(u.dmg), cut: 0 };
+        S.timeStop = S.t + u.dur + 0.1;
+        smoke(e.x, e.y - 20, 6, '200,220,210', 14, 24, 0.7);
+        fxTex('pillar', e.x, e.y - 120, { w: 80, h: 300, rgb, life: 0.5, sx: 0.4, core: 0.6 });
+        e.vanish = true; e.x = p.x; e.y = p.y - 9000;
+        banner('神关羽 · 温酒斩', '酒尚温时——六道刀线亮完之前，找个空处站好');
+        sfx('boss');
+        U.phase = 1;
+      } else if (!S.wenjiu || S.wenjiu.boss !== e || S.wenjiu.cut) ultDone(e, 0.9);
+      e.kvx = e.kvy = 0;
+      break;
+    }
+    // 水淹七军：大水从画面一侧漫过来，你身边留几块高地（见 updateFlood）；他等水漫满了再动
+    case 'flood': {
+      if (U.phase === 0) {
+        const a = rand(0, TAU), R = Math.hypot(W, H) / 2 / ZOOM + 240, isles = [];
+        for (let tries = 0; isles.length < u.islands && tries < 60; tries++) {
+          const ia = rand(0, TAU), ir = rand(140, 380), x = p.x + Math.cos(ia) * ir, y = p.y + Math.sin(ia) * ir * 0.85;
+          if (isles.every(o => dist2(o.x, o.y, x, y) > (u.isleR * 2.6) ** 2)) isles.push({ x, y, r: u.isleR });
+        }
+        S.flood = { boss: e, u, ux: Math.cos(a), uy: Math.sin(a), cx: p.x, cy: p.y, R, front: -R, isles, phase: 'tele', t: u.tele, dmg: DMG(u.dmg), tickT: 0 };
+        banner('水淹七军', '大水漫过来了——上高地！');
+        U.phase = 1;
+      } else if (!S.flood || S.flood.boss !== e || S.flood.phase === 'hold' || S.flood.phase === 'ebb') ultDone(e, 0.5);
+      e.kvx = e.kvy = 0;
+      break;
+    }
+    // 玉泉显圣（血过半，只一次）：画面一黑，画面后方升起巨大的关圣法相，一直留到他倒下（举刀劈扇形、推出带缺口的威压圈，见 manifestTick）
+    case 'manifest': {
+      e.manifest = { u, born: S.t, next: S.t + u.first, wave: S.t + u.waveFirst, dmg: DMG(u.dmg), waveDmg: DMG(u.wavePct * u.dmg / u.pct), flash: 0, cut: null };
+      S.guanBlack = S.t;
+      fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 4, w: e.r * 5, h: e.r * 14, rgb, life: 1.4, sx: 0.5, core: 0.8 });
+      banner('神关羽 · 玉泉显圣', '关圣法相现于天际——它的刀、它的威压，一直到他倒下');
+      S.shake = Math.max(S.shake, 18); punch(0.8); sfx('boss'); sfx('slam');
+      ultDone(e, 0.6);
+      break;
+    }
+    // —— 庞统 ——
+    // 献连环：铁索连住你和身边最近的几个小兵（不够就召弓手补上），拖着走不快；片刻后火从兵那头顺着铁索烧向你（见 updateLianhuan）
+    case 'chainTie': {
+      if (U.phase === 0) {
+        const n = u.n + (e.enraged ? 2 : 0), pool = [];
+        for (const m of S.enemies) if (!m.boss && !m.building && !m.ai && !m.dead && dist2(m.x, m.y, p.x, p.y) < u.range * u.range) pool.push(m);
+        pool.sort((a, b) => dist2(a.x, a.y, p.x, p.y) - dist2(b.x, b.y, p.x, p.y));
+        const links = pool.slice(0, n);
+        for (let i = links.length; i < n; i++) {
+          const a = toP + Math.PI + (i - (n - 1) / 2) * 0.8, m = spawnEnemy('archer', p.x - Math.cos(a) * 240, p.y - Math.sin(a) * 240);
+          smoke(m.x, m.y - 10, 3, '70,50,35', 10, 12, 0.5); links.push(m);
+        }
+        for (const m of links) { const hp = e.maxHp * 0.03; if (m.maxHp < hp) { m.hp += hp - m.maxHp; m.maxHp = hp; } } // 连上铁索的兵结实些（后期一碰就死，铁索等于没连）
+        S.lianhuan = { boss: e, u, dmg: DMG(u.dmg), phase: 'tele', t: u.tele, links: links.map(m => ({ m, len: Math.max(120, Math.sqrt(dist2(m.x, m.y, p.x, p.y))), fire: 0, state: 'tele' })) };
+        U.phase = 1; sfx('swing');
+      } else if (!S.lianhuan || S.lianhuan.boss !== e) ultDone(e, 0.5);
+      e.kvx = e.kvy = 0;
+      break;
+    }
+    // 凤火燎原：火凤沿预警线横穿画面，身后留下火路（见 updatePhoenixes）；一共 passes 趟，后一趟换个方向，暴怒多一趟
+    case 'phoenixFlight': {
+      const n = u.passes + (e.enraged ? 1 : 0);
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0; }
+      if (U.t <= 0) {
+        if (U.k >= n) { if (!S.phoenixes.some(f => f.boss === e)) ultDone(e, 0.5); break; }
+        const a = U.k ? U.prevA + Math.PI / 2 + rand(-0.4, 0.4) : toP, R = Math.hypot(W, H) / 2 / ZOOM + 160;
+        const sx = p.x - Math.cos(a) * R, sy = p.y - Math.sin(a) * R, dmg = DMG(u.dmg), tdmg = DMG(0.3);
+        tele({ kind: 'line', x: sx, y: sy, a, len: R * 2, w: u.w, life: u.tele, rgb });
+        later(u.tele, () => { if (!e.dead) { S.phoenixes.push({ x: sx, y: sy, a, speed: u.speed, left: R * 2, w: u.w, hostile: true, boss: e, dmg, hit: false, trail: { r: u.trailR, life: u.trailT, dmg: tdmg, gap: u.trailGap }, seed: rand(0, 9) }); sfx('swing'); } });
+        U.prevA = a; U.k++; U.t = u.tele + u.gap;
+      }
+      e.kvx = e.kvy = 0;
+      break;
+    }
+    // 落凤坡（血过半）：顺着他到你的方向拉开一条山道，两侧峭壁；箭雨从身后一路往前压，前面落乱箭（见 updateValley）
+    case 'arrowValley': {
+      if (U.phase === 0) {
+        const ux = Math.cos(toP), uy = Math.sin(toP);
+        S.valley = { boss: e, u, ux, uy, x0: p.x - ux * u.back, y0: p.y - uy * u.back, len: u.len, half: u.laneW / 2, front: 0, phase: 'tele', t: u.tele, dmg: DMG(u.dmg), spotDmg: DMG(u.spotDmg), tickT: 0, spotT: 1, inside: true };
+        U.phase = 1;
+      } else if (!S.valley || S.valley.boss !== e) ultDone(e, 0.6);
+      e.kvx = e.kvy = 0;
+      break;
+    }
     // —— 魔董卓 ——
     // 焚烧洛阳：四面火墙往里推，只留一条安全走廊（见 burnState）；一共 waves 轮，每轮走廊换个地方
     case 'burnCity': {
@@ -5058,6 +5239,8 @@ function updateBossFx(dt) {
   updateXiahou(dt);
   updateWolong(dt);
   updateWuMo(dt);
+  updatePang(dt);
+  updateGuan(dt);
   fxFoe = false;
 }
 // 夏侯惇：单挑枪阵（你出不去，碰到枪会被扎回来；小兵进不来）、飞箭、血眼
@@ -5840,7 +6023,7 @@ function shenDefeated(e) {
 function dragonGuard(check) {
   const p = S.player;
   if (p.hp > 0) return false;
-  if (!S.shenbing.some(x => x.gid === 'shenzhaoyun') || S.t < (S.guardCd || 0)) return false;
+  if (!hasSb('shenzhaoyun') || S.t < (S.guardCd || 0)) return false; // 并进五虎神兵也照样有绝境
   if (check) return true;
   const G = D.shenbing.shenzhaoyun.guard;
   S.guardUntil = S.t + G.dur; S.guardCd = S.t + G.cd; p.hp = 1;
@@ -6175,7 +6358,7 @@ function openBag(MJ) {
 // 七星灯「续命」（神兵）：受到致死伤害时回到 guard.heal 的生命（每 guard.cd 秒一次）。check：只看现在能不能触发
 function starGuard(check) {
   const p = S.player;
-  if (p.hp > 0 || !S.shenbing.some(x => x.gid === 'shenzhuge') || S.t < (S.starCd || 0)) return false;
+  if (p.hp > 0 || !hasSb('shenzhuge') || S.t < (S.starCd || 0)) return false; // 并进龙凤双翎也照样能续命
   if (check) return true;
   const G = D.shenbing.shenzhuge.guard;
   S.starCd = S.t + G.cd; p.hp = Math.max(1, p.maxHp * G.heal); p.iframes = Math.max(p.iframes, 1);
@@ -6545,11 +6728,996 @@ function updateWuMo(dt) {
   updateTigers(dt);
   updateWine(dt);
   updateTyranny(dt);
+  updateSmj(dt);
   if (S.burn && (S.burn.boss.dead || !S.burn.boss.ult || S.burn.boss.ult.u.type !== 'burnCity')) S.burn = null;
   if (S.burn && (S.burn.phase === 'push' || S.burn.phase === 'hold')) burnFlames(S.burn);
 }
-function drawWuMoUnder() { drawPools(); drawBurn(); }
-function drawWuMoOver() { drawTigers(); drawNavy(); }
+function drawWuMoUnder() { drawPools(); drawBurn(); drawSmjZone(); }
+function drawWuMoOver() { drawTigers(); drawNavy(); drawSmjRoots(); }
+
+// ============ 庞统 ============
+// 大招：献连环（铁索连住你和几个小兵，火顺着铁索烧过来）、凤火燎原（火凤横穿画面留下火路）、落凤坡（困进山道，箭雨从身后压过来）。
+// 奖励：凤翎（火羽钉进敌人再炸开）、三策（上中下随机一策）、鸿图（定时把技能冷却再缩一截）；神兵涅槃凤翎（你这边的火凤）
+// 献连环：拖着几个兵走得慢（见 updatePlayer）
+function pangSlow() {
+  const L = S.lianhuan;
+  if (!L || L.phase === 'tele') return 1;
+  const n = L.links.filter(c => c.state !== 'gone').length;
+  return 1 - Math.min(L.u.slowCap, n * L.u.slow);
+}
+function chainSnap(c, msg) {
+  c.state = 'gone';
+  const m = c.m;
+  for (let k = 0; k < 6; k++) fxp({ type: 'spark', x: m.x + rand(-8, 8), y: m.y - 12 + rand(-8, 8), vx: rand(-240, 240), vy: rand(-240, 60), drag: 3, life: 0.4, rgb: '255,150,80', size: 2 });
+  if (msg) addNumber(m.x, m.y - 34, msg, '#ffb070', 14);
+}
+function updateLianhuan(dt) {
+  const L = S.lianhuan;
+  if (!L) return;
+  const p = S.player, u = L.u;
+  if (L.boss.dead || S.over) { S.lianhuan = null; return; }
+  const blinked = L.bt !== undefined && L.bt !== S.blinkT; L.bt = S.blinkT; // 这一帧闪现过
+  for (const c of L.links) if (c.state !== 'gone' && c.m.dead) chainSnap(c, '铁索断');
+  if (blinked && L.phase !== 'tele') { for (const c of L.links) if (c.state !== 'gone') chainSnap(c); addNumber(p.x, p.y - 40, '挣断铁索', '#ffb070', 18); }
+  const live = L.links.filter(c => c.state !== 'gone');
+  if (!live.length) { S.lianhuan = null; return; }
+  L.t -= dt;
+  if (L.phase === 'tele') { if (L.t <= 0) { L.phase = 'lock'; L.t = u.hold; for (const c of live) c.state = 'lock'; sfx('slam'); S.shake = Math.max(S.shake, 5); } return; }
+  for (const c of live) { // 锁住了：兵离你比铁索还远，就被拽过来
+    const m = c.m, d = Math.sqrt(dist2(m.x, m.y, p.x, p.y));
+    if (d > c.len) { const k = (d - c.len) / d; m.x += (p.x - m.x) * k; m.y += (p.y - m.y) * k; }
+  }
+  if (L.phase === 'lock') { if (L.t <= 0) { L.phase = 'fire'; for (const c of live) c.state = 'fire'; sfx('boss'); } return; }
+  for (const c of live) { // 火从兵那头顺着铁索烧过来
+    const m = c.m, d = Math.sqrt(dist2(m.x, m.y, p.x, p.y));
+    c.fire += u.fireSpeed * dt;
+    const f = Math.min(1, c.fire / Math.max(1, d)), fx = m.x + (p.x - m.x) * f, fy = m.y + (p.y - m.y) * f;
+    if (Math.random() < 0.7) fxp({ type: 'ember', x: fx + rand(-5, 5), y: fy - 12, vx: rand(-30, 30), vy: rand(-90, -40), drag: 2, life: 0.45, rgb: Math.random() < 0.5 ? '255,140,50' : '255,210,100', size: rand(6, 10) });
+    if (c.fire >= d) {
+      c.state = 'gone';
+      hurtPlayer(L.dmg, 'fire', L.boss);
+      impact(p.x, p.y, 60, '255,130,50', 0.7);
+      fxTex('flame', p.x, p.y - 40, { w: 70, h: 130, life: 0.5, grow: 1.1 });
+    }
+  }
+}
+function drawLianhuan() {
+  const L = S.lianhuan;
+  if (!L) return;
+  const p = S.player, tele = L.phase === 'tele';
+  for (const c of L.links) {
+    if (c.state === 'gone') continue;
+    const m = c.m, x0 = m.x, y0 = m.y - 12, x1 = p.x, y1 = p.y - 12;
+    FX.chain(ctx, x0, y0, x1, y1, { w: 6, sag: tele ? 14 : 4, rgb: tele ? '255,170,90' : '255,90,40', a: tele ? 0.55 : 1 });
+    if (c.state === 'fire') { // 烧过的那段：通红发亮，火头一团火
+      const d = Math.hypot(x1 - x0, y1 - y0) || 1, f = Math.min(1, c.fire / d), fx = x0 + (x1 - x0) * f, fy = y0 + (y1 - y0) * f;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(255,120,40,0.55)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(fx, fy); ctx.stroke();
+      ctx.restore();
+      FX.sprite(ctx, 'flame', '255,130,50', fx, fy - 16, 34, 64, 0, 0.95, 0.45);
+    }
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, x0, y0, 22, '255,120,50', tele ? 0.3 : 0.6); ctx.restore(); // 兵身上的锁扣
+  }
+  ctx.globalAlpha = 1;
+}
+
+// 火凤：庞统的凤火燎原（hostile，伤你）和涅槃凤翎（你这边的，伤敌人）；身后每隔一段留下一团火
+function updatePhoenixes(dt) {
+  const p = S.player;
+  for (const f of S.phoenixes) {
+    if (f.hostile && f.boss.dead) { f.dead = true; continue; }
+    const st = f.speed * dt, ux = Math.cos(f.a), uy = Math.sin(f.a);
+    f.x += ux * st; f.y += uy * st; f.left -= st;
+    if ((f.dropD = (f.dropD || 0) + st) >= f.trail.gap) {
+      f.dropD = 0;
+      if (f.hostile) S.ezones.push({ x: f.x, y: f.y, r: f.trail.r, life: f.trail.life, max: f.trail.life, dmg: f.trail.dmg, tick: 0.45, tt: 0, rgb: '255,120,40' });
+      else S.zones.push({ id: nextId++, fire: true, x: f.x, y: f.y, r: f.trail.r * p.areaMul, dmg: f.trail.dmg, tick: 0.4, tt: 0, life: f.trail.life, max: f.trail.life, slow: 1 });
+    }
+    if (f.hostile) {
+      if (!f.hit && dist2(f.x, f.y, p.x, p.y) < (f.w / 2 + p.r) ** 2) { f.hit = true; hurtPlayer(f.dmg, 'fire', f.boss); impact(p.x, p.y, 70, '255,130,50', 0.8); S.shake = Math.max(S.shake, 8); }
+    } else {
+      const R = f.w / 2 * p.areaMul;
+      near(f.x, f.y, R + 48, e => { if (!f.hitSet.has(e.id) && dist2(f.x, f.y, e.x, e.y) < (R + e.r) ** 2) { f.hitSet.add(e.id); hitEnemy(e, f.dmg, { kb: 140, kbAngle: f.a, quiet: true }); } });
+    }
+    if (Math.random() < 0.8) fxp({ type: 'ember', x: f.x - ux * f.w * 0.5 + rand(-12, 12), y: f.y - 20 - uy * f.w * 0.5 + rand(-12, 12), vx: -ux * 120 + rand(-30, 30), vy: -uy * 120 + rand(-60, -10), drag: 2, life: 0.55, rgb: Math.random() < 0.5 ? '255,140,50' : '255,215,110', size: rand(7, 12) }, f.hostile);
+    if (f.left <= 0) f.dead = true;
+  }
+  if (S.phoenixes.some(f => f.dead)) S.phoenixes = S.phoenixes.filter(f => !f.dead);
+}
+// 一只火凤（朝 a 飞）：有画好的 fx/phoenix.png（朝右、透明底）就用图，没有就用代码画——两片扇动的火翼、发亮的身子、身后拖着几道火尾
+function drawPhoenix(x, y, a, s, t, rgb, alpha = 1) {
+  const img = window.Assets.get('fx:phoenix');
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  if (img) { // 图里火凤朝右、长尾拖在左边，自带火尾；往左飞时上下翻过来，免得肚皮朝天
+    if (Math.cos(a) < 0) ctx.scale(1, -1);
+    const w = s * 2.6, h = w * img.naturalHeight / img.naturalWidth;
+    ctx.globalAlpha = alpha; ctx.drawImage(img, -w * 0.6, -h / 2, w, h);
+  } else {
+    for (let k = 0; k < 3; k++) FX.sprite(ctx, 'flame', rgb, -s * (0.85 + k * 0.42), Math.sin(t * 6 + k * 1.7) * s * 0.12, s * (0.55 - k * 0.1), s * (1.5 - k * 0.2), -Math.PI / 2, alpha * (0.85 - k * 0.2), 0.3);
+    ctx.globalCompositeOperation = 'lighter';
+    const flap = Math.sin(t * 13);
+    for (const sg of [-1, 1]) {
+      ctx.save(); ctx.scale(1, sg); ctx.rotate(-0.35 - flap * 0.45);
+      const gr = ctx.createLinearGradient(0, 0, -s * 0.6, -s * 1.15);
+      gr.addColorStop(0, `rgba(255,235,170,${0.95 * alpha})`); gr.addColorStop(0.5, `rgba(${rgb},${0.8 * alpha})`); gr.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(s * 0.1, 0);
+      ctx.quadraticCurveTo(s * 0.05, -s * 0.9, -s * 0.55, -s * 1.15);
+      ctx.quadraticCurveTo(-s * 0.3, -s * 0.55, -s * 0.75, -s * 0.5);
+      ctx.quadraticCurveTo(-s * 0.35, -s * 0.2, -s * 0.3, 0); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+    FX.glow(ctx, 0, 0, s * 0.85, rgb, 0.9 * alpha);
+    FX.glow(ctx, s * 0.2, 0, s * 0.32, '255,245,215', alpha);
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(255,240,200,0.95)'; ctx.beginPath(); ctx.moveTo(s * 0.62, 0); ctx.lineTo(s * 0.32, -s * 0.11); ctx.lineTo(s * 0.32, s * 0.11); ctx.fill(); // 喙
+  }
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+function drawPhoenixes() {
+  for (const f of S.phoenixes) drawPhoenix(f.x, f.y - 30, f.a, f.w * (f.hostile ? 0.95 : 0.75), S.t + f.seed, f.hostile ? '255,120,40' : '255,170,70');
+}
+
+// 落凤坡：山道坐标系——沿山道方向 (ux, uy) 走了多远 s，离中线多远 o
+const valleyPos = (V, x, y) => { const rx = x - V.x0, ry = y - V.y0; return [rx * V.ux + ry * V.uy, -rx * V.uy + ry * V.ux]; };
+function updateValley(dt) {
+  const V = S.valley;
+  if (!V) return;
+  const p = S.player, u = V.u;
+  if (V.boss.dead || S.over) { S.valley = null; return; }
+  const blinked = V.bt !== undefined && V.bt !== S.blinkT; V.bt = S.blinkT;
+  let [s, o] = valleyPos(V, p.x, p.y);
+  if (V.inside && s > -p.r && s < V.len + p.r) { // 两侧峭壁走不出去；闪现能翻过去
+    const lim = V.half - p.r;
+    if (Math.abs(o) > lim) {
+      if (blinked) { V.inside = false; addNumber(p.x, p.y - 40, '翻出山道', '#ffd08a', 18); }
+      else { const d = Math.sign(o) * lim - o; p.x += -V.uy * d; p.y += V.ux * d; o += d; }
+    }
+  } else if (V.inside && s >= V.len + p.r) V.inside = false; // 跑出山道口
+  V.t -= dt;
+  if (V.phase === 'tele') { if (V.t <= 0) { V.phase = 'rain'; sfx('boss'); S.shake = Math.max(S.shake, 6); } return; }
+  V.front = Math.min(V.len, V.front + u.speed * dt);
+  if (Math.abs(o) < V.half + p.r && s < V.front && s > -40) { if ((V.tickT -= dt) <= 0) { V.tickT = u.tick; hurtPlayer(V.dmg, null, V.boss); } }
+  else V.tickT = Math.min(V.tickT, 0.1);
+  for (V.spotT -= dt * u.spots; V.spotT <= 0; V.spotT += 1) { // 前面的山道里落乱箭
+    const ss = rand(V.front + 60, V.front + 520), oo = rand(-V.half + 30, V.half - 30);
+    if (ss < V.len) addHazard(V.x0 + V.ux * ss - V.uy * oo, V.y0 + V.uy * ss + V.ux * oo, u.spotR, 0.9, V.spotDmg, '255,170,90', { volley: true });
+  }
+  if (V.front >= V.len) S.valley = null;
+}
+function drawValleyUnder() {
+  const V = S.valley;
+  if (!V) return;
+  ctx.save(); ctx.translate(V.x0, V.y0); ctx.rotate(Math.atan2(V.uy, V.ux));
+  const L = V.len, h = V.half, cliff = 110;
+  for (const sg of [-1, 1]) { // 两侧峭壁：深褐色的岩壁，靠山道这边是参差的崖边
+    ctx.fillStyle = '#2a2018'; ctx.beginPath(); ctx.moveTo(-40, sg * (h + cliff));
+    for (let x = -40; x <= L + 40; x += 30) ctx.lineTo(x, sg * (h + 4 + 9 * Math.sin(x * 0.07) + 6 * Math.sin(x * 0.19)));
+    ctx.lineTo(L + 40, sg * (h + cliff)); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(150,120,90,0.55)'; ctx.lineWidth = 3; ctx.beginPath();
+    for (let x = -40; x <= L + 40; x += 30) { const y = sg * (h + 4 + 9 * Math.sin(x * 0.07) + 6 * Math.sin(x * 0.19)); x > -40 ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+  }
+  if (V.phase === 'tele') { // 预警：山道里一层淡红，起点一道箭头指向前方
+    const k = 1 - Math.max(0, V.t) / V.u.tele;
+    ctx.fillStyle = `rgba(255,120,60,${0.08 + 0.1 * k})`; ctx.fillRect(0, -h, L, h * 2);
+  } else { // 箭雨盖住的那段：暗红一片，前沿一道亮线
+    ctx.fillStyle = 'rgba(120,30,20,0.32)'; ctx.fillRect(-40, -h, V.front + 40, h * 2);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(255,150,80,0.8)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(V.front, -h); ctx.lineTo(V.front, h); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+function drawValleyOver() {
+  const V = S.valley;
+  if (!V || V.phase === 'tele') return;
+  ctx.save(); ctx.translate(V.x0, V.y0); ctx.rotate(Math.atan2(V.uy, V.ux));
+  ctx.strokeStyle = 'rgba(235,220,190,0.75)'; ctx.lineWidth = 1.6; ctx.beginPath(); // 箭雨：盖住的那段里斜着落下的箭
+  const n = Math.min(70, Math.floor(V.front / 14));
+  for (let i = 0; i < n; i++) {
+    const sx = ((i * 97.3 + S.t * 40) % Math.max(1, V.front)), sy = ((i * 53.7) % (V.half * 2)) - V.half, fall = ((S.t * 3 + i * 0.37) % 1) * 60;
+    ctx.moveTo(sx - 6, sy - 60 + fall); ctx.lineTo(sx, sy - 40 + fall);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// 凤翎：火羽钉进敌人，fuse 秒后各自炸开；同一个敌人身上钉着几根，这一下就再狠几成
+function stickFeather(e, b) {
+  if (S.feathers.length > 160) { const old = S.feathers.shift(); popFeather(old); } // 钉得太多（后期一秒几十根）：最早那根先炸
+  e.feathers = (e.feathers || 0) + 1;
+  S.feathers.push(Object.assign({ e, x: e.x, y: e.y, ox: rand(-0.5, 0.5) * e.r, oy: -e.r * rand(0.4, 1.2), a: Math.atan2(b.vy, b.vx), el: b.el || null }, b.stick));
+}
+function popFeather(f) {
+  const e = f.e, n = Math.max(1, e.feathers || 1), x = f.x, y = f.y;
+  e.feathers = Math.max(0, (e.feathers || 1) - 1);
+  const dmg = f.pop * (1 + f.stack * (n - 1)), R = f.R;
+  near(x, y, R + 48, o => { if (dist2(x, y, o.x, o.y) < (R + o.r) ** 2) hitEnemy(o, dmg, { kb: 40, kbAngle: angleTo(x, y, o.x, o.y), quiet: true, el: f.el }); });
+  if (fxRoom(x, y, R)) fxTex('burst', x, y - 12, { w: R * 2 * (1 + 0.15 * (n - 1)), h: R * 2 * (1 + 0.15 * (n - 1)), rgb: '255,140,50', life: 0.28, grow: 1.4, rot: rand(0, TAU), core: 0.3 });
+  if (Math.random() < 0.5) embers(x, y - 10, 3, '255,170,70', 80, 50, 6, 0.45);
+}
+function updateFeathers(dt) {
+  if (!S.feathers.length) return;
+  for (const f of S.feathers) {
+    if (!f.e.dead) { f.x = f.e.x; f.y = f.e.y; }
+    if ((f.fuse -= dt) <= 0) { f.done = true; popFeather(f); }
+  }
+  S.feathers = S.feathers.filter(f => !f.done);
+}
+// 一根火羽：细长的羽片、中间一道羽管，带一层火光
+function drawFeather(x, y, a, s, glow) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, 0, 0, s * 1.6, '255,130,50', glow);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#ff9a3c'; ctx.beginPath(); ctx.moveTo(s, 0);
+  ctx.quadraticCurveTo(0, -s * 0.42, -s, -s * 0.12); ctx.lineTo(-s, s * 0.12); ctx.quadraticCurveTo(0, s * 0.42, s, 0); ctx.fill();
+  ctx.strokeStyle = '#fff0c8'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(-s * 1.2, 0); ctx.stroke();
+  ctx.restore();
+}
+function drawFeathersStuck() {
+  for (const f of S.feathers) { const k = 1 - Math.max(0, f.fuse) / 0.8; drawFeather(f.x + f.ox, f.y + f.oy, f.a, 7, 0.35 + 0.5 * k); }
+}
+
+// 三策：上策火线奇袭、中策插旗诱敌、下策震退减伤
+function sanceUp(L) {
+  const p = S.player, tgt = densest(560) || nearest(p.x, p.y, 560);
+  if (!tgt) return;
+  const a = angleTo(p.x, p.y, tgt.x, tgt.y), len = L.len * p.areaMul;
+  hitLine(p.x, p.y, a, len, L.w, L.dmg, 160);
+  for (let d = 40; d < len; d += 70) S.zones.push({ id: nextId++, fire: true, x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d, r: L.w * 0.6, dmg: L.dmg * 0.2, tick: 0.4, tt: 0, life: L.burn, max: L.burn, slow: 1 });
+  fxTex('thrust', p.x + Math.cos(a) * len * 0.5, p.y - 14 + Math.sin(a) * len * 0.5, { w: len * 1.05, h: L.w * 1.6, rot: a, rgb: '255,140,50', life: 0.35, sx: 1.1, core: 0.7 });
+  sfx('swing');
+}
+function sanceMid(L) {
+  const p = S.player, tgt = densest(520);
+  if (!tgt) return;
+  S.flags.push({ x: tgt.x, y: tgt.y, until: S.t + L.lure, born: S.t, pullR: L.pullR * p.areaMul, R: L.radius * p.areaMul, dmg: L.dmg * 1.6 });
+  smoke(tgt.x, tgt.y, 3, '120,90,60', 10, 14, 0.5);
+}
+function sanceLow(L) {
+  const p = S.player, R = L.kbR * p.areaMul;
+  hitCircle(p.x, p.y, R, L.dmg * 0.6, L.kb);
+  S.sanceT = S.t + L.dur; S.sanceDr = L.guard;
+  fxTex('ring', p.x, p.y, { w: R * 0.6, h: R * 0.6, rgb: '255,170,90', life: 0.45, grow: 3.2, core: 0.5 });
+  S.shake = Math.max(S.shake, 5); sfx('slam');
+}
+function updateFlags(dt) {
+  if (!S.flags.length) return;
+  for (const g of S.flags) {
+    if (S.t < g.until) { // 诱敌：附近的敌人往旗下走
+      near(g.x, g.y, g.pullR + 48, e => {
+        if (e.boss || e.building) return;
+        const d = Math.sqrt(dist2(g.x, g.y, e.x, e.y));
+        if (d > 24 && d < g.pullR) { const st = Math.min(d - 24, 300 * dt); e.x += (g.x - e.x) / d * st; e.y += (g.y - e.y) / d * st; }
+      });
+      continue;
+    }
+    hitCircle(g.x, g.y, g.R, g.dmg, 200);
+    explosion(g.x, g.y, g.R, false);
+    S.shake = Math.max(S.shake, 4);
+    g.dead = true;
+  }
+  if (S.flags.some(g => g.dead)) S.flags = S.flags.filter(g => !g.dead);
+}
+function drawFlags() {
+  for (const g of S.flags) {
+    const k = clamp((S.t - g.born) / Math.max(0.01, g.until - g.born), 0, 1);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; // 脚下一圈往里收的光
+    ctx.strokeStyle = `rgba(255,150,70,${0.25 + 0.3 * k})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(g.x, g.y, g.pullR * (1 - 0.7 * k), g.pullR * (1 - 0.7 * k) * 0.8, 0, 0, TAU); ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo(g.x, g.y - 70); ctx.stroke(); // 旗杆
+    const wave = Math.sin(S.t * 8) * 4;
+    ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.moveTo(g.x, g.y - 70); ctx.quadraticCurveTo(g.x + 18, g.y - 66 + wave, g.x + 34, g.y - 62); ctx.lineTo(g.x + 34, g.y - 44); ctx.quadraticCurveTo(g.x + 18, g.y - 48 + wave, g.x, g.y - 46); ctx.closePath(); ctx.fill(); // 令旗
+    ctx.strokeStyle = '#e8b04a'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+}
+
+// 落凤坡的乱箭落点：落下时箭雨扎进地里
+function volleyLand(h) {
+  sparks(h.x, h.y - 6, -Math.PI / 2, 10, '255,215,160', 320, 1.2, 1.8);
+  smoke(h.x, h.y, 3, '90,70,50', 10, h.r * 0.5, 0.5);
+  S.decals.push({ kind: 'crack', x: h.x, y: h.y, lines: FX.makeCrack(h.r * 0.5), life: 0.9, max: 0.9 });
+  if (S.decals.length > 16) S.decals.shift();
+}
+
+// 每帧：庞统场上的东西，凤翎的火羽、三策的令旗、鸿图
+function updatePang(dt) {
+  updateLianhuan(dt);
+  updatePhoenixes(dt);
+  updateValley(dt);
+  updateFeathers(dt);
+  updateFlags(dt);
+  updateFuseFx(dt);
+  const HT =S.passives.hongtu && D.passives.hongtu.pulse;
+  if (HT && (S.hongtuT -= dt) <= 0) { // 鸿图：每隔一会儿，所有技能的冷却立刻再缩短一截
+    S.hongtuT = HT.every;
+    let any = false;
+    for (const s of S.skills) if (s.t > 0.3) { s.t = Math.max(0.05, s.t - HT.cut); any = true; }
+    if (any) { const p = S.player; addNumber(p.x, p.y - 62, '鸿图 · 半日断百事', '#ffd08a', 15); glint(p.x, p.y - 30, 40, '255,215,140', 0.3); }
+  }
+}
+// ============ 神兵融合 ============
+// 同一组名将的神兵凑齐就合成一件融合神兵（data.js 的 fusion）：原来几件消失、等级相加，只放这一招合击。
+// 神将、魔将的神兵算本人（神赵云算赵云……）；融合后再掉组里任何一位的神兵，融合神兵 +1 级
+const FU = D.fusion;
+const fuseGroupOf = gid => FU.groups.find(G => G.members.some(m => m.includes(gid)));
+const fuseMemberOf = (G, gid) => G.members.find(m => m.includes(gid));
+const fusedOf = G => S.shenbing.find(s => s.gid === G.sb);
+const fuseHeld = m => S.shenbing.some(s => m.includes(s.gid));
+const fuseCount = G => G.members.filter(fuseHeld).length;
+// 有没有这件神兵：单独一件，或者已经并进了融合神兵（龙魂涯角枪的绝境、七星灯的续命并进去也照样有）
+const hasSb = gid => S.shenbing.some(s => s.gid === gid || (s.parts && s.parts.includes(gid)));
+// 掉神兵的几率倍数：身上已经有这一组的、还没凑齐，组里还没到手的这一位 ×boost
+function fuseBoost(gid) {
+  const G = fuseGroupOf(gid);
+  return G && !fusedOf(G) && fuseCount(G) > 0 && !fuseHeld(fuseMemberOf(G, gid)) ? FU.boost : 1;
+}
+// 拿到一件神兵：这一组已经融合过，就给融合神兵 +1 级（返回融合神兵）；没融合过返回 null，照常拿
+function fuseAbsorb(gid) {
+  const G = fuseGroupOf(gid), F = G && fusedOf(G);
+  if (!F) return null;
+  F.lv++; F.flash = 0.45;
+  if (!F.parts.includes(gid)) F.parts.push(gid);
+  return F;
+}
+function tryFuse() {
+  for (const G of FU.groups) {
+    if (fusedOf(G) || fuseCount(G) < G.members.length) continue;
+    const parts = S.shenbing.filter(s => G.members.some(m => m.includes(s.gid))), def = D.shenbing[G.sb], p = S.player;
+    const lv = parts.reduce((n, s) => n + s.lv, 0);
+    S.shenbing = S.shenbing.filter(s => !parts.includes(s));
+    S.shenbing.push({ gid: G.sb, lv, t: 2.5, flash: 0.45, parts: parts.map(s => s.gid) });
+    showFusionCutin(G);
+    later(1.4, () => banner(`神兵融合 · ${def.name}`, `${parts.map(s => D.shenbing[s.gid].name).join(' + ')} → Lv ${lv}`));
+    fxTex('pillar', 0, 0, { follow: p, oy: -140, w: 150, h: 420, rgb: def.rgb, life: 1.4, sx: 0.5, core: 0.9 });
+    fxTex('ring', p.x, p.y, { w: 160, h: 160, rgb: def.rgb, life: 0.7, grow: 3, core: 0.5 });
+    screenFlash(def.rgb, 0.3); S.shake = Math.max(S.shake, 10);
+  }
+}
+// 融合特写：有画好的 cutins/combo_<组>.png 就用图，没有就把组里几位的立绘并排
+function showFusionCutin(G) {
+  const box = $('ult'), artEl = $('ult-art'), art = window.Assets.get('cutin:combo_' + G.id), def = D.shenbing[G.sb];
+  box.style.setProperty('--uc', def.rgb); box.classList.add('combo');
+  if (art) { artEl.style.backgroundImage = `url("${art.src}")`; artEl.style.backgroundSize = 'cover'; artEl.style.backgroundPosition = 'center 50%'; }
+  else {
+    const ids = G.members.map(m => m[0]), n = ids.length;
+    artEl.style.backgroundImage = ids.map(id => `url("${window.Portrait.src('general', id)}")`).join(', ');
+    artEl.style.backgroundSize = ids.map(() => 'auto 160%').join(', ');
+    artEl.style.backgroundPosition = ids.map((id, i) => `${Math.round(6 + i * 88 / Math.max(1, n - 1))}% 20%`).join(', ');
+  }
+  $('ult-name').textContent = def.name;
+  $('ult-gen').textContent = `神兵融合 · ${G.name}`;
+  box.classList.remove('show'); void box.offsetWidth; box.classList.add('show');
+  sfx('ult');
+}
+// 卧龙凤雏：一条火龙、一只火凤绕着你盘旋往外飞（跟着你走），扫到的敌人挨一下，身后留下火路
+function updateFuseFx(dt) {
+  if (!S.fuseFx.length) return;
+  const p = S.player;
+  for (const f of S.fuseFx) {
+    f.t += dt;
+    const k = Math.min(1, f.t / f.dur), th = f.a0 + f.turns * TAU * k, r = 50 + (f.R - 50) * k;
+    const x = p.x + Math.cos(th) * r, y = p.y + Math.sin(th) * r * 0.85;
+    if (f.pts.length) { const [lx, ly] = f.pts[0]; f.dist += Math.hypot(x - lx, y - ly); }
+    f.pts.unshift([x, y]); if (f.pts.length > 16) f.pts.pop();
+    f.a = f.pts.length > 1 ? Math.atan2(y - f.pts[1][1], x - f.pts[1][0]) : th;
+    near(x, y, f.w / 2 + 48, e => { if (!f.hitSet.has(e.id) && dist2(x, y, e.x, e.y) < (f.w / 2 + e.r) ** 2) { f.hitSet.add(e.id); hitEnemy(e, f.dmg, { kb: 160, kbAngle: angleTo(p.x, p.y, e.x, e.y), quiet: true }); } });
+    if (f.dist - f.dropAt >= f.trail.gap) { f.dropAt = f.dist; S.zones.push({ id: nextId++, fire: true, x, y, r: f.trail.r, dmg: f.trail.dmg, tick: 0.4, tt: 0, life: f.trail.life, max: f.trail.life, slow: 1 }); }
+    if (Math.random() < 0.7) fxp({ type: 'ember', x: x + rand(-10, 10), y: y - 30 + rand(-10, 10), vx: rand(-40, 40), vy: rand(-90, -30), drag: 2, life: 0.5, rgb: f.rgb, size: rand(7, 11) });
+    if (k >= 1) f.dead = true;
+  }
+  S.fuseFx = S.fuseFx.filter(f => !f.dead);
+}
+function drawFuseFx() {
+  if (!S.fuseFx.length) return;
+  ownPhase(true); // 你的融合神兵：跟着自动光效上限、「光效」档
+  for (const f of S.fuseFx) {
+    if (f.pts.length < 3) continue;
+    const pts = f.pts.map(([x, y]) => [x, y - 30]);
+    if (f.kind === 'dragon') FX.dragon(ctx, pts, { rgb: f.rgb, core: '255,235,190', w: 24, a: 1, t: S.t });
+    else drawPhoenix(pts[0][0], pts[0][1], f.a, 80, S.t + 3, f.rgb);
+  }
+  ownPhase(false);
+  ctx.globalAlpha = 1;
+}
+
+// ============ 玉泉山：神关羽 ============
+// 180 级后东北方升起玉泉山（关帝庙），打掉后神关羽显圣；倒下后过 again 秒再起，一轮比一轮厚。
+// 千里走单骑（data.js 的 wusheng）：第一次打空血骑上赤兔绕着你冲出重围（打不到），ride 秒后复生，之后一直骑马、更快、大招更勤。
+// 大招：青龙偃月 · 天刀（S.skyBlade，落处留 S.guanCracks）、温酒斩（S.wenjiu，时间静止到 S.timeStop）、水淹七军（S.flood）、
+//   玉泉显圣（e.manifest：画面后方的关圣法相，一直到他倒下；威压圈在 S.guanWaves）
+const WS = D.wusheng;
+const guanOf = () => S.bossList.find(b => b.def.wusheng && !b.dead);
+function guanDirector() {
+  const G = D.buildings.yuquan;
+  if (S.player.level < G.unlockLv) return;
+  if (S.guanAgainAt && S.t >= S.guanAgainAt) { S.guanAgainAt = 0; S.specialDone.yuquan = false; }
+  if (S.specialDone.yuquan || guanOf() || S.enemies.some(e => e.bid === 'yuquan' && !e.dead)) return;
+  const dir = placeSpecial('yuquan', 640, -640); // 东北
+  const e = S.enemies.find(x => x.bid === 'yuquan' && !x.dead);
+  if (e && S.guanRound) e.hp = e.maxHp *= 1 + G.roundHp * S.guanRound; // 一轮比一轮厚
+  banner('玉泉山', S.guanRound ? `关帝庙再起 · 第 ${S.guanRound + 1} 回` : `${dir}方，关帝庙前青光冲天`);
+}
+function spawnGuan(x, y) {
+  const G = D.buildings.yuquan, round = S.guanRound || 0;
+  spawnBoss('shenguanyu', false, x, y);
+  const e = S.bossList[S.bossList.length - 1];
+  e.hp = e.maxHp *= 1 + G.roundHp * round; e.dmg *= 1 + G.roundDmg * round;
+}
+// 千里走单骑：第一次被打空不死，骑上赤兔绕着你冲 ride 秒（打不到），然后复生。返回 true 表示这次不算死
+function guanDown(e) {
+  if (e.revived) return false;
+  if (e.juejing) { e.hp = 1; return true; }
+  const p = S.player, dur = Math.round(campTime(e, WS.qianli.ride) * 10) / 10; // 入魔「禁疗」：复生时间缩短
+  e.hp = 1; e.shield = 0; e.juejing = S.t + dur; e.ult = null; e.state = 'charge'; e.mounted = true; // 天刀跟着收掉（见 updateSkyBlade），法相留着、单骑时停手
+  e.rideA = angleTo(p.x, p.y, e.x, e.y); e.rideHitT = 0;
+  fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 3, w: e.r * 3, h: e.r * 9, rgb: '255,130,90', life: 0.8, sx: 0.4, core: 0.6 });
+  addNumber(e.x, e.y - 90, '千里走单骑', '#ffb090', 28);
+  banner('神关羽 · 千里走单骑', `骑上赤兔冲出重围——${dur} 秒后再战`);
+  const vl = D.voice[e.gid]; speak(e.gid, 'ult_qianli', `“${vl.ult.qianli}”`);
+  screenFlash('255,140,100', 0.25); sfx('boss');
+  return true;
+}
+// 每帧：单骑冲阵（打不到，绕着你跑，撞到你会受伤）、复生；之后一直骑马；武圣法相。返回 true 表示这一帧不用再走普通名将的逻辑
+function guanTick(e, dt) {
+  const p = S.player, Q = WS.qianli;
+  if (e.juejing) {
+    e.rideA += dt * 2.4;
+    const tx = p.x + Math.cos(e.rideA) * Q.rideR, ty = p.y + Math.sin(e.rideA) * Q.rideR * 0.85, d = Math.hypot(tx - e.x, ty - e.y);
+    if (d > 1) { const st = Math.min(d, 1300 * dt); e.ang = Math.atan2(ty - e.y, tx - e.x); e.x += Math.cos(e.ang) * st; e.y += Math.sin(e.ang) * st; }
+    e.kvx = e.kvy = 0; e.mounted = true; e.state = 'charge';
+    if (S.t >= e.rideHitT && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r + 10) ** 2) { e.rideHitT = S.t + 0.8; hurtPlayer(e.dmg * Q.rideDmg, null, e); }
+    if (Math.random() < 0.7) fxp({ type: 'dust', x: e.x + rand(-10, 10), y: e.y + 10, vx: -Math.cos(e.ang) * 120, vy: -Math.sin(e.ang) * 120, drag: 3, grow: 24, life: 0.45, rgb: '150,110,80', size: rand(8, 12) });
+    if (S.t >= e.juejing) {
+      e.juejing = 0; e.revived = true; e.state = 'recover'; e.stateT = 0.6;
+      e.hp = e.maxHp * Q.revive * campHealMul(e); e.speed *= Q.speed; e.ultT = 1.5; // 入魔「禁疗」：复生回复打折
+      e.phase = 0; e.dr = 0; bossPhase(e); // 复生后护体回到半血那一档
+      fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 3, w: e.r * 4, h: e.r * 11, rgb: '90,240,170', life: 1.2, sx: 0.5, core: 0.8 });
+      fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.5, w: e.r * 9, h: e.r * 9, rgb: '90,240,170', under: true, flat: 0.55, life: 1.6, spin: 2.4 });
+      screenFlash('120,240,190', 0.3); S.shake = Math.max(S.shake, 14); punch(0.7);
+      banner('神关羽 · 单骑再战', '骑着赤兔，走得更快、大招更勤');
+      sfx('boss');
+    }
+    return true;
+  }
+  if (e.revived) e.mounted = true; // 单骑之后一直骑着赤兔（放完大招也不下马）
+  manifestTick(e);
+  return false;
+}
+// 神关羽倒下：冷艳锯直接到手（再打一次就升级），再三选一，神魂 win 份；过一会儿玉泉山再起
+function guanDefeated(e) {
+  const G = D.buildings.yuquan;
+  S.guanRound = (S.guanRound || 0) + 1; S.guanAgainAt = S.t + G.again;
+  S.flood = null; S.skyBlade = null; S.guanCracks = []; S.guanWaves = []; S.wenjiu = null; S.timeStop = 0;
+  banner('神关羽 伏诛', `玉泉山 ${Math.round(G.again / 60)} 分钟后再起`);
+  fxTex('pillar', e.x, e.y - 160, { w: 140, h: 460, rgb: '90,240,170', life: 1.4, sx: 0.5, fadeIn: 0.05, core: 0.8 });
+  screenFlash('120,240,190', 0.3);
+  applyChoice({ kind: 'shenbing', id: 'shenguanyu' }); // 神兵直接到手
+  S.pendingReward = { gid: 'shenguanyu', t: 0.8, legend: false };
+  campGain('shen', CU.win); // 神魂：入魔用
+}
+// 玉泉显圣：画面后方的关圣法相每 every 秒举刀，朝你劈一道巨型扇形（先亮扇形预警）；每 waveEvery 秒从他身上推出一圈带缺口的威压。
+// 单骑冲阵时 guanTick 先返回、不走到这里（停手）；被「魅惑」「天崩」定住时也停手
+function manifestTick(e) {
+  const M = e.manifest;
+  if (!M || e.rootT > S.t) return;
+  const p = S.player, u = M.u, rgb = e.def.ultRgb;
+  if (!M.cut && S.t >= M.next) {
+    const a = angleTo(e.x, e.y, p.x, p.y);
+    M.cut = { a, x: e.x, y: e.y, at: S.t + u.tele };
+    tele({ kind: 'wedge', x: e.x, y: e.y, a, R: u.R, half: u.half, life: u.tele, rgb });
+  }
+  if (M.cut && S.t >= M.cut.at) {
+    const C = M.cut; M.cut = null; M.next = S.t + u.every; M.flash = 1;
+    if (inWedge(p.x, p.y, C.x, C.y, C.a, u.R, u.half, p.r)) hurtPlayer(M.dmg, null, e);
+    for (let i = 0; i < 3; i++) { const s = u.R * (0.3 + i * 0.25); fxTex('slash', C.x + Math.cos(C.a) * s, C.y - 30 + Math.sin(C.a) * s, { w: u.R * (0.9 + i * 0.4), h: u.R * 0.45, rot: C.a + Math.PI / 2, rgb, life: 0.5 + i * 0.08, grow: 1.12, core: 0.6, hostile: true }); }
+    groundImpact(C.x + Math.cos(C.a) * u.R * 0.45, C.y + Math.sin(C.a) * u.R * 0.45, 170);
+    screenFlash(rgb, 0.22); S.shake = Math.max(S.shake, 14); punch(0.6); sfx('slam');
+  }
+  if (S.t >= M.wave) { // 缺口偏开你所在的方向 0.5～1 弧度：要挪一挪才进得去，来不及就闪现穿过去
+    M.wave = S.t + u.waveEvery;
+    const ga = angleTo(e.x, e.y, p.x, p.y) + rand(0.5, 1) * (Math.random() < 0.5 ? 1 : -1);
+    S.guanWaves.push({ boss: e, u, x: e.x, y: e.y, r: e.r, gapA: ga, go: S.t + u.waveTele, dmg: M.waveDmg, hit: false });
+    sfx('boss');
+  }
+}
+// 武圣法相：放大的神关羽小人，半透明，青光笼罩，立在他身后；劈刀那一下亮一下。你的神魔技「武圣显灵」也用它
+function drawPhantomAt(x, y, h, fx, a) {
+  const g = D.generals.shenguanyu, spr = unitSprite('shenguanyu', g.look, h, false, '');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, x, y - h * 0.5, h * 0.7, '90,240,170', 0.45 * a); ctx.restore();
+  ctx.save(); ctx.globalAlpha = a * 0.4; ctx.translate(x, y); ctx.scale(fx, 1); ctx.drawImage(spr.c, -spr.w / 2, -spr.h, spr.w, spr.h); ctx.restore();
+  ctx.globalAlpha = 1;
+}
+// 神魔技「武圣显灵」：你身后的法相，劈完就散（原来和刘备的桃园虚影同名 drawPhantoms，把刘备那个盖掉了）
+function drawGuanPhantoms() {
+  const M = S.smjPhantom;
+  if (M && S.t < M.until) { const p = S.player; drawPhantomAt(p.x - Math.cos(M.a) * 30, p.y - 20, 190, Math.cos(M.a) >= 0 ? 1 : -1, Math.min(1, (M.until - S.t) / 0.4)); }
+}
+// 关圣法相（玉泉显圣）：画面后方一尊巨大的翡翠色法相，立在镜头上方，劈刀前慢慢放大发亮，劈下那一下再亮一下。
+// 有 fx/faxiang.png（全身法相，透明底）就用它；没有就用立绘染成翡翠色、四周淡出
+let idolC = null, idolSrc = null;
+function idolCanvas() {
+  const art = window.Assets.get('fx:faxiang'), img = art || window.Assets.get('portrait:shenguanyu');
+  if (!img) return null;
+  if (idolSrc === img) return idolC;
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height, c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.drawImage(img, 0, 0);
+  if (!art) { // 立绘：染成翡翠色（五官和衣甲的明暗还在）；带背景，四周淡出成一团，免得看出是一张方图。法相图本身就是翡翠色、透明底，照原样用
+    g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(70,230,160,0.55)'; g.fillRect(0, 0, w, h);
+    const gr = g.createRadialGradient(w / 2, h * 0.38, 0, w / 2, h * 0.38, Math.max(w, h) * 0.55);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.45, 'rgba(0,0,0,0.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.globalCompositeOperation = 'destination-in'; g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  }
+  idolSrc = img; idolC = c;
+  return c;
+}
+function drawManifest() {
+  for (const e of S.bossList) {
+    const M = e.manifest;
+    if (!M || e.dead) continue;
+    M.flash = Math.max(0, M.flash - 0.03);
+    const c = idolCanvas(), rise = Math.min(1, (S.t - M.born) / 1.2), raise = M.cut ? clamp(1 - (M.cut.at - S.t) / M.u.tele, 0, 1) : 0;
+    const vh = H / ZOOM, h = vh * (1.05 + 0.05 * raise + 0.04 * M.flash), w = c ? h * c.width / c.height : h * 0.66;
+    const x = S.camX, top = S.camY - vh * 0.56 + (1 - rise) * vh * 0.45;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    FX.glow(ctx, x, top + h * 0.3, h * 0.55, '90,240,170', (0.2 + 0.15 * raise + 0.25 * M.flash) * rise);
+    ctx.restore();
+    if (c) { ctx.globalAlpha = (0.15 + 0.12 * raise + 0.25 * M.flash) * rise; ctx.drawImage(c, x - w / 2, top, w, h); ctx.globalAlpha = 1; }
+    else drawPhantomAt(x, top + h, h * 0.9, 1, 0.5 * rise); // 图还没下到：用放大的小人
+  }
+}
+// 威压圈：从推出那一刻他所在的地方往外扩，圈上一道缺口；站进缺口或闪现（无敌）穿过去。每一圈只判一次
+function updateGuanWaves(dt) {
+  if (!S.guanWaves.length) return;
+  const p = S.player, far = Math.hypot(W, H) / ZOOM + 200;
+  for (const w of S.guanWaves) {
+    if (w.boss.dead) { w.dead = true; continue; }
+    if (S.t < w.go) continue;
+    const u = w.u;
+    w.r += u.waveSpeed * dt;
+    if (!w.hit) {
+      const d = Math.hypot(p.x - w.x, p.y - w.y);
+      if (Math.abs(d - w.r) < u.waveW / 2 + p.r) {
+        w.hit = true;
+        const a = Math.atan2(p.y - w.y, p.x - w.x);
+        if (Math.abs(angDiff(w.gapA, a)) > u.gap / 2 && p.iframes <= 0) {
+          hurtPlayer(w.dmg, null, w.boss);
+          p.kvx += Math.cos(a) * u.push; p.kvy += Math.sin(a) * u.push;
+          impact(p.x, p.y, 70, w.boss.def.ultRgb, 0.8); S.shake = Math.max(S.shake, 10);
+        }
+      }
+    }
+    if (w.r > far) w.dead = true;
+  }
+  S.guanWaves = S.guanWaves.filter(w => !w.dead);
+}
+function drawGuanWaves() {
+  for (const w of S.guanWaves) {
+    const u = w.u, rgb = w.boss.def.ultRgb, g0 = w.gapA + u.gap / 2, g1 = w.gapA - u.gap / 2 + TAU, L = Math.hypot(W, H) / ZOOM;
+    const k = S.t < w.go ? 1 - (w.go - S.t) / u.waveTele : 1;
+    ctx.fillStyle = `rgba(${rgb},${S.t < w.go ? 0.08 + 0.14 * k : 0.1})`; // 缺口那一道：一条淡青的通道，站进去就躲开了
+    ctx.beginPath(); ctx.moveTo(w.x, w.y); ctx.arc(w.x, w.y, L, w.gapA - u.gap / 2, w.gapA + u.gap / 2); ctx.closePath(); ctx.fill();
+    ctx.lineCap = 'butt';
+    if (S.t < w.go) { // 预警：他脚下先泛起一圈，缺口空着
+      ctx.strokeStyle = `rgba(${rgb},${0.3 + 0.5 * k})`; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(w.x, w.y, w.r + 40 * k, g0, g1); ctx.stroke();
+      continue;
+    }
+    ctx.strokeStyle = `rgba(${rgb},0.32)`; ctx.lineWidth = u.waveW; ctx.beginPath(); ctx.arc(w.x, w.y, w.r, g0, g1); ctx.stroke();
+    ctx.strokeStyle = 'rgba(235,255,245,0.85)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(w.x, w.y, w.r + u.waveW * 0.35, g0, g1); ctx.stroke();
+  }
+}
+// 青龙偃月 · 天刀。S.skyBlade.phase：track（月牙刀影跟着你）→ lock（定住，tele[k] 秒后劈下）→ gap → track …；
+//   劈满 count 刀后 ring（他脚下亮出整圈刀圈，ringTele 秒后抡刀横扫）→ out（收刀，画面亮回来）。
+// 月牙：圆心 (cx, cy)、半径 R，你在月牙正中（从圆心朝 a 的方向）；往圆心那边（凹进去的一侧）或往外走就躲开了
+function bladeArc(B, n) {
+  const u = B.u, pts = [];
+  for (let i = 0; i <= n; i++) { const t = B.a - u.half + 2 * u.half * i / n; pts.push([B.cx + Math.cos(t) * u.R, B.cy + Math.sin(t) * u.R]); }
+  return pts;
+}
+function bladeSlam(B) {
+  const u = B.u, p = S.player, e = B.boss, rgb = e.def.ultRgb;
+  const d = Math.hypot(p.x - B.cx, p.y - B.cy), t = Math.atan2(p.y - B.cy, p.x - B.cx);
+  if (Math.abs(d - u.R) < u.band / 2 + p.r && Math.abs(angDiff(B.a, t)) < u.half + p.r / u.R) hurtPlayer(B.dmg, null, e);
+  const pts = bladeArc(B, 12);
+  for (const i of [0, 6, 12]) groundImpact(pts[i][0], pts[i][1], 90);
+  for (let i = 1; i < pts.length; i += 2) { smoke(pts[i][0], pts[i][1] - 10, 2, '60,80,70', 12, 20, 0.6); sparks(pts[i][0], pts[i][1] - 20, rand(0, TAU), 4, '200,255,225', 380, Math.PI, 2); }
+  S.guanCracks.push({ pts, jit: pts.map(() => rand(-10, 10)), w: u.band * 0.4, until: S.t + u.crackT, dmg: B.crackDmg, tick: u.crackTick, tt: 0.3, boss: e });
+  B.drop = 0.3; B.dropA = B.a; B.dropX = B.cx + Math.cos(B.a) * u.R; B.dropY = B.cy + Math.sin(B.a) * u.R; // 巨刀砸在月牙正中（见 drawSkyBladeOver）
+  screenFlash(rgb, 0.25); S.shake = Math.max(S.shake, 16); punch(0.7); sfx('slam');
+}
+function updateSkyBlade(dt) {
+  const B = S.skyBlade;
+  if (!B) return;
+  const e = B.boss, u = B.u, p = S.player;
+  if (e.dead || e.juejing) { S.skyBlade = null; return; } // 单骑冲阵：收刀
+  if (e.rootT > S.t) return; // 被「魅惑」「天崩」定住：刀悬着不落
+  B.drop = Math.max(0, B.drop - dt);
+  B.dim = B.phase === 'out' ? Math.min(B.dim, Math.max(0, B.t / 0.6)) : Math.min(1, B.dim + dt * 2.5);
+  B.t -= dt;
+  if (B.phase === 'track') {
+    B.cx = p.x - Math.cos(B.a) * u.R; B.cy = p.y - Math.sin(B.a) * u.R;
+    if (B.t <= 0) { B.phase = 'lock'; B.t = B.lockT = u.tele[Math.min(B.k, u.tele.length - 1)]; sfx('swing'); }
+  } else if (B.phase === 'lock') {
+    if (B.t <= 0) {
+      bladeSlam(B);
+      B.k++;
+      if (B.k < u.count) { B.phase = 'gap'; B.t = u.gap; B.a += (Math.random() < 0.5 ? 1 : -1) * rand(1.8, 2.4); }
+      else { B.phase = 'ring'; B.t = B.lockT = u.ringTele; B.cx = e.x; B.cy = e.y; banner('神关羽 · 横扫千军', '贴到他脚下，或者跑出刀圈！'); }
+    }
+  } else if (B.phase === 'gap') { if (B.t <= 0) { B.phase = 'track'; B.t = u.track * 0.6; } }
+  else if (B.phase === 'ring') {
+    if (B.t <= 0) {
+      const d = Math.hypot(p.x - B.cx, p.y - B.cy), rgb = e.def.ultRgb;
+      if (d > u.safe - p.r * 0.5 && d < u.ringR + p.r) hurtPlayer(B.ringDmg, null, e);
+      for (let i = 0; i < 8; i++) { const a = i / 8 * TAU, r = (u.safe + u.ringR) / 2; groundImpact(B.cx + Math.cos(a) * r, B.cy + Math.sin(a) * r, 80); }
+      fxTex('ring', B.cx, B.cy, { w: u.ringR * 2, h: u.ringR * 2, rgb, life: 0.5, grow: 1.1, core: 0.5, flat: 0.8, hostile: true });
+      screenFlash(rgb, 0.35); S.shake = Math.max(S.shake, 22); punch(1); sfx('slam'); sfx('boss');
+      B.phase = 'out'; B.t = 0.6; B.spinT = S.t;
+    }
+  } else if (B.t <= 0) S.skyBlade = null;
+}
+// 刀落处的地裂：踩着每 tick 秒挨一下
+function updateGuanCracks(dt) {
+  if (!S.guanCracks.length) return;
+  const p = S.player;
+  for (const c of S.guanCracks) {
+    if (S.t > c.until || c.boss.dead) { c.dead = true; continue; }
+    if ((c.tt -= dt) > 0) continue;
+    let on = false;
+    for (let i = 1; i < c.pts.length && !on; i++) { const [x0, y0] = c.pts[i - 1], [x1, y1] = c.pts[i]; on = segDist(p.x, p.y, x0, y0, Math.atan2(y1 - y0, x1 - x0), Math.hypot(x1 - x0, y1 - y0)) < c.w / 2 + p.r; }
+    if (on) { c.tt = c.tick; hurtPlayer(c.dmg, null, c.boss); }
+  }
+  S.guanCracks = S.guanCracks.filter(c => !c.dead);
+}
+// 画面压暗（只压地面，压在所有特效下面；人、刀影、预警照常亮）：在 render 里画在地面之后
+function drawSkyBladeDim() {
+  const B = S.skyBlade;
+  if (!B || B.dim <= 0) return;
+  const hw = W / 2 / ZOOM + 60, hh = H / 2 / ZOOM + 60;
+  ctx.fillStyle = `rgba(2,10,8,${0.55 * B.dim})`; ctx.fillRect(S.camX - hw, S.camY - hh, hw * 2, hh * 2);
+}
+// 月牙刀影 / 整圈刀圈、地裂（画在人下面）
+function drawSkyBladeUnder() {
+  for (const c of S.guanCracks) {
+    const k = Math.min(1, (c.until - S.t) / 0.6);
+    const path = () => { ctx.beginPath(); c.pts.forEach(([x, y], i) => { const jx = x + c.jit[i], jy = y + c.jit[i] * 0.6; i ? ctx.lineTo(jx, jy) : ctx.moveTo(jx, jy); }); };
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    path(); ctx.strokeStyle = `rgba(10,20,16,${0.7 * k})`; ctx.lineWidth = c.w; ctx.stroke(); // 裂开的黑缝
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    path(); ctx.strokeStyle = `rgba(90,240,170,${(0.35 + 0.15 * Math.sin(S.t * 9)) * k})`; ctx.lineWidth = c.w * 0.6; ctx.stroke(); // 缝里透出的青光
+    path(); ctx.strokeStyle = `rgba(225,255,240,${0.6 * k})`; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.restore();
+  }
+  const B = S.skyBlade;
+  if (!B) return;
+  const u = B.u, rgb = B.boss.def.ultRgb;
+  if (B.phase === 'track' || B.phase === 'lock') {
+    const k = B.phase === 'lock' ? 1 - B.t / B.lockT : 0, r0 = u.R - u.band / 2, r1 = u.R + u.band / 2;
+    ctx.beginPath(); ctx.arc(B.cx, B.cy, r1, B.a - u.half, B.a + u.half); ctx.arc(B.cx, B.cy, r0, B.a + u.half, B.a - u.half, true); ctx.closePath();
+    ctx.fillStyle = `rgba(${rgb},${B.phase === 'lock' ? 0.16 + 0.34 * k : 0.12})`; ctx.fill();
+    ctx.strokeStyle = B.phase === 'lock' ? `rgba(225,255,240,${0.5 + 0.5 * k * (0.5 + 0.5 * Math.sin(S.t * 30))})` : `rgba(${rgb},0.45)`; ctx.lineWidth = 3; ctx.stroke();
+  } else if (B.phase === 'ring') {
+    const k = 1 - B.t / B.lockT;
+    ctx.beginPath(); ctx.arc(B.cx, B.cy, u.ringR, 0, TAU); ctx.moveTo(B.cx + u.safe, B.cy); ctx.arc(B.cx, B.cy, u.safe, 0, TAU, true);
+    ctx.fillStyle = `rgba(${rgb},${0.14 + 0.3 * k})`; ctx.fill();
+    ctx.strokeStyle = `rgba(225,255,240,${0.5 + 0.4 * k})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(B.cx, B.cy, u.ringR, 0, TAU); ctx.stroke();
+    ctx.setLineDash([12, 8]); ctx.beginPath(); ctx.arc(B.cx, B.cy, u.safe, 0, TAU); ctx.stroke(); ctx.setLineDash([]); // 他脚下这一小圈是安全的
+  }
+}
+// 天上的巨刀：悬在月牙刀影上方（刀身在你头顶、刃口朝下）；劈下那一下竖着砸在月牙正中；横扫千军时绕着他转一圈。
+// (x, y) 是刀杆中点，rot 是刀尖朝向，flip：刃口朝下
+function drawGlaive(x, y, rot, len, a, flip) {
+  const art = window.Assets.get('fx:skyblade');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  FX.glow(ctx, x + Math.cos(rot) * len * 0.35, y + Math.sin(rot) * len * 0.35, len * 0.3, '90,240,170', 0.55 * a);
+  ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); if (flip) ctx.scale(1, -1); ctx.globalAlpha = a;
+  if (art) { const h = len * (art.naturalHeight || art.height) / (art.naturalWidth || art.width); ctx.drawImage(art, -len / 2, -h / 2, len, h); }
+  else { // 代码画的青龙偃月刀：朝右，刀刃在右端、刃口朝上
+    ctx.fillStyle = '#5a1d14'; ctx.fillRect(-len / 2, -len * 0.012, len * 0.72, len * 0.024); // 刀杆
+    ctx.fillStyle = '#d8b050'; for (const t of [-0.46, -0.2, 0.05, 0.2]) ctx.fillRect(len * t, -len * 0.018, len * 0.018, len * 0.036); // 金箍
+    const gr = ctx.createLinearGradient(len * 0.2, len * 0.04, len * 0.42, -len * 0.18);
+    gr.addColorStop(0, '#2f8f6a'); gr.addColorStop(0.5, '#bff5dc'); gr.addColorStop(1, '#ffffff');
+    ctx.fillStyle = gr; ctx.beginPath(); // 偃月刀身：一弯月牙
+    ctx.moveTo(len * 0.2, len * 0.03); ctx.quadraticCurveTo(len * 0.26, -len * 0.17, len * 0.5, -len * 0.12);
+    ctx.quadraticCurveTo(len * 0.44, -len * 0.02, len * 0.22, -len * 0.02); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#2e6e52'; ctx.beginPath(); ctx.arc(len * 0.2, 0, len * 0.03, 0, TAU); ctx.fill(); // 吞口的龙首
+  }
+  ctx.restore();
+}
+function drawSkyBladeOver() {
+  const B = S.skyBlade;
+  if (!B) return;
+  const u = B.u, e = B.boss, len = window.Assets.get('fx:skyblade') ? 760 : 620, bob = Math.sin(S.t * 2) * 12;
+  if (B.drop > 0) { // 刚劈下：刀尖朝下竖着砸进月牙正中，慢慢抬回天上
+    const k = B.drop / 0.3;
+    drawGlaive(B.dropX, B.dropY - len * 0.4 - (1 - k) * 220, Math.PI / 2, len, Math.min(1, B.dim + 0.2));
+  } else if (B.phase === 'ring' || B.phase === 'out') { // 横扫千军：巨刀绕着他转
+    const sp = B.phase === 'out' ? (S.t - B.spinT) / 0.35 : 0, a = (B.phase === 'ring' ? S.t * 1.2 : S.t * 1.2 + sp * TAU), r = (u.safe + u.ringR) / 2;
+    if (B.phase === 'out' && sp > 1) return;
+    drawGlaive(B.cx + Math.cos(a) * r * 0.5, B.cy + Math.sin(a) * r * 0.5 - 60, a, len * 1.1, B.phase === 'out' ? 1 - sp : 0.4 + 0.6 * (1 - B.t / B.lockT));
+  } else if (B.phase !== 'out') { // 悬在月牙刀影正上方：刀身在你头顶、微微斜着、刃口朝下；要劈之前往上提
+    const mx = B.cx + Math.cos(B.a) * u.R, my = B.cy + Math.sin(B.a) * u.R, lift = B.phase === 'lock' ? 50 * (1 - B.t / B.lockT) : 0;
+    const r = -0.28 + Math.sin(S.t * 1.3) * 0.06;
+    drawGlaive(mx - Math.cos(r) * len * 0.35, my - 230 - lift + bob - Math.sin(r) * len * 0.35, r, len, 0.85 * B.dim, true);
+  }
+}
+// 温酒斩：每隔 step 秒亮一道刀线（都穿过你身边 near 以内，和已有的错开些角度；最后一道正好穿过你），热气冒完六刀齐落。
+// 线上的普通小兵直接斩死；他出现在最后一道线上、你身后不远处
+function updateWenjiu() {
+  const Wn = S.wenjiu;
+  if (!Wn) return;
+  const e = Wn.boss, u = Wn.u, p = S.player;
+  if (e.dead) { S.wenjiu = null; S.timeStop = 0; return; }
+  if (!Wn.cut && Wn.lines.length < u.count && S.t >= Wn.next) {
+    const last = Wn.lines.length === u.count - 1, r = last ? 0 : rand(40, u.near), ra = rand(0, TAU);
+    let a = rand(0, Math.PI);
+    for (let i = 0; i < 12 && Wn.lines.some(L => Math.abs(angDiff(L.a, a)) < 0.3 || Math.abs(angDiff(L.a + Math.PI, a)) < 0.3); i++) a = rand(0, Math.PI);
+    Wn.lines.push({ x: p.x + Math.cos(ra) * r, y: p.y + Math.sin(ra) * r, a, born: S.t });
+    Wn.next = S.t + u.step; sfx('swing');
+  }
+  if (!Wn.cut && S.t >= Wn.end) {
+    Wn.cut = S.t; S.timeStop = 0;
+    const onLine = (x, y, pad) => Wn.lines.some(L => Math.abs(-(x - L.x) * Math.sin(L.a) + (y - L.y) * Math.cos(L.a)) < u.w / 2 + pad && Math.abs((x - L.x) * Math.cos(L.a) + (y - L.y) * Math.sin(L.a)) < u.len / 2);
+    if (onLine(p.x, p.y, p.r)) hurtPlayer(Wn.dmg, null, e);
+    for (const m of S.enemies) if (!m.dead && !m.boss && !m.ai && !m.building && !m.elite && onLine(m.x, m.y, m.r)) killEnemy(m);
+    const L = Wn.lines[Wn.lines.length - 1], back = Math.cos(L.a) * Math.cos(p.facing || 0) + Math.sin(L.a) * Math.sin(p.facing || 0) > 0 ? -1 : 1; // 你身后那一头
+    e.vanish = false; e.x = p.x + Math.cos(L.a) * 240 * back; e.y = p.y + Math.sin(L.a) * 240 * back;
+    e.state = 'recover'; e.stateT = 0.9;
+    fxTex('pillar', e.x, e.y - 120, { w: 90, h: 320, rgb: e.def.ultRgb, life: 0.6, sx: 0.4, core: 0.7, hostile: true });
+    screenFlash('255,255,255', 0.55, 0.35); S.shake = Math.max(S.shake, 20); punch(0.9); sfx('slam'); sfx('boss');
+  }
+  if (Wn.cut && S.t > Wn.cut + 0.5) S.wenjiu = null;
+}
+// 温酒斩的画面（屏幕坐标）：时间静止整个画面褪成灰；刀线；画面上方的酒爵。玉泉显圣那一黑也在这里
+function drawGuanScreen() {
+  if (S.t - S.guanBlack < 0.9) { ctx.fillStyle = `rgba(0,0,0,${0.85 * (1 - (S.t - S.guanBlack) / 0.9)})`; ctx.fillRect(0, 0, W, H); }
+  const Wn = S.wenjiu;
+  if (!Wn) return;
+  const u = Wn.u, rem = Math.max(0, Wn.end - S.t), k = Wn.cut ? Math.max(0, 1 - (S.t - Wn.cut) / 0.5) : Math.min(1, (S.t - Wn.born) / 0.25);
+  const sx = x => W / 2 + (x - S.camX) * ZOOM, sy = y => H / 2 + (y - S.camY) * ZOOM;
+  ctx.save();
+  ctx.globalCompositeOperation = 'saturation'; ctx.fillStyle = `rgba(128,128,128,${k})`; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = `rgba(0,0,0,${0.2 * k})`; ctx.fillRect(0, 0, W, H);
+  ctx.lineCap = 'round';
+  for (const L of Wn.lines) {
+    const ux = Math.cos(L.a), uy = Math.sin(L.a), h = u.len / 2 * (Wn.cut ? 1 : Math.min(1, (S.t - L.born) / 0.12));
+    const x0 = sx(L.x - ux * h), y0 = sy(L.y - uy * h), x1 = sx(L.x + ux * h), y1 = sy(L.y + uy * h);
+    const seg = (c, lw) => { ctx.strokeStyle = c; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+    if (Wn.cut) { ctx.globalCompositeOperation = 'lighter'; seg(`rgba(255,80,60,${0.5 * k})`, u.w * ZOOM * 1.8); seg(`rgba(255,250,240,${k})`, u.w * ZOOM * (0.5 + 0.5 * k)); ctx.globalCompositeOperation = 'source-over'; }
+    else { const hot = rem < 0.6; seg(`rgba(220,30,20,${hot ? 0.3 + 0.15 * Math.sin(S.t * 40) : 0.15})`, u.w * ZOOM); seg('rgba(255,70,50,0.95)', hot ? 3 : 2); }
+  }
+  ctx.restore();
+  if (!Wn.cut) drawWineCup(W / 2, Math.max(150, H * 0.22), rem / u.dur, k);
+}
+// 酒爵（青铜三足爵）：杯口三缕热气，越冒越短；下面写「酒尚温」
+function drawWineCup(x, y, f, a) {
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = a; ctx.lineCap = 'round';
+  ctx.strokeStyle = 'rgba(245,245,240,0.75)'; ctx.lineWidth = 3;
+  for (let i = -1; i <= 1; i++) {
+    const hgt = 70 * f + 4;
+    ctx.beginPath();
+    for (let t = 0; t <= 1.001; t += 0.1) { const yy = -24 - t * hgt, xx = i * 11 + Math.sin(t * 6 + S.t * 5 + i * 2) * 7 * t; t ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#7a5a26'; ctx.strokeStyle = '#2a1e0c'; ctx.lineWidth = 2;
+  ctx.beginPath(); // 杯身：前面伸出流、后面翘起尾
+  ctx.moveTo(-46, -24); ctx.lineTo(-18, -20); ctx.lineTo(22, -20); ctx.lineTo(40, -30); ctx.lineTo(34, -16);
+  ctx.quadraticCurveTo(22, 14, 0, 16); ctx.quadraticCurveTo(-20, 14, -24, -8); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#4f8a6e'; ctx.fillRect(-16, -6, 32, 5); // 铜绿纹带
+  ctx.fillStyle = '#7a5a26';
+  for (const lx of [-14, 0, 14]) { ctx.beginPath(); ctx.moveTo(lx - 3, 12); ctx.lineTo(lx + (lx ? lx * 0.5 : 0), 40); ctx.lineTo(lx + 3, 12); ctx.closePath(); ctx.fill(); ctx.stroke(); } // 三足
+  for (const cx of [-6, 8]) { ctx.fillRect(cx - 2, -34, 4, 14); ctx.beginPath(); ctx.arc(cx, -35, 4, 0, TAU); ctx.fill(); } // 两根柱
+  ctx.font = `700 15px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = 3; ctx.strokeStyle = '#15120d'; ctx.strokeText('酒尚温', 0, 58); ctx.fillStyle = '#ffe2a8'; ctx.fillText('酒尚温', 0, 58);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(-40, 70, 80, 5); ctx.fillStyle = '#ff6a50'; ctx.fillRect(-40, 70, 80 * f, 5); // 还剩多久
+  ctx.restore();
+}
+// 水淹七军：大水沿 (ux, uy) 从画面一侧往对面漫（front 是水头走到哪了）；高地是干的
+function floodWet(F, x, y) { return (x - F.cx) * F.ux + (y - F.cy) * F.uy < F.front && !F.isles.some(o => (x - o.x) ** 2 + ((y - o.y) / 0.8) ** 2 < o.r * o.r); } // 高地画成压扁的椭圆，按椭圆算
+function floodSlow() { const F = S.flood, p = S.player; return F && F.phase !== 'tele' && F.phase !== 'ebb' && floodWet(F, p.x, p.y) ? 1 - F.u.slow : 1; }
+function updateFlood(dt) {
+  const F = S.flood;
+  if (!F) return;
+  if (F.boss.dead || S.over) { S.flood = null; return; }
+  const p = S.player, u = F.u;
+  F.t -= dt;
+  if (F.phase === 'tele') { if (F.t <= 0) { F.phase = 'rise'; sfx('boss'); } return; }
+  if (F.phase === 'rise') { F.front += u.speed * dt; if (F.front >= F.R) { F.phase = 'hold'; F.t = u.hold; } }
+  else if (F.phase === 'hold') { if (F.t <= 0) { F.phase = 'ebb'; F.t = 1; } }
+  else if (F.t <= 0) { S.flood = null; return; } // 退水
+  if (F.phase !== 'ebb' && floodWet(F, p.x, p.y)) {
+    if ((F.tickT -= dt) <= 0) { F.tickT = u.tick; hurtPlayer(F.dmg, null, F.boss); }
+    if (p.moving && Math.random() < 0.4) fxp({ type: 'dust', x: p.x + rand(-10, 10), y: p.y + 8, vx: rand(-40, 40), vy: rand(-30, 0), drag: 3, grow: 18, life: 0.4, rgb: '170,210,240', size: rand(6, 9) });
+  } else F.tickT = Math.min(F.tickT, 0.15);
+}
+function drawFlood() {
+  const F = S.flood;
+  if (!F) return;
+  const a = F.phase === 'ebb' ? Math.max(0, F.t) : 1, BIG = F.R * 1.6;
+  ctx.save(); ctx.translate(F.cx, F.cy); ctx.rotate(Math.atan2(F.uy, F.ux));
+  if (F.phase === 'tele') { // 预警：来水那一侧一排往前的箭头
+    ctx.fillStyle = 'rgba(120,180,240,0.5)';
+    for (let y = -F.R; y <= F.R; y += 120) { const x = -F.R * 0.6 + ((S.t * 200) % 80); ctx.beginPath(); ctx.moveTo(x + 26, y); ctx.lineTo(x - 6, y - 18); ctx.lineTo(x - 6, y + 18); ctx.fill(); }
+  } else {
+    ctx.fillStyle = `rgba(50,110,190,${0.36 * a})`; ctx.fillRect(-BIG, -BIG, F.front + BIG, BIG * 2);
+    ctx.strokeStyle = `rgba(225,240,255,${0.75 * a})`; ctx.lineWidth = 4; ctx.beginPath(); // 水头的白浪
+    for (let y = -BIG; y <= BIG; y += 24) { const x = F.front + Math.sin(y * 0.05 + S.t * 6) * 10; y > -BIG ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+  }
+  ctx.restore();
+  for (const o of F.isles) { // 高地：一块干地，青色虚线圈出来
+    ctx.fillStyle = `rgba(110,90,60,${0.85 * a})`; ctx.beginPath(); ctx.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(90,130,60,${0.7 * a})`; ctx.beginPath(); ctx.ellipse(o.x, o.y - 4, o.r * 0.8, o.r * 0.6, 0, 0, TAU); ctx.fill();
+    ctx.setLineDash([10, 8]); ctx.strokeStyle = `rgba(160,255,210,${(0.5 + 0.3 * Math.sin(S.t * 8)) * a})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(o.x, o.y, o.r, o.r * 0.8, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+function updateGuan(dt) { updateSkyBlade(dt); updateGuanCracks(dt); updateWenjiu(); updateGuanWaves(dt); updateFlood(dt); }
+function drawGuanBack() { drawManifest(); drawSkyBladeDim(); } // 压在所有特效下面（见 render）
+function drawGuanUnder() { drawFlood(); drawSkyBladeUnder(); drawGuanWaves(); drawGuanPhantoms(); }
+function drawGuanOver() { drawSkyBladeOver(); }
+
+function drawPangUnder() { drawValleyUnder(); drawFlags(); }
+function drawPangOver() {
+  drawLianhuan(); drawFeathersStuck(); drawPhoenixes(); drawValleyOver(); drawFuseFx();
+  if (S.t < S.sanceT) { const p = S.player; ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, p.x, p.y - 20, 46, '255,170,90', 0.35 + 0.1 * Math.sin(S.t * 8)); ctx.restore(); } // 下策：退守时身上一层橙光
+}
+
+// ============ 神魔技 ============
+// 击败神魔将解锁的主动技能（data.js 的 smj）：一个槽位在闪现旁边，电脑按 E。
+// 开局前在「封神 · 入魔」里选装一个；选装和等级记在局外进度 meta.smj { pick, lv: { 技能: 级 } }，跟着云存档走。解锁、升级要的击败次数就是图鉴里的斩将次数
+const SMJ = D.smj;
+const smjUnlocked = id => (loadSlain()[SMJ.skills[id].gid] || 0) >= 1;
+const smjLv = id => smjUnlocked(id) ? Math.max(1, ((loadMeta().smj || {}).lv || {})[id] || 1) : 0;
+const smjCurName = cur => (CU.lines.find(l => l.cur === cur) || {}).curName || cur;
+function smjLoadout() { // 这一局带的神魔技：开局 5 秒后就能放
+  const id = (loadMeta().smj || {}).pick;
+  return id && SMJ.skills[id] && smjUnlocked(id) ? { id, lv: smjLv(id), t: 5 } : null;
+}
+// 名将、精英定住（见 updateBoss）：神魔将只定六成时间
+function smjRoot(e, t, rgb) {
+  e.rootT = Math.max(e.rootT || 0, S.t + t * (e.def.camp ? 0.6 : 1)); e.stunT = Math.max(e.stunT || 0, e.rootT); e.rootRgb = rgb;
+}
+function castSmj() {
+  const p = S.player, M = S.smj, def = SMJ.skills[M.id], L = def.levels[Math.min(M.lv, def.levels.length) - 1], rgb = def.rgb;
+  M.t = S.t + L.cd;
+  switch (M.id) {
+    case 'meihuo': { // 魅惑：身边的小兵倒戈（还是原来那个兵的样子，替你打 dur 秒就散去）；名将、精英定住
+      let n = 0;
+      near(p.x, p.y, L.r + 48, e => {
+        if (e.dead || e.building || dist2(p.x, p.y, e.x, e.y) > (L.r + e.r) ** 2) return;
+        if (e.boss || e.ai) { if (!untargetable(e)) smjRoot(e, L.root, rgb); return; }
+        if (n >= L.max) return;
+        n++; e.dead = true;
+        const ad = D.allies.ally_charm, mh = allyMaxHp(ad);
+        S.allies.push({ id: nextId++, type: 'ally_charm', def: ad, x: e.x, y: e.y, cdT: rand(0, 0.4), fx: 1, moving: false, until: S.t + L.dur, dmg: 0, hp: mh, maxHp: mh, hitT: -99, iT: 0, flash: 0, born: S.t,
+          charmOf: e.type, charmLook: e.def.look, charmH: e.def.h || 40, charmMount: e.def.mount || '' });
+        for (let k = 0; k < 3; k++) fxp({ type: 'ember', x: e.x + rand(-8, 8), y: e.y - rand(10, 30), vx: rand(-30, 30), vy: rand(-80, -40), drag: 1.5, life: 0.6, rgb, size: rand(5, 8) });
+      });
+      fxTex('ring', p.x, p.y, { w: L.r * 0.6, h: L.r * 0.6, rgb, life: 0.5, grow: 3.2, core: 0.4 });
+      petals(p.x, p.y - 14, 16, L.r);
+      addNumber(p.x, p.y - 50, n ? `魅惑 · ${n} 名倒戈` : '魅惑', '#ff9ad0', 20);
+      sfx('level');
+      break;
+    }
+    case 'tianbeng': { // 天崩：以自己为中心一记横扫，震飞、晕住；名将、精英定住
+      near(p.x, p.y, L.r + 48, e => {
+        if (e.dead || dist2(p.x, p.y, e.x, e.y) > (L.r + e.r) ** 2) return;
+        hitEnemy(e, L.dmg, { kb: 900, kbAngle: angleTo(p.x, p.y, e.x, e.y) });
+        if (e.boss || e.ai) { if (!untargetable(e)) smjRoot(e, L.root, rgb); }
+        else if (!e.building) e.stunT = Math.max(e.stunT || 0, S.t + L.stun);
+      });
+      fxTex('whirl', 0, 0, { follow: p, oy: -12, w: L.r * 2.2, h: L.r * 2.2, rgb, life: 0.35, spin: 12, flat: 0.6, a: 0.9 });
+      fxTex('ring', p.x, p.y, { w: L.r * 0.7, h: L.r * 0.7, rgb, flat: 0.55, under: true, life: 0.45, grow: 2.8, core: 0.5 });
+      groundImpact(p.x, p.y, L.r); S.shake = Math.max(S.shake, 14); punch(0.6);
+      addNumber(p.x, p.y - 50, '天崩', '#ff8a7a', 22);
+      sfx('slam');
+      break;
+    }
+    case 'qitan': { // 七探：朝最近的名将冲刺（没有名将就朝敌人最多处），沿途的敌人都挨一下；冲刺中减伤、不无敌
+      let tgt = null, bd = 900 * 900;
+      for (const b of S.bossList) if (!b.dead && !untargetable(b)) { const d = dist2(p.x, p.y, b.x, b.y); if (d < bd) { bd = d; tgt = b; } }
+      if (!tgt) tgt = densest(500);
+      const a = tgt ? angleTo(p.x, p.y, tgt.x, tgt.y) : p.facing || 0, len = tgt ? Math.min(L.len, Math.sqrt(dist2(p.x, p.y, tgt.x, tgt.y)) + 60) : L.len;
+      S.dash = { a, t: 0.26, dur: 0.26, len, w: L.w, dmg: L.dmg, hit: new Set(), noIframe: true };
+      S.smjDrT = S.t + 0.36; S.smjDr = L.dr;
+      fxTex('thrust', p.x + Math.cos(a) * len * 0.5, p.y - 14 + Math.sin(a) * len * 0.5, { w: len * 1.1, h: L.w, rot: a, rgb, life: 0.3, sx: 1.1, core: 0.7 });
+      addNumber(p.x, p.y - 50, '七探', '#d8e8ff', 20);
+      sfx('swing');
+      break;
+    }
+    case 'bazhen': { // 八阵图：脚下落一座阵（阵里的事见 updateSmj）
+      S.smjZone = { x: p.x, y: p.y, R: L.r, until: S.t + L.dur, slow: L.slow, born: S.t, rgb };
+      fxTex('pillar', p.x, p.y - 120, { w: 100, h: 300, rgb, life: 0.5, sx: 0.4, core: 0.7 });
+      groundImpact(p.x, p.y, L.r * 0.8); S.shake = Math.max(S.shake, 8);
+      addNumber(p.x, p.y - 50, '八阵图', '#ffe08a', 20);
+      sfx('boss');
+      break;
+    }
+    case 'suolian': { // 天子锁链：身边一大片敌人被拽到你身前、锁住片刻；名将只拽动一点
+      const fa = p.facing || 0, tx = p.x + Math.cos(fa) * 90, ty = p.y + Math.sin(fa) * 90;
+      let n = 0;
+      near(p.x, p.y, L.r + 48, e => {
+        if (e.dead || e.building || untargetable(e) || dist2(p.x, p.y, e.x, e.y) > L.r * L.r) return;
+        const k = e.boss ? L.boss : 1; // 被拽的距离：kv 每秒衰减 9 倍，kv = 9 × 距离正好拽到
+        e.kvx += (tx - e.x) * 9 * k; e.kvy += (ty - e.y) * 9 * k;
+        hitEnemy(e, L.dmg, { kb: 0 });
+        if (!e.boss) e.stunT = Math.max(e.stunT || 0, S.t + L.stun + 0.3);
+        if (n++ < 24) S.effects.push({ kind: 'bolt', pts: zigzag([[p.x, p.y - 16], [e.x, e.y - e.r * 0.6]], 5), life: 0.3, max: 0.3, rgb, w: 3 });
+      });
+      fxTex('ring', p.x, p.y, { w: L.r * 0.5, h: L.r * 0.5, rgb, flat: 0.55, under: true, life: 0.4, grow: 0.3, core: 0.5 }); // 往里收的一圈
+      embers(tx, ty - 14, 12, rgb, 160, 60, 7, 0.6);
+      addNumber(p.x, p.y - 50, '天子锁链', '#ff9a6a', 20);
+      sfx('slam');
+      break;
+    }
+    case 'xianling': { // 武圣显灵：法相在你身后显灵，朝敌人最密处劈出巨型扇形刀光；劈中的名将、精英破甲
+      const tgt = densest(L.R) || nearest(p.x, p.y, L.R), a = tgt ? angleTo(p.x, p.y, tgt.x, tgt.y) : (p.facing || 0);
+      near(p.x, p.y, L.R + 48, e => {
+        if (e.dead || e.building || untargetable(e) || !inWedge(e.x, e.y, p.x, p.y, a, L.R, L.half, e.r)) return;
+        hitEnemy(e, L.dmg, { kb: 260, kbAngle: angleTo(p.x, p.y, e.x, e.y) });
+        if (e.boss || e.ai) e.vulnT = Math.max(e.vulnT || 0, S.t + L.dur);
+      });
+      S.smjPhantom = { a, until: S.t + 0.9 };
+      fxTex('slash', p.x + Math.cos(a) * L.R * 0.55, p.y - 20 + Math.sin(a) * L.R * 0.55, { w: L.R * 1.6, h: L.R * 0.75, rot: a + Math.PI / 2, rgb, life: 0.5, grow: 1.12, core: 0.6 });
+      screenFlash(rgb, 0.15); S.shake = Math.max(S.shake, 8);
+      addNumber(p.x, p.y - 50, '武圣显灵', '#8ef0c0', 20);
+      sfx('slam');
+      break;
+    }
+  }
+}
+// 八阵图：阵里的敌人走不快、受到的伤害增加（借破甲后的易伤）
+function updateSmj(dt) {
+  const Z = S.smjZone;
+  if (!Z) return;
+  if (S.t > Z.until) { S.smjZone = null; return; }
+  near(Z.x, Z.y, Z.R + 48, e => {
+    if (e.dead || e.building || dist2(Z.x, Z.y, e.x, e.y) > (Z.R + e.r) ** 2) return;
+    const f = 1 - Z.slow * (e.boss || e.ai ? 0.6 : 1);
+    e.slowF = e.slowT > S.t ? Math.min(e.slowF, f) : f; e.slowT = Math.max(e.slowT, S.t + 0.25);
+    e.vulnT = Math.max(e.vulnT || 0, S.t + 0.25);
+  });
+  if (Math.random() < dt * 6) { const a = rand(0, TAU), r = rand(0, Z.R); fxp({ type: 'ember', x: Z.x + Math.cos(a) * r, y: Z.y + Math.sin(a) * r * 0.8, vx: 0, vy: -30, drag: 1, life: 0.7, rgb: Z.rgb, size: rand(4, 7) }); }
+}
+function drawSmjZone() {
+  const Z = S.smjZone;
+  if (!Z) return;
+  const a = Math.min(1, (S.t - Z.born) / 0.3, (Z.until - S.t) / 0.6), rot = (S.t - Z.born) * 0.5;
+  ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = `rgba(${Z.rgb},0.1)`; ctx.beginPath(); ctx.arc(Z.x, Z.y, Z.R, 0, TAU); ctx.fill();
+  ctx.strokeStyle = `rgba(${Z.rgb},0.75)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(Z.x, Z.y, Z.R, 0, TAU); ctx.stroke();
+  ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(Z.x, Z.y, Z.R * 0.35, 0, TAU); ctx.stroke();
+  for (let i = 0; i < 8; i++) { // 八个方位各一道卦痕：三道短线
+    const t = rot + i * Math.PI / 4, c = Math.cos(t), s = Math.sin(t);
+    for (let k = 0; k < 3; k++) { const r = Z.R * (0.72 + k * 0.08), w = Z.R * 0.08; ctx.beginPath(); ctx.moveTo(Z.x + c * r - s * w, Z.y + s * r + c * w); ctx.lineTo(Z.x + c * r + s * w, Z.y + s * r - c * w); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+// 被定住的名将、精英：脚下一圈闪动的光环
+function drawSmjRoots() {
+  for (const e of S.enemies) {
+    if (!(e.rootT > S.t) || e.dead || !(e.boss || e.ai)) continue;
+    ctx.strokeStyle = `rgba(${e.rootRgb || '255,200,120'},${0.55 + 0.3 * Math.sin(S.t * 14)})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.6, e.r * 1.5, e.r * 0.55, 0, 0, TAU); ctx.stroke();
+  }
+}
+// 斩了神魔将：第一次解锁对应的神魔技，斩够次数提示可以升级
+function smjOnKill(gid) {
+  const n = loadSlain()[gid] || 0;
+  for (const [id, s] of Object.entries(SMJ.skills)) {
+    if (s.gid !== gid) continue;
+    const lv = smjLv(id);
+    if (n === 1) later(2.5, () => toast('', '', `解锁神魔技「${s.name}」`, '回标题页「封神 · 入魔」里选装，开局就带上（电脑按 E）'));
+    else if (lv <= SMJ.need.length && n === SMJ.need[lv - 1]) later(2.5, () => toast('', '', `神魔技「${s.name}」可以升级了`, `已斩${D.generals[gid].name} ${n} 次 · 在「封神 · 入魔」里升级`));
+  }
+}
 
 // 绝境（物品）：血越少伤害和出手速度越高，满血 0，at 以下 max
 function jjBonus() {
@@ -6605,9 +7773,9 @@ function drawBossFx2Under() {
   }
 }
 function drawBossFx2() {
-  for (const r of S.riders) { // 铁骑英灵：半透明的骑兵，外面一层银蓝光
-    const spr = unitSprite('cavalry', D.enemies.cavalry.look, 62, false, D.enemies.cavalry.mount || '#5a3a24');
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, r.x, r.y - 26, 60, r.hostile ? '120,170,255' : '255,215,130', 0.55); ctx.restore();
+  for (const r of S.riders) { // 铁骑英灵：半透明的骑兵，外面一层银蓝光；五虎神兵的将魂是那位上将本人的小人，外面一层他的颜色
+    const spr = r.gid ? unitSprite(r.gid, D.generals[r.gid].look, 70, false) : unitSprite('cavalry', D.enemies.cavalry.look, 62, false, D.enemies.cavalry.mount || '#5a3a24');
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, r.x, r.y - 26, 60, r.rgb || (r.hostile ? '120,170,255' : '255,215,130'), 0.55); ctx.restore();
     ctx.globalAlpha = 0.85; drawUnit(spr, r.x, r.y, 16, Math.cos(r.a) >= 0 ? 1 : -1, Math.sin(S.t * 30 + r.seed) * 2); ctx.globalAlpha = 1;
   }
   for (const b of S.boulders) FX.rock(ctx, b.x, b.y - b.r * 0.3, b.r, b.rot);
@@ -6753,6 +7921,8 @@ function updateBoss(e, dt) {
   if (g.shen && shenTick(e, dt)) return; // 神赵云：四象轮转、绝境
   if (g.wolong && wolongTick(e, dt)) return; // 神诸葛：禳星、破阵后发愣
   if (g.mowang && mowangTick(e, dt)) return; // 魔董卓：魔王降临后掉血召铁骑、走进酒池回血
+  if (g.wusheng && guanTick(e, dt)) return; // 神关羽：单骑冲阵、复生后骑马、武圣法相
+  if (e.rootT > S.t) { e.kvx = e.kvy = 0; return; } // 神魔技「魅惑」「天崩」定住：不走、不出招，放到一半的大招也停住
   if (e.boss) bossPhase(e);
   if (e.ult) { runUlt(e, dt); return; } // 正在放大招
   const frenzy = e.frenzyT > S.t || !!e.demon; // 魔董卓魔王降临之后一直狂暴（不吃狂暴减伤）
@@ -6934,6 +8104,7 @@ function updateEnemies(dt) {
     if (e.dead) continue;
     e.flash = Math.max(0, e.flash - dt);
     if (e.building) { updateBuilding(e, dt); continue; } // 据点不移动、不撞人
+    if (S.t < S.timeStop && !e.boss) { if (e.ai) e.rootT = Math.max(e.rootT || 0, S.timeStop); else e.stunT = Math.max(e.stunT || 0, S.timeStop); } // 温酒斩：时间静止，小兵、精英都定住
     if (e.boss || e.ai) {
       // 护甲：一段时间没挨打就慢慢恢复
       if (e.blackBlood) twinShield(e); // 魔吕布、魔貂蝉：黑血守护不会自己回，两人靠近就减伤
@@ -7319,6 +8490,7 @@ function updateProjectiles(dt) {
     else if (b.kind === 'wisp' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-10, 10), vy: rand(-40, -15), drag: 2, life: 0.4, rgb: '110,240,200', size: rand(5, 8) });
     else if (b.kind === 'lantern' && Math.random() < 0.3) fxp({ type: 'ember', x: b.x, y: b.y - 6, vx: 0, vy: rand(-30, -10), drag: 2, life: 0.5, rgb: '255,200,130', size: rand(4, 7) });
     else if (b.kind === 'bean' && Math.random() < 0.4) fxp({ type: 'ember', x: b.x, y: b.y, vx: rand(-10, 10), vy: rand(-20, 0), drag: 3, life: 0.3, rgb: '255,210,90', size: rand(4, 6) });
+    else if (b.kind === 'feather' && Math.random() < 0.5) fxp({ type: 'ember', x: b.x, y: b.y, vx: -b.vx * 0.08, vy: -b.vy * 0.08 - 20, drag: 3, life: 0.3, rgb: '255,150,60', size: rand(4, 7) });
     else if (b.kind === 'fire') {
       fxp({ type: 'ember', x: b.x + rand(-3, 3), y: b.y + rand(-3, 3), vx: rand(-20, 20), vy: rand(-40, -10), drag: 2, life: 0.4, rgb: Math.random() < 0.5 ? '255,140,50' : '255,210,100', size: rand(6, 10) });
       if (Math.random() < 0.15) smoke(b.x, b.y, 1, '50,40,30', 5, 2, 0.5);
@@ -7345,6 +8517,7 @@ function updateProjectiles(dt) {
         }
         hitEnemy(e, b.far ? b.dmg * (1 + b.far * Math.min(1, Math.hypot(b.x - b.x0, b.y - b.y0) / 600)) : b.dmg, { kb: b.kb, kbAngle: Math.atan2(b.vy, b.vx), el: b.el || null, ally: b.ally }); // 落日弓：飞出 600 以外伤害最多 +far
         if (b.slow && !e.building) { e.slowF = e.slowT > S.t ? Math.min(e.slowF, b.slow) : b.slow; e.slowT = Math.max(e.slowT, S.t + 1.2); } // 胡笳：扫到的走不快
+        if (b.stick && !e.dead) stickFeather(e, b); // 凤翎：钉进敌人身上，片刻后炸开
         if (--b.pierce <= 0) b.dead = true;
       }
     });
@@ -7380,6 +8553,7 @@ function updateProjectiles(dt) {
         h.dead = true;
         continue;
       }
+      if (h.volley) { volleyLand(h); h.dead = true; continue; } // 落凤坡的乱箭
       if (h.pillar) fxTex('pillar', h.x, h.y - 150, { w: h.r * 1.5, h: 340, rgb: h.rgb, life: 0.4, sx: 0.35, core: 0.7 }); // 天上落下的光柱
       if (h.bolt) { // 雷击：天上劈下一道闪电
         S.effects.push({ kind: 'bolt', pts: zigzag([[h.x + rand(-50, 50), h.y - 380], [h.x, h.y]], 18), life: 0.28, max: 0.28, rgb: '200,220,255', w: 6 });
@@ -7403,7 +8577,9 @@ function updateProjectiles(dt) {
   }
   if (S.hazards.some(h => h.dead)) { sfx('slam'); S.hazards = S.hazards.filter(h => !h.dead); }
 
+  const stopped = S.t < S.timeStop; // 温酒斩：飞来的箭定在半空
   for (const b of S.eproj) {
+    if (stopped) break;
     b.life -= dt;
     if (b.ret) { // 典韦的双戟：飞到最远处后折回本人手中
       b.spin += dt * 16;
@@ -7896,6 +9072,79 @@ function castShenbing(sb) {
       sfx('pick');
       break;
     }
+    // —— 融合神兵（见「神兵融合」）——
+    case 'fiveTigers': { // 五虎齐出：五位上将的英魂从五个方向冲过敌人最密处（五条线交在那里），各人各色
+      const ids = FU.groups.find(G => G.id === def.fusion).members.map(m => m[0]), a0 = rand(0, TAU), cx = tgt.x, cy = tgt.y;
+      ids.forEach((gid, k) => later(k * def.gap, () => {
+        const a = a0 + k * TAU / ids.length, ux = Math.cos(a), uy = Math.sin(a), len = def.len * p.areaMul;
+        S.riders.push({ x: cx - ux * len / 2, y: cy - uy * len / 2, a, speed: def.speed, left: len, hostile: false, dmg, w: def.w, hitSet: new Set(), seed: rand(0, 9), gid, rgb: D.shenbing[gid].rgb });
+      }));
+      fxTex('circle', cx, cy, { w: 320, h: 320, rgb, under: true, flat: 0.55, life: 1.0, spin: 2, a: 0.7 });
+      sfx('slam');
+      break;
+    }
+    case 'moonCharm': { // 月下连环：花扇先迷住敌人最密处的一圈小兵，片刻后画戟劈出血色巨月，被迷住的受双倍伤害
+      const x = tgt.x, y = tgt.y, R = def.R * p.areaMul;
+      near(x, y, R + 48, e => {
+        if (dist2(x, y, e.x, e.y) >= (R + e.r) ** 2) return;
+        hitEnemy(e, dmg * def.petal, { quiet: true });
+        if (!e.boss && !e.building) { e.stunT = Math.max(e.stunT || 0, S.t + def.stun); e.yxT = S.t + def.stun + 0.2; } // 迷住：定在原地，这一下巨月打它双倍
+      });
+      petals(x, y - 14, 30, R * 2.4);
+      fxTex('ring', x, y, { w: R * 0.6, h: R * 0.6, rgb: '255,150,200', life: 0.5, grow: 3.4, core: 0.4 });
+      later(def.gap, () => {
+        const a = angleTo(p.x, p.y, x, y), MR = def.moonR * p.areaMul;
+        near(p.x, p.y, MR + 48, e => { if (inWedge(e.x, e.y, p.x, p.y, a, MR, def.half, e.r)) hitEnemy(e, dmg * (e.yxT > S.t ? 2 : 1), { kb: 300, kbAngle: angleTo(p.x, p.y, e.x, e.y), quiet: true }); });
+        fxTex('slash', p.x + Math.cos(a) * MR * 0.6, p.y - 16 + Math.sin(a) * MR * 0.6, { w: MR * 1.5, h: MR * 0.7, rot: a + Math.PI / 2, rgb: '255,60,80', life: 0.5, grow: 1.12, core: 0.6 });
+        impact(p.x + Math.cos(a) * MR * 0.5, p.y + Math.sin(a) * MR * 0.5, MR * 0.3, '255,80,110', 1);
+        screenFlash('255,70,110', 0.15); sfx('slam');
+      });
+      sfx('pick');
+      break;
+    }
+    case 'dragonPhoenix': { // 卧龙凤雏：一条火龙、一只火凤从你身边盘旋着往外飞，身后留下火路（见 updateFuseFx）
+      const a0 = angleTo(p.x, p.y, tgt.x, tgt.y);
+      for (const [kind, off, frgb] of [['dragon', 0, '255,120,40'], ['phoenix', Math.PI, '255,185,80']])
+        S.fuseFx.push({ kind, a0: a0 + off, t: 0, dur: def.dur, R: def.R * p.areaMul, turns: def.turns, w: def.w, dmg, hitSet: new Set(), pts: [], dist: 0, dropAt: 0, rgb: frgb, trail: { r: 60, life: def.trailT, dmg: dmg * def.trail, gap: def.trailGap } });
+      fxTex('ring', p.x, p.y, { w: 140, h: 140, rgb, life: 0.5, grow: 2.6, core: 0.5 });
+      sfx('boss');
+      break;
+    }
+    case 'yellowSky': { // 黄天三宝：开山神斧劈地震晕一片，一圈巨石接着砸下，再召天雷劈附近最强的敌人
+      const x = tgt.x, y = tgt.y, R = def.radius * p.areaMul, rr = R * 1.25;
+      fxTex('circle', x, y, { w: R * 2.4, h: R * 2.4, rgb, under: true, life: 0.6, spin: 3, a: 0.7 });
+      later(0.3, () => {
+        hitCircle(x, y, R, dmg, 260, def.stun);
+        fxTex('pillar', x, y - 150, { w: R, h: 340, rgb, life: 0.35, sx: 0.3, core: 0.7 });
+        impact(x, y, R * 0.9, rgb, 0.9); groundImpact(x, y, R); sfx('slam');
+      });
+      for (let i = 0; i < def.rocks; i++) { const a = i / def.rocks * TAU; S.strikes.push({ kind: 'rock', x: x + Math.cos(a) * rr, y: y + Math.sin(a) * rr, r: def.rockR, t: 0.6 + i * 0.05, max: 0.6 + i * 0.05, dmg: dmg * def.rock }); }
+      later(0.9, () => {
+        const pool = []; near(x, y, 460, e => { if (!e.building) pool.push(e); });
+        pool.sort((a, b) => b.maxHp - a.maxHp);
+        pool.slice(0, def.bolts).forEach((e, i) => S.strikes.push({ kind: 'bolt', x: e.x, y: e.y, r: def.boltR, t: 0.05 + i * 0.06, max: 0.12, dmg: dmg * def.bolt }));
+      });
+      sfx('pick');
+      break;
+    }
+    case 'coldBlade': { // 冷艳锯：绕身横扫一整圈青龙刀光；每第 every 刀再朝四面斩出几道青龙刀气
+      const R = def.R * p.areaMul;
+      hitCircle(p.x, p.y, R, dmg, 220);
+      fxTex('whirl', 0, 0, { follow: p, oy: -14, w: R * 2.3, h: R * 2.3, rgb, life: 0.4, spin: 10, flat: 0.6, grow: 1.1, a: 0.9 });
+      fxTex('ring', p.x, p.y, { w: R * 0.7, h: R * 0.7, rgb, life: 0.35, grow: 2.8, core: 0.4 });
+      sb.n = (sb.n || 0) + 1;
+      if (sb.n % def.every === 0) for (let k = 0; k < def.count; k++) {
+        const b = a + k * TAU / def.count, sp = 700;
+        S.proj.push({ kind: 'crescent', x: p.x, y: p.y, a: b, vx: Math.cos(b) * sp, vy: Math.sin(b) * sp, r: def.w / 2, dmg: dmg * def.wave, pierce: 9999, life: def.len / sp, hit: new Set(), kb: 160, seed: rand(0, 9) });
+      }
+      sfx('swing');
+      break;
+    }
+    case 'phoenixSweep': { // 涅槃凤翎：一只火凤从你身边穿过敌人最密处飞出，身后留下火路（见 updatePhoenixes）
+      S.phoenixes.push({ x: p.x - Math.cos(a) * 60, y: p.y - Math.sin(a) * 60, a, speed: def.speed, left: def.len * p.areaMul, w: def.w, hostile: false, dmg, hitSet: new Set(), trail: { r: def.trailR, life: def.trailT, dmg: dmg * def.trail, gap: def.trailGap }, seed: rand(0, 9) });
+      sfx('swing');
+      break;
+    }
     case 'sunArrow': { // 定军宝雕弓：一支裹着烈焰的重箭射穿敌阵，在敌人最密处炸开一团火
       hitLine(p.x, p.y, a, def.len, def.w, dmg, 200);
       fxTex('thrust', p.x + Math.cos(a) * def.len * 0.5, p.y - 16 + Math.sin(a) * def.len * 0.5, { w: def.len * 1.05, h: def.w * 1.5, rot: a, rgb, life: 0.35, sx: 1.1, core: 0.85 });
@@ -7986,7 +9235,14 @@ function drawShenbing() {
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     const img = window.Assets.get('shenbing:' + sb.gid);
     ctx.save(); ctx.translate(x, y); ctx.rotate(side * 0.25 + Math.sin(S.t * 1.8 + i) * 0.08);
+    const partImgs = !img && sb.parts ? sb.parts.map(g => window.Assets.get('shenbing:' + g)).filter(Boolean) : [];
     if (img) { const w = s * 1.5, h = w * img.naturalHeight / img.naturalWidth; ctx.drawImage(img, -w / 2, -h / 2, w, h); }
+    else if (partImgs.length) { // 融合神兵还没有美术图：把并进来的几件神兵扇形叠在一起
+      partImgs.forEach((pi, k) => {
+        const w = s * 1.25, h = w * pi.naturalHeight / pi.naturalWidth;
+        ctx.save(); ctx.rotate((k - (partImgs.length - 1) / 2) * 0.32); ctx.drawImage(pi, -w / 2, -h / 2, w, h); ctx.restore();
+      });
+    }
     else { // 还没有神兵美术图：金圈里放这位名将兵器的图标
       const ic = window.Assets.get('icon:' + def.iconFrom), r = s * 0.42;
       ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.closePath();
@@ -8199,11 +9455,22 @@ function makeCard(o, i) {
     lvl = `召募 ${def.recruit} 名 · 现有 ${o.cur} / ${S.origin.recruitMax || '∞'}`;
     desc = `${def.desc}<br>满员时替换随从枪兵`;
   } else if (o.kind === 'shenbing') { // 神兵：金色卡
-    const def = D.shenbing[o.id];
+    const def = D.shenbing[o.id], G = fuseGroupOf(o.id), F = G && fusedOf(G);
     btn.className = 'card legend';
-    icon = sbIconHtml(o.id); name = def.name; kind = `神兵 · ${D.generals[o.id].name}专属`;
-    lvl = o.cur ? `Lv ${o.cur} → ${o.cur + 1} · 伤害 +30%` : '神兵现世 · 悬浮身边';
-    desc = `${def.desc}（每 ${def.cd} 秒一次）`;
+    if (F) { // 这一组已经融合：这件神兵并进融合神兵
+      const FD = D.shenbing[F.gid];
+      icon = sbIconHtml(F.gid); name = FD.name; kind = `融合神兵 · ${G.name}`;
+      lvl = `Lv ${F.lv} → ${F.lv + 1} · 伤害 +30%`;
+      desc = `${def.name}并入${FD.name}。${FD.desc}（每 ${FD.cd} 秒一次）`;
+    } else {
+      icon = sbIconHtml(o.id); name = def.name; kind = `神兵 · ${D.generals[o.id].name}专属`;
+      lvl = o.cur ? `Lv ${o.cur} → ${o.cur + 1} · 伤害 +30%` : '神兵现世 · 悬浮身边';
+      desc = `${def.desc}（每 ${def.cd} 秒一次）`;
+      if (G) { // 融合进度：选了这张之后凑齐几位
+        const n = fuseCount(G) + (fuseHeld(fuseMemberOf(G, o.id)) ? 0 : 1), all = G.members.length;
+        desc += `<br><b class="crit">融合「${G.name}」 ${n}/${all}${n >= all ? ' · 选了就合成' + D.shenbing[G.sb].name : ''}</b>`;
+      }
+    }
   } else {
     const def = defOf(o.kind, o.id);
     icon = window.Assets.icon(o.id, def.icon, def.name); name = def.name;
@@ -8242,13 +9509,14 @@ function applyChoice(o) {
   } else if (o.kind === 'recruit') {
     recruitAllies(o.id);
   } else if (o.kind === 'shenbing') { // 神兵入手：金光冲天
-    const sb = S.shenbing.find(x => x.gid === o.id);
-    if (sb) sb.lv++; else S.shenbing.push({ gid: o.id, lv: 1, t: 1.2, flash: 0 });
+    const F = fuseAbsorb(o.id), sb = !F && S.shenbing.find(x => x.gid === o.id); // 这一组已经融合过：并进融合神兵 +1 级
+    if (!F) { if (sb) sb.lv++; else S.shenbing.push({ gid: o.id, lv: 1, t: 1.2, flash: 0 }); }
     achShenbing(o.id); // TapTap 成就：神兵初现、神兵谱
     fxTex('pillar', 0, 0, { follow: p, oy: -120, w: 110, h: 360, rgb: '255,215,90', life: 1.0, sx: 0.5, core: 0.8 });
     fxTex('circle', 0, 0, { follow: p, oy: 8, w: 240, h: 240, rgb: '255,205,80', under: true, flat: 0.55, life: 1.4, spin: 2 });
-    banner(`神兵 · ${D.shenbing[o.id].name}`, sb ? `升至 Lv ${sb.lv}` : '悬于身侧，随你征战');
+    banner(`神兵 · ${D.shenbing[o.id].name}`, F ? `并入${D.shenbing[F.gid].name} · 升至 Lv ${F.lv}` : sb ? `升至 Lv ${sb.lv}` : '悬于身侧，随你征战');
     sfx('win');
+    if (!F) tryFuse(); // 凑齐了一组：合成融合神兵
   } else if (o.kind === 'weapon') {
     const w = S.weapons.find(x => x.id === o.id);
     if (w) w.lv++; else S.weapons.push({ id: o.id, lv: 1, t: 0.2 });
@@ -8386,6 +9654,17 @@ function updateHud() {
     bb.style.setProperty('--cd', (left / (S.player.blinkCd || D.blink.cd)).toFixed(3));
     bb.classList.toggle('ready', left <= 0);
     $('blink-cd').textContent = left > 0 ? left.toFixed(1) : matchMedia('(pointer: coarse)').matches ? '' : '空格'; }
+  { const bs = $('btn-smj'), M = S.smj; // 神魔技：冷却扇面 + 剩余秒数；按钮跟在闪现按钮左边（闪现按钮可以拖动，太靠左就放到它上面）
+    bs.hidden = !M;
+    if (M) {
+      const def = SMJ.skills[M.id], left = Math.max(0, M.t - S.t);
+      if (bs.dataset.id !== M.id) { bs.dataset.id = M.id; $('smj-ic').innerHTML = window.Assets.icon('smj_' + M.id, def.icon, def.name); bs.title = `神魔技 · ${def.name}（E）：${def.desc}`; }
+      bs.style.setProperty('--cd', (left / def.levels[M.lv - 1].cd).toFixed(3));
+      bs.classList.toggle('ready', left <= 0);
+      $('smj-cd').textContent = left > 0 ? Math.ceil(left) : matchMedia('(pointer: coarse)').matches ? '' : 'E';
+      const r = $('btn-blink').getBoundingClientRect();
+      if (r.width) { let x = r.left - 60, y = r.top + 4; if (x < 6) { x = r.left + 4; y = r.top - 58; } bs.style.left = x + 'px'; bs.style.top = y + 'px'; }
+    } }
   $('goldhud').textContent = `金 ${loadMeta().gold}（本局 +${S.goldRun}）`;
   const perm = S.allies.filter(a => !a.until).length, lust = Math.floor(S.lust);
   const info = [perm || S.allyQueue.length ? `随从 ${perm}/${allyCap()}${S.allyQueue.length ? `（${S.allyQueue.length} 名归队中）` : ''}` : '',S.blessings.length ? `祝福 ${S.blessings.length}` : '', lust ? `战意 ${lust}` : ''].filter(Boolean);
@@ -8413,7 +9692,7 @@ function updateHud() {
     $('bosstitle').textContent = boss.def.title;
     $('bossfill').style.width = Math.max(0, boss.hp / boss.maxHp * 100).toFixed(1) + '%';
     $('bossshield').style.width = (boss.shieldMax ? Math.max(0, boss.shield / boss.shieldMax * 100) : 0).toFixed(1) + '%';
-    $('bossname').textContent = boss.def.name + (boss.def.el ? ` · ${D.elements[boss.def.el].icon}` : '') + (boss.vanish ? ' · 藏身疑冢' : boss.rangxing ? ' · 七星禳星' : boss.chan ? ' · 青囊回春' : boss.weakT > S.t ? ' · 元气大伤' : boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '') + (boss.def.wolong && !boss.rangxing ? ` · 你在${guardGate(boss)}门（伤害 ×${guardMul(boss)}）` : '');
+    $('bossname').textContent = boss.def.name + (boss.def.el ? ` · ${D.elements[boss.def.el].icon}` : '') + (boss.vanish ? (boss.def.wusheng ? ' · 温酒斩 · 隐去身形' : ' · 藏身疑冢') : boss.rangxing ? ' · 七星禳星' : boss.chan ? ' · 青囊回春' : boss.weakT > S.t ? ' · 元气大伤' : boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '') + (boss.def.wolong && !boss.rangxing ? ` · 你在${guardGate(boss)}门（伤害 ×${guardMul(boss)}）` : '');
     }
   }
   if (S.buildDirty && $('slots').offsetParent) { // 看得见时才排（要量每一格在第几行）
@@ -8601,9 +9880,41 @@ function renderCamp() {
       <div class="camp-cur">${campImg(L.cur, 'camp-coin')}${L.curName} <b>${have}</b> · ${L.name} ${lv} 级</div>
       <div class="camp-btns"><button class="buy" data-up="${L.id}" ${have < cost ? 'disabled' : ''}>升到 ${lv + 1} 级 · ${L.curName} ${cost}</button>` +
       `<button class="buy alt" data-x="${L.id}" ${m.gold < CU.gold ? 'disabled' : ''}>金 ${CU.gold} 换 1 ${L.curName}</button></div>${rows}${late}</div>`;
-  }).join('');
+  }).join('') + smjPanel(m);
   $('camp-list').querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => campBuy(b.dataset.up)));
   $('camp-list').querySelectorAll('[data-x]').forEach(b => b.addEventListener('click', () => campExchange(b.dataset.x)));
+  $('camp-list').querySelectorAll('[data-smj-up]').forEach(b => b.addEventListener('click', () => smjUp(b.dataset.smjUp)));
+  $('camp-list').querySelectorAll('[data-smj-pick]').forEach(b => b.addEventListener('click', () => smjPick(b.dataset.smjPick)));
+}
+// 神魔技：五张卡（没解锁的写击败谁解锁），选装一个、用魔血 / 神魂加斩将次数升级
+function smjPanel(m) {
+  const slain = loadSlain(), pick = (m.smj || {}).pick;
+  const cards = Object.entries(SMJ.skills).map(([id, s]) => {
+    const g = D.generals[s.gid], unl = smjUnlocked(id), lv = smjLv(id), L = s.levels[Math.max(1, lv) - 1], kills = slain[s.gid] || 0, cur = smjCurName(s.cur), have = m[s.cur] || 0;
+    let foot;
+    if (!unl) foot = `<small>击败${g.name}解锁</small>`;
+    else {
+      const max = lv > SMJ.need.length, need = SMJ.need[lv - 1], cost = SMJ.cost[lv - 1];
+      foot = `<small>Lv ${lv} · 冷却 ${L.cd} 秒${max ? ' · 已满级' : ` · 斩${g.name} ${Math.min(kills, need)}/${need}`}</small><div class="camp-btns">` +
+        (max ? '' : `<button class="buy" data-smj-up="${id}" ${kills < need || have < cost ? 'disabled' : ''}>升到 ${lv + 1} 级 · ${cur} ${cost}</button>`) +
+        `<button class="buy alt" data-smj-pick="${id}">${pick === id ? '已带上 · 卸下' : '带上'}</button></div>`;
+    }
+    return `<div class="smj-card${unl ? '' : ' locked'}${pick === id && unl ? ' picked' : ''}"><div class="seal">${window.Assets.icon('smj_' + id, s.icon, s.name)}</div>` +
+      `<div class="gn">${s.name}<small>${g.name}</small></div><div class="gd">${s.desc}</div>${foot}</div>`;
+  }).join('');
+  return `<div class="shop-col smj-col"><h3>神魔技<small>带上一个，战斗里在闪现旁边点（电脑按 E）· 击败对应的神魔将解锁，多斩几次能升级</small></h3><div class="smj-list">${cards}</div></div>`;
+}
+function smjUp(id) {
+  const s = SMJ.skills[id], m = loadMeta(), lv = smjLv(id), need = SMJ.need[lv - 1], cost = SMJ.cost[lv - 1];
+  if (!lv || lv > SMJ.need.length || (loadSlain()[s.gid] || 0) < need || (m[s.cur] || 0) < cost) return;
+  m[s.cur] -= cost; m.smj = Object.assign({}, m.smj, { lv: Object.assign({}, (m.smj || {}).lv, { [id]: lv + 1 }) }); m._dirty = true; saveMeta(true);
+  sfx('level'); renderCamp();
+}
+function smjPick(id) {
+  const m = loadMeta();
+  if (!smjUnlocked(id)) return;
+  m.smj = Object.assign({}, m.smj, { pick: (m.smj || {}).pick === id ? null : id }); m._dirty = true; saveMeta(true);
+  sfx('pick'); renderCamp();
 }
 function campBuy(id) {
   const L = CU.lines.find(l => l.id === id), m = loadMeta(), lv = campLv(id), cost = campCost(lv);
@@ -8627,12 +9938,12 @@ function snapshot() {
   const p = S.player, ch = S.choice;
   return {
     v: 1, saved: Date.now(), origin: S.origin.id, t: S.t, kills: S.kills,
-    ch: S.ch, chStart: S.chStart, chapterT: S.chapterT, nextBossOk: S.nextBossOk, evIdx: S.evIdx,
-    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone, specialDone: S.specialDone, revived: !!S.revived, adGold: !!S.adGold, gateRound: S.gateRound || 0, gateAgainAt: S.gateAgainAt || 0, shenRound: S.shenRound || 0, shenAgainAt: S.shenAgainAt || 0, zhugeRound: S.zhugeRound || 0, zhugeAgainAt: S.zhugeAgainAt || 0, mowangRound: S.mowangRound || 0, mowangAgainAt: S.mowangAgainAt || 0,
+    ch: S.ch, chStart: S.chStart, chapterT: S.chapterT, nextBossOk: S.nextBossOk, evIdx: S.evIdx, draws: S.draws,
+    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone, specialDone: S.specialDone, revived: !!S.revived, adGold: !!S.adGold, gateRound: S.gateRound || 0, gateAgainAt: S.gateAgainAt || 0, shenRound: S.shenRound || 0, shenAgainAt: S.shenAgainAt || 0, zhugeRound: S.zhugeRound || 0, zhugeAgainAt: S.zhugeAgainAt || 0, mowangRound: S.mowangRound || 0, mowangAgainAt: S.mowangAgainAt || 0, guanRound: S.guanRound || 0, guanAgainAt: S.guanAgainAt || 0,
     achKills: S.achKills || 0, achBuilt: S.achBuilt || [], revivedAt: S.revivedAt, jxKills: S.jxKills || 0,
     player: { level: p.level, xp: p.xp, hp: p.hp },
     weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
-    passives: S.passives, elements: S.elements, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv })),
+    passives: S.passives, elements: S.elements, shenbing: S.shenbing.map(s => ({ gid: s.gid, lv: s.lv, parts: s.parts })), // parts：融合神兵是哪几件并成的
     bonus: S.bonus, blessings: S.blessings, allies: [...S.allies.filter(a => !a.until).map(a => a.type), ...S.allyQueue.map(q => q.type)], allyPower: S.allyPower, // 待归队的也存上，继续征战时直接回来
     defeated: S.defeated, seen: S.seen, sbPity: S.sbPity, goldRun: S.goldRun, startDmg: S.startDmg, xpMul: S.xpMul,
     forgeReady: S.forgeReady + (ch && ch.mode === 'forge' ? 1 : 0),
@@ -8641,6 +9952,7 @@ function snapshot() {
     rewardLegend: !!(S.rewardLegend || (S.pendingReward && S.pendingReward.legend) || (ch && ch.mode === 'reward' && $('levelup').classList.contains('legend'))),
     bosses: S.bossList.map(e => ({ gid: e.gid, hp: e.hp / e.maxHp, final: e.final, dx: e.x - p.x, dy: e.y - p.y, rv: e.revived || undefined })), // rv：神赵云已经用过绝境 // dx/dy：华佗离你多远（读档时放回原处）
     eliteT: S.eliteT, buildingT: S.buildingT,
+    noRank: S.noRank || undefined, // 存档码读进来的一局：一直不计排行榜
   };
 }
 function saveRun() {
@@ -8656,19 +9968,19 @@ function continueRun() {
   audio(); joy.on = false;
   newState(r.origin);
   const p = S.player;
-  for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
-    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'specialDone', 'revived', 'adGold', 'gateRound', 'gateAgainAt', 'shenRound', 'shenAgainAt', 'zhugeRound', 'zhugeAgainAt', 'mowangRound', 'mowangAgainAt', 'achKills', 'achBuilt', 'revivedAt', 'jxKills']) if (r[k] !== undefined) S[k] = r[k];
+  for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'draws', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
+    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'specialDone', 'revived', 'adGold', 'gateRound', 'gateAgainAt', 'shenRound', 'shenAgainAt', 'zhugeRound', 'zhugeAgainAt', 'mowangRound', 'mowangAgainAt', 'guanRound', 'guanAgainAt', 'achKills', 'achBuilt', 'revivedAt', 'jxKills', 'noRank']) if (r[k] !== undefined) S[k] = r[k];
   S.weapons = r.weapons.map(w => ({ id: w.id, lv: w.lv, t: 0.3 }));
   S.skills = r.skills.map(s => ({ id: s.id, lv: s.lv, t: 1 }));
-  S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0 }));
+  S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0, parts: s.parts }));
   p.level = r.player.level; p.xp = r.player.xp; p.xpNext = xpFor(p.level);
   recomputeStats(); p.hp = Math.min(p.maxHp, Math.max(1, r.player.hp));
   (r.allies || []).forEach(t => addAllies(t, 1));
   for (const b of r.bosses || []) { const fixed = D.generals[b.gid].passive && b.dx !== undefined; spawnBoss(b.gid, b.final, fixed ? p.x + b.dx : undefined, fixed ? p.y + b.dy : undefined); const e = S.bossList[S.bossList.length - 1]; e.hp = e.maxHp * b.hp; if (b.rv) e.revived = true; }
   linkTwins(); // 魔吕布、魔貂蝉：重新认得对方、黑血守护
-  if (!S.endless && !S.qiaoDone && D.chapters[S.ch].events.some((ev, i) => ev.type === 'qiaofu' && i < S.evIdx)) placeQiaofu(); // 乔府还没打：重新放回右下方
+  if (!S.endless && !S.qiaoDone && chEvents(S.ch).some((ev, i) => ev.type === 'qiaofu' && i < S.evIdx)) placeQiaofu(); // 乔府还没打：重新放回右下方
   // 剧情据点还没打：放回原来的方向（前几章的药庐、西凉营地、孤冢也一直留在地图上）
-  D.chapters.forEach((c, ci) => { if (S.endless || ci <= S.ch) c.events.forEach((ev, i) => { if (ev.type === 'special' && (S.endless || ci < S.ch || i < S.evIdx)) placeSpecial(ev.bid, ev.dx, ev.dy); }); });
+  D.chapters.forEach((c, ci) => { if (S.endless || ci <= S.ch) chEvents(ci).forEach((ev, i) => { if (ev.type === 'special' && (S.endless || ci < S.ch || i < S.evIdx)) placeSpecial(ev.bid, ev.dx, ev.dy); }); });
   S.seen = r.seen || S.seen;
   if (r.reward) { S.rewardReady = r.reward; S.rewardLegend = r.rewardLegend; }
   S.buildDirty = true; S.saveT = 15; $('crash-note').hidden = true;
@@ -8689,11 +10001,13 @@ function importCode(text) {
   const m = /BUYI1:([A-Za-z0-9+/=]+)/.exec(text.replace(/\s+/g, ''));
   if (!m) return '这不是布衣三国的存档码，请完整复制后再粘贴';
   let o; try { o = JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch (e) { return '存档码不完整，请完整复制后再粘贴'; }
+  // 存档码读进来的那一局不计排行榜：存档码是明文，有人改了等级再导入刷榜（2026-11 榜上出现一万多级）。换机转移金币、装备、图鉴照常
+  if (o['buyi-run']) o['buyi-run'] = Object.assign({}, o['buyi-run'], { noRank: 1 });
   for (const k of SAVE_KEYS) { try { if (o[k]) localStorage.setItem(k, JSON.stringify(o[k])); else if (k === 'buyi-run') localStorage.removeItem(k); } catch (e) { return '这台设备不能保存数据（可能是无痕模式）'; } }
   META = null;
   const meta = loadMeta(); meta._dirty = true; saveMeta(true); // 读了存档码：当作最新的进度，传到云端
   BAK.last = ''; backupWrite();
-  return `已读取：金币 ${meta.gold}${o['buyi-run'] ? '，含一局未打完的征战' : ''}`;
+  return `已读取：金币 ${meta.gold}${o['buyi-run'] ? '，含一局未打完的征战（这一局不计排行榜）' : ''}`;
 }
 function openSaveCode() {
   $('save-text').value = exportCode(); $('save-msg').textContent = '';
@@ -9006,6 +10320,9 @@ $('btn-aim').addEventListener('click', () => {
 aimLabel();
 // 闪现按钮（手机）：按下就闪，不触发摇杆
 // 闪现按钮：轻点 = 闪现；长按约半秒 = 拿起来拖到想要的位置，松手放下（位置记在这个浏览器里）
+// 神魔技按钮：按下就放（不触发摇杆）
+$('btn-smj').addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); if (S && !S.over && S.smj) S.smjReq = true; });
+$('btn-smj').addEventListener('contextmenu', e => e.preventDefault());
 var blinkRestore = () => {}; // 开局时再放一次位置（页面刚打开时窗口大小可能还没就绪）
 {
   const bb = $('btn-blink'), POS_KEY = 'buyi-blink-pos', HOLD = 0.45;
@@ -9081,16 +10398,24 @@ $('btn-fx').addEventListener('click', () => {
   fxLabel(); fxRes();
 });
 fxLabel();
+// 光效：完整 → 柔和 → 暗 → 关 → 完整
+const glowLabel = () => { $('btn-glow').textContent = `光效：${GLOW_MODES.find(m => m[0] === glowMode)[1]}`; };
+$('btn-glow').addEventListener('click', () => {
+  glowMode = GLOW_MODES[(GLOW_MODES.findIndex(m => m[0] === glowMode) + 1) % GLOW_MODES.length][0];
+  savePref('buyi-glow', glowMode); glowLabel();
+});
+glowLabel();
 // 从本机备份 / 云存档补回设置之后（见 restorePrefs）：重新读一遍，按钮文字和音乐跟着变
 function applyPrefs() {
   try {
     musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0'; muted = localStorage.getItem('buyi-muted') === '1';
     pickPause = localStorage.getItem('buyi-pickpause') === '1'; shakeOn = localStorage.getItem('buyi-shake') !== '0';
     fxMode = ['full', 'lite'].includes(localStorage.getItem('buyi-fx')) ? localStorage.getItem('buyi-fx') : 'auto';
+    const gm = localStorage.getItem('buyi-glow'); if (GLOW_MODES.some(m => m[0] === gm)) glowMode = gm;
     const a = localStorage.getItem('buyi-aim'); if (AIM_MODES.some(m => m[0] === a)) aimMode = a;
   } catch (e) { return; }
   $('btn-sound').textContent = muted ? '静' : '声';
-  audioLabels(); aimLabel(); fxLabel(); fxRes(); Music.refresh();
+  audioLabels(); aimLabel(); fxLabel(); glowLabel(); fxRes(); Music.refresh();
 }
 // 收兵结算：不用非得战死，随时结束这一局，照常结算金币、纪录和排行榜（点两下确认，免得误触）
 let retreatT = 0;
@@ -9579,7 +10904,7 @@ function drawTelegraphs() {
     } else if (f.kind === 'path') { // 翩若惊鸿：她要滑过的 S 形路线，一道淡蓝的带子上一条白色虚线
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
       ctx.beginPath(); f.pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
-      ctx.strokeStyle = `rgba(${f.rgb},${0.14 + 0.22 * prog})`; ctx.lineWidth = 34; ctx.stroke();
+      ctx.strokeStyle = `rgba(${f.rgb},${0.14 + 0.22 * prog})`; ctx.lineWidth = f.w || 34; ctx.stroke(); // w：神关羽青龙出海的路线更宽
       ctx.setLineDash([14, 10]); ctx.strokeStyle = `rgba(235,248,255,${0.5 + 0.4 * blink})`; ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]);
     } else if (f.kind === 'crack') { // 冰缝：一条锯齿裂纹，危险范围是一道淡蓝的带子，越到后面越亮
       ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -9755,9 +11080,10 @@ function drawShieldAura(e, h) {
 }
 function drawAlly(a) {
   const d = a.def;
-  ctx.strokeStyle = 'rgba(110,170,255,0.8)'; ctx.lineWidth = 1.8;
+  ctx.strokeStyle = d.charm ? 'rgba(255,130,200,0.85)' : 'rgba(110,170,255,0.8)'; ctx.lineWidth = 1.8;
   ctx.beginPath(); ctx.ellipse(a.x, a.y + d.r * 0.6, d.r * 1.05, d.r * 0.4, 0, 0, TAU); ctx.stroke();
-  const spr = unitSprite(d.art || a.type, d.look, d.h, a.flash > 0, d.mount || '');
+  const spr = a.charmOf ? unitSprite(a.charmOf, a.charmLook, a.charmH, a.flash > 0, a.charmMount) : unitSprite(d.art || a.type, d.look, d.h, a.flash > 0, d.mount || ''); // 魅惑倒戈的兵：还是原来那个兵的样子
+  if (d.charm) { ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, a.x, a.y - 20, 42, '255,110,190', 0.35); ctx.globalCompositeOperation = 'source-over'; }
   if (d.shade) { ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, a.x, a.y - d.h * 0.4, d.h * 0.9, '150,80,220', 0.35); ctx.globalCompositeOperation = 'source-over'; } // 死士：一团紫色的冥光
   const rise = d.shade && a.born !== undefined ? Math.min(1, (S.t - a.born) / 0.35) : 1; // 从土里爬出来
   ctx.globalAlpha = (d.shade ? 0.82 : 1) * rise;
@@ -9860,7 +11186,7 @@ function drawEnemies() {
     if (e.frozenT > S.t) { // 寒冰冻住：罩一层冰
       ctx.fillStyle = 'rgba(170,220,255,0.38)'; ctx.strokeStyle = 'rgba(225,245,255,0.8)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.ellipse(e.x, (top + e.y) / 2 + e.r * 0.3, e.r * 1.05, (e.y - top) / 2 + e.r * 0.4, 0, 0, TAU); ctx.fill(); ctx.stroke();
-    } else if (stunned) { // 被咆哮定身：头顶转圈
+    } else if (stunned && !(S.t < S.timeStop)) { // 被咆哮定身：头顶转圈（温酒斩的时间静止不画）
       ctx.strokeStyle = 'rgba(255,220,120,0.85)'; ctx.lineWidth = 1.8;
       const a = S.t * 6;
       ctx.beginPath(); ctx.ellipse(e.x, top - 3, 9, 3.5, 0, a, a + 4.5); ctx.stroke();
@@ -9997,6 +11323,7 @@ function boomGrads() {
 }
 function drawProjectiles() {
   ctx.lineCap = 'round';
+  ownPhase(true); // 你的飞弹：跟着自动光效上限、暂停菜单的「光效」档（敌人的飞弹在下面，照常亮）
   for (const b of S.proj) {
     if (b.el && drawElProj(b)) continue;
     if (b.kind === 'arrow') {
@@ -10015,6 +11342,8 @@ function drawProjectiles() {
       FX.glow(ctx, b.x, b.y, b.r * 3.2, '110,230,190', 0.8);
       FX.glow(ctx, b.x, b.y, b.r * 1.3, '230,255,245', 1);
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    } else if (b.kind === 'feather') { // 凤翎：一根飞出去的火羽
+      drawFeather(b.x, b.y, Math.atan2(b.vy, b.vx), 8, 0.7);
     } else if (b.kind === 'jia') { // 胡笳声浪：三道弯弯的弧光往前推，越飞越淡
       const a = Math.atan2(b.vy, b.vx), fade = Math.min(1, b.life * 4);
       ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
@@ -10024,10 +11353,19 @@ function drawProjectiles() {
         ctx.beginPath(); ctx.arc(b.x - Math.cos(a) * back, b.y - Math.sin(a) * back, b.r, a - 0.75, a + 0.75); ctx.stroke();
       }
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    } else if (b.kind === 'crescent' && b.look === 'moon') { // 青龙刀、倚天剑每刀的刀气（武圣那一圈的一半）：一道往前推的青色月牙刀光
+      const a = Math.atan2(b.vy, b.vx), fade = Math.min(1, b.life * 2.5), R = b.r * 1.6, lw = Math.max(1, b.r / 24);
+      ctx.globalCompositeOperation = 'lighter';
+      for (let k = 0; k < 3; k++) {
+        const back = b.r * 0.6 + k * 10;
+        ctx.globalAlpha = (0.7 - k * 0.2) * fade * fxK; ctx.strokeStyle = k ? 'rgb(90,235,170)' : 'rgb(225,255,240)'; ctx.lineWidth = (k ? 5 - k : 3) * lw;
+        ctx.beginPath(); ctx.arc(b.x - Math.cos(a) * back, b.y - Math.sin(a) * back, R, a - 0.85, a + 0.85); ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     } else if (b.kind === 'crescent') { // 青龙刀气：一条游动的小青龙
       const a = Math.atan2(b.vy, b.vx), fade = Math.min(1, b.life * 2.5);
       FX.dragon(ctx, FX.swimPts(b.x, b.y, a, b.r * 7, 14, b.r * 0.45, S.t * 12 + b.seed),
-        { rgb: '90,235,170', core: '225,255,240', w: b.r * 0.95, a: fade, head: window.Assets.get('fx:dragon_azure'), t: S.t + b.seed });
+        { rgb: '90,235,170', core: '225,255,240', w: b.r * 0.95, a: fade * (b.dim || 1), head: window.Assets.get('fx:dragon_azure'), t: S.t + b.seed });
     } else if (b.kind === 'lantern') { // 莲灯：一盏飘着的莲花灯
       FX.lantern(ctx, b.x, b.y - 6 + Math.sin(S.t * 4 + b.spin) * 3, 10, 1);
     } else if (b.kind === 'wisp') { // 鬼火：一团青绿的冷焰
@@ -10107,6 +11445,7 @@ function drawProjectiles() {
       ctx.beginPath(); ctx.arc(b.x - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.35, 0, TAU); ctx.fill();
     }
   }
+  ownPhase(false);
   for (const b of S.eproj) {
     const sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp, uy = b.vy / sp;
     if (b.el) { // 属性名将的飞弹：外裹一层属性光
@@ -10328,10 +11667,15 @@ function drawTexFx(f) {
   const x = f.follow ? f.follow.x + (f.ox || 0) : f.x, y = f.follow ? f.follow.y + (f.oy || 0) : f.y;
   FX.sprite(ctx, f.key, f.rgb, x, y, k * f.w * (f.sx ? 1 + (f.sx - 1) * ease : s), k * f.h * s, f.rot + f.spin * prog, a, f.core, f.flat);
 }
-function drawEffectsUnder() { for (const f of S.effects) if (f.kind === 'tex' && f.under) drawTexFx(f); }
+// 画你这边的特效时：亮度乘 fxK、量叠加面积、「光效：关」时不叠加（见 ctx 那里的 glowTrack / glowFlat）；画名将那边的照常
+function ownPhase(on) { FX.setK(on ? fxK : 1); glowTrack = on; glowFlat = on && glowMode === 'off'; }
+// 一个特效是不是你这边的：名将、精英出招时放的（hostile）、敌人的爆炸（enemy）、跟着名将走的都不算
+const ownFx = f => ownPhase(!(f.hostile || f.enemy || (f.follow && f.follow.boss)));
+function drawEffectsUnder() { for (const f of S.effects) if (f.kind === 'tex' && f.under) { ownFx(f); drawTexFx(f); } ownPhase(true); }
 function drawEffects() {
   for (const f of S.effects) {
     const t = f.life / f.max;
+    ownFx(f);
     if (f.kind === 'tex') { if (!f.under) drawTexFx(f); }
     else if (f.kind === 'chainfx') { // 黑铁链：沿着几个点抽过去（链头跟着被钩的敌人走）
       const pts = f.tgt ? [[f.x0, f.y0], [f.tgt.x, f.tgt.y - f.tgt.r * 0.6]] : f.pts;
@@ -10440,6 +11784,7 @@ function drawScreen() {
   const p = S.player;
   drawMist(); // 郭嘉的鬼谋迷雾
   drawBaguaHint(); // 困在八门阵里：屏幕上方写着八门的顺序
+  drawGuanScreen(); // 神关羽：温酒斩的灰画面、刀线、酒爵；玉泉显圣那一黑
   if (S.t < S.dimT) { const k = Math.min(1, (S.dimT - S.t) / 0.4, (S.t - S.dimT + 1.4) / 0.2); ctx.fillStyle = `rgba(0,0,0,${0.45 * k})`; ctx.fillRect(0, 0, W, H); } // 拔矢啖睛：冷箭射来时画面一暗
   if (S.t < S.demonT || S.inferno) { // 心魔缠身、无双·倾城的炼狱：屏幕边缘泛起紫黑 / 暗红
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.72);
@@ -10538,17 +11883,24 @@ function render(raw) {
     for (let i = 0; i < 6; i++) { const t = i * 1.05 + f.x * 0.01; ctx.moveTo(f.x + Math.cos(t) * f.r * 0.2, f.y + Math.sin(t) * f.r * 0.14); ctx.lineTo(f.x + Math.cos(t) * f.r * 0.85, f.y + Math.sin(t) * f.r * 0.6); }
     ctx.stroke(); ctx.globalAlpha = 1;
   }
-  // 叠加发光的亮度 fxK：同屏特效越多越暗（开方衰减，最低 45%），精简模式再打六折。
+  drawGuanBack(); // 神关羽：画面后方的关圣法相、天刀压暗地面
+  // 叠加发光的亮度 fxK：同屏特效越多越暗（开方衰减，最低 45%），精简模式再打六折，再乘自动光效上限 glowK、暂停菜单的「光效」档。
   // 只调你这边的地面火、特效、粒子、神兵；名将的招式、预警、敌人照常亮，躲招不受影响
+  // 自动光效上限：上一帧你这边的叠加发光（按透明度加权）盖了几个屏幕，超过 stage.glow.budget 就把 glowK 往下调，少了再慢慢回到 1。
+  // 只降亮度不够：叠加是一层层相加的，后期十几层叠在一起，每层再淡也会白成一片，所以按实际盖了多少来压
+  const GB = D.stage.glow, scr = glowArea / Math.max(1, (W / ZOOM) * (H / ZOOM));
+  glowArea = 0;
+  glowK = clamp(glowK * clamp(Math.pow(GB.budget / Math.max(0.01, scr), 0.3), 0.93, 1.04), GB.floor, 1);
+  S.glowScr = scr; S.glowK = glowK; // 调试面板、测试用
   const load = S.effects.length + S.zones.length * 3 + S.rings.length * 2 + S.particles.length / 40;
-  fxK = clamp(Math.sqrt(50 / Math.max(50, load)), 0.35, 1) * (fxLite() ? 0.6 : 1);
-  FX.setK(fxK);
+  fxK = clamp(Math.sqrt(50 / Math.max(50, load)), 0.35, 1) * (fxLite() ? 0.6 : 1) * glowK * glowMul();
+  ownPhase(true);
   drawIceField(); // 甄姬「冰封千里」的冰面（压在预警下面）
   drawIceWalls(); // 甄姬「翩若惊鸿」的冰墙
   drawZones();
   drawEffectsUnder();
   drawWeaponsUnder();
-  FX.setK(1);
+  ownPhase(false);
   drawTelegraphs();
   drawBossFxUnder();
   drawBossFx2Under();
@@ -10558,14 +11910,16 @@ function render(raw) {
   drawXiahouUnder();
   drawWolongUnder();
   drawWuMoUnder();
+  drawPangUnder();
+  drawGuanUnder();
   drawPickups();
   drawGhosts();
   drawEnemies();
   drawPlayer();
-  FX.setK(fxK);
+  ownPhase(true);
   drawShenbing();
   drawOrbit();
-  FX.setK(1);
+  ownPhase(false);
   drawProjectiles();
   drawBossFx();
   drawBossFx2();
@@ -10573,11 +11927,14 @@ function render(raw) {
   drawXiahouOver();
   drawWolongOver();
   drawWuMoOver();
-  FX.setK(fxK);
+  drawPangOver();
+  drawGuanOver();
+  ownPhase(true);
   FX.particles(ctx, S.particles, false); // 烟尘、碎屑
-  drawEffects();
+  drawEffects(); // 一个个看是不是你这边的（见 ownFx）
+  ownPhase(true);
   FX.particles(ctx, S.particles, true);  // 火花、光点（叠加发光）
-  FX.setK(1);
+  ownPhase(false);
   drawNumbers();
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   drawScreen();
@@ -10648,8 +12005,11 @@ function frame(now) {
 buildTitle();
 requestAnimationFrame(frame);
 
-// 调试入口（浏览器控制台里可用），方便测试数值
-window.BUYI = {
+// 调试入口（浏览器控制台里可用），方便测试数值。
+// TapTap 里拿不到（本机 localhost 测试除外）：PC 版 TapTap 能开控制台，一行 BUYI.xp() 就能刷排行榜。用到时再判断，tap 晚一点注入也不漏
+const devHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+Object.defineProperty(window, 'BUYI', { configurable: true, get: () => (tapApi() && !devHost ? undefined : DEBUG_API) });
+const DEBUG_API = {
   get state() { return S; },
   data: D,
   skipTo(t) { if (S) S.t = t; },

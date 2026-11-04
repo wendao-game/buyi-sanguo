@@ -455,6 +455,17 @@ window.Sprites = (() => {
         shape(g, '#ffd36a', s => { s.moveTo(60, 26); s.quadraticCurveTo(70, 48, 60, 62); s.quadraticCurveTo(50, 48, 60, 26); s.closePath(); }, 1);
         g.fillStyle = '#fff6d8'; g.beginPath(); g.ellipse(60, 52, 3.5, 6, 0, 0, Math.PI * 2); g.fill();
         break;
+      case 'yuquan': // 玉泉山：山坡上一座红墙绿瓦的关帝庙，庙前立着青龙偃月刀，四周青光
+        g.fillStyle = 'rgba(90,240,170,.18)'; g.beginPath(); g.ellipse(60, 70, 56, 40, 0, 0, Math.PI * 2); g.fill();
+        shape(g, '#4a5a44', s => { s.moveTo(2, 104); s.quadraticCurveTo(60, 50, 118, 104); s.closePath(); });    // 山坡
+        g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.moveTo(60, 70); g.quadraticCurveTo(100, 78, 118, 104); g.lineTo(70, 104); g.closePath(); g.fill();
+        wallBlock(g, 36, 56, 48, 30, '#a8322a');                                                                  // 庙墙
+        roof(g, 26, 38, 68, 20, '#2a6a4a');                                                                       // 绿琉璃瓦
+        shape(g, '#c9a046', s => rr(s, 52, 64, 16, 22, 2), 1.2);                                                // 庙门
+        line(g, 96, 92, 96, 30, '#5a3a20', 2.6);                                                                  // 青龙偃月刀
+        shape(g, '#bfeedd', s => { s.moveTo(96, 30); s.quadraticCurveTo(110, 26, 108, 44); s.quadraticCurveTo(102, 38, 96, 40); s.closePath(); }, 1);
+        g.fillStyle = 'rgba(150,255,210,.45)'; g.beginPath(); g.ellipse(102, 36, 12, 14, 0, 0, Math.PI * 2); g.fill();
+        break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
         wallBlock(g, 34, 52, 52, 36, '#a8322a');

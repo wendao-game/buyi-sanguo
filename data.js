@@ -478,6 +478,19 @@ window.GAME_DATA = {
         { dmg: 72, cd: 0.8, range: 165, angle: 240, kb: 200, chill: 0.4, note: '伤害 +14：坐断东南，刀光绕身大半圈' },
       ],
     },
+    // 凤翎：朝最近的敌人扇形射出 count 根火羽（每根打中 dmg），钉进敌人身上；fuse 秒后每根就地炸开一团火（半径 radius、伤害 dmg × pop），
+    //   同一个敌人身上钉着几根，这一下就再狠几成（每多一根 +stack）。炸开的伤害按 dmg 算，突破、加成都跟着涨
+    fengling: {
+      name: '凤翎', icon: '翎', type: 'featherDart', general: '庞统',
+      desc: '庞统的凤翎。朝最近的敌人扇形射出几根火羽，钉进敌人身上，片刻后每根就地炸开一团火；同一个敌人身上钉得越多，炸得越狠。',
+      levels: [
+        { dmg: 10, cd: 1.2, count: 3, fan: 0.2, speed: 760, fuse: 0.8, pop: 1.8, radius: 60, stack: 0.25 },
+        { dmg: 13, cd: 1.15, count: 3, fan: 0.2, speed: 780, fuse: 0.8, pop: 1.8, radius: 62, stack: 0.25, note: '伤害 +3' },
+        { dmg: 15, cd: 1.1, count: 4, fan: 0.19, speed: 800, fuse: 0.75, pop: 1.9, radius: 66, stack: 0.3, note: '一次 4 根，钉得越多炸得越狠' },
+        { dmg: 18, cd: 1.05, count: 4, fan: 0.19, speed: 820, fuse: 0.7, pop: 2, radius: 70, stack: 0.3, note: '伤害 +3，火团更大' },
+        { dmg: 22, cd: 1.0, count: 5, fan: 0.18, speed: 850, fuse: 0.65, pop: 2.1, radius: 78, stack: 0.35, note: '一次 5 根：凤翎燎原' },
+      ],
+    },
   },
 
   // 技能：只能从武将处获得，之后升级时可以强化
@@ -863,6 +876,21 @@ window.GAME_DATA = {
         { cd: 14, n: 2, life: 14, dmg: 88, note: '一次唤来两头猛虎' },
       ],
     },
+    // 三策：每 cd 秒随机献一策（伤害都按 dmg 算）——
+    //   上策：朝敌人最密处烧出一道火线（长 len、宽 w），沿线的敌人受 dmg，火线留 burn 秒、每 0.4 秒再烧一下 dmg × 0.2；
+    //   中策：在敌人最密处插一面令旗，lure 秒内把 pullR 以内的敌人往旗下引，然后炸开（半径 radius，伤害 dmg × 1.6）；
+    //   下策：震退身边 kbR 以内的敌人（伤害 dmg × 0.6），dur 秒内你受到的伤害 -guard。all：三策齐献，一次全放
+    sance: {
+      name: '三策', icon: '策', type: 'threeCe', general: '庞统',
+      desc: '庞统献上中下三策，每次随机一策：上策一道火线奇袭敌群；中策插旗诱敌，把附近的敌人引到旗下再炸开；下策震退身边的敌人，片刻内受到的伤害减少。',
+      levels: [
+        { cd: 7, dmg: 60, len: 520, w: 70, burn: 2.5, pullR: 300, lure: 1.2, radius: 150, kbR: 210, kb: 520, guard: 0.3, dur: 3 },
+        { cd: 6.6, dmg: 72, len: 540, w: 72, burn: 2.5, pullR: 310, lure: 1.2, radius: 160, kbR: 220, kb: 540, guard: 0.3, dur: 3, note: '伤害 +12' },
+        { cd: 6.2, dmg: 84, len: 570, w: 76, burn: 3, pullR: 330, lure: 1.2, radius: 170, kbR: 230, kb: 560, guard: 0.35, dur: 3.5, note: '火线更长，下策减伤更多' },
+        { cd: 5.8, dmg: 100, len: 600, w: 80, burn: 3, pullR: 350, lure: 1.1, radius: 185, kbR: 240, kb: 580, guard: 0.35, dur: 3.5, note: '伤害 +16，范围更大' },
+        { cd: 5.5, dmg: 120, len: 640, w: 84, burn: 3.5, pullR: 380, lure: 1.1, radius: 200, kbR: 260, kb: 600, guard: 0.4, dur: 4, all: true, note: '三策齐献：上中下一次全放' },
+      ],
+    },
     jiuchi: {
       name: '酒池', icon: '池', type: 'winePool', general: '魔董卓',
       desc: '魔董卓的酒池：定时在敌人最密处泼下一片毒酒，池里的敌人走不动、不停掉血；你站进池里慢慢回血。',
@@ -949,6 +977,8 @@ window.GAME_DATA = {
     jianxiong: { name: '奸雄', icon: '雄', max: 1, unique: true, general: '曹操', desc: '“宁教我负天下人”：本局每斩一员名将，伤害 +5%（最多 +50%）', effects: {}, perKill: 0.05, cap: 0.5 },
     bowen: { name: '博闻强识', icon: '博', max: 5, unique: true, general: '蔡文姬', desc: '凭记忆默写出父亲四百余篇藏书：经验获取 +5%/级（每次击败蔡文姬都能再升一级，最多 5 级）', effects: {}, xp: 0.05 },
     jiangdong: { name: '江东基业', icon: '吴', max: 1, unique: true, general: '孙权', desc: '“坐断东南战未休”：金币 +15%，对据点伤害 +30%', effects: { goldMul: 0.15, bldDmg: 0.3 } },
+    // 鸿图：技能冷却 -6%；每 pulse.every 秒，所有技能的冷却立刻再缩短 pulse.cut 秒（庞统守耒阳，百日之事半日断毕）
+    hongtu: { name: '鸿图', icon: '图', max: 1, unique: true, general: '庞统', desc: '“百日之事，半日断毕”：技能冷却 -6%；每 20 秒，所有技能的冷却立刻再缩短 3 秒', effects: { skillCd: 0.06 }, pulse: { every: 20, cut: 3 } },
     // 暴政魔印：身边 R 以内每有一个敌人，伤害 +per（最多 cap）；半秒数一次
     baozhengyin: { name: '暴政魔印', icon: '暴', max: 1, unique: true, general: '魔董卓', desc: '“顺我者昌”：身边每有一个敌人，伤害 +1%（最多 +30%）', effects: {}, tyranny: { R: 320, per: 0.01, cap: 0.3 } },
     meiwuyin: { name: '郿坞金印', icon: '坞', max: 1, unique: true, general: '魔董卓', desc: '郿坞积谷三十年：金币 +25%，生命上限 +60，每秒回复 +1', effects: { goldMul: 0.25, maxHp: 60, regen: 1 } },
@@ -1119,6 +1149,9 @@ window.GAME_DATA = {
       look: { skin: '#b8b0c4', robe: '#2a2234', trim: '#7a5aa8', armor: true, armorColor: '#34303e', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#26222e', plume: '#6a3a9a', weapon: 'dao' } },
     // 猛虎：孙权的「射虎」技能唤来的临时随从（有 sprites/tiger.png 用图，没有时代码画一头虎）
     ally_tiger: { name: '猛虎', kind: 'melee', hp: 320, speed: 250, dmg: 30, range: 52, cd: 0.6, h: 56, r: 16, art: 'tiger', temp: true, look: { beast: 'tiger' } },
+    // 倒戈的小兵：神魔技「魅惑」迷住的敌兵，替你打一会儿就散去（还是原来那个兵的样子，身上一层粉光，见 drawAlly）
+    ally_charm: { name: '倒戈', kind: 'melee', hp: 140, speed: 160, dmg: 14, range: 42, cd: 0.7, h: 40, r: 12, temp: true, charm: true,
+      look: { skin: '#d9a878', robe: '#c86a9a', trim: '#7a2a5a', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'cap', headColor: '#c86a9a', weapon: 'spear' } },
   },
   allyCap: 8,
 
@@ -1184,6 +1217,11 @@ window.GAME_DATA = {
       wake: ['郿坞火起', '坞堡城头火箭如雨……'], reward: { type: 'mowang', gid: 'modongzhuo', msg: '坞门洞开……酒气血气之中，魔王董卓现身！' },
       rocks: { every: 1.5, count: 4, r: 72, delay: 0.9, spread: 170, dmg: 40, rgb: '255,110,50' }, spawn: { type: 'cavalry', every: 4, max: 6 },
       desc: '郿坞 · 坞中积谷三十年，酒池肉林……' },
+    // 玉泉山：后期（玩家 180 级）出现在地图东北方的关帝庙，打掉后神关羽显圣（见 game.js 的「玉泉山：神关羽」）
+    yuquan: { name: '玉泉山', icon: '圣', seal: '庙门紧闭', hp: 16000, r: 66, xp: 110, special: true, noSeal: true, aggroR: 620, unlockLv: 180, again: 480, roundHp: 0.5, roundDmg: 0.25,
+      wake: ['玉泉显圣', '关帝庙前青光冲天，刀气四溢……'], reward: { type: 'shen', gid: 'shenguanyu', msg: '庙门洞开……青龙长吟，武圣显圣！' },
+      rocks: { every: 1.5, count: 4, r: 72, delay: 0.9, spread: 170, dmg: 40, rgb: '90,240,170' }, spawn: { type: 'shield', every: 4, max: 6 },
+      desc: '玉泉山 · 关帝庙前青光冲天……' },
     // 酒池：魔董卓「酒池肉林」泼下的毒酒池（见 modongzhuo 的 jiuchi 大招）。池心一口酒瓮（打碎它池子就干了），不会自己刷出来
     jiuchi: { name: '酒瓮', icon: '瓮', hp: 300, r: 26, xp: 0, special: true, pool: true, desc: '酒池 · 打碎酒瓮' },
   },
@@ -1706,6 +1744,28 @@ window.GAME_DATA = {
       banner: '建业 · 吴大帝 孙仲谋', line: '“坐断东南，孤便是江东之主！”', rage: '“江东基业，岂容尔等染指！”',
       look: { skin: '#efd2ae', skinShade: '#cfae88', robe: '#a83228', trim: '#c9a046', armor: true, armorColor: '#3a5a6e', beard: 'long', beardColor: '#6a2a6a', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#c9a046', plume: '#a83228', weapon: 'dao', aura: '#7ab0d8', artFace: [0.5, 0.25, 0.33] },
     },
+    // —— 庞统：凤雏，第五章刘备之后、孙权之前登场（随刘备入蜀的军师，214 年殁于落凤坡）。浓眉黑面、短髯，相貌不扬；
+    //   赭色鹤氅配赤金，火属性。平时离你远远地扇出一排火羽、落几团火，隔一阵召一队弓手。大招见 game.js 的「庞统」 ——
+    pangtong: {
+      name: '庞统', el: 'fire', title: '凤雏 · 庞士元', icon: '庞', hp: 10500, speed: 100, dmg: 24, r: 31, color: '#5a2e1a',
+      attacks: ['volley', 'meteor', 'volley', 'summon'], interval: 2.4, kite: 320, summon: 4, summonType: 'archer',
+      volley: { count: 7, spread: 0.9, speed: 340, dmg: 13, arrow: true, wrgb: '255,150,70' }, // 火羽：一扇火红的羽箭
+      meteor: { count: 3, radius: 80, delay: 1.0, dmg: 18, rgb: '255,140,60' },
+      rewards: ['fengling', 'sance', 'hongtu'],
+      ultRgb: '255,130,50', ultEvery: 10,
+      ults: [
+        // 献连环：铁索把你和身边最近的 n 个小兵连住（range 以内不够 n 个就召几个弓手补上），tele 秒后锁死：拖着它们走得慢（每条 slow，最多 slowCap）；
+        //   hold 秒后火从每个兵那头顺着铁索烧向你（每秒 fireSpeed），烧到就受伤、着火 burn 秒。那个兵死了那条就断；闪现一下全断（同董卓的铁链）
+        { id: 'lianhuan', name: '献连环', type: 'chainTie', n: 4, range: 460, tele: 0.6, hold: 1.4, fireSpeed: 240, slow: 0.14, slowCap: 0.6, burn: 2, dmg: 1.3 },
+        // 凤火燎原：一只火凤沿预警线横穿画面（宽 w），身后每隔 trailGap 留下一团火（半径 trailR，烧 trailT 秒）；一共 passes 趟，后一趟换个方向，暴怒多一趟
+        { id: 'fenghuo', name: '凤火燎原', type: 'phoenixFlight', passes: 2, tele: 0.9, gap: 0.5, w: 120, speed: 1250, trailR: 48, trailT: 3, trailGap: 70, dmg: 1.3 },
+        // 落凤坡（血过半）：顺着他到你的方向拉开一条山道（宽 laneW、长 len，你在离起点 back 处），两侧峭壁走不出去（闪现能翻过去）；
+        //   tele 秒后箭雨从起点往前推（每秒 speed，比你慢一点），被箭雨盖住就挨打（每 tick 秒一下）；前面的山道里每秒还落 spots 团乱箭（半径 spotR）
+        { id: 'luofeng', name: '落凤坡', type: 'arrowValley', hpBelow: 0.5, laneW: 320, len: 1200, back: 300, tele: 1.2, speed: 150, tick: 0.35, spots: 2.5, spotR: 70, dmg: 0.6, spotDmg: 0.9 },
+      ],
+      banner: '落凤坡 · 凤雏 庞士元', line: '“世人笑我貌丑——可识得凤雏之才？”', rage: '“上中下三策……今日便用上策！”',
+      look: { skin: '#c99872', skinShade: '#a57a58', robe: '#7a3a22', trim: '#d8a040', armor: false, beard: 'short', beardColor: '#1a1410', eyes: 'round', brows: 'bushy', head: 'lunjin', headColor: '#2a2018', weapon: 'fan', aura: '#e07a30', artFace: [0.53, 0.235, 0.3] },
+    },
     // —— 魔董卓：120 级后西南方的郿坞放出（魔将，封神线第二个目标）。玄黑配血红、暗金点缀，火属性。规则见 game.js 的「郿坞：魔董卓」 ——
     //   平时甩链钩人、砸地、召西凉铁骑；黑血护盾就是神魔将通用的护盾（最多最大血量的 camp.shield），回血也走通用入口
     modongzhuo: {
@@ -1753,6 +1813,38 @@ window.GAME_DATA = {
       banner: '鱼腹浦 · 神诸葛', line: '“八阵图成，汝可寻得生门？”', rage: '“鞠躬尽瘁，死而后已！”',
       look: { skin: '#efd6b4', skinShade: '#cfb08a', robe: '#2a3460', trim: '#e8e4d8', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#d8dce8', weapon: 'fan', aura: '#d8b860', artFace: [0.515, 0.2, 0.32] },
     },
+    // —— 神关羽：180 级东北方的玉泉山放出（神将，入魔线第三个目标）。赤面长髯，青绿战袍配金甲，青龙偃月刀；复生后骑赤兔（mount）。
+    //   平时青龙刀大幅劈砍、冲锋、扇出一排青龙刀气。千里走单骑见 wusheng；奖励沿用关羽的三件（青龙偃月刀、武圣、春秋）。规则见 game.js 的「玉泉山：神关羽」 ——
+    shenguanyu: {
+      name: '神关羽', title: '武圣 · 玉泉显圣', icon: '圣', hp: 52000, speed: 100, dmg: 36, r: 36, color: '#1f4a38', wusheng: true, camp: 'shen', mount: '#a3261b',
+      attacks: ['cleave', 'charge', 'cleave', 'volley'], interval: 2.4, cleaveR: 260, cleaveHalf: 1.15, chargeSpeed: 760,
+      volley: { count: 5, spread: 0.7, speed: 420, dmg: 22, arrow: true, wrgb: '90,240,170' }, // 一排青龙刀气
+      rewards: ['qinglong', 'wusheng', 'chunqiu'],
+      ultRgb: '90,240,170', ultEvery: 11,
+      // 神将的大招（2026-11-03 重做：原来的青龙出海、过五关、威震华夏「平平无奇」）：画面跟着变、有巨大的东西、各有一个只有他才有的玩法
+      ults: [
+        // 青龙偃月 · 天刀：画面压暗，天上悬一把巨大的青龙偃月刀；地上月牙形的刀影（半径 R、宽 band、半张角 half，你在月牙正中）跟着你走 track 秒后定住，
+        //   tele[i] 秒后劈下，连劈 count 刀（每刀转个方向，一刀比一刀快）；往月牙里面（凹的那边）或外面躲。
+        //   最后再一刀「横扫千军」：他抡刀转一整圈，safe 到 ringR 之间全挨打——贴到他脚下或跑出 ringR 才躲得开（预警 ringTele 秒，保底 ringPct）。
+        //   每刀落地留一道青色地裂 crackT 秒，踩着每 crackTick 秒挨一下（保底 crackPct）
+        { id: 'tiandao', name: '青龙偃月 · 天刀', type: 'skyBlade', count: 3, track: 0.7, tele: [0.8, 0.65, 0.55], gap: 0.3, R: 300, band: 130, half: 1.15,
+          ringTele: 1.5, ringR: 620, safe: 170, ringPct: 0.25, crackT: 3, crackTick: 0.5, crackPct: 0.04, dmg: 1.5, pct: 0.2 },
+        // 温酒斩：时间静止（画面变灰，小兵、精英、飞来的箭都定住，你能走、能打）；画面上方一盏冒热气的酒爵，热气 dur 秒冒完。
+        //   他隐去身形，每隔 step 秒亮一道细红线（count 道，长 len，都穿过你身边 near 以内，最后一道正好穿过你），热气一散全部同时斩下（宽 w），
+        //   线上的普通小兵直接斩死；然后他出现在最后一道线上、你身后不远处。两次温酒斩至少隔 cd 秒
+        { id: 'wenjiu', name: '温酒斩', type: 'wineCut', count: 6, step: 0.3, dur: 2.4, len: 1600, w: 46, near: 230, cd: 30, dmg: 2, pct: 0.3 },
+        // 水淹七军：大水从画面一侧往对面漫（每秒 speed），水里走不快（只剩 1 - slow）、每 tick 秒挨一下；你身边有 islands 块高地（半径 isleR）是干的；漫满后留 hold 秒再退
+        { id: 'shuiyan', name: '水淹七军', type: 'flood', tele: 1.2, speed: 420, hold: 3, islands: 3, isleR: 85, slow: 0.45, tick: 0.5, dmg: 0.5, pct: 0.06 },
+        // 玉泉显圣（血过半，只一次）：画面一黑、一声雷，画面后方升起巨大的翡翠关圣法相，一直留到他倒下（单骑冲阵时停手）：
+        //   每 every 秒法相举刀，朝你劈一道巨型扇形（半径 R、半角 half，预警 tele 秒）；
+        //   每 waveEvery 秒（第一次在 waveFirst 秒后）从他身上推出一圈「威压」（每秒 waveSpeed、宽 waveW），圈上有一道 gap 弧度的缺口（先亮 waveTele 秒），
+        //   站进缺口或闪现穿过去；被扫到挨打（保底 wavePct）并被推开 push
+        { id: 'xiansheng', name: '玉泉显圣', type: 'manifest', hpBelow: 0.5, every: 6, first: 2.5, tele: 1.2, R: 900, half: 0.55,
+          waveEvery: 10, waveFirst: 5, waveTele: 0.9, waveSpeed: 480, waveW: 70, gap: 0.9, push: 420, wavePct: 0.15, dmg: 1.6, pct: 0.2 },
+      ],
+      banner: '玉泉山 · 武圣 神关羽', line: '“关某在此，谁敢放肆！”', rage: '“青龙偃月，斩尽不臣！”',
+      look: { skin: '#b8433a', skinShade: '#8e2e26', robe: '#1f5a40', trim: '#e0b850', armor: true, armorColor: '#c9a046', beard: 'long', eyes: 'phoenix', brows: 'silkworm', head: 'hood', headColor: '#1f5a40', weapon: 'guandao', aura: '#5af0aa', artFace: [0.53, 0.29, 0.3] },
+    },
   },
   // 神赵云的规则
   //   四色龙魂：每 suitEvery 秒换一色（青 → 赤 → 白 → 玄）；绝境复生后四色同时生效
@@ -1762,6 +1854,9 @@ window.GAME_DATA = {
   //     玄龙不动：免疫减速、定身、冰冻，前 blocks 次受击无效
   //   绝境：第一次被打空血不会死，juejing.dur 秒无敌后以 juejing.revive 的血复生（只有一次），之后才会放「龙魂 · 四象」
   shen: { suitEvery: 15, heal: { dur: 5, rate: 0.006, interrupt: 0.015 }, fireAtk: 0.7, dodge: 0.3, blocks: 5, juejing: { dur: 5, revive: 0.4 } },
+  // 神关羽的规则 · 千里走单骑：第一次被打空血不会死，ride 秒里骑上赤兔绕着你冲出重围（打不到，冲撞到你会受伤），然后以 revive 的血复生；
+  //   之后一直骑着赤兔：移速 ×speed，大招间隔 ×ultK（只有一次）
+  wusheng: { qianli: { ride: 3, revive: 0.45, speed: 1.35, ultK: 0.8, rideR: 380, rideDmg: 1.0 } },
   // 神诸葛的规则
   //   八门金锁（大招 eightGates）：在你脚下立起半径 R 的八角石阵，八个方位各一道门（门洞宽 gateW），顺时针永远是 order 的顺序（北为休门），整圈随机转几格；
   //     开场亮一道门的字，之后每 reveal 秒再亮一道（生门不亮）；阵里每 rockEvery 秒落一块乱石（rock.pct：掉你生命上限的比例）；dur 秒没出去就八门俱闭（timeout）。
@@ -1812,6 +1907,9 @@ window.GAME_DATA = {
     shenzhaoyun: { death: '七进七出……这一次……出不去了……', ult: { yinlong: '银龙出海，七进七出！', changban: '长坂坡前，单骑何惧！', qiangyu: '龙胆在手，枪落如雨！', sixiang: '四象归一，龙魂现世！', juejing: '绝境……亦是生路！' } },
     liubei: { death: '云长……翼德……大哥来了……', ult: { taoyuan: '桃园结义，生死与共！', dilu: '的卢，今日厄矣，可努力！', rende: '百姓归心，此乃吾之盾！' } },
     sunquan: { death: '父兄……仲谋……愧对江东……', ult: { shehu: '虎来了，看你往哪跑！', shuishi: '江东水师，万弩齐发！', zhiheng: '子布、公瑾，助我！' } },
+    pangtong: { death: '落凤坡……原来，是我的坡……', ult: { lianhuan: '这一条连环，可是我亲手献的！', fenghuo: '凤鸣九天，火燎八荒！', luofeng: '落凤坡下……今日落的，是你！' } },
+    // 天刀、温酒斩、玉泉显圣先借原来三句的录音（字幕跟录音一致）；新台词在提示词页第 32 批，录好后换成新的
+    shenguanyu: { death: '玉泉山下……关某，终得解脱……', ult: { tiandao: '青龙出海，翻江倒海！', wenjiu: '一关一将，挡我者斩！', shuiyan: '水淹七军，尔等休走！', xiansheng: '威震华夏，谁与争锋！', qianli: '千里走单骑——赤兔，随我来！' } },
     modongzhuo: { death: '奉先……奉先何在……', ult: { fenshao: '烧！给我烧个干净！', suolian: '天子的锁链，谁也挣不脱！', jiuchi: '酒池肉林，与孤同醉！', mowang: '魔王临世，天下皆奴！' } },
     shenzhuge: { death: '悠悠苍天，曷此其极……', ult: { bamen: '八门已闭，生门只有一扇。', bamen2: '八阵随天转，生门亦无常。', tianfu: '八阵随天转，生门亦无常。', guanxing: '夜观天象，星落如雨。', kongcheng: '城门大开，请君入城。', rangxing: '七星灯明，吾命未绝！', pozhen: '好！竟能识破生门……' } },
     caocao: { death: '大业未竟……孤……不甘……', ult: { duange: '对酒当歌，人生几何！', hengshuo: '横槊赋诗，固一世之雄也！', mengzhong: '吾好梦中杀人……', mengzhong_wake: '谁！' } },
@@ -1884,6 +1982,8 @@ window.GAME_DATA = {
       caocao: { ults: { duange: '歌声一圈圈扩散，每圈一道缺口，被唱中会醉得东倒西歪，全场小兵士气大振。', hengshuo: '持槊直线冲锋，冲过的路上依次落下几道雷。', mengzhong: '席地而卧，有人靠近或打中他，就闪到你身后一刀；睡完没被惊扰会回血。' } },
       liubei: { ults: { taoyuan: '升起关羽、张飞的虚影：张飞沿预警线冲向你，关羽随后劈出一道青龙刀气。', dilu: '骑的卢跃向你，落地砸一圈，再向外扩一道有缺口的冲击波。', rende: '身边的小兵化作光飞到他身上，变成护盾。' } },
       sunquan: { ults: { shehu: '放出一头猛虎沿预警线扑向你，跑出画面后折返一次；被扑中会冻得走不快。', shuishi: '画面一侧泊着战船，几排连弩依次横扫全屏，每排留几道空隙。', zhiheng: '张昭、周瑜的虚影立在他两侧：张昭给他加护盾，周瑜往你脚下放火；两道虚影都在时孙权打不动。' } },
+      shenguanyu: { note: '千里走单骑：第一次打空血不会死，骑上赤兔绕着你冲出重围，几秒后复生；之后一直骑着赤兔，走得更快、大招更勤。', ults: { tiandao: '画面一暗，天上悬着一把巨大的青龙偃月刀，地上月牙形的刀影跟着你走，定住后劈下，连劈三刀；往月牙里面或外面躲。最后他抡刀转一整圈，贴到他脚下或跑远才躲得开。刀落处留下地裂，别踩。', wenjiu: '时间静止，画面变灰，小兵和飞箭都定住。上方的酒爵冒完热气之前，画面上会一道道亮出六条细红线，最后一条穿过你脚下；热气一散六刀齐落，找个不在线上的地方站好。', shuiyan: '大水从画面一侧漫过来，水里走不快、不断挨打，只有你身边几块高地是干的。', xiansheng: '血过半后画面后方升起巨大的关圣法相，一直到他倒下：隔几秒就举刀劈下半个画面大的扇形；隔一会儿还从他身上推出一圈威压，圈上有个缺口，站进缺口或闪现穿过去。' } },
+      pangtong: { ults: { lianhuan:'铁索把你和身边几个小兵连在一起，拖着它们走不快；片刻后火从小兵那头顺着铁索烧过来。', fenghuo: '一只火凤沿预警线横穿画面，身后留下一道火路；连飞两趟，第二趟换个方向。', luofeng: '血过半后把你困进一条山道，两侧是峭壁；箭雨从身后一路往前压，前面还不断落下乱箭。' } },
       modongzhuo: { note: '120 级时在西南方的郿坞里；黑血护盾，回血有上限。', ults: { fenshao: '四面火墙往里推，只留一条安全走廊，每一轮走廊换个地方。', suolian: '锁链从画面外的天上依次射向你，锁中就被拖到他跟前，落点烧起一片火。', jiuchi: '在你身边泼下几个毒酒池，踩进去走不快、掉血；他会泡在池里回血，池心的酒瓮打碎池子就干了。', mowang: '体型变大、从此狂暴，每掉一成血就召一队西凉铁骑冲阵。' } },
       shenzhuge: { note: '八卦护体：你站在他哪个方位，打他的伤害就按那道门打折，生门不打折；第一次打空血会点起七星灯续命。', ults: { bamen: '把你困进八门阵：从生门出去就破阵，他会发愣、受伤更多；走别的门各有惩罚。', guanxing: '北斗七星一颗颗砸向你要走到的地方。', kongcheng: '原地抚琴，琴声把你往外推；走进他身边站够两秒就识破空城，没识破伏兵四起。', tianfu: '以他为中心把地面分成八格，除了生门，其余七格顺时针接连炸开。' } },
     },
@@ -1956,17 +2056,19 @@ window.GAME_DATA = {
         { t: 80, rates: { foot: 3.8, shield: 0.6, archer: 0.6, cavalry: 0.9 } },
         { t: 160, rates: { foot: 4.2, shield: 0.7, archer: 0.7, cavalry: 1.1 } },
       ],
+      // 武将多了（2026-11-03）：pool 的名将每局抽 n 位，按下面的先后放进 slots 的时间（彼此隔 40 秒，上一位倒下后仍至少隔 bossGap）；没抽到的进无尽先出
+      draw: { n: 3, slots: [45, 85, 125] },
       events: [
         { t: 20, type: 'special', bid: 'xiliangying', dx: -820, dy: -560 }, // 西凉营地出现在左上方，什么时候去打都行
         { t: 30, type: 'special', bid: 'zuoxian', dx: 820, dy: 560 }, // 左贤王帐出现在右下方（207 年文姬归汉），什么时候去打都行
-        { t: 45, type: 'boss', id: 'dianwei' },
-        { t: 75, type: 'boss', id: 'xiahoudun' }, // 下邳征吕布时被流矢射中左眼（198 年）
-        { t: 105, type: 'boss', id: 'yanliang' },
+        { t: 45, type: 'boss', id: 'dianwei', pool: true },
+        { t: 75, type: 'boss', id: 'xiahoudun', pool: true }, // 下邳征吕布时被流矢射中左眼（198 年）
+        { t: 105, type: 'boss', id: 'yanliang', pool: true },
         { t: 140, type: 'ambush', enemy: 'cavalry', count: 24, text: '河北铁骑' },
-        { t: 170, type: 'boss', id: 'wenchou' },
-        { t: 210, type: 'boss', id: 'zhenji' },
-        { t: 245, type: 'boss', id: 'guojia' },
-        { t: 290, type: 'boss', id: 'guanyu', final: true },
+        { t: 170, type: 'boss', id: 'wenchou', pool: true },
+        { t: 210, type: 'boss', id: 'zhenji', pool: true },
+        { t: 245, type: 'boss', id: 'guojia', pool: true },
+        { t: 165, type: 'boss', id: 'guanyu', final: true },
       ],
     },
     {
@@ -1976,19 +2078,21 @@ window.GAME_DATA = {
       ground: { bg: '#1e231f', grass: 'rgba(96,136,104,0.42)', blot: 'rgba(40,74,96,0.24)', flag: 'rgba(170,50,40,0.5)', reeds: true },
       waves: [
         { t: 0, rates: { foot: 3.8, shield: 0.6, archer: 0.6, cavalry: 0.8 } },
-        { t: 100, rates: { foot: 4.4, shield: 0.7, archer: 0.8, cavalry: 1.0 } },
-        { t: 180, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } },
+        { t: 80, rates: { foot: 4.4, shield: 0.7, archer: 0.8, cavalry: 1.0 } },
+        { t: 140, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } },
       ],
+      draw: { n: 3, slots: [45, 85, 125] }, // 同第三章：pool 里抽 3 位
       events: [
         { t: 20, type: 'qiaofu' }, // 乔府出现在右下方，什么时候去打都行
-        { t: 45, type: 'boss', id: 'zhugeliang' },
-        { t: 80, type: 'special', bid: 'zhong', dx: -820, dy: -560 }, // 诸葛亮之后，孤冢出现在西北方，什么时候去打都行
-        { t: 105, type: 'boss', id: 'zhangfei' },
+        { t: 45, type: 'boss', id: 'zhugeliang', pool: true },
+        { t: 80, type: 'special', bid: 'zhong', dx: -820, dy: -560 }, // 孤冢出现在西北方，什么时候去打都行
+        { t: 105, type: 'boss', id: 'zhangfei', pool: true },
         { t: 150, type: 'ambush', enemy: 'foot', count: 48, text: '曹军南下' },
-        { t: 165, type: 'boss', id: 'zhaoyun' },
-        { t: 210, type: 'boss', id: 'sunshangxiang' },
-        { t: 240, type: 'boss', id: 'huangzhong' }, // 赤壁之后刘备取长沙，老将黄忠归附
-        { t: 290, type: 'boss', id: 'zhouyu', final: true },
+        { t: 165, type: 'boss', id: 'zhaoyun', pool: true },
+        { t: 210, type: 'boss', id: 'sunshangxiang', pool: true },
+        { t: 240, type: 'boss', id: 'huangzhong', pool: true }, // 赤壁之后刘备取长沙，老将黄忠归附
+        { t: 265, type: 'boss', id: 'pangtong', pool: true }, // 凤雏献连环，紧接着火烧赤壁（放在最后，老存档的 evIdx 不错位）
+        { t: 165, type: 'boss', id: 'zhouyu', final: true },
       ],
     },
     {
@@ -2003,7 +2107,7 @@ window.GAME_DATA = {
       events: [
         { t: 20, type: 'ambush', enemy: 'hubao', count: 12, text: '虎豹骑 · 天下骁锐' },
         { t: 35, type: 'boss', id: 'liubei' }, // 219 年汉中称王
-        { t: 60, type: 'boss', id: 'sunquan' }, // 219 年袭取荆州
+        { t: 75, type: 'boss', id: 'sunquan' }, // 219 年袭取荆州
         { t: 90, type: 'ambush', enemy: 'foot', count: 50, text: '青州兵' },
         { t: 115, type: 'boss', id: 'caocao', final: true },
       ],
@@ -2073,7 +2177,7 @@ window.GAME_DATA = {
   campUp: {
     lines: [
       { id: 'feng', camp: 'mo', name: '封神', cur: 'moxue', curName: '魔血', vs: '魔将', who: '魔吕布、魔貂蝉、魔董卓', rgb: '255,90,100' },
-      { id: 'ru', camp: 'shen', name: '入魔', cur: 'shenhun', curName: '神魂', vs: '神将', who: '神赵云、神诸葛', rgb: '170,215,255' },
+      { id: 'ru', camp: 'shen', name: '入魔', cur: 'shenhun', curName: '神魂', vs: '神将', who: '神赵云、神诸葛、神关羽', rgb: '170,215,255' },
     ],
     win: 3, lose: 2, gold: 500,
     cost: [3, 5, 8, 12, 17, 23, 30, 38, 48],
@@ -2091,10 +2195,50 @@ window.GAME_DATA = {
     late: { dmg: 0.05, cost: 1.12 },
   },
 
+  // 神魔技：击败神魔将解锁的主动技能（玩家说后期只能看、打神魔不知道有什么用）。一个槽位在闪现旁边，电脑按 E；
+  //   开局前在「封神 · 入魔」里选装一个，一局只能带一个，战役里也能用。不用瞄准：以自己为中心，或自动冲向最近的名将。
+  //   gid：击败这位神魔将一次就解锁；cur：升级用的货币（魔将的用魔血、神将的用神魂）；
+  //   need：升到第 2–5 级各要累计击败这位神魔将几次；cost：升到第 2–5 级各花多少货币；levels：每级数值，主要降冷却、加范围，伤害不怎么涨（免得一键清屏）
+  smj: {
+    need: [2, 4, 7, 12], cost: [3, 6, 10, 15],
+    skills: {
+      // 魅惑：r 以内的小兵倒戈替你打 dur 秒（最多 max 个，到时散去）；名将、精英定住 root 秒
+      meihuo: { name: '魅惑', icon: '魅', gid: 'modiaochan', cur: 'moxue', rgb: '255,120,190', desc: '身边的小兵倒戈替你作战，名将和精英被定住片刻。',
+        levels: [{ cd: 40, r: 260, dur: 6, max: 20, root: 1.5 }, { cd: 37, r: 280, dur: 6, max: 22, root: 1.5 }, { cd: 34, r: 300, dur: 6.5, max: 24, root: 1.8 }, { cd: 31, r: 330, dur: 7, max: 27, root: 1.8 }, { cd: 28, r: 360, dur: 7.5, max: 30, root: 2 }] },
+      // 天崩：以自己为中心一记横扫（半径 r），把敌人远远震飞、晕 stun 秒；名将、精英定住 root 秒
+      tianbeng: { name: '天崩', icon: '崩', gid: 'molubu', cur: 'moxue', rgb: '255,70,60', desc: '以自己为中心一记横扫，敌人被远远震飞、晕住；名将和精英被震住片刻。',
+        levels: [{ cd: 40, r: 240, dmg: 160, stun: 2, root: 1 }, { cd: 37, r: 260, dmg: 175, stun: 2, root: 1 }, { cd: 34, r: 280, dmg: 190, stun: 2.2, root: 1.2 }, { cd: 31, r: 305, dmg: 205, stun: 2.4, root: 1.2 }, { cd: 28, r: 330, dmg: 220, stun: 2.5, root: 1.5 }] },
+      // 七探：朝最近的名将（没有就朝敌人最多处）冲刺最多 len，宽 w 一路上的敌人都挨一下；冲刺中受到的伤害减少 dr（不是无敌）
+      qitan: { name: '七探', icon: '探', gid: 'shenzhaoyun', cur: 'shenhun', rgb: '200,225,255', desc: '朝最近的名将冲刺，穿过的敌人全部受伤；冲刺中受到的伤害 -80%。',
+        levels: [{ cd: 40, len: 420, w: 110, dmg: 140, dr: 0.8 }, { cd: 37, len: 450, w: 115, dmg: 150, dr: 0.8 }, { cd: 34, len: 480, w: 120, dmg: 160, dr: 0.8 }, { cd: 31, len: 520, w: 125, dmg: 175, dr: 0.8 }, { cd: 28, len: 560, w: 130, dmg: 190, dr: 0.8 }] },
+      // 八阵图：脚下落一座阵（半径 r，留 dur 秒），阵里的敌人减速 slow、受到的伤害增加（和破甲后易伤一样 +30%）
+      bazhen: { name: '八阵图', icon: '阵', gid: 'shenzhuge', cur: 'shenhun', rgb: '255,214,120', desc: '脚下落一座八阵，阵里的敌人走不快、受到的伤害增加。',
+        levels: [{ cd: 40, r: 220, dur: 8, slow: 0.5 }, { cd: 37, r: 235, dur: 8, slow: 0.5 }, { cd: 34, r: 250, dur: 8.5, slow: 0.55 }, { cd: 31, r: 270, dur: 9, slow: 0.55 }, { cd: 28, r: 300, dur: 10, slow: 0.6 }] },
+      // 天子锁链：r 以内的敌人被锁链拽到你身前，挨 dmg 一下、锁住 stun 秒；名将只拽动 boss 的距离
+      suolian: { name: '天子锁链', icon: '锁', gid: 'modongzhuo', cur: 'moxue', rgb: '255,90,50', desc: '把身边一大片敌人用锁链拽到你身前锁住；名将只拽得动一点。',
+        levels: [{ cd: 40, r: 560, dmg: 60, stun: 0.8, boss: 0.25 }, { cd: 37, r: 600, dmg: 66, stun: 0.9, boss: 0.25 }, { cd: 34, r: 640, dmg: 72, stun: 1, boss: 0.3 }, { cd: 31, r: 690, dmg: 80, stun: 1.1, boss: 0.3 }, { cd: 28, r: 740, dmg: 88, stun: 1.2, boss: 0.35 }] },
+      // 武圣显灵：武圣法相在你身后显灵，朝敌人最密处劈出一道巨型扇形刀光（半径 R、半角 half）；劈中的名将、精英破甲 dur 秒（受伤 +champion.breakVuln）
+      xianling: { name: '武圣显灵', icon: '圣', gid: 'shenguanyu', cur: 'shenhun', rgb: '90,240,170', desc: '武圣法相在你身后显灵，朝敌人最密处劈出一道巨大的扇形刀光；劈中的名将和精英破甲，片刻内受到的伤害增加。',
+        levels: [{ cd: 40, R: 460, half: 0.8, dmg: 200, dur: 5 }, { cd: 37, R: 490, half: 0.82, dmg: 220, dur: 5 }, { cd: 34, R: 520, half: 0.85, dmg: 240, dur: 5.5 }, { cd: 31, R: 560, half: 0.88, dmg: 260, dur: 6 }, { cd: 28, R: 600, half: 0.9, dmg: 290, dur: 6.5 }] },
+    },
+  },
+
   // 神兵：击败名将时小概率掉落的专属兵器（奖励里出现一张金色卡）。
   // 拿到后悬浮在身边，定时自动放出这位名将的招牌招式。再次掉落同一件 → 升级（伤害 +30%、冷却 -6%）。
   // 伤害还会随你的等级成长：每级 +3.5%。iconFrom 是还没有神兵美术图时借用的兵器图标。
   shenbingDrop: { base: 0.12, pity: 0.05, max: 0.45 }, // 基础掉率 12%，每次没掉 +5%，最高 45%，掉了就重置
+  // 神兵融合：同一组名将的神兵凑齐（members 每一项各有一件；神将、魔将的神兵算本人），就合成一件融合神兵 sb：
+  //   原来几件消失、等级相加，只放这一招合击（伤害约是几件加起来的 1.3 倍）。融合后再掉组里任何一位的神兵，融合神兵 +1 级。
+  //   身上已经有这一组的神兵、还没凑齐时，组里还没到手的那几位掉神兵的几率 ×boost（上限也 ×boost）
+  fusion: {
+    boost: 2,
+    groups: [
+      { id: 'wuhu', name: '五虎上将', sb: 'fuse_wuhu', members: [['guanyu', 'shenguanyu'], ['zhangfei'], ['zhaoyun', 'shenzhaoyun'], ['machao'], ['huangzhong']] },
+      { id: 'yuexia', name: '吕布 · 貂蝉', sb: 'fuse_yuexia', members: [['lubu', 'molubu'], ['diaochan']] },
+      { id: 'wolong', name: '卧龙凤雏', sb: 'fuse_wolong', members: [['zhugeliang', 'shenzhuge'], ['pangtong']] },
+      { id: 'huangtian', name: '黄天当立', sb: 'fuse_huangtian', members: [['zhangjiao'], ['zhangbao'], ['chengyuanzhi']] }, // 黄巾：张角、张宝、程远志（和成就「黄天当立」同一组）
+    ],
+  },
   shenbing: {
     chengyuanzhi: { name: '开山神斧', icon: '斧', iconFrom: 'kaishan', rgb: '255,205,90', cd: 5, type: 'slam', dmg: 70, radius: 150, stun: 1,
       desc: '神斧飞向敌人最密集处，劈地开山：落点一圈敌人受重伤并震晕。' },
@@ -2162,6 +2306,26 @@ window.GAME_DATA = {
     // 紫髯古锭刀：绕身横扫一圈寒光（R），砍中的小兵冻住 freeze 秒；每第 tiger 刀再放出一头冰虎，扑穿一整条线（len、w，伤害 ×tigerDmg）
     sunquan: { name: '紫髯古锭刀', icon: '刀', iconFrom: 'guding', rgb: '160,205,255', cd: 5, type: 'iceSweep', dmg: 90, R: 250, freeze: 1, tiger: 3, len: 720, w: 90, tigerDmg: 1.3,
       desc: '古锭刀悬在身边：定时绕身横扫一圈寒光，砍中的小兵冻住 1 秒；每第 3 刀还放出一头冰虎，扑穿一整条线上的敌人。' },
+    // 涅槃凤翎：凤翎化作一只火凤，从你身边穿过敌人最密处飞出 len 远（宽 w），沿途的敌人受伤；身后每隔 trailGap 留下一团火（半径 trailR，每 0.4 秒烧 trail 倍伤害，留 trailT 秒）
+    pangtong: { name: '涅槃凤翎', icon: '凤', iconFrom: 'fengling', rgb: '255,140,60', cd: 6, type: 'phoenixSweep', dmg: 95, len: 1000, w: 110, speed: 1400, trailR: 60, trail: 0.2, trailT: 2.5, trailGap: 80,
+      desc: '凤翎化作一只火凤，从身边穿过敌人最密处飞出，沿途的敌人全部受伤，身后留下一道烧着的火路。' },
+    // 冷艳锯：打倒神关羽直接到手（再打一次就升级）。绕身横扫一整圈青龙刀光（半径 R）；每第 every 刀再朝四面斩出 count 道青龙刀气（长 len、宽 w，伤害 ×wave）
+    shenguanyu: { name: '冷艳锯', icon: '锯', iconFrom: 'qinglong', rgb: '90,240,170', cd: 5.5, type: 'coldBlade', dmg: 95, R: 290, every: 3, count: 4, len: 760, w: 80, wave: 1.2,
+      desc: '冷艳锯悬在身边：定时绕身横扫一整圈青龙刀光；每第 3 刀再朝四面斩出四道青龙刀气，贯穿一路上的敌人。' },
+    // —— 融合神兵（见上面的 fusion；fusion 是哪一组）。伤害照样按 sbDmg 算，等级是并进来的几件相加 ——
+    // 五虎齐出：五位上将的英魂从五个方向冲过敌人最密处（五条线交在那里，每条长 len、宽 w），沿途的敌人每条挨一下；各人各色，前后差 gap 秒
+    fuse_wuhu: { name: '五虎神兵', icon: '虎', iconFrom: 'qinglong', rgb: '255,215,110', cd: 7, type: 'fiveTigers', dmg: 105, len: 900, w: 100, speed: 1500, gap: 0.1, fusion: 'wuhu',
+      desc: '五虎上将的神兵合而为一：五位上将的英魂从五个方向同时冲过敌人最密处，交汇处的敌人连挨五下。' },
+    // 月下连环：花扇先在敌人最密处迷住一圈小兵（半径 R，定住 stun 秒，花瓣伤害 dmg × petal），gap 秒后画戟朝那里劈出一道血色巨月（半径 moonR、半角 half），被迷住的受双倍伤害
+    fuse_yuexia: { name: '凤仪双绝', icon: '仪', iconFrom: 'halberd', rgb: '255,110,160', cd: 6, type: 'moonCharm', dmg: 100, R: 230, stun: 1.6, petal: 0.3, gap: 0.6, moonR: 400, half: 1.0, fusion: 'yuexia',
+      desc: '吕布与貂蝉的神兵合而为一（月下连环）：花扇先迷住敌人最密处的一圈小兵，随后画戟劈出一道血色巨月，被迷住的敌人受到双倍伤害。' },
+    // 卧龙凤雏：一条火龙、一只火凤从你身边盘旋着往外飞（dur 秒转 turns 圈、飞到 R 远，宽 w），每只对同一个敌人只打一次；身后每隔 trailGap 留下一团火（每 0.4 秒烧 trail 倍伤害，留 trailT 秒）
+    fuse_wolong: { name: '龙凤双翎', icon: '龙', iconFrom: 'yushan', rgb: '255,150,60', cd: 7, type: 'dragonPhoenix', dmg: 150, R: 480, dur: 2.2, turns: 1.25, w: 110, trail: 0.25, trailT: 2.2, trailGap: 160, fusion: 'wolong',
+      desc: '卧龙凤雏的神兵合而为一：一条火龙、一只火凤从身边盘旋着往外飞，扫过大半个画面，身后留下烧着的火路。' },
+    // 黄天三宝：开山神斧先劈进敌人最密处（半径 radius，震晕小兵 stun 秒），一圈 rocks 块巨石接着砸下（每块半径 rockR，伤害 dmg × rock），
+    //   再召下 bolts 道天雷，劈向附近最强的敌人（每道半径 boltR，伤害 dmg × bolt）
+    fuse_huangtian: { name: '黄天三宝', icon: '黄', iconFrom: 'jiujie', rgb: '255,220,100', cd: 6, type: 'yellowSky', dmg: 60, radius: 170, stun: 1.2, rocks: 8, rockR: 72, rock: 0.55, bolts: 9, boltR: 64, bolt: 0.65, fusion: 'huangtian',
+      desc: '张角、张宝、程远志的神兵合而为一：开山神斧先劈进敌群震晕一片，一圈巨石随后砸下，再召下九道天雷劈向附近最强的敌人。' },
     // 焚天赤锁：打倒魔董卓直接到手（再打一次就升级）。锁住 range 以内最强的 count 个敌人拖到你跟前（pullTo），被锁中的灼烧 dur 秒（每秒 burn 倍伤害）
     modongzhuo: { name: '焚天赤锁', icon: '锁', iconFrom: 'molian', rgb: '255,90,50', cd: 5.5, type: 'fireChains', dmg: 90, count: 6, range: 480, pullTo: 110, burn: 0.2, dur: 3,
       desc: '赤红的天子锁链悬在身边：定时锁住附近最强的六个敌人，拖到你跟前狠狠一勒；锁链烧红，被锁中的敌人灼烧 3 秒。' },
@@ -2235,6 +2399,11 @@ window.GAME_DATA = {
     // lv 级以后（或进了无尽、开了精简特效）同屏纯视觉的东西少一些（后期满屏混战会卡）：粒子、打敌人的伤害数字、你这边的特效上限，
     // 暴击金光每帧最多 glints 个。文字提示、你掉血的数字、名将精英出招的特效不受限；屏幕外的伤害数字、粒子、你这边的特效任何时候都不生成
     lateFx: { lv: 100, particles: 350, dmgNums: 40, effects: 60, glints: 12 },
+    // 自动光效上限：你这边的叠加发光（按透明度加权）一帧最多盖 budget 个屏幕，超了一起调暗，最暗到 floor（论坛：后期满屏白光看不清）。
+    //   实测（2026-11-03）：前期 0～0.07，中期 80 级 P90 0.74，400 级 36 件 P90 1.4，全部突破到 40 级、奇门遁甲 39 级 2.6（白成一片）
+    glow: { budget: 1.2, floor: 0.15 },
+    // 挥砍刀光（锄头、大刀、青龙刀等）：两刀间隔短于 fast 秒就不铺地面范围、刀光按间隔变淡（最低 minA）；刀光最大画到 maxR（再大的范围只在边上画一圈淡线）
+    swingFx: { fast: 0.3, minA: 0.4, maxR: 300 },
     // 升级兵种（只在无尽）：进无尽 from 秒后，刷出来的普通兵按比例换成名军（map），到 full 秒时占刷兵量的 share。
     // 一个名军顶 weight 个普通兵：占同屏上限（420）的格数、经验、元宝和肉包的掉率、斩敌数（成就、血战）都按 weight 算；
     // 血量 ×hpMul（比 weight 少一点：人少了，范围伤害一招打到的也少）、碰撞伤害 ×dmgMul

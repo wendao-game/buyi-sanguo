@@ -50,15 +50,22 @@ window.FX = (() => {
   }
 
   // 刀光：头粗尾细的月牙，前 35% 时间完成挥出，之后逐渐淡出
+  // 挥砍刀光。dir：扫的方向（1 逆时针、-1 顺时针）；fast：挥得快，不铺地面范围；k：整体透明度；edge：真正的范围比刀光大时，边上画一圈淡线（见 game.js 的 swing）
   function slash(ctx, f) {
-    const t = f.life / f.max, prog = 1 - t;
+    const t = f.life / f.max, prog = 1 - t, dir = f.dir || 1;
     const sweep = Math.min(1, prog / 0.35);
-    const a0 = f.a - f.half, span = 2 * f.half * sweep;
+    const a0 = f.a - f.half * dir, span = 2 * f.half * sweep * dir;
     const R = f.range, W = Math.max(8, R * 0.2), N = 22;
-    const alpha = Math.min(1, t * 1.6);
-    ctx.globalAlpha = alpha * 0.10; // 地面上淡淡的攻击范围
+    const alpha = Math.min(1, t * 1.6) * (f.k || 1);
     ctx.fillStyle = `rgb(${f.rgb})`;
-    ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.arc(f.x, f.y, R, a0, a0 + span); ctx.closePath(); ctx.fill();
+    if (!f.fast) { // 地面上淡淡的攻击范围
+      ctx.globalAlpha = alpha * 0.10;
+      ctx.beginPath(); ctx.moveTo(f.x, f.y); ctx.arc(f.x, f.y, R, a0, a0 + span, dir < 0); ctx.closePath(); ctx.fill();
+    }
+    if (f.edge) {
+      ctx.globalAlpha = alpha * 0.25; ctx.strokeStyle = `rgb(${f.rgb})`; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.edge, a0, a0 + span, dir < 0); ctx.stroke();
+    }
     const outer = [], inner = [];
     for (let i = 0; i <= N; i++) {
       const k = i / N, th = a0 + span * k;
@@ -182,7 +189,7 @@ window.FX = (() => {
   function dragon(ctx, pts, o) {
     const n = pts.length;
     if (n < 3) return;
-    const a = o.a === undefined ? 1 : o.a, W = o.w, rgb = o.rgb, t = o.t || 0;
+    const a = (o.a === undefined ? 1 : o.a) * K, W = o.w, rgb = o.rgb, t = o.t || 0; // K：画你这边的龙时跟着调暗（名将的龙画的时候 K 是 1）
     const L = [], R = [];
     for (let i = 0; i < n; i++) {
       const p0 = pts[Math.max(0, i - 1)], p1 = pts[Math.min(n - 1, i + 1)];
