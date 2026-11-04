@@ -443,6 +443,28 @@ window.GAME_DATA = {
         { dmg: 92, cd: 1.0, range: 180, angle: 190, kb: 280, wave: 0.9, bolt: 4, boltDmg: 1.1, boltR: 76, note: '挟天子以令诸侯：一剑四雷' },
       ],
     },
+    shuanggu: {
+      name: '雌雄双股剑', icon: '剑', type: 'twinArc', general: '刘备',
+      desc: '刘备的一对宝剑。雄剑金光、雌剑银光，左右交替斩出短弧；三级起双剑齐出。',
+      levels: [ // side：每一剑偏到目标方向左边或右边多少（弧度）；both：两剑一起斩
+        { dmg: 20, cd: 0.55, range: 110, angle: 120, kb: 120, side: 0.45 },
+        { dmg: 25, cd: 0.52, range: 116, angle: 125, kb: 130, side: 0.45, note: '伤害 +5，范围扩大' },
+        { dmg: 28, cd: 0.5, range: 120, angle: 130, kb: 140, side: 0.5, both: true, note: '双剑齐出' },
+        { dmg: 34, cd: 0.46, range: 128, angle: 135, kb: 150, side: 0.5, both: true, note: '伤害 +6，挥得更快' },
+        { dmg: 44, cd: 0.42, range: 140, angle: 145, kb: 170, side: 0.55, both: true, note: '伤害 +10，桃园三结义' },
+      ],
+    },
+    zhugenu: {
+      name: '诸葛连弩', icon: '弩', type: 'repeater', general: '神诸葛', tags: ['bow'],
+      desc: '神诸葛的元戎连弩。朝最近的敌人一轮连射，弩箭能穿透敌人。',
+      levels: [ // burst：一轮几支；gap：每支隔几秒
+        { dmg: 18, cd: 0.9, burst: 3, gap: 0.07, speed: 760, pierce: 1 },
+        { dmg: 21, cd: 0.86, burst: 3, gap: 0.07, speed: 780, pierce: 1, note: '伤害 +3' },
+        { dmg: 24, cd: 0.82, burst: 4, gap: 0.065, speed: 800, pierce: 2, note: '一轮 4 支，穿透 2 个' },
+        { dmg: 28, cd: 0.78, burst: 5, gap: 0.06, speed: 820, pierce: 2, note: '一轮 5 支' },
+        { dmg: 36, cd: 0.72, burst: 6, gap: 0.055, speed: 860, pierce: 3, note: '一轮 6 支，穿透 3 个：元戎十矢俱发' },
+      ],
+    },
   },
 
   // 技能：只能从武将处获得，之后升级时可以强化
@@ -795,6 +817,28 @@ window.GAME_DATA = {
         { cd: 7, rings: 5, ringR: 350, dmg: 60, slow: 0.45, drunk: 2.5, haste: 0.4, note: '对酒当歌，人生几何' },
       ],
     },
+    rende: {
+      name: '仁德', icon: '仁', type: 'healPulse', general: '刘备',
+      desc: '刘备的仁德：定时放出一圈仁德之光，给你和随从回血，圈里的敌人受伤。',
+      levels: [ // heal：你回生命上限的多少；allyHeal：随从回自己血量的多少；r：光圈半径
+        { cd: 10, heal: 0.06, allyHeal: 0.15, dmg: 40, r: 200 },
+        { cd: 9.5, heal: 0.07, allyHeal: 0.18, dmg: 52, r: 215, note: '回得更多' },
+        { cd: 9, heal: 0.08, allyHeal: 0.22, dmg: 64, r: 230, note: '伤害 +12，光圈更大' },
+        { cd: 8, heal: 0.09, allyHeal: 0.26, dmg: 78, r: 245, note: '冷却缩短' },
+        { cd: 7, heal: 0.1, allyHeal: 0.3, dmg: 96, r: 260, note: '惟贤惟德，能服于人' },
+      ],
+    },
+    qimen: {
+      name: '奇门遁甲', icon: '门', type: 'gateRing', general: '神诸葛',
+      desc: '神诸葛的八门阵：定时在身边展开一座八门大阵。阵里的敌人每隔一会儿挨一下，按所在方位吃八门的效果：伤门、死门伤害加倍，惊门定身，景门灼烧，杜门走不动；你站在阵里慢慢回血（生门）。',
+      levels: [ // dur：阵持续几秒；tick：每隔几秒打一下；heal：你在阵里每秒回生命上限的多少
+        { cd: 8, dur: 4, r: 220, tick: 0.5, dmg: 24, heal: 0.008 },
+        { cd: 7.6, dur: 4, r: 235, tick: 0.5, dmg: 30, heal: 0.009, note: '伤害 +6，阵更大' },
+        { cd: 7.2, dur: 4.5, r: 250, tick: 0.45, dmg: 36, heal: 0.01, note: '阵更久' },
+        { cd: 6.6, dur: 4.5, r: 270, tick: 0.45, dmg: 44, heal: 0.011, note: '伤害 +8，阵更大' },
+        { cd: 6, dur: 5, r: 300, tick: 0.4, dmg: 54, heal: 0.012, note: '八门俱开，生生不息' },
+      ],
+    },
   },
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
@@ -859,6 +903,9 @@ window.GAME_DATA = {
     juejing: { name: '绝境', icon: '境', max: 1, unique: true, general: '神赵云', desc: '血越少越强：生命每少一截，伤害和出手速度就提高一截，生命 30% 以下时最多 +50%；生命上限 +40', effects: { maxHp: 40 }, low: { max: 0.5, at: 0.3 } },
     yinan: { name: '白马银鞍', icon: '鞍', max: 1, unique: true, general: '神赵云', desc: '长坂坡的白马：移动速度 +15%；每次闪现后 1.5 秒内伤害 +30%', effects: { speedMul: 0.15 }, blinkDmg: { dmg: 0.3, dur: 1.5 } },
     laodang: { name: '老当益壮', icon: '壮', max: 1, unique: true, general: '黄忠', desc: '“老当益壮，宁移白首之心”：生命上限 +30；每 10 级伤害 +3%，不封顶', effects: { maxHp: 30 }, perTen: 0.03 },
+    yongdai: { name: '百姓拥戴', icon: '民', max: 1, unique: true, general: '刘备', desc: '“民心所向”：全体随从伤害 +20%', effects: { allyDmg: 0.2 } },
+    miaoji: { name: '锦囊妙计', icon: '囊', max: 1, unique: true, general: '神诸葛', desc: '每 25 秒拆开一个锦囊，随机一样：回 15% 生命 / 全图经验飞来 / 2 秒无敌 / 随从回满血 / 接下来 5 秒伤害 +40%', effects: {},
+      bag: { every: 25, heal: 0.15, iframes: 2, dmg: 0.4, dur: 5 } },
     jianxiong: { name: '奸雄', icon: '雄', max: 1, unique: true, general: '曹操', desc: '“宁教我负天下人”：本局每斩一员名将，伤害 +5%（最多 +50%）', effects: {}, perKill: 0.05, cap: 0.5 },
     bowen: { name: '博闻强识', icon: '博', max: 5, unique: true, general: '蔡文姬', desc: '凭记忆默写出父亲四百余篇藏书：经验获取 +5%/级（每次击败蔡文姬都能再升一级，最多 5 级）', effects: {}, xp: 0.05 },
   },
@@ -1063,18 +1110,26 @@ window.GAME_DATA = {
       desc: '药庐 · 药香里似有人影' },
     // 药鼎：华佗大招「百草药鼎」时立在他身边的药鼎（活着就给他回血，打碎时药雾给你回血），不会自己刷出来
     yaoding: { name: '药鼎', icon: '鼎', hp: 200, r: 26, xp: 0, special: true, pot: true, desc: '打碎药鼎 · 断他药力' },
-    // 炼狱虎牢关：玩家升到 unlockLv 级，就在正北方升起（战役、无尽征途都算）。不闭门；走进 aggroR 就被心魔缠身：武器、技能、神兵的冷却 ×demon。
+    // 炼狱虎牢关：玩家升到 unlockLv 级，就在正北方升起（战役、无尽征途都算；和别的神魔关隘离得太近会换个方向）。不因普通名将闭门，但有神魔将在场时三座神魔关隘都关门（一次只打一位）；走进 aggroR 就被心魔缠身：武器、技能、神兵的冷却 ×demon。
     // 攻破后魔吕布、魔貂蝉一起现身（twins）；两人都倒下 again 秒后关隘再次升起，每多一轮血量 +roundHp、伤害 +roundDmg
-    lianyu: { name: '炼狱虎牢关', icon: '关', hp: 10000, r: 66, xp: 80, special: true, noSeal: true, aggroR: 600, demon: 1.4, unlockLv: 80, again: 480, roundHp: 0.5, roundDmg: 0.25,
+    lianyu: { name: '炼狱虎牢关', icon: '关', seal: '关门紧闭', hp: 10000, r: 66, xp: 80, special: true, noSeal: true, aggroR: 600, demon: 1.4, unlockLv: 80, again: 480, roundHp: 0.5, roundDmg: 0.25,
       wake: ['心魔缠身', '关上魔气缭绕，出手变慢了……'], reward: { type: 'twins', gids: ['molubu', 'modiaochan'], msg: '关门崩裂……魔吕布与魔貂蝉现身！' },
       shoot: { range: 620, cd: 1.2, dmg: 30, speed: 320, count: 3, spread: 0.5, soul: true }, spawn: { type: 'cavalry', every: 4, max: 6 },
       desc: '炼狱虎牢关 · 关上心魔缭绕……' },
     // 玩家 100 级时正南升起；走近了冢边的残枪一根根拔地而起，沿直线刺向你（spears：每 every 秒 count 根，先亮预警线）
     // 攻破后神赵云现身（shen），被击败 again 秒后再起，每多一轮血量 +roundHp、伤害 +roundDmg
-    qianghun: { name: '枪魂冢', icon: '枪', hp: 12000, r: 64, xp: 90, special: true, noSeal: true, aggroR: 620, unlockLv: 100, again: 480, roundHp: 0.5, roundDmg: 0.25,
+    qianghun: { name: '枪魂冢', icon: '枪', seal: '冢门封死', hp: 12000, r: 64, xp: 90, special: true, noSeal: true, aggroR: 620, unlockLv: 100, again: 480, roundHp: 0.5, roundDmg: 0.25,
       wake: ['枪鸣四起', '冢边的残枪一根根拔地而起……'], reward: { type: 'shen', gid: 'shenzhaoyun', msg: '枪冢崩裂……一条银龙破土而出！' },
       spears: { every: 1.7, count: 3, spread: 0.5, len: 760, w: 54, tele: 0.8, dmg: 40 }, spawn: { type: 'cavalry', every: 4, max: 6 },
       desc: '枪魂冢 · 冢中枪鸣不绝……' },
+    // 玩家 150 级时正西升起；走近了乱石从天而降（rocks：每 every 秒 count 块，落在你身边 spread 以内，先亮落点）
+    // 攻破后神诸葛现身（shen），被击败 again 秒后再起，每多一轮血量 +roundHp、伤害 +roundDmg
+    yufupu: { name: '鱼腹浦八阵', icon: '阵', seal: '石阵封闭', hp: 14000, r: 66, xp: 100, special: true, noSeal: true, aggroR: 620, unlockLv: 150, again: 480, roundHp: 0.5, roundDmg: 0.25,
+      wake: ['乱石穿空', '石堆里杀气冲天，乱石从天而降……'], reward: { type: 'shen', gid: 'shenzhuge', msg: '石阵洞开……卧龙羽扇轻摇，缓步而出' },
+      rocks: { every: 1.6, count: 4, r: 72, delay: 1.0, spread: 170, dmg: 40 }, spawn: { type: 'archer', every: 4, max: 6 },
+      desc: '鱼腹浦八阵 · 乱石堆中杀气冲天……' },
+    // 七星灯：神诸葛被打空血时立起的续命灯（一次七盏，见 wolong.lamps），不会自己刷出来
+    qixingdeng: { name: '七星灯', icon: '灯', hp: 300, r: 22, xp: 0, special: true, lamp: true, desc: '七星续命灯 · 打灭它' },
   },
 
   // 神祠祝福：随机给一项，可以叠加
@@ -1557,6 +1612,47 @@ window.GAME_DATA = {
       banner: '洛阳 · 魏武 曹孟德', line: '“宁教我负天下人，休教天下人负我！”', rage: '“竖子！安敢欺我！”',
       look: { skin: '#ecccaa', skinShade: '#c8a07c', robe: '#1e1a18', trim: '#c9a046', armor: true, armorColor: '#6a5428', beard: 'goatee', beardColor: '#1a1410', eyes: 'phoenix', brows: 'sharp', head: 'scholar', headColor: '#141210', weapon: 'sword', aura: '#8a6ad0', artFace: [0.5, 0.26, 0.32] },
     },
+    // —— 刘备：仁德之主，第五章曹操之前登场。明黄配墨绿、金色点缀。自己不猛、靠人：关张虚影替他出手、骑的卢飞渡、把身边小兵化作护盾 ——
+    liubei: {
+      name: '刘备', title: '仁德之主 · 昭烈帝', icon: '刘', hp: 10000, speed: 100, dmg: 24, r: 32, color: '#2e4a32',
+      attacks: ['cleave', 'summon', 'cleave', 'volley'], interval: 2.5, cleaveR: 200, summon: 5, summonType: 'foot',
+      volley: { count: 5, spread: 0.6, speed: 380, dmg: 14, arrow: true, wrgb: '180,230,150' },
+      rewards: ['shuanggu', 'rende', 'yongdai'],
+      ultRgb: '150,225,140', ultEvery: 10, mount: '#f2f0ea',
+      ults: [
+        // 桃园结义：左右升起关羽、张飞的虚影（染成翠金色）：张飞沿预警线冲你，gap 秒后关羽劈出一道青龙刀气；血过半后两人各出手两次
+        { id: 'taoyuan', name: '桃园结义', type: 'oathPhantoms', tele: 0.8, gap: 0.5, dashLen: 760, dashW: 80, dashSpeed: 1500, waveR: 60, waveSpeed: 760, dmg: 1.3 },
+        // 的卢飞渡：骑的卢跃向你（最远 len），先亮出飞跃路线和落点；落地砸一圈，再向外扩一道冲击波（波扫过你才受伤，有一道缺口）；暴怒多跳一下
+        { id: 'dilu', name: '的卢飞渡', type: 'diluLeap', count: 2, len: 620, radius: 150, tele: 0.8, air: 0.6, ringR: 420, ringSpeed: 520, gap: 0.5, dmg: 1.5, ringDmg: 0.8 },
+        // 仁德（血过半）：引导 chan 秒，range 以内的小兵化作光飞到他身上，每个给最大血量 per 的护盾，最多 cap
+        { id: 'rende', name: '仁德', type: 'absorbShield', hpBelow: 0.5, chan: 1.6, range: 520, per: 0.012, cap: 0.3 },
+      ],
+      banner: '汉中 · 昭烈 刘玄德', line: '“惟贤惟德，能服于人。”', rage: '“二弟、三弟，随我来！”',
+      look: { skin: '#efd2ae', skinShade: '#cfae88', robe: '#d8b84a', trim: '#2e4a32', armor: true, armorColor: '#c9a046', beard: 'goatee', beardColor: '#1a1410', eyes: 'calm', brows: 'thin', head: 'scholar', headColor: '#c9a046', weapon: 'sword', aura: '#7ab070', artFace: [0.48, 0.205, 0.32] },
+    },
+    // —— 神诸葛：150 级后正西方的鱼腹浦八阵放出。深靛配月白、金色点缀。八门金锁（找生门）、七星灯续命一次，规则见 wolong ——
+    shenzhuge: {
+      name: '神诸葛', title: '星罗八阵 · 卧龙孔明', icon: '卧', hp: 46000, speed: 95, dmg: 34, r: 34, color: '#2a3460', wolong: true, camp: 'shen',
+      attacks: ['volley', 'meteor', 'volley', 'meteor'], interval: 2.3, kite: 340,
+      volley: { count: 10, spread: 1.0, speed: 520, dmg: 20, arrow: true, wrgb: '170,200,255' }, // 诸葛连弩：一扇弩箭
+      meteor: { count: 6, radius: 78, delay: 0.95, dmg: 30, rgb: '255,215,130' },             // 星落
+      rewards: ['zhugenu', 'qimen', 'miaoji'],
+      ultRgb: '255,214,120', ultEvery: 11,
+      ults: [
+        // 八阵 · 八门金锁：把你困进八门阵（规则见 wolong.gates）。opener：登场后的第一个大招一定是它
+        { id: 'bamen', name: '八阵 · 八门金锁', type: 'eightGates', opener: true },
+        // 观星 · 北斗：你脚下连着亮出 waves 次北斗七星（span 是勺口到勺柄的长度），七颗星按天枢到摇光的顺序一颗颗砸下（step 秒一颗）；
+        //   星图摆在你 lead 秒后要走到的地方（绕圈躲不掉）。困在八门阵里时他也会放这一招
+        { id: 'guanxing', name: '观星 · 北斗', type: 'dipperFall', waves: 4, span: 560, r: 52, tele: 0.8, step: 0.12, gap: 0.9, lead: 0.6, dmg: 1.2, pct: 0.2 },
+        // 空城计（血过半）：原地抚琴 dur 秒，身边小兵退走；琴声从 innerR 一圈圈往外推你（有缺口）；
+        //   你走进他身边 innerR 以内累计站够 need 秒就「识破空城」：他掉最大血量的 lose、僵直 daze 秒、vuln 秒内受伤 +30%；没识破就伏兵 ambush 个弓手围上来
+        { id: 'kongcheng', name: '空城计', type: 'emptyCity', hpBelow: 0.5, dur: 6, innerR: 140, ringR: 700, every: 0.6, ringSpeed: 300, gap: 0.6, push: 460, need: 2, lose: 0.04, daze: 2, vuln: 4, ambush: 12, dmg: 0.5, pct: 0.1 },
+        // 八阵 · 天覆地载（七星灯续命之后）：以他为中心把地面分成八格，生门那一格亮绿（安全），其余七格按顺时针一格接一格炸开（step 秒一格），共 rounds 轮
+        { id: 'tianfu', name: '八阵 · 天覆地载', type: 'gateSweep', afterRevive: true, R: 760, tele: 0.9, step: 0.28, rounds: 2, gap: 0.6, dmg: 1.6, pct: 0.3 },
+      ],
+      banner: '鱼腹浦 · 神诸葛', line: '“八阵图成，汝可寻得生门？”', rage: '“鞠躬尽瘁，死而后已！”',
+      look: { skin: '#efd6b4', skinShade: '#cfb08a', robe: '#2a3460', trim: '#e8e4d8', armor: false, beard: 'goatee', eyes: 'calm', brows: 'thin', head: 'lunjin', headColor: '#d8dce8', weapon: 'fan', aura: '#d8b860', artFace: [0.515, 0.2, 0.32] },
+    },
   },
   // 神赵云的规则
   //   四色龙魂：每 suitEvery 秒换一色（青 → 赤 → 白 → 玄）；绝境复生后四色同时生效
@@ -1566,6 +1662,33 @@ window.GAME_DATA = {
   //     玄龙不动：免疫减速、定身、冰冻，前 blocks 次受击无效
   //   绝境：第一次被打空血不会死，juejing.dur 秒无敌后以 juejing.revive 的血复生（只有一次），之后才会放「龙魂 · 四象」
   shen: { suitEvery: 15, heal: { dur: 5, rate: 0.006, interrupt: 0.015 }, fireAtk: 0.7, dodge: 0.3, blocks: 5, juejing: { dur: 5, revive: 0.4 } },
+  // 神诸葛的规则
+  //   八门金锁（大招 eightGates）：在你脚下立起半径 R 的八角石阵，八个方位各一道门（门洞宽 gateW），顺时针永远是 order 的顺序（北为休门），整圈随机转几格；
+  //     开场亮一道门的字，之后每 reveal 秒再亮一道（生门不亮）；阵里每 rockEvery 秒落一块乱石（rock.pct：掉你生命上限的比例）；dur 秒没出去就八门俱闭（timeout）。
+  //     从哪道门出去吃哪道门的效果（door）：pct 掉你生命上限的比例，heal 回血，stun 定身几秒，burn 灼烧几秒，block 门是死的、把你弹回阵里；
+  //     生门（boss）：他掉最大血量的 boss、僵直 daze 秒、vuln 秒内受伤 +30%。七星灯续命后八道门每 spin 秒整圈顺时针转一格（八阵 · 变）
+  //   七星灯（禳星）：第一次被打空血不死，原地禳星 chan 秒（打不动），四周按北斗七星立起 n 盏灯（每盏的血是他最大血量的 lampHp，摆开 span 宽，一个范围招最多罩住一两盏）；
+//     灯焰护体：你走到灯 near 以内才打得动它，每盏灯一秒里最多掉自己血量的 cap（玩家反馈后期随便就打掉了：远程招站着不动打不灭，要沿着北斗一盏一盏跑过去）；
+  //     到时每盏还亮着的灯给他回 perLamp 的血（入魔「禁疗」打折）；七盏全灭就当场倒下。之后就不再续命
+//   八卦护体、石兵：见下面的 guard、stones（玩家说比别的神魔将弱：以前站哪都全额吃伤害、除了大招几乎不伤人）
+  wolong: {
+    gates: { R: 340, gateW: 110, dur: 16, reveal: 2.5, rockEvery: 0.9, rock: { r: 60, delay: 0.9, pct: 0.08 }, spin: 3, timeout: 0.35, order: '休生伤杜景死惊开',
+      door: {
+        休: { heal: 0.05, text: '休门 · 平安出阵', good: true },
+        生: { boss: 0.04, daze: 2, vuln: 4, heal: 0.15, text: '生门 · 破阵！', good: true },
+        伤: { pct: 0.25, text: '伤门 · 受创' },
+        杜: { pct: 0.1, block: true, text: '杜门 · 此路不通' },
+        景: { pct: 0.15, burn: 3, text: '景门 · 火起' },
+        死: { pct: 0.4, text: '死门 · 九死一生' },
+        惊: { pct: 0.15, stun: 1.5, text: '惊门 · 心惊胆裂' },
+        开: { text: '开门 · 平安出阵', good: true },
+      } },
+    // 八卦护体：他脚下一圈八门（每 spin 秒整圈顺时针转一格），你站在他哪个方位，打他的伤害就乘那道门的 mul；他发愣（破阵、识破空城）时失效
+    guard: { spin: 4, R: 130, mul: { 生: 1, 开: 0.8, 休: 0.8, 景: 0.55, 伤: 0.4, 惊: 0.4, 杜: 0.3, 死: 0.3 } },
+    // 石兵：他不放大招、你也没困在八门阵里时，每 every 秒往你身边落 count 块乱石（先亮落点，每块扣你生命上限的 pct）
+    stones: { every: 3.5, count: 3, r: 70, delay: 1.0, spread: 160, pct: 0.06 },
+    lamps: { n: 7, chan: 10, lampHp: 0.035, perLamp: 0.1, span: 760, cap: 0.5, near: 220 },
+  },
   // 神魔将（generals 里带 camp 的：魔将 mo、神将 shen）的通用规则，以后新出的神魔将带上 camp 就自动适用
   //   late：无尽里吃多少后期加速（普通名将全额）；shield：护盾最多是最大血量的这么多（黑血守护、护甲都算）；heal：回血每秒最多回最大血量的这么多（青龙回春这类）
   camp: { late: 0.8, shield: 0.25, heal: 0.003 },
@@ -1587,6 +1710,8 @@ window.GAME_DATA = {
   // 有配音文件就播放（assets/voice/<武将>_enter / _rage / _death / _ult_<大招id>.mp3），没有就只显示字幕。
   voice: {
     shenzhaoyun: { death: '七进七出……这一次……出不去了……', ult: { yinlong: '银龙出海，七进七出！', changban: '长坂坡前，单骑何惧！', qiangyu: '龙胆在手，枪落如雨！', sixiang: '四象归一，龙魂现世！', juejing: '绝境……亦是生路！' } },
+    liubei: { death: '云长……翼德……大哥来了……', ult: { taoyuan: '桃园结义，生死与共！', dilu: '的卢，今日厄矣，可努力！', rende: '百姓归心，此乃吾之盾！' } },
+    shenzhuge: { death: '悠悠苍天，曷此其极……', ult: { bamen: '八门已闭，生门只有一扇。', bamen2: '八阵随天转，生门亦无常。', tianfu: '八阵随天转，生门亦无常。', guanxing: '夜观天象，星落如雨。', kongcheng: '城门大开，请君入城。', rangxing: '七星灯明，吾命未绝！', pozhen: '好！竟能识破生门……' } },
     caocao: { death: '大业未竟……孤……不甘……', ult: { duange: '对酒当歌，人生几何！', hengshuo: '横槊赋诗，固一世之雄也！', mengzhong: '吾好梦中杀人……', mengzhong_wake: '谁！' } },
     caiwenji: { death: '十二年……终于……能归汉了……', ult: { shiba: '胡笳一曲，十八拍断肠。', beifen: '悲愤成诗，字字是血！', guihan: '胡笳声里，我要归汉！' } },
     huangzhong: { death: '老夫……终究是……老了……', ult: { baibu: '百步之外，取你首级！', dingjun: '定军山下，斩将夺旗！', laodang: '黄忠在此，谁敢言老！' } },
@@ -1721,7 +1846,7 @@ window.GAME_DATA = {
       ],
     },
     {
-      id: 'sanfen', name: '第五章 · 三分天下', sub: '公元 220 年 · 魏武挥鞭，天下三分', music: 'endless', // 还没有本章的配乐：先用天下三分那首
+      id: 'sanfen', name: '第五章 · 三分天下', sub: '公元 219–220 年 · 汉中称王，魏武挥鞭', music: 'endless', // 还没有本章的配乐：先用天下三分那首
       clear: '三分天下',
       elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
       ground: { bg: '#221e1c', grass: 'rgba(120,112,90,0.4)', blot: 'rgba(30,20,40,0.22)', flag: 'rgba(110,80,160,0.5)' },
@@ -1729,10 +1854,11 @@ window.GAME_DATA = {
         { t: 0, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } },
         { t: 60, rates: { foot: 5.2, shield: 0.9, archer: 1.0, cavalry: 1.4 } },
       ],
-      events: [ // 刘备、孙权以后加在曹操前面
+      events: [ // 孙权以后加在刘备和曹操之间
         { t: 20, type: 'ambush', enemy: 'hubao', count: 12, text: '虎豹骑 · 天下骁锐' },
-        { t: 50, type: 'ambush', enemy: 'foot', count: 50, text: '青州兵' },
-        { t: 75, type: 'boss', id: 'caocao', final: true },
+        { t: 35, type: 'boss', id: 'liubei' }, // 219 年汉中称王
+        { t: 70, type: 'ambush', enemy: 'foot', count: 50, text: '青州兵' },
+        { t: 95, type: 'boss', id: 'caocao', final: true },
       ],
     },
   ],
@@ -1800,7 +1926,7 @@ window.GAME_DATA = {
   campUp: {
     lines: [
       { id: 'feng', camp: 'mo', name: '封神', cur: 'moxue', curName: '魔血', vs: '魔将', who: '魔吕布、魔貂蝉', rgb: '255,90,100' },
-      { id: 'ru', camp: 'shen', name: '入魔', cur: 'shenhun', curName: '神魂', vs: '神将', who: '神赵云', rgb: '170,215,255' },
+      { id: 'ru', camp: 'shen', name: '入魔', cur: 'shenhun', curName: '神魂', vs: '神将', who: '神赵云、神诸葛', rgb: '170,215,255' },
     ],
     win: 3, lose: 2, gold: 500,
     cost: [3, 5, 8, 12, 17, 23, 30, 38, 48],
@@ -1884,6 +2010,11 @@ window.GAME_DATA = {
       desc: '展开《胡笳十八拍》曲谱：六拍连奏，内外圈轮流震荡，最后一拍全圈齐震、把敌人震开。' },
     caocao: { name: '倚天剑', icon: '剑', iconFrom: 'yitian', rgb: '200,170,255', cd: 5.5, type: 'yitianSword', dmg: 80, len: 560, w: 80, bolts: 3, boltR: 70, allyBolt: 0.3,
       desc: '倚天剑悬在身边：定时斩出一道紫金剑气，沿途劈下三道雷；随从每次出手有 30% 几率引来一道雷。' },
+    liubei: { name: '雌雄双股剑', icon: '剑', iconFrom: 'shuanggu', rgb: '170,235,150', cd: 5.5, type: 'twinSwords', dmg: 85, len: 480, w: 70, allySword: 0.25, swordLen: 260, swordDmg: 0.4,
+      desc: '雌雄双剑悬在身边：定时飞到敌群最密处交叉斩出一个“X”。随从每次出手有 25% 几率带出一道剑气。' },
+    // 七星灯：打倒神诸葛直接到手（再打一次就升级）。七道星光按北斗的形状砸进敌群；续命：受到致死伤害时回到 guard.heal 的生命（每 guard.cd 秒一次）
+    shenzhuge: { name: '七星灯', icon: '灯', iconFrom: 'qimen', rgb: '255,214,120', cd: 6, type: 'sevenStars', dmg: 80, radius: 80, span: 280, guard: { heal: 0.2, cd: 180 },
+      desc: '七星灯绕身：定时按北斗七星的形状在敌群里落下七道星光。续命：受到致死伤害时，七星灯替你续命，回到 20% 生命（每 180 秒一次）。' },
   },
 
   // 精英与武将：护甲护体（先打掉护甲才伤到血）、更快、更凶、招式范围更大

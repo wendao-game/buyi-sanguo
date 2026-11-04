@@ -46,8 +46,9 @@ let actx = null, noiseBuf = null, muted = false, bus = null, voices = 0;
 const sfxLast = {};
 // 声音排查（TapTap 里声音卡、网页版不卡时用）：暂停界面连点「暂停」标题 5 次打开面板。记下 TapTap 接口、重建音频、解码、卡帧发生的时刻，
 // 还能单独关掉成就上报、排行榜、云存档、广告、合成音效，或者把背景音乐换成 <audio> 标签播放，看关掉哪个声音就不卡了。开关记在本机
-const DBG = { on: false, ach: true, lb: true, cloud: true, ad: true, sfx: true, el: false, log: [], cnt: {}, clock: 1 };
-try { const o = JSON.parse(localStorage.getItem('buyi-dbg') || '{}'); for (const k of ['on', 'ach', 'lb', 'cloud', 'ad', 'sfx', 'el']) if (typeof o[k] === 'boolean') DBG[k] = o[k]; } catch (e) { /* 存储不可用时忽略 */ }
+// bak：打的过程中写本机文件备份（见 backupWrite）；err：最近 3 个没接住的错误（主循环、按钮里出的错）
+const DBG = { on: false, ach: true, lb: true, cloud: true, ad: true, sfx: true, el: false, bak: true, log: [], cnt: {}, clock: 1, err: [] };
+try { const o = JSON.parse(localStorage.getItem('buyi-dbg') || '{}'); for (const k of ['on', 'ach', 'lb', 'cloud', 'ad', 'sfx', 'el', 'bak']) if (typeof o[k] === 'boolean') DBG[k] = o[k]; } catch (e) { /* 存储不可用时忽略 */ }
 function dbg(key, detail) {
   DBG.cnt[key] = (DBG.cnt[key] || 0) + 1;
   DBG.log.push(`${(performance.now() / 1000).toFixed(1)}s ${key}${detail !== undefined ? ' ' + detail : ''}`);
@@ -424,12 +425,14 @@ function dbgTick(now) {
     `声音 ${actx ? actx.state + ' ' + actx.sampleRate + 'Hz' : '还没建'} · 时钟 ${Math.round(DBG.clock * 100)}% · ${IOS ? 'iOS' : '非iOS'}`,
     `音乐 ${Music.current || '-'} / ${Music.playing || '没在放'}${Music.position !== null ? ' ' + Music.position + 's' : ''}`,
     `重建 ${n('重建音频')} · onShow ${n('onShow')} · onHide ${n('onHide')} · 隐藏 ${n('页面隐藏')} · 卡帧 ${n('卡帧')}`,
-    `解码 ${n('解码')} · 成就 ${n('成就进度') + n('成就解锁')} · 排行 ${n('排行榜上报')} · 云存 ${n('云存档上传')} · 广告 ${n('创建广告')}`,
+    `解码 ${n('解码')} · 成就 ${n('成就进度') + n('成就解锁')} · 排行 ${n('排行榜上报')} · 云存 ${n('云存档上传')} · 广告 ${n('创建广告')} · 战斗备份 ${n('战斗备份')}`,
     m ? `内存 ${Math.round(m.usedJSHeapSize / 1048576)} / ${Math.round(m.jsHeapSizeLimit / 1048576)} MB` : '内存 -',
+    ...DBG.err.map(e => '出错 ' + e),
+    ...(crashRec ? ['—— 上次闪退 ——', crashText(crashRec)] : []),
     '—— 最近 ——', ...DBG.log.slice().reverse(),
   ].join('\n');
 }
-function dbgSave() { try { localStorage.setItem('buyi-dbg', JSON.stringify({ on: DBG.on, ach: DBG.ach, lb: DBG.lb, cloud: DBG.cloud, ad: DBG.ad, sfx: DBG.sfx, el: DBG.el })); } catch (e) { /* 存储不可用时忽略 */ } }
+function dbgSave() { try { localStorage.setItem('buyi-dbg', JSON.stringify({ on: DBG.on, ach: DBG.ach, lb: DBG.lb, cloud: DBG.cloud, ad: DBG.ad, sfx: DBG.sfx, el: DBG.el, bak: DBG.bak })); } catch (e) { /* 存储不可用时忽略 */ } }
 function dbgPanel() {
   if (dbgBox) { dbgBox.remove(); dbgBox = null; }
   if (!DBG.on) return;
@@ -446,6 +449,7 @@ function dbgPanel() {
   sw('ach', '成就上报：开', '成就上报：关');
   sw('lb', '排行榜：开', '排行榜：关');
   sw('cloud', '云存档：开', '云存档：关');
+  sw('bak', '战斗中备份：开', '战斗中备份：关');
   sw('ad', '广告：开', '广告：关（重开游戏生效）');
   sw('sfx', '合成音效：开', '合成音效：关');
   sw('el', '音乐：audio标签', '音乐：WebAudio', () => Music.refresh());
@@ -760,6 +764,7 @@ function newState(originId) {
     hook: null, rootT: 0, chains: [], flails: [], lanterns: [], tides: [], pools: [], kites: [], decoys: [], // 董卓的铁链、大乔的莲灯和潮水、小乔的纸鸢、蝶影分身
     gazes: [], graves: [], steles: [], pCurseT: 0, feignT: 0, // 司马懿的狼顾目光、破土孤坟、神兵墓碑；被幽冥噬魂、冢虎诈死的冷却
     arena: null, flyArrows: [], bloodEyes: [], glT: 0, danjingT: 0, rageT: 0, dimT: 0, // 夏侯惇的单挑枪阵、飞箭、血眼；刚烈反击、啖睛的冷却和狂暴
+    bagua: null, city: null, phantoms: [], bagDmgT: 0, starCd: 0, // 神诸葛的八门阵、空城；刘备桃园结义的关张虚影；锦囊妙计「奇谋」、七星灯续命的冷却
     herbs: [], herbHasteT: 0, herbHaste: 0, wqT: 0, wqHeal: null, sbHerb: null, // 华佗：百草长出的草药、采药后的加速；五禽戏的冷却和回血；青囊书的药香
     moons: [], links: [], tether: null, inferno: null, combo: null, pBleedT: 0, demonT: 0, xueyuT: 0, // 炼狱虎牢关：血月、连环锁的红线、锁心红线、炼狱圈、组合大招；黑血侵蚀、心魔；倾城血玉的冷却
     allies: [], allyPower: 0, bonus: {}, blessings: [], eliteT: D.stage.eliteStart, buildingT: D.stage.buildingEvery, forgeReady: 0,
@@ -767,7 +772,7 @@ function newState(originId) {
     ch: 0, chStart: 0, chapterT: 0, nextBossOk: 0,     // 当前章节、本章开始时间、换章倒计时、下一名武将最早登场时间
     strikes: [], erings: [], lust: 0, lustT: 0, dash: null,
     shenbing: [], sbPity: 0, later: [], sbWhirl: null,   // 神兵：悬浮在身边的名将专属兵器
-    goldRun: 0, startDmg: 0, xpMul: 0, saveT: 15,         // 本局金币、局外装备加成、自动存档倒计时
+    goldRun: 0, startDmg: 0, xpMul: 0, saveT: 15, bakT: BAK.every, // 本局金币、局外装备加成、自动存档倒计时、本机文件备份倒计时
     pendingLevels: 0, pendingReward: null, rewardReady: null, choice: null, cycle: 0,
     slowmo: 0, shake: 0, camX: 0, camY: 0, wsb: 0, buildDirty: true,
   };
@@ -830,14 +835,14 @@ const ctime = () => S.t - S.chStart;
 
 function hitEnemy(e, base, opts) {
   if (e.dead) return;
-  if (e.vanish || e.downed || e.juejing) return; // 司马懿诈死藏进疑冢、魂缚的残魂、神赵云绝境：打不到
+  if (e.vanish || e.downed || e.juejing || e.rangxing) return; // 司马懿诈死藏进疑冢、魂缚的残魂、神赵云绝境、神诸葛禳星：打不到
   if (e.sleep) e.sleep.poked = true;             // 曹操梦中杀人：打中他就会惊醒
   if (e.def.shen) { // 神赵云的四色龙魂：玄龙先挡几下，白龙有几率闪开
     if (e.blocks > 0 && hasSuit(e, 'xuan')) { e.blocks--; shenTag(e, '玄龙 · 挡下', SUIT.xuan.col); return; }
     if (hasSuit(e, 'bai') && Math.random() < SH.dodge) { shenTag(e, '白龙 · 闪开', SUIT.bai.col); return; }
   }
   if (e.sealed) { // 乔府：别的名将在场时府门紧闭
-    if (S.t - (e.sealMsgT || -9) > 1.2) { e.sealMsgT = S.t; addNumber(e.x, e.y - e.r * 2, `${e.def.seal || '府门紧闭'} · 先击败在场的名将`, '#ffd98a', 15); } // 西凉营地「营门紧闭」，孤冢「冢门封死」
+    if (S.t - (e.sealMsgT || -9) > 1.2) { e.sealMsgT = S.t; addNumber(e.x, e.y - e.r * 2, `${e.def.seal || '府门紧闭'} · 先击败在场的${e.def.unlockLv ? '神魔将' : '名将'}`, '#ffd98a', 15); } // 西凉营地「营门紧闭」，孤冢「冢门封死」
     return;
   }
   const p = S.player;
@@ -853,14 +858,23 @@ function hitEnemy(e, base, opts) {
   if (S.t < S.rageT) dmg *= 1 + D.passives.danjing.rage.dmg; // 啖睛狂暴：伤害提高
   dmg *= 1 + jjBonus();                                // 绝境：血越少伤害越高
   if (S.t < S.yinanT) dmg *= 1 + D.passives.yinan.blinkDmg.dmg; // 白马银鞍：闪现后一会儿伤害提高
+  if (S.t < S.bagDmgT) dmg *= 1 + D.passives.miaoji.bag.dmg;    // 锦囊妙计「奇谋」：几秒内伤害提高
   if (e.stance) { e.stance.hits++; dmg *= 0.5; }      // 夏侯惇「刚烈」：横刀格挡，伤害减半，每一下都记一层怒
   if (e.dr) dmg *= 1 - e.dr;                          // 名将半血 / 濒死减伤
+  if (e.def.wolong) dmg *= guardMul(e);               // 神诸葛八卦护体：你站在他哪道门，伤害就打几折
   if (e.linked) dmg *= 1 - TW.linkDr;                 // 魔吕布、魔貂蝉黑血相连：两人靠得近都减伤
   if (e.twin && e.twin.downed && !e.downed) dmg *= 1 + TW.lonely; // 搭档魂缚：孤身撑着的这个多受伤害（论坛反馈打死一个另一个打不死）
   if (e.weakT > S.t) dmg *= 1 + e.weakDmg;            // 华佗刮骨疗毒之后元气大伤：多受伤害
   const CF = campFxOf(e);
   if (CF) dmg *= 1 + CF.dmg;                          // 封神 / 入魔：对神魔将的伤害加成
   dmg = Math.max(1, Math.round(dmg * rand(0.92, 1.08)));
+  if (e.lamp) { // 七星灯「灯焰护体」：你得走到灯跟前（near 以内）才打得动，一秒里最多掉自己血量的 cap——远程招站着不动打不灭，要沿着北斗一盏一盏跑过去
+    if (dist2(e.x, e.y, p.x, p.y) > WL.lamps.near ** 2) { if (S.t - (e.sealMsgT || -9) > 0.8) { e.sealMsgT = S.t; addNumber(e.x, e.y - e.r * 3, '灯焰护体 · 走近些', '#ffe08a', 14); } return; }
+    if (!(S.t - (e.capT || -9) < 1)) { e.capT = S.t; e.capTaken = 0; }
+    dmg = Math.min(dmg, Math.ceil(e.maxHp * WL.lamps.cap - e.capTaken));
+    if (dmg <= 0) { if (S.t - (e.sealMsgT || -9) > 0.8) { e.sealMsgT = S.t; addNumber(e.x, e.y - e.r * 3, '灯焰护体', '#ffe08a', 14); } return; }
+    e.capTaken += dmg;
+  }
   S.dmgAll += dmg; if (opts && opts.ally) S.dmgAlly += dmg; // 随从打的占多少（ally：随从的刀枪、箭、琴音、知音）
   e.hurtT = S.t;                                      // 药庐、华佗：一会儿没挨打才回血
   if (e.chan) e.chan.taken += dmg;                    // 华佗青囊回春：引导时挨够伤害就被打断
@@ -1115,7 +1129,7 @@ function retaliate(src) {
 function lastStand() {
   const p = S.player;
   if (p.hp <= 0 && S.t < S.guardUntil) { p.hp = 1; return true; } // 绝境的几秒里一直不倒，这期间别的不再触发
-  const ready = [bloodRage, feignDeath, dragonGuard].filter(f => f(true));
+  const ready = [bloodRage, feignDeath, dragonGuard, starGuard].filter(f => f(true));
   return ready.length > 0 && ready[Math.floor(Math.random() * ready.length)]();
 }
 // 啖睛（夏侯惇的物品）：生命跌破一定比例时回一大截血，并狂暴几秒（伤害、移速提高），有冷却。check：只看现在能不能触发
@@ -1174,9 +1188,11 @@ function playerEl(el, dmg, src) {
 function killEnemy(e) {
   if (e.def && e.def.twin && !e.twinFinal && twinDown(e)) return; // 魂缚：搭档还在，打空了也不算死
   if (e.def && e.def.shen && shenDown(e)) return; // 神赵云绝境：第一次打空不死
+  if (e.def && e.def.wolong && wolongDown(e)) return; // 神诸葛七星禳星：第一次打空不死
   e.dead = true;
   if (e.tomb) { tombBroken(e); return; } // 司马懿的疑冢：不算杀敌、不掉东西
   if (e.pot) { potBroken(e); return; }   // 华佗的药鼎：同上，打碎时药雾给你回血
+  if (e.lamp) { lampBroken(e); return; } // 神诸葛的七星灯：同上
   const w = e.w || 1; // 名军一个顶 weight 个普通兵：斩敌数、血战、经验、掉率都按 weight 算
   S.kills += w;
   raiseShade(e); // 幽冥：带印记的小兵可能化作死士
@@ -1215,6 +1231,7 @@ function onBossDeath(e) {
   S.defeated.push(g.name);
   markSlain(e.gid);
   achBoss(e); // TapTap 成就：首斩、虎牢扬名、快刀斩乱麻、宿敌、图鉴……
+  backupSoon(2); // 斩将：赏金、图鉴马上落盘
   if (D.voice[e.gid]) speak(e.gid, 'death', `“${D.voice[e.gid].death}”`);
   S.shake = 18; S.slowmo = 1.0;
   sfx('slam');
@@ -1233,6 +1250,7 @@ function onBossDeath(e) {
   if (!e.twinFinal) { S.jxKills = (S.jxKills || 0) + 1; if (S.passives.jianxiong) recomputeStats(); } // 奸雄：本局斩将数（魔吕布魔貂蝉两人算一次）
   if (g.twin) { twinDefeated(e); return; } // 魔吕布、魔貂蝉：两人一起倒下，只结算一次
   if (g.shen) { shenDefeated(e); return; } // 神赵云：神兵直接到手
+  if (g.wolong) { wolongDefeated(e); return; } // 神诸葛：同上
   for (const o of S.enemies) if (o.pot && o.pot.boss === e) { o.dead = true; smoke(o.x, o.y - 16, 4, '60,90,60', 12, 14, 0.7); } // 药鼎跟着散掉
   // 击败大乔，小乔从原地现身——只在这一局第一次见到小乔时。无尽征途里大乔是随机轮到的，再跟着出一个小乔，看起来就像刚打死的小乔复活了
   if (e.gid === 'daqiao' && !S.seen.xiaoqiao) { S.lastBoss = 'xiaoqiao'; later(1.6, () => { if (!S.bossList.some(b => b.gid === 'xiaoqiao' && !b.dead)) { spawnBoss('xiaoqiao', false, e.x, e.y); banner('小乔现身', '姐姐的仇，由妹妹来报'); } }); } // lastBoss：下一位随机名将别又是小乔
@@ -1299,9 +1317,9 @@ function onBuildingDestroyed(e) {
     later(1.2, () => spawnBoss(rw.gid, false, e.x, e.y + 20));
     msg = rw.msg;
   }
-  else if (rw.type === 'shen') { // 枪魂冢：神赵云现身
+  else if (rw.type === 'shen') { // 枪魂冢：神赵云现身；鱼腹浦八阵：神诸葛现身
     S.specialDone[e.bid] = true;
-    later(1.2, () => spawnShen(e.x, e.y + 20));
+    later(1.2, () => rw.gid === 'shenzhuge' ? spawnWolong(e.x, e.y + 20) : spawnShen(e.x, e.y + 20));
     msg = rw.msg;
   }
   else if (rw.type === 'twins') { // 炼狱虎牢关：魔吕布、魔貂蝉一起现身
@@ -1630,38 +1648,76 @@ function recoverStash(only) {
   if (got) toast('', '', '已找回之前的进度', `金币 ${loadMeta().gold}`);
   return got;
 }
-// 本机文件备份：TapTap 给每个小游戏一个本机文件夹（USER_DATA_PATH），局外进度在这里再存一份。
-// 网页存储被清掉（清理工具、个别机型关掉游戏就清）也能从这里找回；只有卸载 TapTap 或删掉游戏数据才会没。不在战斗中写（调 TapTap 接口会让声音卡一下）
+// 本机文件备份：TapTap 给每个小游戏一个本机文件夹（USER_DATA_PATH），局外进度和没打完的这一局在这里再存一份。
+// 网页存储被清掉（清理工具、个别机型关掉游戏就清）也能从这里找回；只有卸载 TapTap 或删掉游戏数据才会没。
+// 网页存储也不是写了就落盘：闪退时最后一阵捡的金币、这一局的存档可能一起没了（玩家反馈「闪退后金币啥都没」），文件是直接写进磁盘的。
+// 不打的时候 5 秒查一次、有变化就写；打的时候每 BAK.every 秒、斩将后、名将登场后写一次（调 TapTap 接口可能让声音卡一下，调试面板里能关）。
+// 打的时候写的那份带上 live（在哪、多少级、同屏多少东西、帧率）；暂停、结算、回标题、切后台时马上重写一份不带的。进游戏时文件里还有 live，就是上次打着打着闪退了
 const fsOK = () => { const t = tapApi(); return !!(t && t.getFileSystemManager && t.env && t.env.USER_DATA_PATH); };
 const backupFile = () => `${tapApi().env.USER_DATA_PATH}/buyi_backup.json`;
-let backupLast = '';
-function backupWrite() {
-  if (inBattle() || !fsOK()) return;
-  const save = cloudLocal(), s = JSON.stringify(save);
-  if (s === backupLast || !save['buyi-meta']) return;
-  backupLast = s;
-  try { tapApi().getFileSystemManager().writeFile({ filePath: backupFile(), data: JSON.stringify({ v: 1, at: Date.now(), save }), encoding: 'utf8', fail: () => { backupLast = ''; } }); } catch (e) { backupLast = ''; }
+const BAK = { every: 30, last: '' };
+const backupSoon = sec => { if (S) S.bakT = Math.min(S.bakT, sec); }; // 斩将、名将登场：过几秒就写一次
+// 闪退时在干什么：给下次进游戏时看
+function liveInfo() {
+  const p = S.player, m = performance.memory;
+  return { at: Date.now(), t: Math.round(S.t), where: S.endless ? D.endless.name : chap().name.split(' · ')[1], lv: p.level, origin: S.origin.name,
+    boss: S.bossList.filter(b => !b.dead).map(b => b.def.name).join('、'), enemies: S.enemies.length, fx: S.effects.length + S.zones.length + S.particles.length + S.proj.length,
+    fr: FR.txt, mode: fxLite() ? '精简' : '完整', cv: `${cv.width}×${cv.height}`, heap: m ? Math.round(m.usedJSHeapSize / 1048576) : 0, err: DBG.err.join(' | ') };
 }
-// 进游戏时本机是空的：先从文件备份找回，再接着下载云存档
+// fight：打的过程中定时写（5 秒一次的定时器在打的时候不写）
+function backupWrite(fight) {
+  if (!fsOK() || (inBattle() && (!fight || !DBG.bak))) return;
+  const save = cloudLocal(); if (!save['buyi-meta']) return;
+  const run = S ? (S.over ? null : snapshot()) : loadRun(), live = inBattle() ? liveInfo() : null; // 在标题页：本机存着的那一局（结算页上的那局已经作废）
+  const key = JSON.stringify(save) + (run ? `${run.t}/${run.kills}/${run.player.level}` : '') + (live ? 'L' : ''); // 暂停着的时候不重复写
+  if (key === BAK.last) return;
+  BAK.last = key;
+  if (live) dbg('战斗备份');
+  try { tapApi().getFileSystemManager().writeFile({ filePath: backupFile(), data: JSON.stringify({ v: 2, at: Date.now(), owner: owner(), save, run, live }), encoding: 'utf8', fail: () => { BAK.last = ''; } }); } catch (e) { BAK.last = ''; }
+}
+// 进游戏：把文件里那份并进本机，规则和云存档一样（金币取累计赚得多的、纪录取更好的、图鉴取多的）；只并同一个账号的（换号由云存档那边处理）。
+// 本机没有没打完的那一局、或者文件里的更新，就放回来（继续征战）。上次是打着打着没了的：标题页写明当时的情况，方便玩家截图
 function backupRestore(done) {
-  if (!localEmpty()) return done();
   try {
     tapApi().getFileSystemManager().readFile({ filePath: backupFile(), encoding: 'utf8', fail: () => done(),
       success: f => {
         let o = null; try { o = JSON.parse(f.data); } catch (e) { /* 坏的当作没有 */ }
-        if (o && o.save && applySave(o.save)) toast('', '', '已从本机备份找回进度', `金币 ${loadMeta().gold}`);
+        const me = owner();
+        if (o && o.save && !(o.owner && me && o.owner !== me)) {
+          const got = applySave(o.save), r = loadRun();
+          let run = false;
+          if (o.run && (!r || (r.saved || 0) < (o.run.saved || 0))) { try { localStorage.setItem(RUN_KEY, JSON.stringify(o.run)); run = true; } catch (e) { /* ignore */ } }
+          if (o.live) crashFound(o.live, got || run);
+          else if (got || run) afterLoader(() => toast('', '', '已从本机备份找回进度', `金币 ${loadMeta().gold}${run ? ' · 没打完的那一局可以继续征战' : ''}`));
+          if (run && !$('title').hidden) refreshTitle();
+        }
         done();
       } });
   } catch (e) { done(); }
 }
+// 上次闪退：记下来（调试面板一直显示最近这次），标题页写一行，弹个提示
+const CRASH_KEY = 'buyi-crash';
+let crashRec = readKey(CRASH_KEY);
+const crashText = c => `${new Date(c.at).toLocaleString('zh-CN', { hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} · ${c.origin} · ${c.where} ${fmtTime(c.t)} · Lv ${c.lv}` +
+  `${c.boss ? ' · ' + c.boss : ''} · 敌 ${c.enemies} · 特效 ${c.fx} · ${c.mode} · 画布 ${c.cv}${c.heap ? ` · 内存 ${c.heap} MB` : ''}\n${c.fr}${c.err ? '\n出错：' + c.err : ''}`;
+function crashFound(c, got) {
+  crashRec = c; try { localStorage.setItem(CRASH_KEY, JSON.stringify(c)); } catch (e) { /* ignore */ }
+  dbg('上次闪退', `${c.where} ${fmtTime(c.t)}`);
+  const el = $('crash-note'); el.textContent = `上次异常退出（截这张图发给我们）：${crashText(c)}`; el.hidden = false;
+  afterLoader(() => toast('', '', '上次好像闪退了', got ? `已从本机备份找回：金币 ${loadMeta().gold}${loadRun() ? '，那一局可以继续征战' : ''}` : '进度都在，没有丢'));
+}
+// 读备份时多半还在加载画面：提示等加载画面关了再弹，不然玩家看不到
+const afterLoader = fn => { if ($('loader').hidden) fn(); else setTimeout(() => afterLoader(fn), 500); };
 // 进游戏：本机是空的就先找回（收起来的、文件备份），再下载云端存档和本机合并。下载失败（没网等）就过 30 秒再试——合并之前不上传，免得本机的旧档盖掉云端
 function cloudInit() {
   if (cloud.inited) return;
   cloud.inited = true;
   if (localEmpty()) recoverStash();
   if (!fsOK()) return;
-  cloud.timer = setInterval(() => { backupWrite(); cloudUpload(); }, 5000);
-  backupRestore(() => { if (cloudOK()) cloudLoad(); });
+  backupRestore(() => { // 先读备份再开始写，免得还没读就被本机的旧档盖掉
+    cloud.timer = setInterval(() => { backupWrite(); cloudUpload(); }, 5000);
+    if (cloudOK()) cloudLoad();
+  });
 }
 function cloudLoad() {
   const t = tapApi(), cm = t.getCloudSaveManager(), fs = t.getFileSystemManager();
@@ -1714,7 +1770,7 @@ function revive() {
   screenFlash('255,230,170', 0.35); S.shake = Math.max(S.shake, 12);
   banner('重整旗鼓', '满血复活 · 每局仅此一次');
   sfx('level');
-  saveRun();
+  saveRun(); backupSoon(1); // 结算时文件里去掉了这一局：复活了马上补回来
 }
 
 function gameOver() {
@@ -1722,6 +1778,7 @@ function gameOver() {
   S.modal = true;
   S.choice = null;
   clearRun(); saveMeta(true); // 战死：这一局的存档作废，金币已经存好
+  backupWrite(); // 本机文件也去掉这一局（不然闪退后会把打完的局找回来）
   $('levelup').hidden = true;
   showEnd();
 }
@@ -2060,6 +2117,7 @@ function campHealRoom(e, v) { // 这次想回 v 点血，实际能回多少
 
 // 武将血量与伤害按登场时间放大：越晚登场越强
 function spawnBoss(gid, final, atX, atY) {
+  backupSoon(3); // 名将登场（玩家说闪退多在这时）：记下当时的情况
   const g = championDef('g:' + gid, D.generals[gid]);
   const [x, y] = atX !== undefined ? [atX, atY] : spawnPos(-80); // 大乔、小乔从乔府里走出来
   // 玩家成长是加速的，武将血量也要加速；战役里后期的平方加成只算一半，无尽征途全额（神魔将只吃 camp.late）
@@ -2130,10 +2188,20 @@ function placeBuilding(minD, maxD) {
 // 西凉营地这类剧情据点：放在你身边某个方向（dx, dy），什么时候去打都行；打掉后记在 S.specialDone 里
 function placeSpecial(bid, dx, dy) {
   if (S.specialDone[bid] || S.enemies.some(e => e.bid === bid && !e.dead)) return;
-  const p = S.player, e = spawnBuilding(bid, p.x + dx, p.y + dy), def = D.buildings[bid];
+  const p = S.player, def = D.buildings[bid];
+  if (def.unlockLv) { // 神魔关隘（炼狱虎牢关、枪魂冢、鱼腹浦八阵）按你现在的位置放，可能压在别的关隘上：离别的关隘不到 1300 就绕着你换个方向
+    const R = Math.hypot(dx, dy), a0 = Math.atan2(dy, dx);
+    for (const k of [0, 1, -1, 2, -2, 3, -3, 4]) {
+      const a = a0 + k * Math.PI / 4, x = p.x + Math.cos(a) * R, y = p.y + Math.sin(a) * R;
+      if (S.enemies.some(o => o.building && o.def.unlockLv && !o.dead && dist2(o.x, o.y, x, y) < 1300 * 1300)) continue;
+      dx = Math.round(Math.cos(a) * R); dy = Math.round(Math.sin(a) * R); break;
+    }
+  }
+  const e = spawnBuilding(bid, p.x + dx, p.y + dy);
   for (const o of S.enemies) if (o.building && o !== e && !o.def.special && dist2(o.x, o.y, e.x, e.y) < 420 * 420) o.dead = true; // 让开位置
-  const dir = Math.abs(dx) < 100 ? (dy < 0 ? '正北' : '正南') : (dx < 0 ? '西' : '东') + (dy < 0 ? '北' : '南'); // 西北、东南……；炼狱虎牢关在正北
+  const dir = Math.abs(dx) < 100 ? (dy < 0 ? '正北' : '正南') : Math.abs(dy) < 100 ? (dx < 0 ? '正西' : '正东') : (dx < 0 ? '西' : '东') + (dy < 0 ? '北' : '南'); // 西北、东南……；炼狱虎牢关在正北，鱼腹浦八阵在正西
   toast('building', bid, def.name, `就在${dir}方向，走近了才会动手`);
+  return dir;
 }
 function placeQiaofu() {
   if (S.qiaoDone || S.enemies.some(e => e.bid === 'qiaofu' && !e.dead)) return;
@@ -2161,6 +2229,7 @@ function director(dt) {
   if (S.chapterT && S.t >= S.chapterT) nextChapter();
   gateDirector(); // 80 级：炼狱虎牢关
   shenDirector(); // 100 级：枪魂冢
+  zhugeDirector(); // 150 级：鱼腹浦八阵
   const c = chap(), ct = ctime();
   // 本章事件：武将要等上一名倒下、并且隔一小会儿才登场
   while (!S.endless && !S.chapterT && S.evIdx < c.events.length && ct >= c.events[S.evIdx].t) {
@@ -2174,7 +2243,7 @@ function director(dt) {
       S.endlessT = st.endlessBossEvery;
       // 在全部武将里随机（不连续重复）；藏在建筑里的名将（马超、大小乔、司马懿）要这一局打掉过建筑、见过面才会出现
       // 不出手的华佗只从药庐里出来，不进随机名单
-      const ids = Object.keys(D.generals).filter(id => id !== S.lastBoss && !D.generals[id].passive && !D.generals[id].twin && !D.generals[id].shen && (!HIDDEN_GENERALS.has(id) || S.seen[id]));
+      const ids = Object.keys(D.generals).filter(id => id !== S.lastBoss && !D.generals[id].passive && !D.generals[id].twin && !D.generals[id].shen && !D.generals[id].wolong && (!HIDDEN_GENERALS.has(id) || S.seen[id]));
       const gid = ids[Math.floor(Math.random() * ids.length)];
       S.lastBoss = gid;
       spawnBoss(gid);
@@ -2334,7 +2403,7 @@ function updatePlayer(dt) {
 }
 
 // ============ 武器 ============
-function swing(a, range, L, def) {
+function swing(a, range, L, def, rgbOver) { // rgbOver：雌雄双股剑一金一银
   const p = S.player, half = L.angle / 2 * Math.PI / 180, hit = [];
   near(p.x, p.y, range + 48, e => {
     const d = Math.sqrt(dist2(p.x, p.y, e.x, e.y));
@@ -2348,7 +2417,7 @@ function swing(a, range, L, def) {
   for (let i = 0; i < hit.length; i++) S.strikes.push({ kind: 'bolt', x: hit[i].x, y: hit[i].y, r: L.boltR * p.areaMul, t: 0.08 + i * 0.06, max: 0.12, dmg: L.dmg * L.boltDmg }); // 倚天剑：斩中的敌人头顶落雷
   // 刀光颜色：锄头土白、大刀金、青龙刀青、开山斧黄
   // 带属性的刀光换成属性色（火红、冰蓝、雷紫、风青），并叠一层刀光贴图
-  const rgb = curEl ? D.elements[curEl].rgb : { hoe: '240,228,196', dadao: '255,200,100', qinglong: '130,240,185', kaishan: '255,215,80', yitian: '205,180,255' }[def.id] || (def.general ? '255,210,122' : '240,228,196');
+  const rgb = curEl ? D.elements[curEl].rgb : rgbOver || { hoe: '240,228,196', dadao: '255,200,100', qinglong: '130,240,185', kaishan: '255,215,80', yitian: '205,180,255' }[def.id] || (def.general ? '255,210,122' : '240,228,196');
   S.effects.push({ kind: 'arc', x: p.x, y: p.y - 10, a, range, half, life: 0.26, max: 0.26, rgb });
   if (curEl) for (let k = 0; k < 4; k++) { const t = a + rand(-half, half), rr = range * rand(0.6, 1); elSpark(curEl, p.x + Math.cos(t) * rr, p.y - 10 + Math.sin(t) * rr); }
   // 武将兵器：叠一层刀光贴图，更厚重
@@ -2434,6 +2503,34 @@ function weaponTick(w, def, L, dt, p) {
           S.proj.push({ kind: 'arrow', x: p.x, y: p.y, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, r: 5, dmg: L.dmg, pierce: L.pierce, life: D.aim.arrowLife, hit: new Set(), kb: 60, far: L.far, x0: p.x, y0: p.y }); // far：落日弓，越远越痛
         }
         if (L.fan) sfx('swing');
+        break;
+      }
+      case 'twinArc': { // 雌雄双股剑：雄剑金光、雌剑银光，在目标左右交替斩出短弧；三级起两剑一起
+        w.t -= dt; if (w.t > 0) break;
+        const range = L.range * p.areaMul, tgt = pickTarget(p.x, p.y, range * 1.35);
+        if (!tgt) { w.t = 0.08; break; }
+        w.t = L.cd * p.cdMul;
+        const a = angleTo(p.x, p.y, tgt.x, tgt.y);
+        w.side = -(w.side || 1);
+        if (L.both) { swing(a - L.side, range, L, def, '255,215,110'); swing(a + L.side, range, L, def, '225,238,255'); }
+        else swing(a + L.side * w.side, range, L, def, w.side > 0 ? '225,238,255' : '255,215,110');
+        sfx('swing');
+        break;
+      }
+      case 'repeater': { // 诸葛连弩：一轮连射 burst 支，每支重新瞄最近的敌人
+        if (w.queue > 0) {
+          w.qt -= dt;
+          if (w.qt <= 0) {
+            w.queue--; w.qt = L.gap;
+            const tgt = pickTarget(p.x, p.y, D.aim.arrowRange * 1.2);
+            if (tgt) { const a = angleTo(p.x, p.y, tgt.x, tgt.y) + rand(-0.04, 0.04); S.proj.push({ kind: 'arrow', x: p.x, y: p.y, vx: Math.cos(a) * L.speed, vy: Math.sin(a) * L.speed, r: 5, dmg: L.dmg, pierce: L.pierce, life: D.aim.arrowLife, hit: new Set(), kb: 40, x0: p.x, y0: p.y }); }
+            else w.queue = 0;
+          }
+        }
+        w.t -= dt; if (w.t > 0 || w.queue > 0) break;
+        if (!pickTarget(p.x, p.y, D.aim.arrowRange * 1.2)) { w.t = 0.08; break; }
+        w.t = L.cd * p.cdMul; w.queue = L.burst; w.qt = 0;
+        sfx('swing');
         break;
       }
       case 'meteor': { // 地公符：符纸落在敌人身上，片刻后落石砸下
@@ -2911,6 +3008,49 @@ function updateSkills(dt) {
         S.allyHasteT = S.t + 4; S.allyHaste = L.haste;
         embers(p.x, p.y - 20, 8, '255,210,130', 80, 90, 7, 0.7);
         sfx('pick');
+        break;
+      }
+      case 'healPulse': { // 仁德：一圈仁德之光，你和随从回血，圈里的敌人受伤
+        s.t -= dt; if (s.t > 0) break;
+        s.t = L.cd * p.cdMul;
+        const R = L.r * p.areaMul;
+        healPct(L.heal, '仁德');
+        for (const a of S.allies) if (!a.gone && a.hp > 0) a.hp = Math.min(a.maxHp, a.hp + a.maxHp * L.allyHeal);
+        hitCircle(p.x, p.y, R, L.dmg, 80);
+        fxTex('ring', p.x, p.y, { w: R * 0.5, h: R * 0.5, rgb: '170,235,150', life: 0.5, grow: 4, core: 0.4 });
+        petals(p.x, p.y - 14, 10, R * 1.4);
+        embers(p.x, p.y - 10, 10, '200,240,160', 90, 80, 7, 0.8);
+        sfx('pick');
+        break;
+      }
+      case 'gateRing': { // 奇门遁甲：八门阵随身走 dur 秒，阵里的敌人按所在方位吃八门的效果（门名的方位每次随机转）；你在阵里回血（生门）
+        s.t -= dt;
+        const Z = s.zone;
+        if (Z) {
+          const R = Z.R;
+          p.hp += healRoom(p.maxHp * L.heal * dt);
+          if ((Z.tt -= dt) <= 0) {
+            Z.tt = L.tick;
+            near(p.x, p.y, R + 48, e => {
+              if (e.dead || e.building || dist2(p.x, p.y, e.x, e.y) >= (R + e.r) ** 2) return;
+              const n = GATE_NAMES[((Math.round((angleTo(p.x, p.y, e.x, e.y) + Math.PI / 2) / (Math.PI / 4)) - Z.off) % 8 + 8) % 8];
+              let k = 1;
+              if (n === '伤' || n === '死') k = 2;
+              else if (n === '景') { k = 1.5; if (Math.random() < 0.3) embers(e.x, e.y - e.r, 2, '255,140,60', 30, 50, 4, 0.5); }
+              else if (n === '惊' && !e.boss) e.stunT = Math.max(e.stunT || 0, S.t + 0.6);
+              else if (n === '杜' && !e.boss) { e.slowF = e.slowT > S.t ? Math.min(e.slowF, 0.3) : 0.3; e.slowT = S.t + 0.8; }
+              hitEnemy(e, L.dmg * k, { kb: 20, quiet: true });
+            });
+          }
+          if (S.t > Z.until) s.zone = null;
+        }
+        if (s.t > 0 || s.zone) break;
+        if (!nearest(p.x, p.y, L.r * p.areaMul)) { s.t = 0.25; break; }
+        s.t = L.cd * p.cdMul;
+        s.zone = { R: L.r * p.areaMul, until: S.t + L.dur, tt: 0, off: Math.floor(rand(0, 8)), born: S.t };
+        fxTex('circle', 0, 0, { follow: p, oy: 6, w: L.r * p.areaMul * 2.1, h: L.r * p.areaMul * 2.1, rgb: '255,214,120', under: true, flat: 0.55, life: L.dur, spin: 0.8, fadeIn: 0.15, core: 0.3, a: 0.6 });
+        sfx('slam');
+        break;
       }
       case 'pierceShot': { // 烈弓：朝敌人最密的方向射出贯穿全场的重箭
         s.t -= dt; if (s.t > 0) break;
@@ -3003,11 +3143,12 @@ function updateSkills(dt) {
 // 每位武将 2~3 个大招（data.js 的 ults）。放之前先播演出（画面定格约 1 秒），然后带预警落下，可以躲。
 function tryUlt(e) {
   const g = e.def, p = S.player, hpF = e.hp / e.maxHp, d = Math.sqrt(dist2(e.x, e.y, p.x, p.y));
-  const ok = g.ults.filter(u => (!u.hpBelow || hpF < u.hpBelow) && (!u.minDist || d > u.minDist) && (!u.afterRevive || e.revived)); // afterRevive：神赵云绝境复生后才放
+  let ok = g.ults.filter(u => (!u.hpBelow || hpF < u.hpBelow) && (!u.minDist || d > u.minDist) && (!u.afterRevive || e.revived)); // afterRevive：神赵云绝境复生后才放
+  if (g.wolong && S.bagua) ok = ok.filter(u => u.type === 'dipperFall'); // 神诸葛：你还困在八门阵里，只放观星往阵里砸
   if (!ok.length) return false;
   e.ultUsed = e.ultUsed || {};
-  // 血量新解锁的大招优先，其次不和上一次重复
-  let u = ok.find(x => x.hpBelow && !e.ultUsed[x.id]);
+  // 登场的第一招（opener）最先，其次血量新解锁的大招，再其次不和上一次重复
+  let u = ok.find(x => x.opener && !e.ultUsed[x.id]) || ok.find(x => x.hpBelow && !e.ultUsed[x.id]);
   if (!u) { const pool = ok.length > 1 ? ok.filter(x => x.id !== e.lastUlt) : ok; u = pool[Math.floor(Math.random() * pool.length)]; }
   e.ultUsed[u.id] = (e.ultUsed[u.id] || 0) + 1;
   e.lastUlt = u.id;
@@ -3045,7 +3186,7 @@ function showUltCutin(e, u) {
 }
 function tele(o) { o.max = o.life; S.teles.push(o); return o; }
 function ultDone(e, rest = 0.7) {
-  e.ult = null; e.state = 'recover'; e.stateT = rest; e.mounted = false; e.whirl = false; e.leapH = 0; e.skyHidden = false; e.stance = null;
+  e.ult = null; e.state = 'recover'; e.stateT = rest; e.mounted = false; e.whirl = false; e.leapH = 0; e.skyHidden = false; e.stance = null; e.sitting = false;
   if (S.arena && S.arena.boss === e && S.arena.until === Infinity) S.arena.until = S.t + 0.35; // 夏侯惇的单挑枪阵跟着收掉
 }
 // 点到线段的距离（直线攻击判定）
@@ -4274,6 +4415,173 @@ function runUlt(e, dt) {
     case 'comboHold': break; // 组合大招进行中：由 runCombo 摆布，结束时 endCombo 收尾
     // —— 神赵云 ——
     // 龙胆 · 枪雨：预判你接下来走到哪，一排银枪横在你前方从天而降，一波接一波
+    // —— 刘备 ——
+    // 桃园结义：左右升起关羽、张飞的虚影。张飞沿预警线冲向你，gap 秒后关羽劈出一道青龙刀气；血过半后两人各出手两次
+    case 'oathPhantoms': {
+      const reps = e.enraged ? 2 : 1;
+      if (U.phase === 0) {
+        const side = toP + Math.PI / 2;
+        U.zf = { gid: 'zhangfei', x: e.x + Math.cos(side) * 130, y: e.y + Math.sin(side) * 130, boss: e, born: S.t, until: Infinity, rgb: '255,215,120' };
+        U.gy = { gid: 'guanyu', x: e.x - Math.cos(side) * 130, y: e.y - Math.sin(side) * 130, boss: e, born: S.t, until: Infinity, rgb: '130,240,185' };
+        S.phantoms.push(U.zf, U.gy);
+        for (const f of [U.zf, U.gy]) { fxTex('pillar', f.x, f.y - 120, { w: 90, h: 280, rgb: f.rgb, life: 0.6, sx: 0.4, core: 0.7 }); smoke(f.x, f.y - 20, 4, '220,230,200', 12, 14, 0.7); }
+        petals(e.x, e.y - 30, 16, 200); // 桃园的花瓣
+        sfx('boss'); U.phase = 1; U.t = 0.45; U.k = 0;
+      } else if (U.phase === 1 && U.t <= 0) { // 两人同时亮出路线：张飞的冲锋线、关羽的刀气线（刀气晚 gap 秒）
+        const z = U.zf, g2 = U.gy;
+        U.za = angleTo(z.x, z.y, p.x, p.y); U.ga = angleTo(g2.x, g2.y, p.x, p.y);
+        z.fx = Math.cos(U.za) >= 0 ? 1 : -1; g2.fx = Math.cos(U.ga) >= 0 ? 1 : -1;
+        tele({ kind: 'line', x: z.x, y: z.y, a: U.za, len: u.dashLen, w: u.dashW, life: u.tele, rgb: z.rgb });
+        tele({ kind: 'line', x: g2.x, y: g2.y, a: U.ga, len: 1000, w: u.waveR * 2, life: u.tele + u.gap, rgb: g2.rgb });
+        U.phase = 2; U.t = u.tele; U.left = u.dashLen; U.hit = false; U.gt = u.tele + u.gap; U.fired = false;
+      } else if (U.phase === 2) {
+        const z = U.zf, g2 = U.gy;
+        if (U.t <= 0 && U.left > 0) { // 张飞冲锋
+          const st = Math.min(U.left, u.dashSpeed * dt); U.left -= st; z.dash = U.left > 0;
+          z.x += Math.cos(U.za) * st; z.y += Math.sin(U.za) * st;
+          fxp({ type: 'dust', x: z.x + rand(-8, 8), y: z.y + 10, vx: -Math.cos(U.za) * 90, vy: -Math.sin(U.za) * 90, drag: 3, grow: 24, life: 0.45, rgb: '120,100,72', size: rand(8, 12) });
+          if (!U.hit && dist2(p.x, p.y, z.x, z.y) < (46 + p.r) ** 2) { U.hit = true; hurtPlayer(DMG(u.dmg), null, e); impact(p.x, p.y, 70, z.rgb, 0.8); }
+        }
+        if ((U.gt -= dt) <= 0 && !U.fired) { // 关羽出刀：一道青龙刀气破空而去
+          U.fired = true;
+          S.eproj.push({ kind: 'dragon', x: g2.x, y: g2.y - 10, vx: Math.cos(U.ga) * u.waveSpeed, vy: Math.sin(U.ga) * u.waveSpeed, r: u.waveR, dmg: DMG(u.dmg), life: 1000 / u.waveSpeed + 0.2, pierce: true, rgb: g2.rgb, seed: rand(0, 9) });
+          fxTex('slash', g2.x + Math.cos(U.ga) * 70, g2.y - 20 + Math.sin(U.ga) * 70, { w: 300, h: 150, rot: U.ga + Math.PI / 2, rgb: g2.rgb, life: 0.35, grow: 1.25, core: 0.6 });
+          punch(0.5); S.shake = Math.max(S.shake, 8); sfx('slam');
+        }
+        if (U.left <= 0 && U.fired) {
+          z.dash = false;
+          if (++U.k < reps) { U.phase = 1; U.t = 0.35; }
+          else { z.until = g2.until = S.t; ultDone(e, 0.5); }
+        }
+      }
+      break;
+    }
+    // 的卢飞渡：骑的卢跃向你，先亮出飞跃路线和落点；落地砸一圈，再向外扩一道冲击波（有一道缺口）；暴怒多跳一下
+    case 'diluLeap': {
+      const n = u.count + (e.enraged ? 1 : 0);
+      if (U.phase === 0 && U.t <= 0) {
+        e.mounted = true;
+        const d = Math.min(u.len, Math.sqrt(dist2(e.x, e.y, p.x, p.y)) + 40);
+        U.sx = e.x; U.sy = e.y; U.tx = e.x + Math.cos(toP) * d; U.ty = e.y + Math.sin(toP) * d;
+        tele({ kind: 'line', x: e.x, y: e.y, a: toP, len: d, w: e.r * 1.6, life: u.tele, rgb });
+        tele({ kind: 'circle', x: U.tx, y: U.ty, r: u.radius, life: u.tele + u.air, rgb });
+        U.phase = 1; U.t = u.tele;
+      } else if (U.phase === 1 && U.t <= 0) { U.phase = 2; U.t = u.air; sfx('swing'); }
+      else if (U.phase === 2) {
+        const k = 1 - Math.max(0, U.t) / u.air;
+        e.x = U.sx + (U.tx - U.sx) * k; e.y = U.sy + (U.ty - U.sy) * k; e.leapH = Math.sin(Math.PI * k) * 170;
+        if (Math.random() < 0.6) fxp({ type: 'dust', x: e.x + rand(-10, 10), y: e.y + 10, vx: 0, vy: -10, drag: 3, grow: 20, life: 0.4, rgb: '160,190,150', size: rand(7, 11) });
+        if (U.t <= 0) {
+          e.leapH = 0;
+          if (dist2(p.x, p.y, e.x, e.y) < (u.radius + p.r) ** 2) hurtPlayer(DMG(u.dmg), null, e);
+          impact(e.x, e.y + e.r * 0.4, u.radius, rgb, 1.3); groundImpact(e.x, e.y + e.r * 0.5, u.radius * 1.2);
+          S.erings.push({ x: e.x, y: e.y, r: u.radius, speed: u.ringSpeed, maxR: u.ringR, gapA: rand(0, TAU), gap: u.gap, dmg: DMG(u.ringDmg), hit: false, rgb });
+          S.shake = Math.max(S.shake, 14); sfx('slam');
+          if (++U.n < n) { U.phase = 0; U.t = 0.25; } else ultDone(e, 0.6);
+        }
+      }
+      break;
+    }
+    // 仁德（血过半）：引导 chan 秒，身边的小兵一个个化作光飞到他身上，每个给 per 的护盾（最多 cap）；身边没兵就什么也得不到
+    case 'absorbShield': {
+      if (U.phase === 0) {
+        U.phase = 1; U.t = u.chan; U.k = 0; U.got = 0; U.list = [];
+        near(e.x, e.y, u.range, m => { if (!m.dead && !m.boss && !m.building && !m.ai && dist2(e.x, e.y, m.x, m.y) < u.range * u.range) U.list.push(m); });
+        fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.5, w: u.range * 2, h: u.range * 2, rgb, under: true, flat: 0.55, life: u.chan, spin: 1.2, fadeIn: 0.1, a: 0.5 });
+        if (!U.list.length) say(e, '“……无人响应？”');
+      }
+      e.kvx = e.kvy = 0;
+      const due = Math.ceil((1 - Math.max(0, U.t) / u.chan) * U.list.length);
+      while (U.k < due) {
+        const m = U.list[U.k++];
+        if (m.dead) continue;
+        m.dead = true; U.got++;
+        for (let i = 0; i < 3; i++) fxp({ type: 'ember', x: m.x + rand(-6, 6), y: m.y - 14, vx: (e.x - m.x) * 1.7, vy: (e.y - 30 - m.y) * 1.7, drag: 0.6, life: 0.55, rgb: '210,245,170', size: rand(6, 9) });
+      }
+      if (U.t <= 0) {
+        const add = Math.min(u.cap, U.got * u.per) * e.maxHp;
+        if (add > 0) {
+          e.rendeBase = e.rendeBase === undefined ? (e.shieldMax || 0) : e.rendeBase; // 护盾上限最多比原来高 cap
+          e.shield = campShield(e, Math.min(e.rendeBase + e.maxHp * u.cap, (e.shield || 0) + add)); e.shieldMax = Math.max(e.rendeBase, e.shield); e.shieldHitT = S.t;
+          addNumber(e.x, e.y - e.r * 3.2, `民心所向 · 护盾 +${Math.round(add / e.maxHp * 100)}%`, '#c8f0a0', 20);
+          fxTex('ring', 0, 0, { follow: e, oy: -e.r, w: e.r * 5, h: e.r * 5, rgb: '210,245,170', life: 0.5, grow: 1.6, core: 0.5 });
+        }
+        ultDone(e, 0.5);
+      }
+      break;
+    }
+    // —— 神诸葛 ——
+    // 八阵 · 八门金锁：把你困进八门阵（之后的事见 updateBagua）
+    case 'eightGates': {
+      baguaStart(e);
+      ultDone(e, 0.6);
+      break;
+    }
+    // 观星 · 北斗：你脚下连着亮出几次北斗七星，七颗星按天枢到摇光的顺序一颗颗砸下
+    case 'dipperFall': {
+      const waves = u.waves + (e.enraged ? 1 : 0), rr = u.r * Math.min(A, 1.3);
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0.2; }
+      if (U.phase === 1 && U.t <= 0 && U.k < waves) {
+        let lx = (S.pvx || 0) * (u.lead || 0), ly = (S.pvy || 0) * (u.lead || 0); const ll = Math.hypot(lx, ly); if (ll > 260) { lx *= 260 / ll; ly *= 260 / ll; } // 预判：摆在你 lead 秒后要走到的地方
+        const pts = dipperPts(p.x + lx, p.y + ly, u.span * Math.min(A, 1.3), rand(0, TAU)), dmg = DMG(u.dmg);
+        for (let i = 0; i < pts.length - 1; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[i + 1]; tele({ kind: 'line', x: x0, y: y0, a: Math.atan2(y1 - y0, x1 - x0), len: Math.hypot(x1 - x0, y1 - y0), w: 8, life: u.tele + (i + 1) * u.step, rgb }); } // 星图连线
+        pts.forEach(([x, y], i) => addHazard(x, y, rr, u.tele + i * u.step, dmg, rgb));
+        sfx('pick'); U.k++; U.t = u.gap;
+      }
+      if (U.k >= waves && U.t <= -(u.tele + 7 * u.step - u.gap)) ultDone(e, 0.5);
+      break;
+    }
+    // 八阵 · 天覆地载（七星灯续命之后）：脚下八格，生门亮绿，其余七格顺时针一格接一格炸开，共 rounds 轮
+    case 'gateSweep': {
+      if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0.2; }
+      e.kvx = e.kvy = 0;
+      if (U.phase === 1 && U.t <= 0 && U.k < u.rounds) {
+        const off = Math.floor(rand(0, 8)), cx = e.x, cy = e.y, half = Math.PI / 8, dmg = DMG(u.dmg), angOf = i => -Math.PI / 2 + (i + off) * Math.PI / 4;
+        const sa = angOf(1), all = u.tele + 7 * u.step;
+        tele({ kind: 'wedge', x: cx, y: cy, a: sa, R: u.R, half, life: all, rgb: '150,240,130' }); // 生门：安全
+        addNumber(cx + Math.cos(sa) * u.R * 0.45, cy + Math.sin(sa) * u.R * 0.45, '生门', '#9af08a', 26);
+        for (let j = 0; j < 7; j++) {
+          const gi = (2 + j) % 8, a = angOf(gi), at = u.tele + j * u.step; // 伤 杜 景 死 惊 开 休，顺时针
+          tele({ kind: 'wedge', x: cx, y: cy, a, R: u.R, half, life: at, rgb });
+          later(at, () => {
+            if (inWedge(p.x, p.y, cx, cy, a, u.R, half, p.r)) hurtPlayer(dmg, null, e);
+            const mx = cx + Math.cos(a) * u.R * 0.55, my = cy + Math.sin(a) * u.R * 0.55;
+            fxTex('slash', mx, my - 20, { w: u.R * 0.6, h: u.R * 0.3, rot: a + Math.PI / 2, rgb, life: 0.3, grow: 1.2, core: 0.6, hostile: true });
+            addNumber(mx, my - 40, GATE_NAMES[gi], '#ffcf8a', 22);
+            S.shake = Math.max(S.shake, 5); sfx('slam');
+          });
+        }
+        U.k++; U.t = all + u.gap;
+      }
+      if (U.k >= u.rounds && U.t <= 0) ultDone(e, 0.6);
+      break;
+    }
+    // 空城计（血过半）：原地抚琴，身边小兵退走；琴声从城边一圈圈往外推你。走进城里站够 need 秒就识破，否则伏兵四起
+    case 'emptyCity': {
+      if (U.phase === 0) {
+        U.phase = 1; U.t = u.dur; U.ringT = 0; U.in = 0; e.sitting = true;
+        for (const m of S.enemies) if (!m.dead && !m.boss && !m.building && dist2(m.x, m.y, e.x, e.y) < 900 * 900) { m.dead = true; if (Math.random() < 0.3) smoke(m.x, m.y - 12, 1, '200,190,160', 10, 8, 0.5); } // 城中空空，兵都退了
+        S.city = { x: e.x, y: e.y, r: u.innerR, boss: e, prog: 0 };
+        banner('空城计', `顶着琴声走到他身边，在城里站满 ${u.need} 秒就能识破`);
+      }
+      e.kvx = e.kvy = 0;
+      if ((U.ringT -= dt) <= 0) { U.ringT = u.every; S.erings.push({ x: e.x, y: e.y, r: u.innerR, speed: u.ringSpeed, maxR: u.ringR, gapA: rand(0, TAU), gap: u.gap, dmg: DMG(u.dmg), hit: false, rgb, push: u.push }); sfx('pick'); }
+      if (dist2(p.x, p.y, e.x, e.y) < u.innerR * u.innerR) U.in += dt;
+      if (S.city) S.city.prog = U.in / u.need;
+      if (U.in >= u.need) { // 识破空城
+        const lose = e.maxHp * u.lose; e.hp = Math.max(1, e.hp - lose);
+        S.city = null; ultDone(e, 0);
+        e.dazeT = S.t + u.daze; e.vulnT = S.t + u.vuln;
+        addNumber(e.x, e.y - e.r * 3.2, `识破空城 -${Math.round(lose)} · 破绽`, '#ffe08a', 24);
+        screenFlash('255,230,170', 0.2); punch(0.5); sfx('level');
+      } else if (U.t <= 0) { // 没敢进城：伏兵四起
+        S.city = null;
+        for (let i = 0; i < u.ambush; i++) { const a = i / u.ambush * TAU; spawnEnemy('archer', p.x + Math.cos(a) * 320, p.y + Math.sin(a) * 320); }
+        banner('伏兵四起', '城中果然有伏兵');
+        ultDone(e, 0.5);
+      }
+      break;
+    }
     case 'spearRain': {
       const waves = u.waves + (e.enraged ? 1 : 0);
       if (U.phase === 0) { U.phase = 1; U.k = 0; U.t = 0.2; }
@@ -4510,6 +4818,7 @@ function updateBossFx(dt) {
   updateSimayi(dt);
   updateTwins(dt);
   updateXiahou(dt);
+  updateWolong(dt);
   fxFoe = false;
 }
 // 夏侯惇：单挑枪阵（你出不去，碰到枪会被扎回来；小兵进不来）、飞箭、血眼
@@ -4950,10 +5259,10 @@ function gateDirector() {
   if (S.player.level < G.unlockLv) return;
   if (S.gateAgainAt && S.t >= S.gateAgainAt) { S.gateAgainAt = 0; S.specialDone.lianyu = false; }
   if (S.specialDone.lianyu || twinsOf().length || S.enemies.some(e => e.bid === 'lianyu' && !e.dead)) return;
-  placeSpecial('lianyu', 0, -900);
+  const dir = placeSpecial('lianyu', 0, -900); // 正北（离别的关隘太近会换方向）
   const e = S.enemies.find(x => x.bid === 'lianyu' && !x.dead);
   if (e && S.gateRound) e.hp = e.maxHp *= 1 + G.roundHp * S.gateRound; // 一轮比一轮厚
-  banner('炼狱虎牢关', S.gateRound ? `心魔再起 · 第 ${S.gateRound + 1} 回` : '正北方，魔气冲天');
+  banner('炼狱虎牢关', S.gateRound ? `心魔再起 · 第 ${S.gateRound + 1} 回` : `${dir}方，魔气冲天`);
 }
 function spawnTwins(x, y) {
   const G = D.buildings.lianyu, round = S.gateRound || 0;
@@ -5207,10 +5516,10 @@ function shenDirector() {
   if (S.player.level < G.unlockLv) return;
   if (S.shenAgainAt && S.t >= S.shenAgainAt) { S.shenAgainAt = 0; S.specialDone.qianghun = false; }
   if (S.specialDone.qianghun || shenOf() || S.enemies.some(e => e.bid === 'qianghun' && !e.dead)) return;
-  placeSpecial('qianghun', 0, 900);
+  const dir = placeSpecial('qianghun', 0, 900); // 正南
   const e = S.enemies.find(x => x.bid === 'qianghun' && !x.dead);
   if (e && S.shenRound) e.hp = e.maxHp *= 1 + G.roundHp * S.shenRound; // 一轮比一轮厚
-  banner('枪魂冢', S.shenRound ? `枪鸣再起 · 第 ${S.shenRound + 1} 回` : '正南方，枪鸣不绝');
+  banner('枪魂冢', S.shenRound ? `枪鸣再起 · 第 ${S.shenRound + 1} 回` : `${dir}方，枪鸣不绝`);
 }
 function spawnShen(x, y) {
   const G = D.buildings.qianghun, round = S.shenRound || 0;
@@ -5320,6 +5629,362 @@ function soulHead(rgb) {
   }
   return c;
 }
+// ============ 鱼腹浦八阵：神诸葛 ============
+// 玩家 150 级时正西升起鱼腹浦八阵（走近了乱石从天而降）；攻破后神诸葛现身，打完 again 秒后再起、一轮比一轮强。
+// 八门金锁（找生门出阵）、七星灯续命一次，规则见 data.js 的 wolong
+const WL = D.wolong, GATE_NAMES = [...WL.gates.order]; // 北起顺时针：休 生 伤 杜 景 死 惊 开
+const wolongOf = () => S.bossList.find(b => b.def.wolong && !b.dead);
+function zhugeDirector() {
+  const G = D.buildings.yufupu;
+  if (S.player.level < G.unlockLv) return;
+  if (S.zhugeAgainAt && S.t >= S.zhugeAgainAt) { S.zhugeAgainAt = 0; S.specialDone.yufupu = false; }
+  if (S.specialDone.yufupu || wolongOf() || S.enemies.some(e => e.bid === 'yufupu' && !e.dead)) return;
+  const dir = placeSpecial('yufupu', -900, 0); // 正西
+  const e = S.enemies.find(x => x.bid === 'yufupu' && !x.dead);
+  if (e && S.zhugeRound) e.hp = e.maxHp *= 1 + G.roundHp * S.zhugeRound; // 一轮比一轮厚
+  banner('鱼腹浦八阵', S.zhugeRound ? `石阵再起 · 第 ${S.zhugeRound + 1} 回` : `${dir}方，乱石堆中杀气冲天`);
+}
+function spawnWolong(x, y) {
+  const G = D.buildings.yufupu, round = S.zhugeRound || 0;
+  spawnBoss('shenzhuge', false, x, y);
+  const e = S.bossList[S.bossList.length - 1];
+  e.hp = e.maxHp *= 1 + G.roundHp * round; e.dmg *= 1 + G.roundDmg * round;
+}
+// 北斗七星（天枢 → 天璇 → 天玑 → 天权 → 玉衡 → 开阳 → 摇光）摆在 (cx, cy)：span 是勺口到勺柄的长度，转 rot
+const DIPPER = [[0, 0], [0.02, 0.3], [0.3, 0.36], [0.36, 0.1], [0.58, 0.04], [0.78, 0.02], [1, 0.16]];
+function dipperPts(cx, cy, span, rot) {
+  const c = Math.cos(rot), s = Math.sin(rot);
+  return DIPPER.map(([x, y]) => { const u = (x - 0.43) * span, v = (y - 0.14) * span; return [cx + u * c - v * s, cy + u * s + v * c]; });
+}
+// 八卦护体：你现在站在他的哪道门（门名，北起顺时针，整圈转了 e.guardOff 格）
+function guardGate(e) {
+  const p = S.player, a = Math.atan2(p.y - e.y, p.x - e.x);
+  return GATE_NAMES[((Math.round((a + Math.PI / 2) / (Math.PI / 4)) - (e.guardOff || 0)) % 8 + 8) % 8];
+}
+const guardMul = e => e.dazeT > S.t ? 1 : WL.guard.mul[guardGate(e)];
+// 每帧：禳星、破阵后的僵直。返回 true 表示这一帧不用再走普通名将的逻辑
+function wolongTick(e, dt) {
+  if ((e.guardT = (e.guardT === undefined ? WL.guard.spin : e.guardT) - dt) <= 0) { e.guardT = WL.guard.spin; e.guardOff = ((e.guardOff || 0) + 1) % 8; } // 八卦护体：整圈顺时针转一格
+  if (!e.rangxing && !e.ult && !S.bagua && !(e.dazeT > S.t) && (e.stoneT = (e.stoneT === undefined ? 2 : e.stoneT) - dt) <= 0) { // 石兵：往你身边落石
+    const ST = WL.stones, p = S.player; e.stoneT = ST.every;
+    for (let i = 0; i < ST.count; i++) addHazard(p.x + (i ? rand(-ST.spread, ST.spread) : 0), p.y + (i ? rand(-ST.spread, ST.spread) : 0), ST.r, ST.delay + i * 0.12, p.maxHp * ST.pct, '200,180,140', { campSrc: 'shen' });
+  }
+  const R = e.rangxing;
+  if (R) { // 禳星：原地打坐（打不动），七盏灯灭光就星落；到点按还亮着的灯回血
+    e.kvx = e.kvy = 0;
+    if (Math.random() < 0.4) embers(e.x + rand(-e.r, e.r), e.y - rand(0, e.r * 2.4), 1, '255,214,120', 30, 70, 7, 0.8);
+    const lit = R.lamps.filter(l => !l.dead);
+    if (!lit.length) starFall(e);
+    else if (S.t >= R.until) rangxingEnd(e, lit.length);
+    return true;
+  }
+  if (e.dazeT > S.t) { // 破阵反噬、识破空城：发愣
+    e.kvx = e.kvy = 0;
+    if (Math.random() < 0.25) fxp({ type: 'ember', x: e.x + rand(-14, 14), y: e.y - e.r * 2.6, vx: 0, vy: -20, drag: 1, life: 0.5, rgb: '255,230,150', size: 5 });
+    return true;
+  }
+  return false;
+}
+// 七星灯：第一次被打空不死，原地禳星，四周按北斗立起七盏灯。返回 true 表示这次不算死
+function wolongDown(e) {
+  if (e.revived) return false;
+  if (e.rangxing) { e.hp = 1; return true; }
+  const L = WL.lamps;
+  e.hp = 1; e.shield = 0; e.ult = null; e.state = 'recover'; e.stateT = 1; e.mounted = false; e.sitting = false; e.dazeT = 0; S.city = null;
+  if (S.bagua) baguaEnd(null); // 八门阵跟着散掉，好去打灯
+  const lamps = dipperPts(e.x, e.y, L.span, rand(0, TAU)).map(([x, y], i) => {
+    const t = spawnBuilding('qixingdeng', x, y);
+    t.hp = t.maxHp = e.maxHp * L.lampHp; t.lamp = { boss: e };
+    later(0.1 + i * 0.08, () => { fxTex('pillar', x, y - 120, { w: 60, h: 260, rgb: '255,214,120', life: 0.5, sx: 0.4, core: 0.8 }); sfx('pick'); });
+    return t;
+  });
+  e.rangxing = { until: S.t + L.chan, lamps };
+  fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.5, w: e.r * 8, h: e.r * 8, rgb: '255,214,120', under: true, flat: 0.55, life: L.chan, spin: 0.8, fadeIn: 0.2, core: 0.4 });
+  smoke(e.x, e.y - 20, 8, '230,215,170', 16, 20, 1);
+  addNumber(e.x, e.y - 90, '禳星', '#ffe08a', 28);
+  speak(e.gid, 'ult_rangxing', `“${D.voice[e.gid].ult.rangxing}”`);
+  banner('神诸葛 · 七星禳星', `${L.chan} 秒内走到灯旁（虚线圈里）打灭七星灯——每留一盏，他就多回 ${Math.round(L.perLamp * 100)}% 的血`);
+  screenFlash('255,225,150', 0.25); sfx('boss');
+  return true;
+}
+// 禳星到点：还亮着 n 盏灯，按灯数回血复生（入魔「禁疗」打折），之后八门阵会转
+function rangxingEnd(e, n) {
+  const L = WL.lamps, f = L.perLamp * n * campHealMul(e);
+  for (const l of e.rangxing.lamps) if (!l.dead) { l.dead = true; smoke(l.x, l.y - 16, 3, '255,225,160', 10, 10, 0.6); }
+  e.rangxing = null; e.revived = true; e.hp = Math.max(1, e.maxHp * f); e.ultT = 2;
+  e.phase = 0; e.dr = 0; bossPhase(e);
+  fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 3, w: e.r * 4, h: e.r * 11, rgb: '255,214,120', life: 1.2, sx: 0.5, core: 0.8 });
+  screenFlash('255,225,150', 0.3); S.shake = Math.max(S.shake, 12); punch(0.6);
+  banner('神诸葛 · 七星续命', `${n} 盏灯未灭 · 回复 ${Math.round(f * 100)}% 生命——八阵随天而转`);
+  sfx('boss');
+}
+// 七盏灯全灭：星落五丈原，当场倒下
+function starFall(e) {
+  e.rangxing = null; e.revived = true; e.starFall = true; e.hp = 0;
+  fxTex('pillar', e.x, e.y - 200, { w: 120, h: 520, rgb: '255,240,200', life: 1.0, sx: 0.4, core: 0.9 });
+  addNumber(e.x, e.y - e.r * 3.6, '七灯俱灭 · 星落五丈原', '#ffe08a', 28); // 横幅马上会换成神兵到手，头顶留一行
+  killEnemy(e);
+}
+// 七星灯被打灭：火星四散，报一下还剩几盏
+function lampBroken(t) {
+  embers(t.x, t.y - 30, 14, '255,214,120', 160, 60, 7, 0.8);
+  smoke(t.x, t.y - 20, 4, '200,190,160', 10, 12, 0.6);
+  sfx('slam');
+  const B = t.lamp && t.lamp.boss, left = B && B.rangxing ? B.rangxing.lamps.filter(l => !l.dead).length : 0;
+  addNumber(t.x, t.y - 60, left ? `灯灭 · 还剩 ${left} 盏` : '七灯俱灭', '#ffe08a', 20);
+}
+// 神诸葛倒下：七星灯直接到手（再打一次就升级），再三选一；过一会儿鱼腹浦八阵再起
+function wolongDefeated(e) {
+  const G = D.buildings.yufupu;
+  S.zhugeRound = (S.zhugeRound || 0) + 1; S.zhugeAgainAt = S.t + G.again;
+  if (S.bagua) baguaEnd(null);
+  S.city = null;
+  for (const o of S.enemies) if (o.lamp) o.dead = true;
+  banner(e.starFall ? '星落五丈原 · 神诸葛 伏诛' : '神诸葛 伏诛', `鱼腹浦八阵 ${Math.round(G.again / 60)} 分钟后再起`);
+  fxTex('pillar', e.x, e.y - 160, { w: 140, h: 460, rgb: '255,214,120', life: 1.4, sx: 0.5, fadeIn: 0.05, core: 0.8 });
+  screenFlash('255,225,150', 0.3);
+  applyChoice({ kind: 'shenbing', id: 'shenzhuge' }); // 神兵直接到手
+  S.pendingReward = { gid: 'shenzhuge', t: 0.8, legend: false };
+  campGain('shen', CU.win); // 神魂：入魔用
+}
+// —— 八门金锁：困住你的八角石阵 ——
+// 第 i 道门（GATE_NAMES[i]）现在在哪个方位：北起顺时针，整圈转了 B.off 格（八阵 · 变：每 spin 秒再转一格）
+const gateAng = (B, i) => -Math.PI / 2 + (i + B.off) * Math.PI / 4;
+function gateAt(B, a) { for (let i = 0; i < 8; i++) if (Math.abs(angDiff(a, gateAng(B, i))) < B.half) return i; return -1; }
+function baguaStart(e) {
+  const G = WL.gates, p = S.player, spin = !!e.revived;
+  const B = { x: p.x, y: p.y, R: G.R, half: G.gateW / 2 / G.R, boss: e, born: S.t, until: S.t + G.dur, off: Math.floor(rand(0, 8)), shown: new Set(), revealT: G.reveal, rockT: 1.2, spin, spinT: G.spin, end: 0, exit: -1 };
+  baguaReveal(B); // 开场先亮一道门（不会是生门）
+  S.bagua = B;
+  for (const m of S.enemies) if (!m.dead && !m.boss && !m.building && dist2(m.x, m.y, B.x, B.y) < (B.R + 40) ** 2) { m.dead = true; smoke(m.x, m.y - 12, 2, '200,190,160', 10, 8, 0.5); } // 阵中只有你
+  for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; fxp({ type: 'dust', x: B.x + Math.cos(a) * B.R, y: B.y + Math.sin(a) * B.R, vx: Math.cos(a) * 40, vy: Math.sin(a) * 30 - 20, drag: 3, grow: 22, life: 0.6, rgb: '150,140,120', size: rand(9, 13) }); }
+  groundImpact(B.x, B.y, B.R * 0.6); S.shake = Math.max(S.shake, 10); sfx('slam');
+  if (spin) { const v = D.voice[e.gid]; if (v && v.ult.bamen2) later(0.9, () => speak(e.gid, 'ult_bamen2', `“${v.ult.bamen2}”`)); }
+  banner(spin ? '八阵 · 变' : '八阵 · 八门金锁', spin ? '八门每几秒整圈顺时针转一格——字跟着门走，找到生门出阵' : '八门顺时针：休 生 伤 杜 景 死 惊 开——找到生门出阵');
+}
+function baguaReveal(B) {
+  const pool = [];
+  for (let i = 0; i < 8; i++) if (GATE_NAMES[i] !== '生' && !B.shown.has(i)) pool.push(i);
+  if (pool.length) B.shown.add(pool[Math.floor(Math.random() * pool.length)]);
+}
+// 阵塌：exit 是从哪道门出去的（-1：八门俱闭或被打断）
+function baguaEnd(exit) {
+  const B = S.bagua; if (!B || B.end) return;
+  B.end = S.t + 0.45; B.exit = exit === null ? -1 : exit;
+  for (let i = 0; i < 24; i++) { const a = i / 24 * TAU; fxp({ type: 'dust', x: B.x + Math.cos(a) * B.R, y: B.y + Math.sin(a) * B.R, vx: Math.cos(a) * 70, vy: Math.sin(a) * 50, drag: 3, grow: 20, life: 0.5, rgb: '140,130,110', size: rand(8, 12) }); }
+}
+// 从第 gi 道门出去：吃这道门的效果（杜门把你弹回阵里，阵不散）
+function baguaExit(B, gi) {
+  const p = S.player, name = GATE_NAMES[gi], DR = WL.gates.door[name], boss = B.boss;
+  B.shown.add(gi);
+  addNumber(p.x, p.y - 64, DR.text, DR.good ? '#c8f0a0' : '#ff9a7a', 26);
+  if (DR.pct) { p.iframes = 0; hurtPlayer(p.maxHp * DR.pct, null, boss); } // 门的效果不吃无敌帧（闪现穿门也躲不掉）
+  if (DR.block) { // 杜门：门是死的，弹回阵里
+    const a = gateAng(B, gi), lim = B.R - p.r - 18;
+    p.x = B.x + Math.cos(a) * lim; p.y = B.y + Math.sin(a) * lim; p.kvx = -Math.cos(a) * 420; p.kvy = -Math.sin(a) * 420;
+    sparks(p.x, p.y - 10, a + Math.PI, 10, '220,200,160', 320, 0.8, 2.2); S.shake = Math.max(S.shake, 8); sfx('slam');
+    return;
+  }
+  if (DR.heal) healPct(DR.heal, `${name}门`);
+  if (DR.stun) S.frozenT = Math.max(S.frozenT, S.t + DR.stun);
+  if (DR.burn) { if (!(S.t < S.pBurnT)) S.pBurnDps = 0; S.pBurnDps = Math.max(S.pBurnDps, p.maxHp * 0.02); S.pBurnT = S.t + DR.burn; fxTex('flame', p.x, p.y - 30, { w: 60, h: 110, life: 0.8, fadeIn: 0.05, grow: 1.2, hostile: true }); }
+  if (DR.boss && !boss.dead && !boss.rangxing) { // 生门：破阵反噬
+    const lose = boss.maxHp * DR.boss;
+    boss.hp = Math.max(1, boss.hp - lose); boss.dazeT = S.t + DR.daze; boss.vulnT = S.t + DR.vuln;
+    if (boss.ult) ultDone(boss, 0); boss.state = 'recover'; boss.stateT = DR.daze;
+    addNumber(boss.x, boss.y - boss.r * 3, `破阵反噬 -${Math.round(lose)} · 破绽`, '#ffe08a', 24);
+    fxTex('pillar', 0, 0, { follow: boss, oy: -boss.r * 3, w: boss.r * 3, h: boss.r * 9, rgb: '255,230,160', life: 0.8, sx: 0.4, core: 0.7 });
+    speak(boss.gid, 'ult_pozhen', `“${D.voice[boss.gid].ult.pozhen}”`);
+    screenFlash('200,255,190', 0.25); punch(0.5); sfx('level');
+  } else if (DR.good) sfx('pick');
+  baguaEnd(gi);
+}
+// 每帧：亮字、落石、转门、困住你、出阵判定；小兵进不来
+function updateBagua(dt) {
+  const B = S.bagua; if (!B) return;
+  if (B.end) { if (S.t > B.end) S.bagua = null; return; }
+  if (B.boss.dead) { baguaEnd(null); return; }
+  const p = S.player, G = WL.gates;
+  B.revealT -= dt; if (B.revealT <= 0) { B.revealT = G.reveal; baguaReveal(B); sfx('pick'); }
+  if (B.spin && (B.spinT -= dt) <= 0) { B.spinT = G.spin; B.off = (B.off + 1) % 8; S.shake = Math.max(S.shake, 4); sfx('swing'); } // 八阵 · 变
+  if ((B.rockT -= dt) <= 0) { B.rockT = G.rockEvery; addHazard(p.x + rand(-60, 60), p.y + rand(-60, 60), G.rock.r, G.rock.delay, p.maxHp * G.rock.pct, '200,180,140', { campSrc: 'shen' }); } // 阵里落乱石
+  if (S.t > B.until) { // 八门俱闭
+    p.iframes = 0; hurtPlayer(p.maxHp * G.timeout, null, B.boss);
+    addNumber(p.x, p.y - 64, '八门俱闭', '#ff9a7a', 26);
+    impact(p.x, p.y, 120, '200,160,120', 1); S.shake = Math.max(S.shake, 14);
+    baguaEnd(null); return;
+  }
+  const d = Math.hypot(p.x - B.x, p.y - B.y), a = Math.atan2(p.y - B.y, p.x - B.x), gi = gateAt(B, a);
+  if (gi >= 0 && d > B.R + 14) baguaExit(B, gi); // 从门洞走了出去
+  else if (gi < 0 && d > B.R - p.r) { // 撞到阵墙（闪现也穿不过去）：挡回阵里
+    const lim = B.R - p.r;
+    p.x = B.x + Math.cos(a) * lim; p.y = B.y + Math.sin(a) * lim;
+    if (S.t - (B.bumpT || 0) > 0.5) { B.bumpT = S.t; sparks(p.x, p.y - 10, a + Math.PI, 5, '200,190,160', 220, 0.8, 1.8); }
+  }
+  for (const e of S.enemies) { // 小兵进不来
+    if (e.dead || e.boss || e.building) continue;
+    const de = Math.hypot(e.x - B.x, e.y - B.y);
+    if (de < B.R + e.r && de > 1) { const k = (B.R + e.r) / de; e.x = B.x + (e.x - B.x) * k; e.y = B.y + (e.y - B.y) * k; }
+  }
+}
+// 地上：阵里的地面、八段阵墙、顺时针的小箭头
+function drawBaguaUnder() {
+  const B = S.bagua; if (!B) return;
+  const k = Math.min(1, (S.t - B.born) / 0.4), out = B.end ? Math.max(0, (B.end - S.t) / 0.45) : 1, al = k * out, R = B.R;
+  ctx.save(); ctx.globalAlpha = al;
+  ctx.fillStyle = 'rgba(40,46,80,0.18)'; ctx.beginPath(); ctx.arc(B.x, B.y, R, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,214,120,0.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(B.x, B.y, R * 0.18, 0, TAU); ctx.stroke(); // 阵心的太极
+  ctx.fillStyle = 'rgba(255,240,210,0.25)'; ctx.beginPath(); ctx.arc(B.x, B.y, R * 0.18, Math.PI / 2 + S.t * 0.6, Math.PI * 1.5 + S.t * 0.6); ctx.fill();
+  ctx.fillStyle = 'rgba(255,214,120,0.5)'; // 顺时针的小箭头（一圈 16 个，贴着阵墙里侧）
+  for (let i = 0; i < 16; i++) {
+    const t = i / 16 * TAU + Math.PI / 16 + S.t * 0.15, r = R * 0.82, x = B.x + Math.cos(t) * r, y = B.y + Math.sin(t) * r, f = t + Math.PI / 2;
+    ctx.beginPath(); ctx.moveTo(x + Math.cos(f) * 9, y + Math.sin(f) * 9); ctx.lineTo(x - Math.cos(f) * 5 + Math.cos(t) * 6, y - Math.sin(f) * 5 + Math.sin(t) * 6); ctx.lineTo(x - Math.cos(f) * 5 - Math.cos(t) * 6, y - Math.sin(f) * 5 - Math.sin(t) * 6); ctx.closePath(); ctx.fill();
+  }
+  for (let i = 0; i < 8; i++) { // 阵墙：两道门之间一段石墙
+    const a0 = gateAng(B, i) + B.half, a1 = gateAng(B, i + 1) - B.half;
+    ctx.strokeStyle = 'rgba(30,26,20,0.75)'; ctx.lineWidth = 22; ctx.beginPath(); ctx.arc(B.x, B.y, R, a0, a1); ctx.stroke();
+    ctx.strokeStyle = '#8a8272'; ctx.lineWidth = 16; ctx.beginPath(); ctx.arc(B.x, B.y, R, a0, a1); ctx.stroke();
+    ctx.strokeStyle = 'rgba(40,34,26,0.6)'; ctx.lineWidth = 2; // 石块缝
+    for (let t = a0 + 0.08; t < a1; t += 0.09) { ctx.beginPath(); ctx.moveTo(B.x + Math.cos(t) * (R - 8), B.y + Math.sin(t) * (R - 8)); ctx.lineTo(B.x + Math.cos(t) * (R + 8), B.y + Math.sin(t) * (R + 8)); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+// 上层：每道门两根石柱、门匾上的字（没亮的是「？」）
+function drawBaguaOver() {
+  const B = S.bagua; if (!B) return;
+  const k = Math.min(1, (S.t - B.born) / 0.4), out = B.end ? Math.max(0, (B.end - S.t) / 0.45) : 1;
+  ctx.save(); ctx.globalAlpha = k * out; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < 8; i++) {
+    const a = gateAng(B, i), gx = B.x + Math.cos(a) * B.R, gy = B.y + Math.sin(a) * B.R, name = GATE_NAMES[i], shown = B.shown.has(i) || B.exit === i;
+    for (const s of [-1, 1]) { const t = a + s * B.half, x = B.x + Math.cos(t) * B.R, y = B.y + Math.sin(t) * B.R; ctx.fillStyle = '#5a5246'; ctx.fillRect(x - 6, y - 40, 12, 40); ctx.fillStyle = '#9a9282'; ctx.fillRect(x - 6, y - 44, 12, 6); }
+    const good = shown && WL.gates.door[name].good, col = !shown ? '#d8d0bc' : name === '生' ? '#9af08a' : good ? '#ffe08a' : '#ff8a6a';
+    ctx.fillStyle = 'rgba(20,18,28,0.85)'; ctx.beginPath(); ctx.arc(gx, gy - 58, 17, 0, TAU); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
+    if (shown) { ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, gx, gy - 58, 30, name === '生' ? '150,240,130' : good ? '255,214,120' : '255,120,90', 0.35); ctx.globalCompositeOperation = 'source-over'; }
+    ctx.font = `900 20px ${DISPLAY}`; ctx.fillStyle = col; ctx.fillText(shown ? name : '？', gx, gy - 57);
+  }
+  ctx.restore();
+}
+// 屏幕上方：八门的顺序和剩下的时间（困在阵里时）
+function drawBaguaHint() {
+  const B = S.bagua; if (!B || B.end) return;
+  const y = 64, left = Math.max(0, B.until - S.t); // 贴着屏幕上沿，别压住北门的门匾
+  ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(16,14,22,0.72)'; ctx.fillRect(W / 2 - 170, y - 32, 340, 58);
+  ctx.font = `600 13px ${FONT}`; ctx.fillStyle = '#d8d0bc'; ctx.fillText(`八门顺时针排列${B.spin ? ' · 整圈在转' : ''} · ${left.toFixed(0)} 秒后八门俱闭`, W / 2, y - 18);
+  ctx.font = `900 20px ${DISPLAY}`;
+  GATE_NAMES.forEach((n, i) => { ctx.fillStyle = n === '生' ? '#9af08a' : WL.gates.door[n].good ? '#ffe08a' : '#e8a090'; ctx.fillText(n, W / 2 + (i - 3.5) * 30, y + 8); if (i < 7) { ctx.font = `12px ${FONT}`; ctx.fillStyle = 'rgba(216,208,188,0.6)'; ctx.fillText('›', W / 2 + (i - 3) * 30, y + 8); ctx.font = `900 20px ${DISPLAY}`; } });
+  ctx.restore();
+}
+// 空城计：他身边一圈「城」（走进去琴声就够不着你），识破进度
+function drawCity() {
+  const C = S.city; if (!C) return;
+  const pulse = 0.5 + 0.5 * Math.sin(S.t * 4);
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,230,170,0.10)'; ctx.beginPath(); ctx.arc(C.x, C.y, C.r, 0, TAU); ctx.fill();
+  ctx.strokeStyle = `rgba(255,214,120,${0.55 + 0.25 * pulse})`; ctx.lineWidth = 3; ctx.setLineDash([12, 8]); ctx.beginPath(); ctx.arc(C.x, C.y, C.r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  if (C.prog > 0) { ctx.strokeStyle = '#9af08a'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(C.x, C.y, C.r + 8, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, C.prog)); ctx.stroke(); }
+  ctx.font = `900 18px ${DISPLAY}`; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = '#15120d'; ctx.strokeText('空城', C.x, C.y + C.r + 26); ctx.fillStyle = '#ffe08a'; ctx.fillText('空城', C.x, C.y + C.r + 26);
+  ctx.restore();
+}
+// 奇门遁甲（技能）的八门阵：一圈淡金色的阵，八个方位写着门名
+function drawGateZones() {
+  for (const s of S.skills) {
+    const Z = s.zone; if (!Z) continue;
+    const k = Math.min(1, (S.t - Z.born) / 0.25, (Z.until - S.t) / 0.3), x = S.player.x, y = S.player.y;
+    if (k <= 0) continue;
+    ctx.save(); ctx.globalAlpha = k * fxK;
+    ctx.strokeStyle = 'rgba(255,214,120,0.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, Z.R, 0, TAU); ctx.stroke();
+    ctx.font = `900 15px ${DISPLAY}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < 8; i++) { const a = -Math.PI / 2 + (i + Z.off) * Math.PI / 4, n = GATE_NAMES[i]; ctx.fillStyle = n === '生' ? 'rgba(160,240,140,0.85)' : 'rgba(255,214,120,0.8)'; ctx.fillText(n, x + Math.cos(a) * Z.R, y + Math.sin(a) * Z.R); }
+    ctx.restore();
+  }
+}
+// —— 刘备：桃园结义的关张虚影 ——
+// 虚影：{ gid, x, y, boss, born, until }，boss 倒下就散
+function updatePhantoms(dt) {
+  for (const f of S.phantoms) { if (f.boss.dead && f.until === Infinity) f.until = S.t + 0.3; if (S.t > f.until + 0.4) f.dead = true; }
+  if (S.phantoms.length) S.phantoms = S.phantoms.filter(f => !f.dead);
+}
+function drawPhantoms() {
+  for (const f of S.phantoms) {
+    const g = D.generals[f.gid], a = Math.min(1, (S.t - f.born) / 0.3) * (f.until === Infinity ? 1 : Math.max(0, 1 - (S.t - f.until) / 0.4));
+    if (a <= 0) continue;
+    const spr = unitSprite(f.gid, g.look, 34 * 2.6, false, '');
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, f.x, f.y - 40, 70, f.rgb, 0.45 * a); ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.62 * a;
+    drawUnit(spr, f.x, f.y, 34, f.fx || 1, 0);
+    ctx.restore();
+    if (f.dash && Math.random() < 0.6) fxp({ type: 'ember', x: f.x + rand(-14, 14), y: f.y - rand(10, 70), vx: 0, vy: -30, drag: 1, life: 0.4, rgb: f.rgb, size: rand(5, 8) });
+  }
+}
+// 锦囊妙计（宝物）：每 every 秒拆一个锦囊，从用得上的几样里随机一样
+function openBag(MJ) {
+  const p = S.player, opts = ['heal', 'xp', 'guard', 'dmg'];
+  if (S.allies.some(a => !a.gone && a.hp < a.maxHp)) opts.push('ally');
+  const k = opts[Math.floor(Math.random() * opts.length)];
+  let txt;
+  if (k === 'heal') { healPct(MJ.heal); txt = `锦囊 · 回春 +${Math.round(MJ.heal * 100)}%`; }
+  else if (k === 'xp') { for (const o of S.pickups) if (o.kind === 'xp' || o.kind === 'gold') o.mag = true; txt = '锦囊 · 军令聚宝'; }
+  else if (k === 'guard') { p.iframes = Math.max(p.iframes, MJ.iframes); txt = `锦囊 · 金蝉脱壳 ${MJ.iframes} 秒`; }
+  else if (k === 'ally') { for (const a of S.allies) if (!a.gone) a.hp = a.maxHp; txt = '锦囊 · 犒赏三军'; }
+  else { S.bagDmgT = S.t + MJ.dur; txt = `锦囊 · 奇谋 伤害 +${Math.round(MJ.dmg * 100)}%`; }
+  addNumber(p.x, p.y - 56, txt, '#ffd98a', 18);
+  fxTex('ring', p.x, p.y - 10, { w: 80, h: 80, rgb: '255,214,120', life: 0.4, grow: 1.8, core: 0.5 });
+  sfx('level');
+}
+// 七星灯「续命」（神兵）：受到致死伤害时回到 guard.heal 的生命（每 guard.cd 秒一次）。check：只看现在能不能触发
+function starGuard(check) {
+  const p = S.player;
+  if (p.hp > 0 || !S.shenbing.some(x => x.gid === 'shenzhuge') || S.t < (S.starCd || 0)) return false;
+  if (check) return true;
+  const G = D.shenbing.shenzhuge.guard;
+  S.starCd = S.t + G.cd; p.hp = Math.max(1, p.maxHp * G.heal); p.iframes = Math.max(p.iframes, 1);
+  fxTex('pillar', 0, 0, { follow: p, oy: -90, w: 100, h: 300, rgb: '255,214,120', life: 1.0, sx: 0.5, core: 0.7 });
+  addNumber(p.x, p.y - 50, `七星续命 · 回到 ${Math.round(G.heal * 100)}%`, '#ffe08a', 22);
+  screenFlash('255,225,150', 0.3); sfx('boss');
+  return true;
+}
+// 每帧：八门阵、空城、虚影、锦囊
+function updateWolong(dt) {
+  updateBagua(dt);
+  updatePhantoms(dt);
+  const C = S.city;
+  if (C && (C.boss.dead || !C.boss.ult || C.boss.ult.u.type !== 'emptyCity')) S.city = null;
+  const MJ = S.passives.miaoji && D.passives.miaoji.bag;
+  if (MJ) { S.bagT = (S.bagT === undefined ? MJ.every : S.bagT) - dt; if (S.bagT <= 0) { S.bagT = MJ.every; openBag(MJ); } }
+}
+// 七星灯脚下一圈虚线：走进圈里才打得动这盏灯（灯焰护体）
+function drawLampRings() {
+  const p = S.player, R = WL.lamps.near;
+  for (const e of S.enemies) {
+    if (!e.lamp || e.dead) continue;
+    const inside = dist2(e.x, e.y, p.x, p.y) < R * R;
+    ctx.strokeStyle = inside ? 'rgba(255,224,138,0.75)' : 'rgba(255,214,120,0.35)'; ctx.lineWidth = inside ? 3 : 2; ctx.setLineDash([10, 8]);
+    ctx.beginPath(); ctx.arc(e.x, e.y, R, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+// 八卦护体：他身边一圈八个门名，你所在的那道门亮起来（生门绿、凶门红）。画在上层，不被技能特效盖住
+function drawGuard() {
+  const R = WL.guard.R;
+  for (const e of S.bossList) {
+    if (!e.def.wolong || e.dead || e.rangxing) continue;
+    const cur = guardGate(e), off = e.dazeT > S.t;
+    ctx.save(); ctx.globalAlpha = off ? 0.35 : 1;
+    ctx.strokeStyle = 'rgba(255,214,120,0.45)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(e.x, e.y, R, 0, TAU); ctx.stroke();
+    ctx.font = `900 26px ${DISPLAY}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(20,16,12,0.85)';
+    for (let i = 0; i < 8; i++) {
+      const n = GATE_NAMES[i], a = -Math.PI / 2 + (i + (e.guardOff || 0)) * Math.PI / 4, x = e.x + Math.cos(a) * R, y = e.y + Math.sin(a) * R, m = WL.guard.mul[n], on = n === cur;
+      const col = n === '生' ? '154,240,138' : m >= 0.8 ? '255,224,138' : '255,138,106';
+      if (on) { ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, x, y, 34, col, 0.7); ctx.globalCompositeOperation = 'source-over'; }
+      ctx.strokeText(n, x, y); ctx.fillStyle = `rgba(${col},${on ? 1 : 0.6})`; ctx.fillText(n, x, y);
+    }
+    ctx.restore();
+  }
+}
+function drawWolongUnder() { drawBaguaUnder(); drawCity(); drawGateZones(); drawLampRings(); }
+function drawWolongOver() { drawPhantoms(); drawBaguaOver(); drawGuard(); }
+
 // 绝境（物品）：血越少伤害和出手速度越高，满血 0，at 以下 max
 function jjBonus() {
   if (!S.passives.juejing) return 0;
@@ -5520,6 +6185,7 @@ function updateBoss(e, dt) {
   if (g.passive) { updateHealer(e, dt); return; } // 华佗：不走动、不出手，没有半血减伤
   if (g.twin && twinTick(e, dt)) return; // 魔吕布、魔貂蝉：残魂、狂怒
   if (g.shen && shenTick(e, dt)) return; // 神赵云：四象轮转、绝境
+  if (g.wolong && wolongTick(e, dt)) return; // 神诸葛：禳星、破阵后发愣
   if (e.boss) bossPhase(e);
   if (e.ult) { runUlt(e, dt); return; } // 正在放大招
   const frenzy = e.frenzyT > S.t;
@@ -5796,13 +6462,18 @@ function updateBuilding(e, dt) {
     if (Math.random() < dt * 4) smoke(e.x + rand(-6, 6), e.y - e.r * 1.6, 1, '130,190,130', 8, 4, 0.9);
     return;
   }
+  if (def.lamp) { // 神诸葛的七星灯：禳星结束（续命或倒下）就熄掉；灯焰一跳一跳
+    if (!e.lamp || e.lamp.boss.dead || !e.lamp.boss.rangxing) { e.dead = true; return; }
+    if (Math.random() < dt * 6) embers(e.x + rand(-4, 4), e.y - e.r * 2.2, 1, '255,214,120', 10, 40, 5, 0.6);
+    return;
+  }
   if (def.regen && e.hp < e.maxHp && S.t - (e.hurtT || 0) > def.calm) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * def.regen * dt); // 药庐：一会儿没挨打就慢慢回血
   if (def.tomb) { // 疑冢：真冢偶尔冒一口黑气（看仔细了能认出来）
     if (e.tomb && e.tomb.real && Math.random() < dt * 0.9) smoke(e.x + rand(-8, 8), e.y - e.r * 1.6, 2, '30,12,46', 10, 14, 0.8);
     return;
   }
   if (def.special) { // 乔府：不会因为走远而消失；有名将在场时府门紧闭；走近了才动手
-    e.sealed = !def.noSeal && fighters().length > 0; // 炼狱虎牢关不闭门（后期名将一直在刷）
+    e.sealed = (!def.noSeal && fighters().length > 0) || (!!def.unlockLv && S.bossList.some(b => b.def.camp && !b.dead)); // 神魔关隘不因普通名将闭门（后期名将一直在刷），但有神魔将在场时封门：一次只打一位（一对）神魔将
     if (e.sealed || d > def.aggroR) return;
     if (!e.woke) { e.woke = true; toast('building', e.bid, def.wake ? def.wake[0] : `${def.name}警觉`, def.wake ? def.wake[1] : '守军出动'); }
     if (def.demon) S.demonT = S.t + 0.25; // 炼狱虎牢关：走近就被心魔缠身
@@ -5846,6 +6517,15 @@ function updateBuilding(e, dt) {
         });
       }
       sfx('swing');
+    }
+  }
+  if (def.rocks && d < def.aggroR) { // 鱼腹浦八阵：乱石从天而降，砸在你身边（先亮落点）
+    const R0 = def.rocks;
+    e.rockT = (e.rockT === undefined ? R0.every : e.rockT) - dt;
+    if (e.rockT <= 0) {
+      e.rockT = R0.every;
+      const dmg = R0.dmg * (1 + S.t * D.stage.dmgGrowth);
+      for (let i = 0; i < R0.count; i++) addHazard(p.x + (i ? rand(-R0.spread, R0.spread) : 0), p.y + (i ? rand(-R0.spread, R0.spread) : 0), R0.r, R0.delay + i * 0.1, dmg, '200,180,140');
     }
   }
   if (def.shoot && d < def.shoot.range) {
@@ -5901,6 +6581,12 @@ function allyProc(tgt, dmg) {
   }
   const sb = S.shenbing.find(x => x.gid === 'caocao'), def = D.shenbing.caocao;
   if (sb && Math.random() < def.allyBolt) S.strikes.push({ kind: 'bolt', x: tgt.x, y: tgt.y, r: def.boltR, t: 0.05, max: 0.12, dmg: sbDmg(def, sb) * 0.5 });
+  const sw = S.shenbing.find(x => x.gid === 'liubei'), SW = D.shenbing.liubei; // 雌雄双股剑：随从出手带出一道剑气
+  if (sw && Math.random() < SW.allySword) {
+    const b = rand(0, TAU), len = SW.swordLen, sx = tgt.x - Math.cos(b) * len / 2, sy = tgt.y - Math.sin(b) * len / 2;
+    hitLine(sx, sy, b, len, 40, sbDmg(SW, sw) * SW.swordDmg, 100);
+    if (fxRoom(tgt.x, tgt.y, len / 2)) fxTex('thrust', tgt.x, tgt.y - 14, { w: len, h: 40, rot: b, rgb: Math.random() < 0.5 ? '255,215,110' : '225,238,255', life: 0.22, sx: 1.1, core: 0.8 });
+  }
 }
 // 随从挨打：短暂无敌，打空就战死
 function hurtAlly(a, amount) {
@@ -6198,6 +6884,7 @@ function updateProjectiles(dt) {
       const d = Math.sqrt(dist2(r.x, r.y, p.x, p.y));
       if (Math.abs(d - r.r) < 12 + p.r && Math.abs(angDiff(r.gapA, angleTo(r.x, r.y, p.x, p.y))) > r.gap) {
         r.hit = true; hurtPlayer(r.dmg, r.el || null, r);
+        if (r.push) { const a = angleTo(r.x, r.y, p.x, p.y); p.kvx += Math.cos(a) * r.push; p.kvy += Math.sin(a) * r.push; } // 神诸葛空城计：琴声把你往外推
         if (r.drunk) { if (!(S.t < S.drunkT)) addNumber(p.x, p.y - 56, '醉了', '#ffcf8a', 20); S.drunkT = Math.max(S.drunkT || 0, S.t + r.drunk); } // 曹操「对酒当歌」：醉了，走路东倒西歪
       }
     }
@@ -6579,6 +7266,27 @@ function castShenbing(sb) {
       sfx('swing');
       break;
     }
+    case 'twinSwords': { // 雌雄双股剑：飞到敌群最密处，一金一银交叉斩出一个“X”（随从出手带剑气见 allyProc）
+      const len = def.len * p.areaMul, x = tgt.x, y = tgt.y;
+      [[1, '255,215,110'], [-1, '225,238,255']].forEach(([k, c], i) => later(i * 0.12, () => {
+        const b = a + k * Math.PI / 4, sx = x - Math.cos(b) * len / 2, sy = y - Math.sin(b) * len / 2;
+        hitLine(sx, sy, b, len, def.w, dmg, 180);
+        fxTex('thrust', x, y - 16, { w: len * 1.05, h: def.w * 1.4, rot: b, rgb: c, life: 0.3, sx: 1.1, core: 0.85 });
+        sfx('swing');
+      }));
+      later(0.14, () => sparks(x, y - 16, a, 10, rgb, 360, Math.PI, 2.2));
+      break;
+    }
+    case 'sevenStars': { // 七星灯：按北斗七星的形状在敌群里落下七道星光（续命见 starGuard）
+      const R = def.radius * p.areaMul;
+      dipperPts(tgt.x, tgt.y, def.span * p.areaMul, rand(0, TAU)).forEach(([x, y], i) => later(i * 0.08, () => {
+        hitCircle(x, y, R, dmg, 120);
+        fxTex('pillar', x, y - 140, { w: R * 0.9, h: 300, rgb, life: 0.3, sx: 0.3, core: 0.8 });
+        if (fxRoom(x, y, R)) S.effects.push({ kind: 'blast', x, y, r: R, life: 0.28, max: 0.28, rgb });
+      }));
+      sfx('pick');
+      break;
+    }
     case 'sunArrow': { // 定军宝雕弓：一支裹着烈焰的重箭射穿敌阵，在敌人最密处炸开一团火
       hitLine(p.x, p.y, a, def.len, def.w, dmg, 200);
       fxTex('thrust', p.x + Math.cos(a) * def.len * 0.5, p.y - 16 + Math.sin(a) * def.len * 0.5, { w: def.len * 1.05, h: def.w * 1.5, rot: a, rgb, life: 0.35, sx: 1.1, core: 0.85 });
@@ -6712,6 +7420,7 @@ function update(dt) {
   }
   if (S.rankUp) { banner(`晋升 · ${S.rankUp}`, `Lv ${p.level}`); S.rankUp = null; }
   S.saveT -= dt; if (S.saveT <= 0) { S.saveT = 15; saveRun(); } // 每 15 秒自动存档
+  S.bakT -= dt; if (S.bakT <= 0) { S.bakT = BAK.every; backupWrite(true); } // 每 30 秒（斩将、名将登场后提前）写一次本机文件：闪退了金币和这一局也还在
   achTick(dt); // TapTap 成就：每秒查一次这一局的条件
   // 选择栏默认不暂停游戏（设置里可以改成暂停）：有待选的升级 / 斩将奖励 / 铁匠铺时，在屏幕上方弹出
   if (!S.over && !S.choice && (S.rewardReady || S.forgeReady || S.pendingLevels > 0)) nextModal();
@@ -7093,7 +7802,7 @@ function updateHud() {
     $('bosstitle').textContent = boss.def.title;
     $('bossfill').style.width = Math.max(0, boss.hp / boss.maxHp * 100).toFixed(1) + '%';
     $('bossshield').style.width = (boss.shieldMax ? Math.max(0, boss.shield / boss.shieldMax * 100) : 0).toFixed(1) + '%';
-    $('bossname').textContent = boss.def.name + (boss.def.el ? ` · ${D.elements[boss.def.el].icon}` : '') + (boss.vanish ? ' · 藏身疑冢' : boss.chan ? ' · 青囊回春' : boss.weakT > S.t ? ' · 元气大伤' : boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '');
+    $('bossname').textContent = boss.def.name + (boss.def.el ? ` · ${D.elements[boss.def.el].icon}` : '') + (boss.vanish ? ' · 藏身疑冢' : boss.rangxing ? ' · 七星禳星' : boss.chan ? ' · 青囊回春' : boss.weakT > S.t ? ' · 元气大伤' : boss.vulnT > S.t ? ' · 破甲' : boss.enraged ? ' · 暴怒' : '') + (boss.dr ? ` · 减伤 ${Math.round(boss.dr * 100)}%` : '') + (boss.def.wolong && !boss.rangxing ? ` · 你在${guardGate(boss)}门（伤害 ×${guardMul(boss)}）` : '');
     }
   }
   if (S.buildDirty && $('slots').offsetParent) { // 看得见时才排（要量每一格在第几行）
@@ -7308,7 +8017,7 @@ function snapshot() {
   return {
     v: 1, saved: Date.now(), origin: S.origin.id, t: S.t, kills: S.kills,
     ch: S.ch, chStart: S.chStart, chapterT: S.chapterT, nextBossOk: S.nextBossOk, evIdx: S.evIdx,
-    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone, specialDone: S.specialDone, revived: !!S.revived, adGold: !!S.adGold, gateRound: S.gateRound || 0, gateAgainAt: S.gateAgainAt || 0, shenRound: S.shenRound || 0, shenAgainAt: S.shenAgainAt || 0,
+    endless: S.endless, endlessStart: S.endlessStart, endlessT: S.endlessT, lastBoss: S.lastBoss, qiaoDone: !!S.qiaoDone, specialDone: S.specialDone, revived: !!S.revived, adGold: !!S.adGold, gateRound: S.gateRound || 0, gateAgainAt: S.gateAgainAt || 0, shenRound: S.shenRound || 0, shenAgainAt: S.shenAgainAt || 0, zhugeRound: S.zhugeRound || 0, zhugeAgainAt: S.zhugeAgainAt || 0,
     achKills: S.achKills || 0, achBuilt: S.achBuilt || [], revivedAt: S.revivedAt, jxKills: S.jxKills || 0,
     player: { level: p.level, xp: p.xp, hp: p.hp },
     weapons: S.weapons.map(w => ({ id: w.id, lv: w.lv })), skills: S.skills.map(s => ({ id: s.id, lv: s.lv })),
@@ -7337,7 +8046,7 @@ function continueRun() {
   newState(r.origin);
   const p = S.player;
   for (const k of ['t', 'kills', 'ch', 'chStart', 'chapterT', 'nextBossOk', 'evIdx', 'endless', 'endlessStart', 'endlessT', 'lastBoss',
-    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'specialDone', 'revived', 'adGold', 'gateRound', 'gateAgainAt', 'shenRound', 'shenAgainAt', 'achKills', 'achBuilt', 'revivedAt', 'jxKills']) if (r[k] !== undefined) S[k] = r[k];
+    'passives', 'elements', 'bonus', 'blessings', 'allyPower', 'defeated', 'sbPity', 'goldRun', 'startDmg', 'xpMul', 'forgeReady', 'pendingLevels', 'eliteT', 'buildingT', 'qiaoDone', 'specialDone', 'revived', 'adGold', 'gateRound', 'gateAgainAt', 'shenRound', 'shenAgainAt', 'zhugeRound', 'zhugeAgainAt', 'achKills', 'achBuilt', 'revivedAt', 'jxKills']) if (r[k] !== undefined) S[k] = r[k];
   S.weapons = r.weapons.map(w => ({ id: w.id, lv: w.lv, t: 0.3 }));
   S.skills = r.skills.map(s => ({ id: s.id, lv: s.lv, t: 1 }));
   S.shenbing = (r.shenbing || []).map(s => ({ gid: s.gid, lv: s.lv, t: 1.5, flash: 0 }));
@@ -7351,7 +8060,7 @@ function continueRun() {
   D.chapters.forEach((c, ci) => { if (S.endless || ci <= S.ch) c.events.forEach((ev, i) => { if (ev.type === 'special' && (S.endless || ci < S.ch || i < S.evIdx)) placeSpecial(ev.bid, ev.dx, ev.dy); }); });
   S.seen = r.seen || S.seen;
   if (r.reward) { S.rewardReady = r.reward; S.rewardLegend = r.rewardLegend; }
-  S.buildDirty = true; S.saveT = 15;
+  S.buildDirty = true; S.saveT = 15; $('crash-note').hidden = true;
   for (const id of ['title', 'end', 'levelup', 'pause', 'shop', 'savecode']) $(id).hidden = true;
   $('hud').hidden = false; blinkRestore();
   updateHud();
@@ -7372,6 +8081,7 @@ function importCode(text) {
   for (const k of SAVE_KEYS) { try { if (o[k]) localStorage.setItem(k, JSON.stringify(o[k])); else if (k === 'buyi-run') localStorage.removeItem(k); } catch (e) { return '这台设备不能保存数据（可能是无痕模式）'; } }
   META = null;
   const meta = loadMeta(); meta._dirty = true; saveMeta(true); // 读了存档码：当作最新的进度，传到云端
+  BAK.last = ''; backupWrite();
   return `已读取：金币 ${meta.gold}${o['buyi-run'] ? '，含一局未打完的征战' : ''}`;
 }
 function openSaveCode() {
@@ -7509,7 +8219,7 @@ function togglePause() {
   if (S.paused) { S.paused = false; $('pause').hidden = true; return; }
   if (S.modal) return;
   S.paused = true;
-  saveRun();
+  saveRun(); backupWrite();
   achFlush(); submitScore(false); // 打的过程中攒下的成就、排行榜成绩，趁暂停一起报（切到后台也会自动暂停）
   $('pause-build').innerHTML = buildChips(); pauseView();
   $('pause').hidden = false;
@@ -7522,6 +8232,7 @@ function startGame(originId) {
   joy.on = false;
   newState(originId);
   if (S.origin.allies) addAllies(S.origin.allies.type, S.origin.allies.n); // 才女：开局自带的随从（继续征战时随从从存档里恢复，不走这里）
+  backupSoon(0.5); $('crash-note').hidden = true; // 本机文件里换成这一局（不然开局就闪退会找回上一局）
   for (const id of ['title', 'end', 'levelup', 'pause']) $(id).hidden = true;
   $('hud').hidden = false; blinkRestore();
   updateHud();
@@ -7529,6 +8240,7 @@ function startGame(originId) {
 }
 function toTitle() {
   saveRun();
+  setTimeout(backupWrite, 0); // S 清掉、标题页出来之后再写（这时不算在打）
   S = null;
   for (const id of ['end', 'levelup', 'pause', 'hud']) $(id).hidden = true;
   $('title').hidden = false;
@@ -7761,7 +8473,7 @@ audioLabels();
 for (const ev of ['pointerdown', 'touchend', 'keydown']) addEventListener(ev, checkAudio, { capture: true, passive: true });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && S && !S.paused && !S.modal && !S.over) togglePause();
-  if (document.hidden) { saveRun(); saveMeta(true); cloudUpload(); Music.pause(); }
+  if (document.hidden) { saveRun(); saveMeta(true); backupWrite(); cloudUpload(); Music.pause(); }
   else backToFront(); // 切回前台：iOS 上旧的 AudioContext 可能已经没声音了；广告关了却没回调的，几秒后放开按钮
 });
 // 真的去过后台（切出去、锁屏）才重建音频；没先收到「切到后台」的 onShow 不重建，只是确认一下声音在走（以前每次 onShow 都重建，音乐要从头解码，会断好几秒）
@@ -7784,7 +8496,7 @@ try {
   if (tap && tap.onHide) tap.onHide(() => { dbg('onHide'); hiddenAt = hiddenAt || performance.now(); });
   if (tap && tap.onShow) tap.onShow(() => { dbg('onShow'); if (!tap.onHide) hiddenAt = hiddenAt || 1; backToFront(); }); // 没有 onHide 的老容器：照旧每次都重建
 } catch (e) { /* TapTap 容器里切回前台可能只发这个 */ }
-addEventListener('pagehide', () => { saveRun(); saveMeta(true); cloudUpload(); });
+addEventListener('pagehide', () => { saveRun(); saveMeta(true); backupWrite(); cloudUpload(); });
 
 // ============ 绘制 ============
 function hash(x, y) {
@@ -7988,7 +8700,7 @@ function flagSprite(d, dir) {
 }
 // 脚底在 (x, y + r*0.6)；faceX = 1 朝右、-1 朝左；bob 是走路颠动的高度。返回头顶的 y。
 function drawUnit(s, x, y, r, faceX, bob) {
-  const footY = y + r * 0.6, squash = bob * 0.014;
+  const footY = y + r * 0.6, squash = Math.min(bob, 6) * 0.014; // 只有走路的颠动才压扁；跃起（华雄、典韦、刘备的卢）只抬高不变形
   ctx.fillStyle = 'rgba(0,0,0,0.32)';
   ctx.beginPath(); ctx.ellipse(x, footY, Math.max(r * 0.9, s.w * 0.3), r * 0.34, 0, 0, TAU); ctx.fill();
   ctx.save();
@@ -8454,15 +9166,15 @@ function drawBuilding(e) {
   const footY = e.y + e.r * 0.55;
   ctx.drawImage(spr.c, e.x - spr.w / 2, footY - spr.h, spr.w, spr.h);
   const top = footY - spr.h;
-  headBar(e.x, top - 6, def.special && !def.pot ? 96 : 64, e.hp / e.maxHp, def.pot ? '#7ed08a' : '#c9a046', def.name);
-  if (def.special && !def.tomb && !def.pot) { // 乔府：门前挂两盏灯笼；府门紧闭时罩一层淡金色的结界
+  headBar(e.x, top - 6, def.special && !def.pot && !def.lamp ? 96 : 64, e.hp / e.maxHp, def.pot ? '#7ed08a' : def.lamp ? '#ffd36a' : '#c9a046', def.name);
+  if (def.special && !def.tomb && !def.pot && !def.lamp) { // 乔府：门前挂两盏灯笼；府门紧闭时罩一层淡金色的结界
     if (e.bid === 'qiaofu' && !window.Assets.get('building:' + e.bid)) for (const s of [-1, 1]) FX.lantern(ctx, e.x + s * e.r * 0.62, footY - spr.h * 0.42 + Math.sin(S.t * 2 + s) * 2, 9, 0.9); // 美术图里已经画了灯笼
     if (e.sealed) {
       ctx.strokeStyle = `rgba(255,215,130,${0.35 + 0.2 * Math.sin(S.t * 3)})`; ctx.lineWidth = 3; ctx.setLineDash([10, 8]);
       ctx.beginPath(); ctx.ellipse(e.x, footY - spr.h * 0.45, spr.w * 0.62, spr.h * 0.62, 0, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
     }
   }
-  if (!def.tomb && !def.pot && dist2(e.x, e.y, p.x, p.y) < 380 * 380) { // 走近时提示奖励（疑冢一圈五座、药鼎一圈四座，不逐个写，横幅里说过了）
+  if (!def.tomb && !def.pot && !def.lamp && dist2(e.x, e.y, p.x, p.y) < 380 * 380) { // 走近时提示奖励（疑冢一圈五座、药鼎一圈四座、七星灯七盏，不逐个写，横幅里说过了）
     ctx.font = `600 12px ${FONT}`; ctx.textAlign = 'center';
     const txt = buildingDesc(def);
     ctx.lineWidth = 3; ctx.strokeStyle = '#15120d'; ctx.strokeText(txt, e.x, footY + 18);
@@ -9088,6 +9800,7 @@ function drawNumbers() {
 function drawScreen() {
   const p = S.player;
   drawMist(); // 郭嘉的鬼谋迷雾
+  drawBaguaHint(); // 困在八门阵里：屏幕上方写着八门的顺序
   if (S.t < S.dimT) { const k = Math.min(1, (S.dimT - S.t) / 0.4, (S.t - S.dimT + 1.4) / 0.2); ctx.fillStyle = `rgba(0,0,0,${0.45 * k})`; ctx.fillRect(0, 0, W, H); } // 拔矢啖睛：冷箭射来时画面一暗
   if (S.t < S.demonT || S.inferno) { // 心魔缠身、无双·倾城的炼狱：屏幕边缘泛起紫黑 / 暗红
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.72);
@@ -9204,6 +9917,7 @@ function render(raw) {
   drawHuatuoUnder();
   drawTwinUnder();
   drawXiahouUnder();
+  drawWolongUnder();
   drawPickups();
   drawGhosts();
   drawEnemies();
@@ -9217,6 +9931,7 @@ function render(raw) {
   drawBossFx2();
   drawSimayiOver();
   drawXiahouOver();
+  drawWolongOver();
   FX.setK(fxK);
   FX.particles(ctx, S.particles, false); // 烟尘、碎屑
   drawEffects();
@@ -9250,7 +9965,21 @@ function frameStat(now, busy) {
   FR.txt = `帧率 ${Math.round(FR.n * 1000 / (now - FR.t))} · 帧间隔 ${(FR.gap / FR.n).toFixed(1)} / 最慢 ${Math.round(FR.worst)} ms · 游戏自己 ${(FR.busy / FR.n).toFixed(1)} ms`;
   FR.t = now; FR.n = FR.gap = FR.worst = FR.busy = 0;
 }
+// 没接住的错误：记下最近 3 个（哪一行），调试面板、闪退记录里能看到。主循环里出错也照样排下一帧——以前一出错画面就永远定住
+function caught(e, where) {
+  const at = String((e && e.stack) || '').split('\n').find(l => /(game|fx|sprites)\.js/.test(l)) || ''; // 出错的那一行：「game.js:1234」
+  const pos = (/(\w+\.js):(\d+)/.exec(at) || []).slice(1).join(':');
+  const msg = `${where} ${(e && e.message) || e}${pos ? ' @' + pos : ''}`.slice(0, 160);
+  if (DBG.err.includes(msg)) return; // 每帧都错的：只记一次
+  DBG.err.push(msg); if (DBG.err.length > 3) DBG.err.shift();
+  dbg('出错', msg);
+}
+addEventListener('error', e => caught(e.error || e.message, '页面'));
+addEventListener('unhandledrejection', e => caught(e.reason, '异步'));
+// 结算页、暂停页：战场不动了，画到不再抖就停（满屏特效时不再每帧占着显卡）；画布尺寸变了（转屏、改窗口会清空画布）再画一次
+let stillAt = '';
 function frame(now) {
+  requestAnimationFrame(frame);
   const t0 = performance.now();
   if (now - last > 150 && last && document.visibilityState === 'visible') dbg('卡帧', Math.round(now - last) + 'ms');
   dbgTick(now);
@@ -9263,14 +9992,15 @@ function frame(now) {
     else if (S.hitstopT > 0) { S.hitstopT -= raw; dt = raw * 0.06; } // 重击顿帧
     S.punch = Math.max(0, (S.punch || 0) - raw * 3.5);
     S.slowmo -= raw;
-    update(dt);
+    try { update(dt); } catch (e) { caught(e, '更新'); }
   }
   if (S) S.shake = Math.max(0, S.shake - raw * 30);
-  Music.want(musicTrack());
-  render(raw);
+  try { Music.want(musicTrack()); } catch (e) { caught(e, '音乐'); }
+  const still = S && (S.over || S.paused) && !(S.shake > 0) ? `${cv.width}x${cv.height}` : '';
+  if (!still || still !== stillAt) { try { render(raw); } catch (e) { caught(e, '绘制'); } }
+  stillAt = still;
   hudT -= raw;
-  if (S && hudT <= 0) { hudT = 0.1; updateHud(); }
-  requestAnimationFrame(frame);
+  if (S && hudT <= 0) { hudT = 0.1; try { updateHud(); } catch (e) { caught(e, '状态栏'); } }
   frameStat(now, performance.now() - t0);
 }
 

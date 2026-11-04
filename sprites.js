@@ -417,6 +417,25 @@ window.Sprites = (() => {
         g.strokeStyle = 'rgba(60,50,20,.5)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(40, 76); g.lineTo(80, 76); g.stroke(); // 纹饰
         for (const [x, y, r] of [[54, 50, 6], [64, 40, 7], [58, 28, 8]]) { g.fillStyle = 'rgba(150,230,160,.5)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); } // 药气
         break;
+      case 'yufupu': // 鱼腹浦八阵：八堆乱石围成一圈，正中一块刻着太极的圆石台，泛着金光
+        g.fillStyle = 'rgba(255,214,120,.18)'; g.beginPath(); g.ellipse(60, 84, 50, 16, 0, 0, Math.PI * 2); g.fill();
+        shape(g, '#6a6458', s => s.ellipse(60, 84, 22, 8, 0, 0, Math.PI * 2), 1.4);            // 石台
+        g.fillStyle = '#e8d8a8'; g.beginPath(); g.arc(60, 84, 6, Math.PI / 2, Math.PI * 1.5); g.fill(); // 太极
+        g.fillStyle = '#2a2620'; g.beginPath(); g.arc(60, 84, 6, -Math.PI / 2, Math.PI / 2); g.fill();
+        for (let i = 0; i < 8; i++) { // 八堆乱石：后面的画小、前面的画大
+          const a = -Math.PI / 2 + i * Math.PI / 4, x = 60 + Math.cos(a) * 46, y = 84 + Math.sin(a) * 16, k = 0.75 + 0.25 * (Math.sin(a) + 1) / 2, h = 26 * k, w = 12 * k;
+          shape(g, i % 2 ? '#7a7466' : '#8a8474', s => { s.moveTo(x - w, y); s.lineTo(x - w * 0.6, y - h); s.lineTo(x + w * 0.2, y - h * 1.15); s.lineTo(x + w, y - h * 0.5); s.lineTo(x + w, y); s.closePath(); }, 1.2);
+        }
+        g.fillStyle = 'rgba(160,220,200,.35)'; for (const [x, y, r] of [[30, 50, 7], [92, 44, 8], [62, 34, 9]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); } // 石缝里的青雾
+        break;
+      case 'qixingdeng': // 七星灯：小石座上一盏青铜油灯，灯焰金黄
+        shape(g, '#6a6458', s => s.ellipse(60, 98, 26, 7, 0, 0, Math.PI * 2), 1.4);
+        shape(g, '#8a7a48', s => { s.moveTo(52, 98); s.lineTo(56, 66); s.lineTo(64, 66); s.lineTo(68, 98); s.closePath(); }, 1.4);
+        shape(g, '#a8925a', s => s.ellipse(60, 64, 18, 6, 0, 0, Math.PI * 2), 1.4);
+        g.fillStyle = 'rgba(255,214,120,.35)'; g.beginPath(); g.arc(60, 46, 20, 0, Math.PI * 2); g.fill();
+        shape(g, '#ffd36a', s => { s.moveTo(60, 26); s.quadraticCurveTo(70, 48, 60, 62); s.quadraticCurveTo(50, 48, 60, 26); s.closePath(); }, 1);
+        g.fillStyle = '#fff6d8'; g.beginPath(); g.ellipse(60, 52, 3.5, 6, 0, 0, Math.PI * 2); g.fill();
+        break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
         wallBlock(g, 34, 52, 52, 36, '#a8322a');
