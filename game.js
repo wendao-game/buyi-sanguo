@@ -1614,7 +1614,19 @@ const cloudErr = e => String((e && (e.errMsg || e.message)) || '').replace(/^\w+
 function cloudOK() { const t = tapApi(); return !!(t && t.getCloudSaveManager && t.getFileSystemManager && t.env && t.env.USER_DATA_PATH); }
 const cloudFile = () => `${tapApi().env.USER_DATA_PATH}/${CS.name}.json`;
 const readKey = k => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch (e) { return null; } };
-function cloudLocal() { saveMeta(true); const o = {}; for (const k of CLOUD_KEYS) { const v = readKey(k); if (v) o[k] = v; } return o; }
+function cloudLocal() { saveMeta(true); const o = {}; for (const k of CLOUD_KEYS) { const v = readKey(k); if (v) o[k] = v; } o.prefs = readPrefs(); return o; }
+// 设置（音乐、语音、静音、选卡暂停、镜头震动、特效、攻击目标）也跟着本机备份和云存档走（玩家说每进一局都要重新设置）：
+// 网页存储被清、换了设备，找回时只补本机没有的那几项，本机已经有的不动。不参与 mergeSaves，改了设置就标记上传
+const PREF_KEYS = ['buyi-music', 'buyi-voice', 'buyi-muted', 'buyi-pickpause', 'buyi-shake', 'buyi-fx', 'buyi-aim'];
+function readPrefs() { const o = {}; try { for (const k of PREF_KEYS) { const v = localStorage.getItem(k); if (v !== null) o[k] = v; } } catch (e) { /* 存储不可用时忽略 */ } return o; }
+function savePref(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* ignore */ } cloudDirty(); }
+function restorePrefs(p) {
+  if (!p) return false;
+  let got = false;
+  try { for (const k of PREF_KEYS) if (typeof p[k] === 'string' && localStorage.getItem(k) === null) { localStorage.setItem(k, p[k]); got = true; } } catch (e) { return false; }
+  if (got) applyPrefs();
+  return got;
+}
 // 两份存档合并成一份；返回 { save, fromCloud: 本机有没有被云端更新, toCloud: 云端是不是比合并结果旧 }
 function mergeSaves(loc, cl) {
   const out = {}, metaKey = m => m ? [m.total || 0, m.at || 0] : [-1, -1];
@@ -1670,6 +1682,7 @@ function switchAccount(oldId, newId) {
 }
 // 把另一份存档（以前收起来的、本机文件备份）并进本机：规则和云存档一样。本机有变化返回 true
 function applySave(other) {
+  restorePrefs(other && other.prefs); // 设置：只补本机没有的
   const r = mergeSaves(cloudLocal(), other || {});
   if (!r.fromCloud) return false;
   for (const k of CLOUD_KEYS) { try { if (r.save[k]) localStorage.setItem(k, JSON.stringify(r.save[k])); } catch (e) { /* ignore */ } }
@@ -1769,6 +1782,7 @@ function cloudLoad() {
   const retry = e => { cloudState('err', cloudErr(e)); setTimeout(cloudLoad, 30000); };
   if (cloud.state !== 'err') cloudState('load'); // 重试时还显示上次没连上的原因
   const start = cl => {
+    restorePrefs(cl && cl.prefs); // 设置：只补本机没有的
     const r = mergeSaves(cloudLocal(), cl || {});
     if (r.fromCloud) {
       for (const k of CLOUD_KEYS) { try { if (r.save[k]) localStorage.setItem(k, JSON.stringify(r.save[k])); } catch (e) { /* ignore */ } }
@@ -8985,7 +8999,7 @@ const aimLabel = () => { const m = AIM_MODES.find(x => x[0] === aimMode); $('btn
 $('btn-aim').addEventListener('click', () => {
   const i = AIM_MODES.findIndex(x => x[0] === aimMode);
   aimMode = AIM_MODES[(i + 1) % AIM_MODES.length][0];
-  try { localStorage.setItem('buyi-aim', aimMode); } catch (e) { /* ignore */ }
+  savePref('buyi-aim', aimMode);
   aimLabel();
   if (S) toast('', '', `攻击目标：${AIM_MODES.find(x => x[0] === aimMode)[2]}`, aimMode === 'boss' ? '名将、精英在射程内时先打它们' : aimMode === 'random' ? '在射程内随机挑一个敌人' : '打离你最近的敌人');
 });
@@ -9041,7 +9055,7 @@ $('btn-quit').addEventListener('click', toTitle);
 $('btn-sound').addEventListener('click', () => {
   muted = !muted;
   $('btn-sound').textContent = muted ? '静' : '声';
-  try { localStorage.setItem('buyi-muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
+  savePref('buyi-muted', muted ? '1' : '0');
   audio();
   Music.refresh();
   if (muted) stopVoice();
@@ -9055,17 +9069,29 @@ const audioLabels = () => {
 $('btn-stats').addEventListener('click', () => { statsView = !statsView; pauseView(); });
 { let n = 0, t = 0; $('pause').querySelector('h2').addEventListener('click', () => { const now = performance.now(); n = now - t < 700 ? n + 1 : 1; t = now; if (n >= 5) { n = 0; DBG.on = !DBG.on; dbgSave(); dbgPanel(); } }); } // 声音排查面板
 dbgPanel();
-$('btn-pickpause').addEventListener('click', () => { pickPause = !pickPause; try { localStorage.setItem('buyi-pickpause', pickPause ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
-$('btn-shake').addEventListener('click', () => { shakeOn = !shakeOn; try { localStorage.setItem('buyi-shake', shakeOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); });
+$('btn-pickpause').addEventListener('click', () => { pickPause = !pickPause; savePref('buyi-pickpause', pickPause ? '1' : '0'); audioLabels(); });
+$('btn-shake').addEventListener('click', () => { shakeOn = !shakeOn; savePref('buyi-shake', shakeOn ? '1' : '0'); audioLabels(); });
 // 特效：自动 → 完整 → 精简 → 自动；切回自动时重新看帧率
 const fxLabel = () => { $('btn-fx').textContent = `特效：${fxMode === 'full' ? '完整' : fxMode === 'lite' ? '精简' : autoLite ? '自动（已精简）' : '自动'}`; };
 $('btn-fx').addEventListener('click', () => {
   fxMode = fxMode === 'auto' ? 'full' : fxMode === 'full' ? 'lite' : 'auto';
   if (fxMode === 'auto') { autoLite = false; fps.slowT = 0; }
-  try { localStorage.setItem('buyi-fx', fxMode); if (fxMode === 'auto') localStorage.removeItem('buyi-fx-auto'); } catch (e) { /* ignore */ }
+  savePref('buyi-fx', fxMode);
+  try { if (fxMode === 'auto') localStorage.removeItem('buyi-fx-auto'); } catch (e) { /* ignore */ }
   fxLabel(); fxRes();
 });
 fxLabel();
+// 从本机备份 / 云存档补回设置之后（见 restorePrefs）：重新读一遍，按钮文字和音乐跟着变
+function applyPrefs() {
+  try {
+    musicOn = localStorage.getItem('buyi-music') !== '0'; voiceOn = localStorage.getItem('buyi-voice') !== '0'; muted = localStorage.getItem('buyi-muted') === '1';
+    pickPause = localStorage.getItem('buyi-pickpause') === '1'; shakeOn = localStorage.getItem('buyi-shake') !== '0';
+    fxMode = ['full', 'lite'].includes(localStorage.getItem('buyi-fx')) ? localStorage.getItem('buyi-fx') : 'auto';
+    const a = localStorage.getItem('buyi-aim'); if (AIM_MODES.some(m => m[0] === a)) aimMode = a;
+  } catch (e) { return; }
+  $('btn-sound').textContent = muted ? '静' : '声';
+  audioLabels(); aimLabel(); fxLabel(); fxRes(); Music.refresh();
+}
 // 收兵结算：不用非得战死，随时结束这一局，照常结算金币、纪录和排行榜（点两下确认，免得误触）
 let retreatT = 0;
 $('btn-retreat').addEventListener('click', () => {
@@ -9076,8 +9102,8 @@ $('btn-retreat').addEventListener('click', () => {
   S.retreat = true;
   gameOver();
 });
-$('btn-music').addEventListener('click', () => { musicOn = !musicOn; try { localStorage.setItem('buyi-music', musicOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); Music.refresh(); });
-$('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; try { localStorage.setItem('buyi-voice', voiceOn ? '1' : '0'); } catch (e) { /* ignore */ } audioLabels(); if (!voiceOn) stopVoice(); });
+$('btn-music').addEventListener('click', () => { musicOn = !musicOn; savePref('buyi-music', musicOn ? '1' : '0'); audioLabels(); Music.refresh(); });
+$('btn-voice').addEventListener('click', () => { voiceOn = !voiceOn; savePref('buyi-voice', voiceOn ? '1' : '0'); audioLabels(); if (!voiceOn) stopVoice(); });
 audioLabels();
 // 浏览器要求先有一次点击 / 按键才能出声：标题界面第一次操作时就把音乐放起来
 // 之后每次触摸也都检查一下：广告、切后台回来后，声音没在走就 resume 或重建（iOS 老版本只认 touchend）
