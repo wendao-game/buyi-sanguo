@@ -19,14 +19,16 @@ const DISPLAY = "'Ma Shan Zheng', 'STXingkai', 'KaiTi', serif";
 // ============ 画布 ============
 const cv = $('cv');
 const ctx = cv.getContext('2d');
-let W = 0, H = 0, DPR = 1, ZOOM = 1, dprCap = 2; // dprCap：画布最多几倍分辨率（精简模式 1.5，见 fxRes）
+// dprCap：画布最多几倍分辨率；pxCap：画布最多多少像素（精简模式 1.5 倍、100 万，见 fxRes）。
+// 电脑全屏按窗口 × 系统缩放画，像素是手机的两三倍以上，TapTap 电脑版的旧内核画起来尤其吃力；超了就降分辨率，浏览器再放大显示。手机（150 万以内）不受影响
+let W = 0, H = 0, DPR = 1, ZOOM = 1, dprCap = 2, pxCap = 2.1e6;
 const spriteCache = new Map();
 let sprGen = 0; // 小人缓存换了几代：清缓存时加一，敌人记在身上的小人（sprMemo）跟着作废
 function clearSprites() { spriteCache.clear(); sprGen++; }
 function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, dprCap);
   W = cv.clientWidth || innerWidth;
   H = cv.clientHeight || innerHeight;
+  DPR = Math.min(window.devicePixelRatio || 1, dprCap, Math.sqrt(pxCap / (W * H)));
   cv.width = Math.round(W * DPR);
   cv.height = Math.round(H * DPR);
   ZOOM = clamp(Math.min(W, H) / 760, 0.62, 1.15);
@@ -164,8 +166,9 @@ try {
   fxMode = ['full', 'lite'].includes(localStorage.getItem('buyi-fx')) ? localStorage.getItem('buyi-fx') : 'auto';
   autoLite = localStorage.getItem('buyi-fx-auto') === '1'; // 这台设备以前卡过：自动模式直接精简
 } catch (e) { /* 存储不可用时忽略 */ }
-// 精简模式画布降到 1.5 倍分辨率：像素少四成多。手机卡主要卡在 GPU 填像素（后期叠加发光一帧要盖满几十个屏幕），光调暗不省事
-function fxRes() { const cap = fxLite() ? 1.5 : 2; if (cap !== dprCap) { dprCap = cap; resize(); } }
+// 精简模式画布降到 1.5 倍分辨率：像素少四成多。手机卡主要卡在 GPU 填像素（后期叠加发光一帧要盖满几十个屏幕），光调暗不省事。
+// 电脑屏幕缩放多是 1～1.5 倍，光限倍数降不下来，所以再限总像素：完整 210 万（1080p 一屏）、精简 100 万
+function fxRes() { const cap = fxLite() ? 1.5 : 2, px = fxLite() ? 1e6 : 2.1e6; if (cap !== dprCap || px !== pxCap) { dprCap = cap; pxCap = px; resize(); } }
 fxRes();
 const AUDIO = { bgm: {}, voice: {}, loop: {}, loopFrom: {} };
 const audioReady = fetch(ASSET_BASE + 'audio.json').then(r => r.ok ? r.json() : null).then(m => {
@@ -416,6 +419,8 @@ function dbgTick(now) {
   dbgTick.t = now;
   const c = DBG.cnt, m = performance.memory, n = k => c[k] || 0;
   dbgBox.firstChild.textContent = [
+    FR.txt,
+    `画布 ${cv.width}×${cv.height} · 窗口 ${Math.round(W)}×${Math.round(H)} × ${+(window.devicePixelRatio || 1).toFixed(2)} · 特效 ${fxMode}${fxLite() ? '（精简）' : ''}`,
     `声音 ${actx ? actx.state + ' ' + actx.sampleRate + 'Hz' : '还没建'} · 时钟 ${Math.round(DBG.clock * 100)}% · ${IOS ? 'iOS' : '非iOS'}`,
     `音乐 ${Music.current || '-'} / ${Music.playing || '没在放'}${Music.position !== null ? ' ' + Music.position + 's' : ''}`,
     `重建 ${n('重建音频')} · onShow ${n('onShow')} · onHide ${n('onHide')} · 隐藏 ${n('页面隐藏')} · 卡帧 ${n('卡帧')}`,
@@ -6769,8 +6774,8 @@ function levelOptions() {
     if (!passiveUseful(def)) continue;
     pool.push({ kind: 'passive', id, cur: lv, w: (!lv ? 1.0 : lv < def.max ? 2.0 : 0.8) * focusMul(def, 'passive') });
   }
-  // 才女：召募兵种（cur 记现有几名，排序时按它排）；还没有的更容易出现
-  for (const id of S.origin.recruits || []) { const n = allyCount(id); if (n < (S.origin.recruitMax || 99)) pool.push({ kind: 'recruit', id, cur: n, w: n ? 1.1 : 1.5 }); } // 召满 recruitMax 名就不再出现
+  // 才女：召募兵种（cur 记现有几名，排序时按它排）；权重和兵器升级差不多，还没有的更容易出现（以前 1.5 / 1.1，一百级才刷到十来张，一局凑不满 12 名）
+  for (const id of S.origin.recruits || []) { const n = allyCount(id); if (n < (S.origin.recruitMax || 99)) pool.push({ kind: 'recruit', id, cur: n, w: n ? 3 : 3.6 }); } // 召满 recruitMax 名就不再出现
   // 属性：冰火雷风，Lv 3 起出现，每种最高 5 级；已经修了的更容易接着出现
   if (S.player.level >= D.elementFrom) {
     for (const id in D.elements) {
@@ -6783,6 +6788,12 @@ function levelOptions() {
   // 保证至少有一张武器或技能：物品种类多，不保底的话兵器容易一直升不上去
   const arms = pool.filter(o => (o.kind === 'weapon' || o.kind === 'skill') && !res.includes(o));
   if (res.length === 3 && arms.length && !res.some(o => o.kind === 'weapon' || o.kind === 'skill')) res[2] = pickWeighted(arms, 1)[0];
+  // 才女：连着 3 次升级没刷到召募卡，这次保底给一张（换掉一张不是兵器、技能的；三张都是就换最后一张）
+  const rec = pool.filter(o => o.kind === 'recruit');
+  if (rec.length && res.length === 3) {
+    if (res.some(o => o.kind === 'recruit')) S.recruitDry = 0;
+    else if ((S.recruitDry = (S.recruitDry || 0) + 1) >= 3) { const i = res.findIndex(o => o.kind !== 'weapon' && o.kind !== 'skill'); res[i < 0 ? 2 : i] = pickWeighted(rec, 1)[0]; S.recruitDry = 0; }
+  }
   if (!res.length) res.push(healOpt());
   return byLevel(res);
 }
@@ -7057,7 +7068,7 @@ function updateHud() {
     $('blink-cd').textContent = left > 0 ? left.toFixed(1) : matchMedia('(pointer: coarse)').matches ? '' : '空格'; }
   $('goldhud').textContent = `金 ${loadMeta().gold}（本局 +${S.goldRun}）`;
   const perm = S.allies.filter(a => !a.until).length, lust = Math.floor(S.lust);
-  const info = [perm ? `随从 ${perm}/${allyCap()}` : '', S.blessings.length ? `祝福 ${S.blessings.length}` : '', lust ? `战意 ${lust}` : ''].filter(Boolean);
+  const info = [perm || S.allyQueue.length ? `随从 ${perm}/${allyCap()}${S.allyQueue.length ? `（${S.allyQueue.length} 名归队中）` : ''}` : '',S.blessings.length ? `祝福 ${S.blessings.length}` : '', lust ? `战意 ${lust}` : ''].filter(Boolean);
   $('allies').hidden = !info.length;
   $('allies').textContent = info.join(' · ');
   $('chap').textContent = S.endless ? '天下三分' : chap().name.split(' · ')[1];
@@ -9230,7 +9241,17 @@ function watchFps(raw) {
     toast('', '', '画面有点卡，已自动精简特效', '暂停菜单里可以改回「完整」');
   }
 }
+// 帧率（调试面板里看）：每秒算一次帧率、帧间隔平均和最慢的、每帧游戏自己花的时间（算 + 画）。帧率低、自己花的时间却少，就是容器或显卡慢
+const FR = { t: 0, n: 0, gap: 0, worst: 0, busy: 0, last: 0, txt: '帧率 -' };
+function frameStat(now, busy) {
+  if (FR.last) { const g = now - FR.last; FR.n++; FR.gap += g; FR.worst = Math.max(FR.worst, g); FR.busy += busy; }
+  FR.last = now; if (!FR.t) FR.t = now;
+  if (now - FR.t < 1000 || !FR.n) return;
+  FR.txt = `帧率 ${Math.round(FR.n * 1000 / (now - FR.t))} · 帧间隔 ${(FR.gap / FR.n).toFixed(1)} / 最慢 ${Math.round(FR.worst)} ms · 游戏自己 ${(FR.busy / FR.n).toFixed(1)} ms`;
+  FR.t = now; FR.n = FR.gap = FR.worst = FR.busy = 0;
+}
 function frame(now) {
+  const t0 = performance.now();
   if (now - last > 150 && last && document.visibilityState === 'visible') dbg('卡帧', Math.round(now - last) + 'ms');
   dbgTick(now);
   const raw = Math.min(0.05, (now - last) / 1000);
@@ -9250,6 +9271,7 @@ function frame(now) {
   hudT -= raw;
   if (S && hudT <= 0) { hudT = 0.1; updateHud(); }
   requestAnimationFrame(frame);
+  frameStat(now, performance.now() - t0);
 }
 
 buildTitle();
