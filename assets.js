@@ -60,6 +60,7 @@ window.Assets = (() => {
     for (const group of [D.weapons, D.skills, D.passives]) {
       for (const id in group) load('icon:' + id, `${ASSET_BASE}icons/${id}${IMG}`);
     }
+    for (const id in (D.smj && D.smj.skills) || {}) load('icon:smj_' + id, `${ASSET_BASE}icons/smj_${id}${IMG}`); // 神魔技图标（还没画时用字）
     // 属性：图标 icons/el_<属性>.png；属性箭 fx/el_arrow_<属性>.png（黑底、箭头朝右）、
     // 属性弹 fx/el_orb_<属性>.png（黑底）、属性命中 fx/el_hit_<属性>.png（黑底）。属性 = fire / ice / thunder / wind
     for (const id in D.elements || {}) {
@@ -83,8 +84,14 @@ window.Assets = (() => {
     load('sprite:machao_mounted', `${ASSET_BASE}sprites/machao_mounted${IMG}`); // 马超骑白马
     load('sprite:molubu_mounted', `${ASSET_BASE}sprites/molubu_mounted${IMG}`); // 魔吕布骑魔赤兔（没有图时用代码画的马驮着魔吕布的小人）
     load('sprite:shenzhaoyun_mounted', `${ASSET_BASE}sprites/shenzhaoyun_mounted${IMG}`); // 神赵云骑照夜玉狮子
+    load('sprite:liubei_mounted', `${ASSET_BASE}sprites/liubei_mounted${IMG}`); // 刘备骑的卢（的卢飞渡时用）
+    load('sprite:tiger', `${ASSET_BASE}sprites/tiger${IMG}`); // 猛虎（孙权的合肥射虎、射虎技能、紫髯古锭刀的冰虎；没有图时代码画）
+    load('sprite:zhangzhao', `${ASSET_BASE}sprites/zhangzhao${IMG}`); // 张昭（孙权「制衡」的虚影；不是名将，不在上面的清单里）
     // 特效贴图：龙首（白龙 = 赵云七进七出，青龙 = 关羽刀气）、坐骑
     for (const id of ['dragon_white', 'dragon_azure', 'dragon_shen']) load('fx:' + id, `${ASSET_BASE}fx/${id}${IMG}`); // dragon_shen：神赵云龙魂·四象的龙首（没画好时借白龙）
+    load('fx:phoenix', `${ASSET_BASE}fx/phoenix${IMG}`); // 火凤（庞统的凤火燎原、涅槃凤翎；朝右、透明底；没有图时代码画）
+    load('fx:skyblade', `${ASSET_BASE}fx/skyblade${IMG}`); // 神关羽「青龙偃月 · 天刀」的巨刀（横放、刀刃在右端、刃口朝上、透明底；没有图时代码画）
+    load('fx:faxiang', `${ASSET_BASE}fx/faxiang${IMG}`, true); // 神关羽「玉泉显圣」的全身法相（正面、透明底；没有图时用立绘染色）
     // 招式特效贴图（黑底发光图，叠加着画）：刀光、冲击环、爆裂、雷电、枪芒、旋风、火焰、法阵、光柱
     for (const id of ['slash', 'ring', 'burst', 'bolt', 'thrust', 'whirl', 'flame', 'circle', 'pillar']) load('fxs:' + id, `${ASSET_BASE}fx/${id}${IMG}`);
     load('mount:white', `${ASSET_BASE}mounts/white${IMG}`);
@@ -98,6 +105,7 @@ window.Assets = (() => {
       load('cutin:' + id, `${ASSET_BASE}cutins/${id}${IMG}`, true);
     }
     for (const c of (D.twin && D.twin.combos) || []) load('cutin:combo_' + c.id, `${ASSET_BASE}cutins/combo_${c.id}${IMG}`, true); // 魔吕布、魔貂蝉的组合大招特写
+    for (const G of (D.fusion && D.fusion.groups) || []) load('cutin:combo_' + G.id, `${ASSET_BASE}cutins/combo_${G.id}${IMG}`, true); // 神兵融合的特写（五虎、吕布貂蝉、卧龙凤雏）
     for (const o in (D.meta && D.meta.gear) || {}) for (const g of D.meta.gear[o]) for (let lv = 1; lv <= 9; lv++) load(`icon:${g.id}_${lv}`, `${ASSET_BASE}icons/${g.id}_${lv}${IMG}`, true); // 军需图标
     for (const L of (D.campUp && D.campUp.lines) || []) { // 封神 · 入魔：徽记 icons/camp_<线>.png、9 级图标 icons/camp_<线>_<级>.png、货币 icons/<魔血 / 神魂>.png
       for (const id of [`camp_${L.id}`, L.cur, ...D.campUp.levels.map((x, i) => `camp_${L.id}_${i + 1}`)]) load('icon:' + id, `${ASSET_BASE}icons/${id}${IMG}`, true);

@@ -63,6 +63,8 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
   background: var(--ink); color: var(--gold); padding: 1px 2px; border-radius: 2px; }
 .slot i.brk { background: var(--seal); color: var(--paper); }
 #best { margin: 0; color: var(--gold); font-size: 14px; letter-spacing: .05em; text-align: center; }
+#cloud-note { margin: 0; color: var(--muted); font-size: 11px; text-align: center; } /* 云存档同步到哪了（只在 TapTap 里显示） */
+#crash-note { margin: 0; max-width: 34em; color: var(--muted); font-size: 11px; line-height: 1.45; text-align: center; white-space: pre-line; } /* 上次闪退时的情况：给玩家截图 */
 .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-shadow: 0 1px 2px #000; }
 #time { font-family: var(--display); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
 #kills { font-size: 13px; color: var(--muted); }
@@ -78,6 +80,16 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #btn-blink.dragging { transform: scale(1.15); box-shadow: 0 0 0 3px rgba(255,215,90,.9), 0 0 18px rgba(255,215,90,.6); cursor: grabbing; }
 #btn-blink { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; transition: transform .12s; }
 #btn-blink span { position: absolute; left: 0; right: 0; bottom: 7px; font-family: var(--body); font-size: 11px; color: var(--muted); }
+/* 神魔技按钮：跟在闪现按钮左边（位置在 updateHud 里算），金红色，冷却同样是退去的暗色扇面 */
+#btn-smj { position: absolute; width: 52px; height: 52px; border-radius: 50%; pointer-events: auto; border: 2px solid rgba(255,190,120,.8); color: #fff3e0; font-family: var(--display);
+  font-size: 22px; line-height: 1; padding: 0; --cd: 0; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  overflow: hidden; background: rgba(150,60,50,.6); box-shadow: 0 0 10px rgba(255,150,90,.35); }
+#btn-smj::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; /* 冷却扇面盖在图标上面 */
+  background: conic-gradient(rgba(10,10,16,.72) calc(var(--cd) * 360deg), transparent 0); }
+#btn-smj.ready { box-shadow: 0 0 16px rgba(255,170,100,.9); }
+/* 图标铺满按钮、放大一点，把方框四边的金边藏到圆外 */
+#btn-smj .ico { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 50%; transform: scale(1.14); }
+#btn-smj span { position: absolute; left: 0; right: 0; bottom: 3px; z-index: 1; font-family: var(--body); font-size: 11px; color: #f0d8c0; text-shadow: 0 1px 2px #000, 0 0 4px #000; }
 
 #bossbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
   width: min(560px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; }
@@ -172,6 +184,20 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .camp-coin { width: 22px; height: 22px; vertical-align: -6px; margin-right: 5px; border-radius: 3px; }
 .gear.camp-row .gn { white-space: normal; font-size: 13px; }
 .gear.camp-row.r3 { opacity: 1; }
+/* 神魔技：横跨两列，五张卡（没解锁的暗一点，带上的那张描金边） */
+.smj-col { grid-column: 1 / -1; }
+.smj-col h3 { flex-wrap: wrap; }
+.smj-col h3 small { font-family: var(--body); font-size: 12px; color: var(--muted); }
+.smj-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.smj-card { background: var(--paper); color: var(--paper-ink); border-radius: 2px; padding: 8px; display: grid; gap: 4px; align-content: start; }
+.smj-card .seal { width: 40px; height: 40px; display: grid; place-items: center; background: #3a2418; color: #ffd9a8; font-family: var(--display); font-size: 22px; border-radius: 50%; overflow: hidden; }
+.smj-card .seal .ico { width: 40px; height: 40px; transform: scale(1.14); } /* 和战斗里的圆钮一样，把金边藏到圆外 */
+.smj-card .gn { font-family: var(--display); font-size: 20px; line-height: 1.2; }
+.smj-card .gn small { margin-left: 6px; font-family: var(--body); font-size: 12px; color: #7a6a4c; }
+.smj-card .gd { font-size: 12px; line-height: 1.5; color: #4a3e2c; }
+.smj-card > small { font-size: 12px; color: #7a6a4c; }
+.smj-card.locked { opacity: .55; }
+.smj-card.picked { outline: 3px solid #e2b24a; }
 .gear.camp-row.next { opacity: 1; outline: 2px solid var(--seal); }
 .shop-col { background: rgba(235,224,197,.06); border: 1px solid rgba(235,224,197,.18); border-radius: 3px; padding: 10px; display: grid; gap: 8px; align-content: start; min-width: 0; }
 .shop-col h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 26px; color: var(--paper); display: flex; align-items: baseline; gap: 8px; }
@@ -202,6 +228,13 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .gcard .tt { font-size: 12px; color: #7a6a4c; letter-spacing: .08em; }
 .gcard .drops { display: flex; flex-wrap: wrap; gap: 4px; }
 .gcard .drops span { font-size: 12px; padding: 2px 6px; background: rgba(42,33,22,.08); border: 1px solid rgba(42,33,22,.18); }
+/* 招式介绍：斩够 5 次才显示（没斩够只写还差几次） */
+.gcard .moves { border-top: 1px dashed rgba(42,33,22,.3); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 1.5; }
+.gcard .moves p { margin: 0; }
+.gcard .moves b { color: var(--seal); margin-right: 4px; }
+.gcard .moves i { font-style: normal; font-size: 11px; padding: 0 4px; margin-right: 4px; border: 1px solid rgba(42,33,22,.3); color: #7a6a4c; }
+.gcard .moves .note { color: #6a5a3c; }
+.gcard .moves.locked { color: #8a7a5c; letter-spacing: .04em; }
 .gcard .slain { position: absolute; top: 16px; right: 18px; width: 40px; height: 40px; display: grid; place-items: center; background: var(--seal); color: var(--paper);
   font-weight: 900; font-size: 20px; border-radius: 3px; transform: rotate(-8deg); box-shadow: inset 0 0 0 2px rgba(235,224,197,.4); }
 .gcard.unseen .art svg, .gcard.unseen .art img { filter: brightness(0) opacity(.55); }
@@ -465,6 +498,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div id="toast"><div id="toast-face"></div><div class="toast-text"><b id="toast-title"></b><span id="toast-sub"></span></div></div>
     <div id="vline" aria-live="polite"><b id="vl-name"></b><span id="vl-text"></span></div>
     <button id="btn-blink" aria-label="闪现（空格）；长按可拖动" title="闪现：空格 / Shift；长按可拖动位置"><b>闪</b><span id="blink-cd"></span></button>
+    <button id="btn-smj" hidden aria-label="神魔技（E）" title="神魔技：E"><b id="smj-ic"></b><span id="smj-cd"></span></button>
     <div id="tip">攻击全自动 · 专心走位</div>
   </div>
 
@@ -472,6 +506,8 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <h1>布衣<em>三国</em></h1>
     <p class="lede">黄巾起事，天下大乱，你只是一介布衣。从黄巾之乱一路打到赤壁，斩将夺器，没有上限地变强。</p>
     <p id="best" hidden></p>
+    <p id="cloud-note" hidden></p>
+    <p id="crash-note" hidden></p>
     <div id="continue-box" hidden>
       <button class="btn primary" id="btn-continue">继续征战</button>
       <div class="cont-note" id="continue-note"></div>
@@ -550,6 +586,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <button class="btn" id="btn-pickpause">选卡暂停：关</button>
       <button class="btn" id="btn-shake">镜头震动：开</button>
       <button class="btn" id="btn-fx">特效：自动</button>
+      <button class="btn" id="btn-glow">光效：完整</button>
       <button class="btn" id="btn-stats">查看属性</button>
     </div>
   </div>

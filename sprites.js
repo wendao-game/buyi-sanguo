@@ -251,9 +251,28 @@ window.Sprites = (() => {
     shape(g, '#7a1d14', s => rr(s, 22, 50, 20, 6, 2), 1.2); // 鞍
   }
 
-  // 画一个朝右的 Q 版小人；opt.mount 画在马上
+  // 猛虎（孙权的射虎、合肥射虎、冰虎）：朝右，橙底黑纹白腹；还没有 sprites/tiger.png 时用
+  function tiger(g) {
+    const fur = '#e08a2a', belly = '#f6e6c8';
+    for (const [x, d] of [[16, -2], [24, 2], [42, -2], [50, 2]]) line(g, x, 62, x + d, 77, shade(fur, -0.2), 4.5); // 四条腿
+    shape(g, fur, s => s.ellipse(32, 56, 22, 11, 0, 0, Math.PI * 2));                                                    // 身子
+    shape(g, belly, s => s.ellipse(33, 62, 15, 4.5, 0, 0, Math.PI * 2), 1);
+    g.lineWidth = 2.4; g.strokeStyle = INK; g.lineCap = 'round';                                                          // 背上的黑纹
+    for (const x of [18, 25, 32, 39]) { g.beginPath(); g.moveTo(x, 46); g.quadraticCurveTo(x + 3, 52, x - 1, 57); g.stroke(); }
+    shape(g, fur, s => { s.moveTo(11, 52); s.quadraticCurveTo(0, 46, 3, 34); s.quadraticCurveTo(6, 44, 13, 48); s.closePath(); }); // 尾巴翘起
+    shape(g, fur, s => s.arc(52, 46, 11, 0, Math.PI * 2));                                                               // 头
+    shape(g, fur, s => s.arc(46, 36, 3.5, 0, Math.PI * 2), 1.4); shape(g, fur, s => s.arc(56, 36, 3.5, 0, Math.PI * 2), 1.4); // 耳朵
+    shape(g, belly, s => s.ellipse(57, 51, 6, 4.5, 0, 0, Math.PI * 2), 1.2);                                             // 吻部
+    g.fillStyle = INK; g.beginPath(); g.arc(60, 48, 1.6, 0, Math.PI * 2); g.fill();                                     // 鼻头
+    g.fillStyle = '#ffe070'; g.beginPath(); g.ellipse(53, 43, 2.2, 1.6, 0, 0, Math.PI * 2); g.fill();                   // 眼
+    g.fillStyle = INK; g.beginPath(); g.arc(53.6, 43, 0.9, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 1.8; for (const y of [38, 41]) { g.beginPath(); g.moveTo(48, y); g.lineTo(52, y + 1); g.stroke(); }  // 额上「王」字纹
+  }
+
+  // 画一个朝右的 Q 版小人；opt.mount 画在马上；look.beast 画成野兽
   function draw(g, L, opt = {}) {
     g.lineJoin = 'round';
+    if (L.beast === 'tiger') { tiger(g); return; }
     if (opt.mount) {
       horse(g, opt.mount);
       g.save(); g.translate(8, 8); g.scale(0.72, 0.72);
@@ -416,6 +435,36 @@ window.Sprites = (() => {
         for (const x of [36, 84]) shape(g, '#8a7a48', s => rr(s, x - 4, 50, 8, 14, 2), 1.2); // 鼎耳
         g.strokeStyle = 'rgba(60,50,20,.5)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(40, 76); g.lineTo(80, 76); g.stroke(); // 纹饰
         for (const [x, y, r] of [[54, 50, 6], [64, 40, 7], [58, 28, 8]]) { g.fillStyle = 'rgba(150,230,160,.5)'; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); } // 药气
+        break;
+      case 'yufupu': // 鱼腹浦八阵：八堆乱石围成一圈，正中一块刻着太极的圆石台，泛着金光
+        g.fillStyle = 'rgba(255,214,120,.18)'; g.beginPath(); g.ellipse(60, 84, 50, 16, 0, 0, Math.PI * 2); g.fill();
+        shape(g, '#6a6458', s => s.ellipse(60, 84, 22, 8, 0, 0, Math.PI * 2), 1.4);            // 石台
+        g.fillStyle = '#e8d8a8'; g.beginPath(); g.arc(60, 84, 6, Math.PI / 2, Math.PI * 1.5); g.fill(); // 太极
+        g.fillStyle = '#2a2620'; g.beginPath(); g.arc(60, 84, 6, -Math.PI / 2, Math.PI / 2); g.fill();
+        for (let i = 0; i < 8; i++) { // 八堆乱石：后面的画小、前面的画大
+          const a = -Math.PI / 2 + i * Math.PI / 4, x = 60 + Math.cos(a) * 46, y = 84 + Math.sin(a) * 16, k = 0.75 + 0.25 * (Math.sin(a) + 1) / 2, h = 26 * k, w = 12 * k;
+          shape(g, i % 2 ? '#7a7466' : '#8a8474', s => { s.moveTo(x - w, y); s.lineTo(x - w * 0.6, y - h); s.lineTo(x + w * 0.2, y - h * 1.15); s.lineTo(x + w, y - h * 0.5); s.lineTo(x + w, y); s.closePath(); }, 1.2);
+        }
+        g.fillStyle = 'rgba(160,220,200,.35)'; for (const [x, y, r] of [[30, 50, 7], [92, 44, 8], [62, 34, 9]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); } // 石缝里的青雾
+        break;
+      case 'qixingdeng': // 七星灯：小石座上一盏青铜油灯，灯焰金黄
+        shape(g, '#6a6458', s => s.ellipse(60, 98, 26, 7, 0, 0, Math.PI * 2), 1.4);
+        shape(g, '#8a7a48', s => { s.moveTo(52, 98); s.lineTo(56, 66); s.lineTo(64, 66); s.lineTo(68, 98); s.closePath(); }, 1.4);
+        shape(g, '#a8925a', s => s.ellipse(60, 64, 18, 6, 0, 0, Math.PI * 2), 1.4);
+        g.fillStyle = 'rgba(255,214,120,.35)'; g.beginPath(); g.arc(60, 46, 20, 0, Math.PI * 2); g.fill();
+        shape(g, '#ffd36a', s => { s.moveTo(60, 26); s.quadraticCurveTo(70, 48, 60, 62); s.quadraticCurveTo(50, 48, 60, 26); s.closePath(); }, 1);
+        g.fillStyle = '#fff6d8'; g.beginPath(); g.ellipse(60, 52, 3.5, 6, 0, 0, Math.PI * 2); g.fill();
+        break;
+      case 'yuquan': // 玉泉山：山坡上一座红墙绿瓦的关帝庙，庙前立着青龙偃月刀，四周青光
+        g.fillStyle = 'rgba(90,240,170,.18)'; g.beginPath(); g.ellipse(60, 70, 56, 40, 0, 0, Math.PI * 2); g.fill();
+        shape(g, '#4a5a44', s => { s.moveTo(2, 104); s.quadraticCurveTo(60, 50, 118, 104); s.closePath(); });    // 山坡
+        g.fillStyle = 'rgba(0,0,0,.2)'; g.beginPath(); g.moveTo(60, 70); g.quadraticCurveTo(100, 78, 118, 104); g.lineTo(70, 104); g.closePath(); g.fill();
+        wallBlock(g, 36, 56, 48, 30, '#a8322a');                                                                  // 庙墙
+        roof(g, 26, 38, 68, 20, '#2a6a4a');                                                                       // 绿琉璃瓦
+        shape(g, '#c9a046', s => rr(s, 52, 64, 16, 22, 2), 1.2);                                                // 庙门
+        line(g, 96, 92, 96, 30, '#5a3a20', 2.6);                                                                  // 青龙偃月刀
+        shape(g, '#bfeedd', s => { s.moveTo(96, 30); s.quadraticCurveTo(110, 26, 108, 44); s.quadraticCurveTo(102, 38, 96, 40); s.closePath(); }, 1);
+        g.fillStyle = 'rgba(150,255,210,.45)'; g.beginPath(); g.ellipse(102, 36, 12, 14, 0, 0, Math.PI * 2); g.fill();
         break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
