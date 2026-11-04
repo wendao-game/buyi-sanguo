@@ -63,6 +63,7 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
   background: var(--ink); color: var(--gold); padding: 1px 2px; border-radius: 2px; }
 .slot i.brk { background: var(--seal); color: var(--paper); }
 #best { margin: 0; color: var(--gold); font-size: 14px; letter-spacing: .05em; text-align: center; }
+#cloud-note { margin: 0; color: var(--muted); font-size: 11px; text-align: center; } /* 云存档同步到哪了（只在 TapTap 里显示） */
 #crash-note { margin: 0; max-width: 34em; color: var(--muted); font-size: 11px; line-height: 1.45; text-align: center; white-space: pre-line; } /* 上次闪退时的情况：给玩家截图 */
 .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-shadow: 0 1px 2px #000; }
 #time { font-family: var(--display); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -203,6 +204,13 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .gcard .tt { font-size: 12px; color: #7a6a4c; letter-spacing: .08em; }
 .gcard .drops { display: flex; flex-wrap: wrap; gap: 4px; }
 .gcard .drops span { font-size: 12px; padding: 2px 6px; background: rgba(42,33,22,.08); border: 1px solid rgba(42,33,22,.18); }
+/* 招式介绍：斩够 5 次才显示（没斩够只写还差几次） */
+.gcard .moves { border-top: 1px dashed rgba(42,33,22,.3); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 1.5; }
+.gcard .moves p { margin: 0; }
+.gcard .moves b { color: var(--seal); margin-right: 4px; }
+.gcard .moves i { font-style: normal; font-size: 11px; padding: 0 4px; margin-right: 4px; border: 1px solid rgba(42,33,22,.3); color: #7a6a4c; }
+.gcard .moves .note { color: #6a5a3c; }
+.gcard .moves.locked { color: #8a7a5c; letter-spacing: .04em; }
 .gcard .slain { position: absolute; top: 16px; right: 18px; width: 40px; height: 40px; display: grid; place-items: center; background: var(--seal); color: var(--paper);
   font-weight: 900; font-size: 20px; border-radius: 3px; transform: rotate(-8deg); box-shadow: inset 0 0 0 2px rgba(235,224,197,.4); }
 .gcard.unseen .art svg, .gcard.unseen .art img { filter: brightness(0) opacity(.55); }
@@ -473,6 +481,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <h1>布衣<em>三国</em></h1>
     <p class="lede">黄巾起事，天下大乱，你只是一介布衣。从黄巾之乱一路打到赤壁，斩将夺器，没有上限地变强。</p>
     <p id="best" hidden></p>
+    <p id="cloud-note" hidden></p>
     <p id="crash-note" hidden></p>
     <div id="continue-box" hidden>
       <button class="btn primary" id="btn-continue">继续征战</button>

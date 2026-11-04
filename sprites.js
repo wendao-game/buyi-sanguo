@@ -251,9 +251,28 @@ window.Sprites = (() => {
     shape(g, '#7a1d14', s => rr(s, 22, 50, 20, 6, 2), 1.2); // 鞍
   }
 
-  // 画一个朝右的 Q 版小人；opt.mount 画在马上
+  // 猛虎（孙权的射虎、合肥射虎、冰虎）：朝右，橙底黑纹白腹；还没有 sprites/tiger.png 时用
+  function tiger(g) {
+    const fur = '#e08a2a', belly = '#f6e6c8';
+    for (const [x, d] of [[16, -2], [24, 2], [42, -2], [50, 2]]) line(g, x, 62, x + d, 77, shade(fur, -0.2), 4.5); // 四条腿
+    shape(g, fur, s => s.ellipse(32, 56, 22, 11, 0, 0, Math.PI * 2));                                                    // 身子
+    shape(g, belly, s => s.ellipse(33, 62, 15, 4.5, 0, 0, Math.PI * 2), 1);
+    g.lineWidth = 2.4; g.strokeStyle = INK; g.lineCap = 'round';                                                          // 背上的黑纹
+    for (const x of [18, 25, 32, 39]) { g.beginPath(); g.moveTo(x, 46); g.quadraticCurveTo(x + 3, 52, x - 1, 57); g.stroke(); }
+    shape(g, fur, s => { s.moveTo(11, 52); s.quadraticCurveTo(0, 46, 3, 34); s.quadraticCurveTo(6, 44, 13, 48); s.closePath(); }); // 尾巴翘起
+    shape(g, fur, s => s.arc(52, 46, 11, 0, Math.PI * 2));                                                               // 头
+    shape(g, fur, s => s.arc(46, 36, 3.5, 0, Math.PI * 2), 1.4); shape(g, fur, s => s.arc(56, 36, 3.5, 0, Math.PI * 2), 1.4); // 耳朵
+    shape(g, belly, s => s.ellipse(57, 51, 6, 4.5, 0, 0, Math.PI * 2), 1.2);                                             // 吻部
+    g.fillStyle = INK; g.beginPath(); g.arc(60, 48, 1.6, 0, Math.PI * 2); g.fill();                                     // 鼻头
+    g.fillStyle = '#ffe070'; g.beginPath(); g.ellipse(53, 43, 2.2, 1.6, 0, 0, Math.PI * 2); g.fill();                   // 眼
+    g.fillStyle = INK; g.beginPath(); g.arc(53.6, 43, 0.9, 0, Math.PI * 2); g.fill();
+    g.lineWidth = 1.8; for (const y of [38, 41]) { g.beginPath(); g.moveTo(48, y); g.lineTo(52, y + 1); g.stroke(); }  // 额上「王」字纹
+  }
+
+  // 画一个朝右的 Q 版小人；opt.mount 画在马上；look.beast 画成野兽
   function draw(g, L, opt = {}) {
     g.lineJoin = 'round';
+    if (L.beast === 'tiger') { tiger(g); return; }
     if (opt.mount) {
       horse(g, opt.mount);
       g.save(); g.translate(8, 8); g.scale(0.72, 0.72);
