@@ -17,6 +17,8 @@ const CFG = {
   AD_DAILY_LIMIT: 5,       // 每日可看广告次数
   AD_REWARD: 1,            // 每次广告给几张招募令
   AD_SECONDS: 5,           // 网页版模拟广告时长（秒）
+  AD_UNIT_ID: '',          // 平台激励视频广告位 ID（TapTap / 抖音后台申请后填这里；留空 = 平台里不显示广告入口）
+  AD_WAIT: 20,             // 点了广告多少秒还没播出来，就当这次没有广告
   START_COINS: 200,
   START_TICKETS: 10,
   COIN_DROP_RATE: 0.35,    // 普通敌人掉铜钱概率
@@ -31,7 +33,31 @@ const CFG = {
   MAX_STAR: 5,
   STAR_NEED: [1, 2, 3, 4, 5], // 升到下一星需要的碎片
   SHARD_TO_COIN: 30,       // 满星后多余碎片折算金币（× 品质倍率）
+  AWAKEN_STAR: 3,          // 几星觉醒：专属大招效果 ×1.5
+
+  // —— 局内操作 ——
+  ROCK_MAX: 3,             // 滚木礌石最多存几块
+  ROCK_CD: 6,              // 每块恢复秒数
+  ROCK_R: 60,              // 落点半径
+  ROCK_DMG: 1.0,           // 每块伤害 = 当前关卡黄巾兵血量 × 此倍率（并眩晕 1 秒）
+  AIM_SLOW: 0.25,          // 手动瞄准大招时的慢动作倍率
+
+  // —— 扫荡（已通关的关卡直接领奖励）——
+  SWEEP_DAILY: 5,
+  SWEEP_MUL: 1.3,          // 扫荡奖励 = 通关金币 × 此倍率（约等于通关金币 + 平均掉落）
+
+  // —— 云存档 / 本机备份（只在 TapTap 里生效）——
+  CLOUD_NAME: 'sanguo_td_save',
+  CLOUD_EVERY: 65,         // 最快多少秒上传一次
 };
+
+/* 只有本机调试时才认网址里的调试参数（?coins=…），正式发布的网页和小游戏里一律忽略 */
+const DEV = (function () {
+  try {
+    if (typeof tap !== 'undefined' || typeof tt !== 'undefined') return false;
+    return location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  } catch (e) { return false; }
+})();
 
 /* 品质：白 绿 蓝 紫 金 橙 黑 彩（黑、彩为神将，暂未开放） */
 const QUALITIES = [
@@ -67,7 +93,7 @@ const ELEMENTS = {
              desc: '冰枪范围伤害并减速',
              ult: '冰封全场敌人并造成伤害' },
   thunder: { name: '雷', color: '#c4b0ff', atk: 24, cd: 1.40,
-             desc: '闪电在多个敌人之间弹跳',
+             desc: '闪电在 5 个敌人之间弹跳',
              ult: '落雷劈中大量敌人并使其麻痹' },
   poison:  { name: '毒', color: '#8be84f', atk: 12, cd: 2.20,
              desc: '在敌群脚下留下毒潭，持续伤害',
@@ -159,7 +185,7 @@ function chapterOf(stage) {
 /* 关卡强度 */
 function stageHpMul(stage, wave) { return CFG.ENEMY_HP_SCALE * Math.pow(1.12, stage - 1) * (1 + 0.07 * (wave - 1)); }
 function stageAtkMul(stage)      { return Math.pow(1.09, stage - 1); }
-function stageRecommend(stage)   { return Math.round(330 * Math.pow(1.10, stage - 1)); }   // 按模拟对局粗略校准
+function stageRecommend(stage)   { return Math.round(380 * Math.pow(1.10, stage - 1) * (stage % 10 === 0 ? 1.15 : 1)); }   // 按自动战斗模拟校准（含羁绊、专属技能）：达到推荐战力约五成以上胜率，章末决战另加 15%
 function stageWinCoins(stage)    { return 100 + 25 * stage; }
 
 /* 生成一波敌人：返回按出场时间排序的 [{t, type, x}] */
@@ -184,6 +210,43 @@ function genWave(stage, wave) {
   return { list, dur };
 }
 
+/* ---------------- 站位：5 个位置各有职责 ---------------- */
+const SLOT_ROLES = [
+  { name: '左翼', desc: '弓、火、毒、雷系出手速度 +15%', els: ['arrow', 'fire', 'poison', 'thunder'], spd: 0.15 },
+  { name: '前锋', desc: '刃、风、冰系攻击 +15%', els: ['blade', 'wind', 'ice'], atk: 0.15 },
+  { name: '主帅', desc: '全军攻击 +品质×3%（白 0% … 橙 15%），本人怒气获取 +20%', leader: true },
+  { name: '前锋', desc: '刃、风、冰系攻击 +15%', els: ['blade', 'wind', 'ice'], atk: 0.15 },
+  { name: '右翼', desc: '弓、火、毒、雷系出手速度 +15%', els: ['arrow', 'fire', 'poison', 'thunder'], spd: 0.15 },
+];
+
+/* ---------------- 阵营羁绊：同阵营上阵 2 / 3 / 4 人 ---------------- */
+const FACTION_BONDS = {
+  wei: { name: '虎豹骑', stat: 'spd',  vals: [0.08, 0.15, 0.25], fmt: v => '全军出手速度 +' + Math.round(v * 100) + '%' },
+  shu: { name: '仁德',   stat: 'atk',  vals: [0.08, 0.15, 0.25], fmt: v => '全军攻击 +' + Math.round(v * 100) + '%' },
+  wu:  { name: '江东',   stat: 'rage', vals: [0.12, 0.25, 0.40], fmt: v => '全军怒气获取 +' + Math.round(v * 100) + '%' },
+  qun: { name: '乱世',   stat: 'crit', vals: [0.05, 0.10, 0.15], fmt: v => '全军暴击率 +' + Math.round(v * 100) + '%' },
+};
+
+/* ---------------- 缘分：指定武将同时上阵（need = 至少几人） ---------------- */
+const COMBOS = [
+  { name: '蜀汉旧将', ids: ['liaohua', 'zhoucang', 'guanping'], need: 2, desc: '全军攻击 +8%', eff: { atk: 0.08 } },
+  { name: '黄巾起义', ids: ['zhangjiao', 'zhangbao', 'guanhai', 'peiyuan'], need: 3, desc: '全军攻击 +18%', eff: { atk: 0.18 } },
+  { name: '关氏父子', ids: ['guanyu', 'guanping', 'zhoucang'], need: 2, desc: '刃系伤害 +25%', eff: { el: { blade: 0.25 } } },
+  { name: '五虎上将', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
+  { name: '长沙旧部', ids: ['huangzhong', 'weiyan'], need: 2, desc: '弓、火系伤害 +25%', eff: { el: { arrow: 0.25, fire: 0.25 } } },
+  { name: '荆襄名士', ids: ['zhugeliang', 'xushu'], need: 2, desc: '风系伤害 +35%', eff: { el: { wind: 0.35 } } },
+  { name: '赤壁之盟', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +25%、怒气获取 +15%', eff: { ult: 0.25, rage: 0.15 } },
+  { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +35%', eff: { el: { fire: 0.35 } } },
+  { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
+  { name: '魏之谋主', ids: ['caocao', 'simayi', 'jiaxu'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
+  { name: '曹氏宗亲', ids: ['caocao', 'caohong'], need: 2, desc: '城防上限 +25%', eff: { wall: 0.25 } },
+  { name: '五子良将', ids: ['zhangliao', 'xuhuang'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
+  { name: '并州旧部', ids: ['lvbu', 'zhangliao'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
+  { name: '西凉董营', ids: ['huaxiong', 'liru', 'lvbu', 'jiaxu'], need: 2, desc: '毒、风系伤害 +30%', eff: { el: { poison: 0.30, wind: 0.30 } } },
+  { name: '乱世才女', ids: ['caiwenji', 'zhenji'], need: 2, desc: '冰系伤害 +30%、怒气获取 +15%', eff: { el: { ice: 0.30 }, rage: 0.15 } },
+  { name: '天公地公', ids: ['zhangjiao', 'zhangbao', 'panfeng'], need: 2, desc: '雷系伤害 +30%', eff: { el: { thunder: 0.30 } } },
+];
+
 /* 局内三选一军令 */
 const BUFFS = [
   { id: 'atk',  name: '擂鼓助威', desc: '全体攻击 +20%',       apply: b => { b.atk *= 1.2; } },
@@ -193,4 +256,14 @@ const BUFFS = [
   { id: 'ult',  name: '奇谋妙计', desc: '大招伤害 +30%',       apply: b => { b.ult *= 1.3; } },
   { id: 'heal', name: '修缮城墙', desc: '立即回复 35% 城防',   apply: (b, S) => { S.wall = Math.min(S.wallMax, S.wall + S.wallMax * 0.35); } },
   { id: 'coin', name: '搜刮战利', desc: '本局铜钱掉落 +50%',   apply: b => { b.coin *= 1.5; } },
+  { id: 'rock', name: '多备礌石', desc: '投石上限 +2，伤害 +50%', apply: (b, S) => { S.rock.max += 2; S.rock.n += 2; S.rock.dmg *= 1.5; } },
+  { id: 'boss', name: '擒贼擒王', desc: '对校尉、敌将伤害 +35%', apply: b => { b.boss *= 1.35; } },
+  // 带 el 的只在阵上有该系武将时出现
+  { id: 'e_fire',   el: 'fire',    name: '火上浇油', desc: '火系伤害 +40%',   apply: b => { b.el.fire = (b.el.fire || 1) * 1.4; } },
+  { id: 'e_arrow',  el: 'arrow',   name: '连弩齐备', desc: '弓系伤害 +40%',   apply: b => { b.el.arrow = (b.el.arrow || 1) * 1.4; } },
+  { id: 'e_blade',  el: 'blade',   name: '磨刀霍霍', desc: '刃系伤害 +40%',   apply: b => { b.el.blade = (b.el.blade || 1) * 1.4; } },
+  { id: 'e_ice',    el: 'ice',     name: '天寒地冻', desc: '冰系伤害 +40%',   apply: b => { b.el.ice = (b.el.ice || 1) * 1.4; } },
+  { id: 'e_thunder', el: 'thunder', name: '雷霆万钧', desc: '雷系伤害 +40%',  apply: b => { b.el.thunder = (b.el.thunder || 1) * 1.4; } },
+  { id: 'e_poison', el: 'poison',  name: '百毒淬刃', desc: '毒系伤害 +40%',   apply: b => { b.el.poison = (b.el.poison || 1) * 1.4; } },
+  { id: 'e_wind',   el: 'wind',    name: '顺风而行', desc: '风系伤害 +40%',   apply: b => { b.el.wind = (b.el.wind || 1) * 1.4; } },
 ];

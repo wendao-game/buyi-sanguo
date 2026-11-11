@@ -6,8 +6,8 @@
 
 const UI = (function () {
   const $ = s => document.querySelector(s);
-  let screen = 'home', heroTab = 'mine', closable = true, toastTimer = 0;
-  let hudS = null, hudRage = [], buffCb = null, lastRes = null, adTimer = 0, adResolve = null;
+  let screen = 'home', heroTab = 'mine', closable = true, toastTimer = 0, pickSlot = -1;
+  let hudS = null, hudRage = [], hudRock = '', buffCb = null, lastRes = null, adTimer = 0, adResolve = null;
 
   const fmt = n => (n >= 100000 ? (n / 10000).toFixed(1) + '万' : String(Math.floor(n)));
   const P = (id, px) => Art.portrait(id, px || 64);
@@ -49,17 +49,26 @@ const UI = (function () {
         </div>
         <div class="powers"><span>推荐战力 ${rec}</span><span class="${pw >= rec ? 'ok' : 'bad'}">我方战力 ${pw}</span></div>
         <div class="reward">通关奖励：金币 ×${stageWinCoins(st)} + 战场掉落${cleared ? '' : '<br>首通再得：招募令 ×' + (st % 10 === 0 ? 5 : 1)}</div>
-        <button class="btn-big" data-act="fight">出征</button>
+        <div class="fightrow">
+          ${cleared ? `<button class="btn sweep ${sweepLeft() ? '' : 'gray'}" data-act="sweep">扫荡<small>金币 ×${sweepReward(st)} · 今日 ${sweepLeft()}/${CFG.SWEEP_DAILY}</small></button>` : ''}
+          <button class="btn-big ${cleared ? 'small' : ''}" data-act="fight">出征</button>
+        </div>
+        ${pw < rec ? '<div class="tip">战力不足？去「武将」页凑羁绊、调站位；战斗中点战场可以投石</div>' : ''}
       </div>
-      <div class="homefoot"><button class="link" data-act="resetAsk">重置存档</button></div>`;
+      <div class="homefoot"><button class="link" data-act="settings">设置 · 存档</button><div id="cloudNote" class="cloudnote">${Cloud.note()}</div></div>`;
   }
 
   /* ---------------- 武将 ---------------- */
   function renderHeroes() {
     const S = Save.data;
-    const team = S.team.map((id, i) => id
-      ? `<div class="tslot has" style="--qc:${qc(id)}" data-act="hero" data-id="${id}"><em>${i + 1}</em><img src="${P(id)}"><span>${HERO_MAP[id].name}</span></div>`
-      : `<div class="tslot" data-act="slotEmpty"><em>${i + 1}</em>空位</div>`).join('');
+    const team = S.team.map((id, i) => {
+      const role = SLOT_ROLES[i], fit = id && (role.leader || role.els.includes(HERO_MAP[id].el));
+      return id
+        ? `<div class="tslot has ${pickSlot === i ? 'pick' : ''}" style="--qc:${qc(id)}" data-act="slot" data-i="${i}"><em class="${fit ? 'fit' : ''}">${role.name}</em><img src="${P(id)}"><span>${HERO_MAP[id].name}</span></div>`
+        : `<div class="tslot ${pickSlot === i ? 'pick' : ''}" data-act="slot" data-i="${i}"><em>${role.name}</em>空位</div>`;
+    }).join('');
+    const bonus = teamBonus();
+    const bonds = bonus.active.length ? bonus.active.map(a => `<span class="bond ${a.type}"><b>${a.name}</b>${a.desc}</span>`).join('') : '<span class="bond none">还没有激活的羁绊</span>';
     let ids;
     if (heroTab === 'mine') ids = Object.keys(S.heroes).sort((a, b) => HERO_MAP[b].q - HERO_MAP[a].q || S.heroes[b].lv - S.heroes[a].lv);
     else ids = HEROES.slice().sort((a, b) => b.q - a.q).map(h => h.id);
@@ -75,7 +84,8 @@ const UI = (function () {
     const total = HEROES.filter(h => !h.locked).length;
     $('#heroes').innerHTML = `
       <div class="team">${team}</div>
-      <div class="tinfo"><span>出战阵容（点击武将可上阵 / 下阵）</span><span>战力 <b>${teamPower()}</b></span></div>
+      <div class="tinfo"><span>${pickSlot >= 0 ? '再点一个位置交换站位 · 点同一位置看详情' : '点位置选中后可交换站位'}</span><span>战力 <b>${teamPower()}</b> <button class="link" data-act="bondHelp">羁绊一览</button></span></div>
+      <div class="bonds">${bonds}</div>
       <div class="tabs">
         <button data-act="htab" data-v="mine" class="${heroTab === 'mine' ? 'on' : ''}">我的武将 ${Object.keys(S.heroes).length}/${total}</button>
         <button data-act="htab" data-v="all" class="${heroTab === 'all' ? 'on' : ''}">图鉴</button>
@@ -91,7 +101,7 @@ const UI = (function () {
         ${own ? `<p style="margin-top:6px">Lv.${own.lv}　${stars(own.star)}</p>` : ''}
       </div></div>
       <div class="dstat"><div><b>${st.atk}</b>攻击</div><div><b>${(1 / st.cd).toFixed(2)}</b>每秒出手</div><div><b>${st.power}</b>战力</div></div>
-      <div class="dskill"><b>普攻 · ${el.name}</b>：${el.desc}<br><b>大招 · ${d.ult}</b>：${el.ult}</div>`;
+      ${skillHtml(id, own)}`;
     if (d.locked) h += `<p class="mtext" style="margin-top:14px">黑、彩品质神将尚未开放，敬请期待</p>`;
     else if (!own) h += `<p class="mtext" style="margin-top:14px">尚未获得 · 可通过招募获得</p>`;
     else if (picking) {
@@ -106,6 +116,46 @@ const UI = (function () {
         <div class="mrow"><button class="btn ${ti >= 0 ? 'gray' : 'red'}" data-act="${ti >= 0 ? 'undeploy' : 'deploy'}" data-id="${id}">${ti >= 0 ? '下阵' : '上阵'}</button></div>`;
     }
     modal(h + '</div>');
+  }
+
+  function skillHtml(id, own) {
+    const d = HERO_MAP[id], el = ELEMENTS[d.el], sk = heroSkill(id), awake = heroAwake(id, own);
+    const combos = COMBOS.filter(c => c.ids.includes(id)).map(c => c.name + '（' + c.ids.map(x => HERO_MAP[x].name).join('、') + (c.need < c.ids.length ? ' 中 ' + c.need + ' 人' : '') + '）').join('<br>');
+    return `<div class="dskill"><b>普攻 · ${el.name}</b>：${el.desc}
+      ${sk ? `<br><b>被动 · ${sk.passive.name}</b>：${sk.passive.desc}
+      <br><b>大招 · ${d.ult}</b>：${sk.ult.desc.replace(d.ult + '：', '')}${sk.ult.aim ? '<i class="aimtag">可瞄准</i>' : ''}
+      <br><span class="${awake ? 'awake' : 'dim'}">${CFG.AWAKEN_STAR} 星觉醒：大招效果 ×1.5${awake ? '（已觉醒）' : ''}</span>` : `<br><b>大招 · ${d.ult}</b>：${el.ult}`}
+      ${combos ? `<br><b>缘分</b>：<span class="dim">${combos}</span>` : ''}</div>`;
+  }
+  function bondHelp() {
+    const fac = Object.keys(FACTION_BONDS).map(f => { const b = FACTION_BONDS[f]; return `<tr><td>${FACTIONS[f].name} · ${b.name}</td><td>${b.fmt(0).replace(/\s*\+0%$/, '')}：2 人 +${Math.round(b.vals[0] * 100)}% / 3 人 +${Math.round(b.vals[1] * 100)}% / 4 人以上 +${Math.round(b.vals[2] * 100)}%</td></tr>`; }).join('');
+    const own = Save.data.heroes;
+    const combo = COMBOS.map(c => `<tr><td>${c.name}</td><td>${c.ids.map(x => `<span class="${own[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}：${c.desc}</td></tr>`).join('');
+    const roles = SLOT_ROLES.filter((r, i) => i <= 2).map(r => `<tr><td>${r.name}</td><td>${r.desc}</td></tr>`).join('');
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>羁绊一览</h2>
+      <h4 class="sub">站位</h4><table class="rates wrap">${roles}</table>
+      <h4 class="sub">阵营羁绊</h4><table class="rates wrap">${fac}</table>
+      <h4 class="sub">缘分（灰色 = 还没获得）</h4><table class="rates wrap">${combo}</table></div>`);
+  }
+  function settings() {
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>设置 · 存档</h2>
+      <p class="mtext" style="font-size:13px">${Platform.isTap() ? '在 TapTap 里进度会自动保存到云存档和本机备份。' : '网页版进度只存在这个浏览器里。'}换设备或清理数据前，可以复制存档码留底，之后在这里读入。</p>
+      <div class="mrow"><button class="btn gold" data-act="codeOut">复制存档码</button><button class="btn" data-act="codeIn">读入存档码</button></div>
+      <div class="mrow"><button class="btn gray" data-act="resetAsk">重置存档</button></div></div>`);
+  }
+  function codeOut() {
+    const code = saveCode();
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>存档码</h2>
+      <textarea class="code" readonly>${code}</textarea>
+      <p class="mtext" style="font-size:13px">长按全选复制，保存到备忘录或发给自己。</p>
+      <div class="mrow"><button class="btn gold" data-act="codeCopy">复制</button><button class="btn" data-act="settings">返回</button></div></div>`);
+    const ta = document.querySelector('#modal textarea'); if (ta) { ta.focus(); ta.select(); }
+  }
+  function codeIn() {
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>读入存档码</h2>
+      <textarea class="code" placeholder="把以 SGTD1- 开头的存档码粘贴到这里"></textarea>
+      <p class="mtext" style="font-size:13px">读入后会替换当前的全部进度。</p>
+      <div class="mrow"><button class="btn" data-act="settings">返回</button><button class="btn red" data-act="codeLoad">读入</button></div></div>`);
   }
 
   /* ---------------- 招募 ---------------- */
@@ -131,10 +181,10 @@ const UI = (function () {
           <button class="btn gold" data-act="buy" data-n="all">全部兑换</button>
         </div>
       </div>
-      <div class="gbox">
+      ${AdService.available() ? `<div class="gbox">
         <h3>每日广告<span>今日剩余 ${left}/${CFG.AD_DAILY_LIMIT} 次 · 每日 0 点重置</span></h3>
         <div class="row"><button class="btn ${left ? '' : 'gray'}" data-act="ad">▶ 观看广告　免费得招募令 ×${CFG.AD_REWARD}</button></div>
-      </div>
+      </div>` : ''}
       <div class="gfoot"><button class="link" data-act="rates">概率公示</button></div>`;
   }
   function showPulls(res) {
@@ -187,6 +237,13 @@ const UI = (function () {
       hudS = S; hudRage = [];
       $('#ultbar').innerHTML = S.heroes.map(h =>
         `<button class="ult" data-act="ult" data-i="${h.slot}" style="--qc:${QUALITIES[h.def.q].color}"><img src="${P(h.def.id)}"><span>${h.def.ult}</span></button>`).join('');
+      hudRock = '';
+    }
+    const rk = S.rock.n + '/' + S.rock.max + '/' + (S.rock.n < S.rock.max ? Math.floor(S.rock.t / CFG.ROCK_CD * 20) : 20);
+    if (rk !== hudRock) {
+      hudRock = rk;
+      const b = $('#bRock'), p = S.rock.n < S.rock.max ? S.rock.t / CFG.ROCK_CD * 100 : 100;
+      b.innerHTML = '石<small>' + S.rock.n + '</small>'; b.style.setProperty('--p', p + '%'); b.classList.toggle('empty', S.rock.n <= 0);
     }
     const btns = $('#ultbar').children;
     S.heroes.forEach((h, i) => {
@@ -194,6 +251,7 @@ const UI = (function () {
       if (hudRage[i] === p) return;
       hudRage[i] = p; btns[i].style.setProperty('--p', p + '%'); btns[i].classList.toggle('ready', p >= 100);
     });
+    S.heroes.forEach((h, i) => btns[i].classList.toggle('aiming', S.aim === h.slot));
   }
   function showBuffs(opts, cb) {
     buffCb = cb;
@@ -208,24 +266,52 @@ const UI = (function () {
         <li>获得金币（含掉落 ${r.dropped}）<b>+${r.coins}</b></li>
         ${r.tickets ? `<li>首通奖励 · 招募令<b>+${r.tickets}</b></li>` : ''}
       </ul>
-      ${r.win ? '' : '<p class="mtext" style="font-size:13px;margin-top:8px">金币可兑换招募令，或用来升级武将；重复武将可升星</p>'}
+      <div class="dmgs">${(() => { const top = Math.max(1, ...r.dmg.map(x => x.dmg)), sum = Math.max(1, r.dmg.reduce((s, x) => s + x.dmg, 0));
+        return r.dmg.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join(''); })()}</div>
+      ${r.win ? '' : '<p class="mtext" style="font-size:13px;margin-top:8px">试试：凑阵营羁绊和缘分、把武将放到合适的站位、手动瞄准大招、点战场投石</p>'}
       <div class="mrow"><button class="btn" data-act="resHome">返回主城</button>
       <button class="btn red" data-act="${canNext ? 'resNext' : 'resRetry'}">${canNext ? '下一关' : '再战一次'}</button></div></div>`, false);
   }
 
   /* ---------------- 点击处理 ---------------- */
   const ACT = {
-    nav: d => show(d.tab),
+    nav: d => { pickSlot = -1; show(d.tab); },
     close: () => { closeModal(); if (screen !== 'battle') render(); },
     stage: d => { const S = Save.data; S.pick = Math.max(1, Math.min(S.stage, S.pick + Number(d.d))); Save.save(); render(); },
     fight: () => startBattle(Save.data.pick),
+    settings: () => settings(),
+    codeOut: () => codeOut(),
+    codeIn: () => codeIn(),
+    codeCopy: () => {
+      const ta = document.querySelector('#modal textarea'); if (!ta) return;
+      ta.select();
+      const done = () => toast('已复制存档码');
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, () => { try { document.execCommand('copy'); done(); } catch (e) { toast('请长按手动复制'); } });
+      else { try { document.execCommand('copy'); done(); } catch (e) { toast('请长按手动复制'); } }
+    },
+    codeLoad: () => {
+      const ta = document.querySelector('#modal textarea'), d = parseSaveCode(ta && ta.value);
+      if (typeof d === 'string') return toast(d);
+      Save.replace(d); closeModal(); show('home'); toast('存档已读入');
+    },
+    sweep: () => {
+      const r = sweep(Save.data.pick);
+      if (typeof r === 'string') return toast(r);
+      render(); toast('扫荡完成：金币 +' + r);
+    },
+    bondHelp: () => bondHelp(),
     resetAsk: () => modal(`<div class="mbox"><h2>重置存档</h2><p class="mtext">将清空所有武将、金币与关卡进度，确定吗？</p>
       <div class="mrow"><button class="btn" data-act="close">取消</button><button class="btn red" data-act="reset">确定重置</button></div></div>`),
     reset: () => { Save.reset(); closeModal(); show('home'); toast('存档已重置'); },
 
     htab: d => { heroTab = d.v; render(); },
     hero: d => detail(d.id),
-    slotEmpty: () => toast('点击下方武将 → 上阵'),
+    slot: d => {
+      const i = Number(d.i), t = Save.data.team;
+      if (pickSlot < 0) { pickSlot = i; if (!t[i]) toast('再点另一个位置交换；或点下方武将 → 上阵'); return render(); }
+      if (pickSlot === i) { pickSlot = -1; render(); if (t[i]) detail(t[i]); return; }
+      teamSwap(pickSlot, i); pickSlot = -1; render(); toast('已交换站位');
+    },
     lvup: d => { const e = levelUp(d.id); if (e) return toast(e); render(); detail(d.id); },
     starup: d => { const e = starUp(d.id); if (e) return toast(e); render(); detail(d.id); toast('升星成功'); },
     deploy: d => { const i = Save.data.team.indexOf(null); if (i < 0) return detail(d.id, true); teamSet(i, d.id); render(); detail(d.id); },
@@ -256,7 +342,7 @@ const UI = (function () {
 
     pause: () => {
       const S = Battle.state; if (!S || S.over || S.choosing) return;
-      S.paused = true;
+      S.paused = true; Battle.cancelAim();
       modal(`<div class="mbox"><h2>暂停</h2><p class="mtext">中途退出不会获得任何奖励</p>
         <div class="mrow"><button class="btn gray" data-act="quit">退出战斗</button><button class="btn red" data-act="resume">继续</button></div></div>`, false);
     },
@@ -265,6 +351,7 @@ const UI = (function () {
     speed: () => { const S = Save.data; S.speed = S.speed % 3 + 1; Save.save(); $('#bSpeed').textContent = '×' + S.speed; },
     auto: () => { const S = Save.data; S.auto = !S.auto; Save.save(); $('#bAuto').classList.toggle('off', !S.auto); toast(S.auto ? '自动释放大招：开' : '自动释放大招：关（点下方头像手动释放）'); },
     ult: d => { const r = Battle.ult(Number(d.i)); if (r === 'rage') toast('怒气未满'); else if (r === 'none') toast('射程内没有敌人'); },
+    rock: () => toast('点击战场任意位置投下礌石：伤害并眩晕敌人'),
     buff: d => { const cb = buffCb; buffCb = null; closeModal(); if (cb) cb(Number(d.i)); },
     resHome: () => { Battle.stop(); closeModal(); show('home'); },
     resNext: () => { Battle.stop(); const S = Save.data; S.pick = Math.min(S.stage, lastRes.stage + 1); Save.save(); startBattle(S.pick); },
@@ -280,5 +367,7 @@ const UI = (function () {
     show('home');
   }
 
-  return { init, show, render, toast, hud, showBuffs, showResult, fakeAd };
+  function cloudNote() { const el = $('#cloudNote'); if (el) el.textContent = Cloud.note(); }
+
+  return { init, show, render, toast, hud, showBuffs, showResult, fakeAd, cloudNote };
 })();

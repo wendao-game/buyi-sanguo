@@ -3,8 +3,8 @@
 (function () {
   Save.load();
 
-  // 调试参数：?coins=5000&tickets=50&stage=12&all=1
-  const qs = new URLSearchParams(location.search);
+  // 调试参数：?coins=5000&tickets=50&stage=12&all=1（只在本机调试时生效，见 data.js 的 DEV）
+  const qs = new URLSearchParams(DEV ? location.search : '');
   if (qs.has('coins')) Save.data.coins = Number(qs.get('coins')) || 0;
   if (qs.has('tickets')) Save.data.tickets = Number(qs.get('tickets')) || 0;
   if (qs.has('stage')) { Save.data.stage = Math.max(1, Number(qs.get('stage')) || 1); Save.data.pick = Save.data.stage; }
@@ -21,6 +21,7 @@
   Assets.load().then(() => {
     Battle.init(document.getElementById('cv'));
     UI.init();
+    Cloud.init();
     let last = performance.now();
     function loop(now) {
       const dt = (now - last) / 1000; last = now;

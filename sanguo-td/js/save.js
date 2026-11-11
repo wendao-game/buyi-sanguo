@@ -22,6 +22,10 @@ const Save = {
       draws: 0,
       speed: 1,
       auto: true,
+      sweep: { date: '', count: 0 },
+      earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
+      at: 0,               // 最后保存时间
+      ver: 2,
     };
   },
   load() {
@@ -30,11 +34,26 @@ const Save = {
     this.data = Object.assign(this.fresh(), d || {});
     // 清理存档里已不存在的武将
     Object.keys(this.data.heroes).forEach(id => { if (!HERO_MAP[id]) delete this.data.heroes[id]; });
-    this.data.team = this.data.team.map(id => (id && this.data.heroes[id] ? id : null));
+    this.data.team = (Array.isArray(this.data.team) ? this.data.team : []).slice(0, 5).map(id => (id && this.data.heroes[id] ? id : null));
     while (this.data.team.length < 5) this.data.team.push(null);
+    if (!this.data.team.some(Boolean)) { const first = Object.keys(this.data.heroes)[0]; if (first) this.data.team[2] = first; }
   },
   save() {
+    this.data.at = Date.now();
     try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); } catch (e) { /* 无痕模式等：忽略 */ }
+    if (typeof Cloud !== 'undefined') Cloud.dirty();
+  },
+  /* 用另一份存档整体替换（云存档、存档码），会做和读档一样的清理 */
+  replace(d) {
+    try { localStorage.setItem(this.KEY, JSON.stringify(d)); } catch (e) { /* ignore */ }
+    this.load();
+    if (typeof Cloud !== 'undefined') Cloud.dirty();
+  },
+  /* 哪份更新：累计获得更多的那份；一样多取后保存的 */
+  newer(a, b) {
+    if (!b) return true; if (!a) return false;
+    if ((a.earned || 0) !== (b.earned || 0)) return (a.earned || 0) > (b.earned || 0);
+    return (a.at || 0) > (b.at || 0);
   },
   reset() {
     try { localStorage.removeItem(this.KEY); } catch (e) {}
@@ -42,6 +61,13 @@ const Save = {
     this.save();
   },
 };
+
+/* 获得金币 / 招募令：同时记进累计获得 */
+function gain(coins, tickets) {
+  const S = Save.data;
+  S.coins += coins || 0; S.tickets += tickets || 0;
+  S.earned = (S.earned || 0) + (coins || 0) + (tickets || 0) * CFG.TICKET_PRICE;
+}
 
 function todayStr() {
   const d = new Date();
@@ -56,9 +82,55 @@ function heroStats(id, own) {
   const mul = q.mult * (1 + 0.08 * (own.lv - 1)) * (1 + 0.2 * own.star);
   return { atk: Math.round(el.atk * mul), cd: el.cd, power: Math.round(100 * mul) };
 }
-function teamPower() {
-  return Save.data.team.reduce((s, id) => s + (id ? heroStats(id).power : 0), 0);
+function heroSkill(id) { return SKILLS[id] || null; }
+function heroAwake(id, own) { own = own || heroOwn(id); return !!own && own.star >= CFG.AWAKEN_STAR; }
+
+/* 阵容加成：阵营羁绊 + 缘分 + 站位。team 是 5 个位置的武将 id（空位 null） */
+function teamBonus(team) {
+  team = team || Save.data.team;
+  const out = { atk: 0, spd: 0, crit: 0, rage: 0, ult: 0, wall: 0, el: {}, per: team.map(() => ({ atk: 0, spd: 0, rage: 0 })), active: [], fac: {} };
+  const ids = team.filter(Boolean), add = (eff, k) => { if (eff[k]) out[k] += eff[k]; };
+  ids.forEach(id => { const f = HERO_MAP[id].fac; out.fac[f] = (out.fac[f] || 0) + 1; });
+  Object.keys(FACTION_BONDS).forEach(f => {
+    const n = out.fac[f] || 0, b = FACTION_BONDS[f];
+    if (n < 2) return;
+    const v = b.vals[Math.min(2, n - 2)];
+    out[b.stat] += v;
+    out.active.push({ type: 'fac', fac: f, name: FACTIONS[f].name + ' · ' + b.name + '（' + n + '）', desc: b.fmt(v) });
+  });
+  COMBOS.forEach(c => {
+    const n = c.ids.filter(id => ids.includes(id)).length;
+    if (n < c.need) return;
+    ['atk', 'spd', 'crit', 'rage', 'ult', 'wall'].forEach(k => add(c.eff, k));
+    if (c.eff.el) for (const e in c.eff.el) out.el[e] = (out.el[e] || 0) + c.eff.el[e];
+    out.active.push({ type: 'combo', name: c.name, desc: c.desc });
+  });
+  team.forEach((id, i) => {
+    if (!id) return;
+    const r = SLOT_ROLES[i], d = HERO_MAP[id];
+    if (r.leader) {
+      const v = d.q * 0.03; out.atk += v; out.per[i].rage += 0.2;
+      out.active.push({ type: 'slot', name: '主帅 · ' + d.name, desc: '全军攻击 +' + Math.round(v * 100) + '%，本人怒气获取 +20%' });
+    } else if (r.els.includes(d.el)) {
+      if (r.atk) out.per[i].atk += r.atk;
+      if (r.spd) out.per[i].spd += r.spd;
+    }
+  });
+  return out;
 }
+/* 上阵后的战力：基础战力 × 被动 × 羁绊 / 缘分 / 站位 */
+function teamPower(team) {
+  team = team || Save.data.team;
+  const b = teamBonus(team);
+  let sum = 0;
+  team.forEach((id, i) => {
+    if (!id) return;
+    const d = HERO_MAP[id], sk = heroSkill(id), m = (sk && sk.passive.mod) || {}, p = b.per[i];
+    sum += heroStats(id).power * (1 + (m.atk || 0)) * (1 + (m.spd || 0)) * (1 + b.atk + p.atk) * (1 + b.spd + p.spd) * (1 + b.crit + (m.crit || 0)) * (1 + (b.el[d.el] || 0) * 0.6) * (1 + b.ult * 0.3 + b.rage * 0.2 + p.rage * 0.2);
+  });
+  return Math.round(sum);
+}
+function basePower(team) { return (team || Save.data.team).reduce((s, id) => s + (id ? heroStats(id).power : 0), 0); }
 function levelCost(id) {
   const own = heroOwn(id), d = HERO_MAP[id];
   return Math.floor(30 * Math.pow(own.lv, 1.3) * (1 + d.q * 0.25));
@@ -93,6 +165,10 @@ function teamSet(slot, id) {
   if (old >= 0) t[old] = null;
   t[slot] = id; Save.save();
 }
+/* 交换两个位置（空位也行） */
+function teamSwap(a, b) {
+  const t = Save.data.team, x = t[a]; t[a] = t[b]; t[b] = x; Save.save();
+}
 function teamRemove(id) {
   const t = Save.data.team, i = t.indexOf(id);
   if (i < 0) return;
@@ -109,7 +185,7 @@ function buyTickets(n) {
   return null;
 }
 
-/* ---------------- 广告 ---------------- */
+/* ---------------- 广告（播放见 platform.js 的 AdService） ---------------- */
 function adLeft() {
   const ad = Save.data.ad;
   if (ad.date !== todayStr()) { ad.date = todayStr(); ad.count = 0; }
@@ -118,40 +194,26 @@ function adLeft() {
 function adGrant() {
   if (adLeft() <= 0) return false;
   Save.data.ad.count++;
-  Save.data.tickets += CFG.AD_REWARD;
+  gain(0, CFG.AD_REWARD);
   Save.save();
   return true;
 }
 
-/* 广告服务：
- *  - TapTap 小游戏（tap.createRewardedVideoAd）/ 抖音小游戏（tt.…）走平台真实激励视频，
- *    两家接口一致，只需把 AD_UNIT_ID 换成后台申请的广告位 ID
- *  - 普通网页走模拟广告（倒计时遮罩），方便本地调试
- * showRewarded() 返回 Promise：true = 完整看完可发奖；false = 中途关闭；null = 暂时没有广告 */
-const AdService = {
-  AD_UNIT_ID: 'YOUR_AD_UNIT_ID',
-  _ad: null, _done: null,
-  platform() {
-    if (typeof tap !== 'undefined' && tap.createRewardedVideoAd) return tap;
-    if (typeof tt !== 'undefined' && tt.createRewardedVideoAd) return tt;
-    return null;
-  },
-  showRewarded() {
-    const p = this.platform();
-    if (!p) return UI.fakeAd(CFG.AD_SECONDS);
-    if (!this._ad) {                       // 平台规定全局只有一个实例，回调只注册一次
-      this._ad = p.createRewardedVideoAd({ adUnitId: this.AD_UNIT_ID });
-      this._ad.onClose(res => this._finish(!!(res && res.isEnded)));
-      this._ad.onError(() => {});          // 拉取失败由下面的 show/load 重试处理
-    }
-    return new Promise(resolve => {
-      this._done = resolve;
-      const ad = this._ad;
-      ad.show().catch(() => ad.load().then(() => ad.show()).catch(() => this._finish(null)));
-    });
-  },
-  _finish(result) { const d = this._done; this._done = null; if (d) d(result); },
-};
+/* ---------------- 扫荡：已通关的关卡直接领奖励，每日有次数 ---------------- */
+function sweepLeft() {
+  const sw = Save.data.sweep;
+  if (sw.date !== todayStr()) { sw.date = todayStr(); sw.count = 0; }
+  return Math.max(0, CFG.SWEEP_DAILY - sw.count);
+}
+function sweepReward(stage) { return Math.round(stageWinCoins(stage) * CFG.SWEEP_MUL); }
+function sweep(stage) {
+  if (stage >= Save.data.stage) return '通关后才能扫荡';
+  if (sweepLeft() <= 0) return '今日扫荡次数已用完';
+  Save.data.sweep.count++;
+  const c = sweepReward(stage);
+  gain(c, 0); Save.save();
+  return c;
+}
 
 /* ---------------- 抽卡 ---------------- */
 const GACHA_POOL = {};
@@ -173,9 +235,9 @@ function grantHero(id) {
     if (empty >= 0) Save.data.team[empty] = id;   // 有空位自动上阵
     return { id, isNew: true };
   }
-  if (own.star >= CFG.MAX_STAR && own.shards >= 0) {
+  if (own.star >= CFG.MAX_STAR) {
     const coins = Math.round(CFG.SHARD_TO_COIN * QUALITIES[d.q].mult);
-    Save.data.coins += coins;
+    gain(coins, 0);
     return { id, isNew: false, coins };
   }
   own.shards++;
@@ -215,7 +277,31 @@ function settleBattle(stage, win, wavesCleared, dropped) {
     S.stage = stage + 1;
     S.pick = S.stage;
   }
-  S.coins += coins; S.tickets += tickets;
+  gain(coins, tickets);
   Save.save();
   return { coins, tickets, first, dropped };
+}
+
+/* ---------------- 存档码：换设备 / 清数据时手动备份 ---------------- */
+const SAVE_CODE_TAG = 'SGTD1';
+function codeHash(str) {
+  let h = 0x811c9dc5;
+  const s = str + '|fenghuo-shoucheng';
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(36);
+}
+function saveCode() {
+  const b = btoa(unescape(encodeURIComponent(JSON.stringify(Save.data))));
+  return SAVE_CODE_TAG + '-' + b + '-' + codeHash(b);
+}
+/* 解析存档码：成功返回存档对象，失败返回错误文字 */
+function parseSaveCode(str) {
+  const m = String(str || '').replace(/\s+/g, '').match(/^SGTD1-([A-Za-z0-9+/=]+)-([0-9a-z]+)$/);
+  if (!m) return '存档码格式不对';
+  if (codeHash(m[1]) !== m[2]) return '存档码不完整或被改动过';
+  try {
+    const d = JSON.parse(decodeURIComponent(escape(atob(m[1]))));
+    if (!d || typeof d !== 'object' || !d.heroes) return '存档码内容有误';
+    return d;
+  } catch (e) { return '存档码内容有误'; }
 }
