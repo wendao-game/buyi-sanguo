@@ -166,19 +166,20 @@ const ENEMIES = {
   boss:   { id: 'boss',   name: '敌将',   hp: 2400, spd: 17, atk: 55, r: 34, coin: 50, body: '#3a3140', hat: '#b01f2a' },
 };
 
+/* 各章敌将；立绘是 assets/enemies/boss_<章>.png（第 9 章起用 boss_9） */
 const CHAPTERS = [
-  { name: '黄巾之乱', boss: '黄巾渠帅' },
-  { name: '讨伐董卓', boss: '西凉猛将' },
-  { name: '群雄割据', boss: '割据枭雄' },
-  { name: '官渡之战', boss: '河北名将' },
-  { name: '火烧赤壁', boss: '水军都督' },
-  { name: '三分天下', boss: '镇关大将' },
+  { name: '黄巾之乱', boss: '程远志' },
+  { name: '讨伐董卓', boss: '董卓' },
+  { name: '群雄割据', boss: '颜良' },
+  { name: '官渡之战', boss: '文丑' },
+  { name: '火烧赤壁', boss: '夏侯惇' },
+  { name: '三分天下', boss: '陷阵统领' },
   { name: '七擒孟获', boss: '南蛮王' },
-  { name: '北伐中原', boss: '中原统帅' },
+  { name: '北伐中原', boss: '虎豹骑统领' },
 ];
 function chapterOf(stage) {
   const idx = Math.floor((stage - 1) / 10);
-  const c = CHAPTERS[idx] || { name: '乱世无尽', boss: '无名霸主' };
+  const c = CHAPTERS[idx] || { name: '乱世无尽', boss: '幽冥鬼将' };
   return { index: idx + 1, name: c.name, boss: c.boss, sub: ((stage - 1) % 10) + 1 };
 }
 

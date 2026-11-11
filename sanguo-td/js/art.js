@@ -27,6 +27,15 @@ const Art = (function () {
 
   /* ---------------- 战场背景（只画一次，缓存成离屏画布） ---------------- */
   let bgCanvas = null;
+  /* 2.5D：越远（越靠画面上方）越小 */
+  function depth(y) { return 0.58 + 0.42 * Math.max(0, Math.min(1, y / CFG.WALL_Y)); }
+  /* 投影：光从左上方来，人影斜着落在右下方的地上 */
+  function castShadow(c, im, x0, y0, w, h, footY, a) {
+    c.save(); c.translate(0, footY); c.transform(1, 0, -0.85, -0.3, 0, 0);
+    c.globalAlpha = a; c.drawImage(spriteTint(im, '12,8,6'), x0, y0 - footY, w, h);
+    c.restore(); c.globalAlpha = 1;
+  }
+
   function background() {
     const im = Assets.get('bg');
     if (im) return im;                       // 有 assets/bg/battle.png 就用图片
@@ -53,16 +62,16 @@ const Art = (function () {
       for (let k = 0; k < 4 + R() * 4; k++) { a += (R() - 0.5) * 1.3; x += Math.cos(a) * (8 + R() * 14); y += Math.sin(a) * (8 + R() * 14); c.lineTo(x, y); }
       c.stroke();
     }
-    for (let i = 0; i < 60; i++) {             // 碎石
-      const x = R() * W, y = 30 + R() * (WY - 50), s = 2 + R() * 5;
+    for (let i = 0; i < 60; i++) {             // 碎石（远处小）
+      const x = R() * W, y = 30 + R() * (WY - 50), s = (2 + R() * 5) * depth(y);
       c.fillStyle = 'rgba(30,18,10,.35)'; ell(c, x + 1, y + 2, s * 1.2, s * 0.6);
       c.fillStyle = R() < 0.5 ? '#8d8072' : '#6e6358'; ell(c, x, y, s * 1.1, s * 0.8);
       c.fillStyle = 'rgba(255,255,255,.15)'; ell(c, x - s * 0.3, y - s * 0.3, s * 0.4, s * 0.25);
     }
     for (let i = 0; i < 70; i++) {             // 枯草
-      const x = R() * W, y = 30 + R() * (WY - 50);
-      c.strokeStyle = R() < 0.5 ? 'rgba(196,160,84,.55)' : 'rgba(120,96,52,.6)'; c.lineWidth = 1;
-      for (let k = -2; k <= 2; k++) { c.beginPath(); c.moveTo(x, y); c.lineTo(x + k * 2.2 + (R() - 0.5) * 2, y - 5 - R() * 6); c.stroke(); }
+      const x = R() * W, y = 30 + R() * (WY - 50), dk = depth(y);
+      c.strokeStyle = R() < 0.5 ? 'rgba(160,130,74,.45)' : 'rgba(110,88,50,.5)'; c.lineWidth = 1;
+      for (let k = -2; k <= 2; k++) { c.beginPath(); c.moveTo(x, y); c.lineTo(x + (k * 2.2 + (R() - 0.5) * 2) * dk, y - (5 + R() * 6) * dk); c.stroke(); }
     }
     // 两侧拒马、残旗
     for (let side = 0; side < 2; side++) {
@@ -80,10 +89,26 @@ const Art = (function () {
         }
       }
     }
+    // 远处敌营（2.5D 远景，越远越小、被烟尘盖住）
+    [['xiliangying', 70, 64, 120], ['xiliangying', 470, 58, 116], ['camp', 270, 92, 170]].forEach(b => {
+      const im = Assets.get('scenery/' + b[0]); if (!im) return;
+      const w = b[3], h = w * im.height / im.width;
+      c.globalAlpha = 0.9; c.drawImage(im, b[1] - w / 2, b[2] - h * 0.8, w, h); c.globalAlpha = 1;
+    });
+    // 光照：左上方的暖光，四周压暗
+    const lt = c.createRadialGradient(W * 0.25, WY * 0.3, 20, W * 0.25, WY * 0.3, W * 1.1);
+    lt.addColorStop(0, 'rgba(255,214,150,.16)'); lt.addColorStop(0.5, 'rgba(255,214,150,.04)'); lt.addColorStop(1, 'rgba(10,6,4,.32)');
+    c.fillStyle = lt; c.fillRect(0, 0, W, WY + 10);
+    // 颗粒：去掉“平涂”的卡通感
+    try {
+      const px = c.getImageData(0, 0, W * S, (WY + 10) * S), dd = px.data;
+      for (let i = 0; i < dd.length; i += 4) { const n = (R() - 0.5) * 22; dd[i] += n; dd[i + 1] += n * 0.9; dd[i + 2] += n * 0.8; }
+      c.putImageData(px, 0, 0);
+    } catch (e) { /* file:// 下个别浏览器不让读像素，跳过 */ }
     // 远处烟尘（敌军来的方向）
-    const fog = c.createLinearGradient(0, 0, 0, 170);
-    fog.addColorStop(0, 'rgba(18,10,8,.92)'); fog.addColorStop(1, 'rgba(18,10,8,0)');
-    c.fillStyle = fog; c.fillRect(0, 0, W, 170);
+    const fog = c.createLinearGradient(0, 0, 0, 230);
+    fog.addColorStop(0, 'rgba(26,16,12,.9)'); fog.addColorStop(0.55, 'rgba(40,26,18,.45)'); fog.addColorStop(1, 'rgba(40,26,18,0)');
+    c.fillStyle = fog; c.fillRect(0, 0, W, 230);
 
     // —— 城墙 ——
     c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(0, WY - 16, W, 12);          // 墙前阴影
@@ -112,8 +137,16 @@ const Art = (function () {
       for (let x = (row % 2) * 16; x < W; x += 32) { c.beginPath(); c.moveTo(x, y); c.lineTo(x, y + 14); c.stroke(); }
     }
     c.fillStyle = '#6b5a2e'; c.fillRect(0, 902, W, 4);
-    // 两侧箭楼
-    for (let side = 0; side < 2; side++) {
+    // 两侧箭楼（有布衣三国的箭楼图就用图）
+    const tw = Assets.get('scenery/tower');
+    for (let side = 0; side < 2 && tw; side++) {
+      const w = 96, h = w * tw.height / tw.width;
+      c.save(); if (side) { c.translate(W, 0); c.scale(-1, 1); }
+      c.fillStyle = 'rgba(0,0,0,.35)'; ell(c, 22, WY + 24, 44, 11);
+      c.drawImage(tw, -32, WY + 28 - h, w, h);
+      c.restore();
+    }
+    for (let side = 0; side < 2 && !tw; side++) {
       c.save();
       if (side) { c.translate(W, 0); c.scale(-1, 1); }
       c.fillStyle = '#3b3e48'; c.fillRect(0, WY - 44, 42, Hh - WY + 44);
@@ -241,6 +274,7 @@ const Art = (function () {
     if (im) {                                // 有立绘图片：脚底锚点对齐站位，保留呼吸和出手动作
       const hU = SPRITE.hero.units, wU = hU * im.width / im.height, k = 1 + a * 0.06;
       c.translate(0, 20 - a * 5);
+      if (!noAura) castShadow(c, im, -wU * SPRITE.hero.ax, -hU * SPRITE.hero.ay, wU, hU, -hU * SPRITE.hero.ay + hU * 0.86, 0.3);
       c.scale(k, k * (1 + Math.sin(t * 2.4 + d.seed) * 0.012));
       c.drawImage(im, -wU * SPRITE.hero.ax, -hU * SPRITE.hero.ay, wU, hU);
       c.restore();
@@ -302,16 +336,29 @@ const Art = (function () {
 
   /* ---------------- 敌人 ---------------- */
   function enemy(c, e, t) {
-    const d = e.def, s = d.r / 13;
+    const d = e.def, ds = depth(e.y), s = d.r / 13 * ds;
+    e.ds = ds;
     c.save(); c.translate(e.x, e.y);
-    c.fillStyle = 'rgba(0,0,0,.35)'; ell(c, 0, d.r * 0.95, d.r * 0.95, d.r * 0.36);
+    c.fillStyle = 'rgba(0,0,0,.35)'; ell(c, 0, d.r * 0.95 * ds, d.r * 0.95 * ds, d.r * 0.36 * ds);
     const moving = e.frozen <= 0 && e.y < e.stopY;
     c.translate(0, moving ? -Math.abs(Math.sin(e.walk)) * 2.4 : (e.frozen > 0 ? 0 : Math.sin(t * 9 + e.ph) * 1.2));
     c.scale(s, s);
-    const im = Assets.get('enemy:' + d.id);
+    const im = (e.spr && Assets.get(e.spr)) || Assets.get('enemy:' + d.id);
     if (im) {                                                 // 有图片：脚底锚点对齐阴影中心
       const hU = SPRITE.enemy.units, wU = hU * im.width / im.height;
+      castShadow(c, im, -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU, 12.4, 0.28);
+      if (e.flip) c.scale(-1, 1);
       c.drawImage(im, -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU);
+      if (e.flash > 0) {                                      // 受击：同一张图叠加一层发白
+        c.globalCompositeOperation = 'lighter'; c.globalAlpha = Math.min(1, e.flash * 6) * 0.55;
+        c.drawImage(im, -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU);
+        c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+      }
+      if (e.frozen > 0) { c.globalAlpha = 0.7; c.drawImage(spriteTint(im, '150,215,255'), -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU); c.globalAlpha = 1; }
+      else if (e.psn > 0) { c.globalAlpha = 0.35; c.drawImage(spriteTint(im, '120,230,70'), -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU); c.globalAlpha = 1; }
+      c.restore();
+      drawBars(c, e, d, 2.55 * ds);
+      return;
     } else {
     if (d.id === 'rider') {                                   // 战马
       c.fillStyle = '#5b3a24'; ell(c, 0, 5, 8, 12);
@@ -357,14 +404,27 @@ const Art = (function () {
     else if (e.slow > 0) { c.fillStyle = 'rgba(120,200,255,.28)'; circ(c, 0, 0, 13); }
     if (e.burn > 0) { c.fillStyle = 'rgba(255,120,40,.85)'; const fy = -20 - Math.sin(t * 20 + e.ph) * 2; c.beginPath(); c.moveTo(0, fy - 6); c.quadraticCurveTo(5, fy, 0, fy + 4); c.quadraticCurveTo(-5, fy, 0, fy - 6); c.fill(); }
     c.restore();
+    drawBars(c, e, d);
+  }
+  /* 立绘整体染色（冻结、中毒），按图片和颜色缓存 */
+  const tintMap = new Map();
+  function spriteTint(im, rgb) {
+    let m = tintMap.get(im); if (!m) tintMap.set(im, (m = {}));
+    if (m[rgb]) return m[rgb];
+    const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+    const c = cv.getContext('2d');
+    c.drawImage(im, 0, 0); c.globalCompositeOperation = 'source-atop'; c.fillStyle = 'rgb(' + rgb + ')'; c.fillRect(0, 0, cv.width, cv.height);
+    return (m[rgb] = cv);
+  }
+  function drawBars(c, e, d, k) {
     // 血条
     if (e.hp < e.max || d.id === 'boss') {
-      const w = d.id === 'boss' ? 70 : d.r * 2, hy = e.y - d.r * 2.1 - (d.id === 'boss' ? 14 : 4);
+      const w = d.id === 'boss' ? 70 : d.r * 2, hy = e.y - d.r * (k || 2.1) - (d.id === 'boss' ? 14 : 4);
       c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(e.x - w / 2 - 1, hy - 1, w + 2, d.id === 'boss' ? 7 : 5);
       c.fillStyle = d.id === 'boss' ? '#ff5a3a' : '#e8463a'; c.fillRect(e.x - w / 2, hy, w * Math.max(0, e.hp / e.max), d.id === 'boss' ? 5 : 3);
       if (d.id === 'boss') { c.fillStyle = '#ffe9a8'; c.font = 'bold 12px "Microsoft YaHei",sans-serif'; c.textAlign = 'center'; c.fillText(e.name, e.x, hy - 4); }
     }
   }
 
-  return { background, hero, enemy, portrait, circ, ell, rr, TAU };
+  return { background, hero, enemy, portrait, depth, circ, ell, rr, TAU };
 })();

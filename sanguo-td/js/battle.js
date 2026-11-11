@@ -25,7 +25,8 @@ const Battle = (function () {
     const bonus = teamBonus(Save.data.team);
     S = {
       stage, ch: chapterOf(stage), wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
-      queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [],
+      queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [],
+      cut: null, lastCut: -99,
       t: 0, coins: 0, kills: 0,
       buffs: { atk: 1 + bonus.atk, spd: 1 + bonus.spd, crit: bonus.crit, rage: 1 + bonus.rage, ult: 1 + bonus.ult, coin: 1, boss: 1, el: {} },
       bonus, wallBonus: bonus.wall, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 },
@@ -68,7 +69,14 @@ const Battle = (function () {
       acd: 0.3 + rand() * 0.7, flash: 0, frozen: 0, slow: 0, burn: 0, burnT: 0, burnDps: 0, burnSrc: null,
       psn: 0, psnT: 0, psnDps: 0, psnSrc: null, psnMark: 0, vuln: 0, vulnT: 0, fear: 0, conf: 0, confT: 0, confSrc: null, mark: 0,
       walk: rand() * 6, ph: rand() * 6, dead: false,
+      spr: enemySprite(d.id), flip: d.id !== 'boss' && rand() < 0.5,
     });
+  }
+  /* 敌人造型：第 1 章黄巾兵，之后换官军造型；敌将每章不同 */
+  function enemySprite(id) {
+    if (id === 'boss') return 'enemies/boss_' + Math.min(9, S.ch.index);
+    if (S.ch.index > 1 && Assets.get('enemy:' + id + '_2')) return 'enemy:' + id + '_2';
+    return null;
   }
   function afterWave() {
     if (S.wave % CFG.BUFF_EVERY === 0 && S.wave < CFG.WAVES) {
@@ -97,13 +105,60 @@ const Battle = (function () {
   function burst(x, y, n, color, spd, size, life) {
     for (let i = 0; i < n; i++) { const a = rand() * TAU, v = spd * (0.3 + rand() * 0.7); part(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.6 + rand() * 0.4), color, size * (0.6 + rand() * 0.6)); }
   }
-  function ring(x, y, r0, r1, life, color, w, fill) { S.rings.push({ x, y, r0, r1, life, max: life, color, w: w || 3, fill: !!fill }); }
+  function ring(x, y, r0, r1, life, color, w, fill) {
+    if (!fill && r1 > 40) { const s0 = Math.max(10, r0); if (tex('ring', x, y, { w: s0 * 2.3, h: s0 * 1.6, grow: r1 / s0, life, rgb: hexRgb(color), a: Math.min(1, 0.5 + (w || 3) / 10) })) return; }
+    S.rings.push({ x, y, r0, r1, life, max: life, color, w: w || 3, fill: !!fill });
+  }
   function text(x, y, str, color, size, life, force) {
     if (S.texts.length > 110 && !force) return;
     S.texts.push({ x, y, str: String(str), color, size, life: life || 0.8, max: life || 0.8 });
   }
   function later(t, fn) { const ref = S; S.timers.push({ t, fn: () => { if (S === ref && !S.over) fn(); } }); }
+  /* ---------------- 贴图特效（黑底贴图 + 叠加混合） ---------------- */
+  const hexRgb = h => { if (!h || h[0] !== '#') return '255,255,255'; const n = parseInt(h.slice(1), 16); return h.length === 4 ? [((n >> 8) & 15) * 17, ((n >> 4) & 15) * 17, (n & 15) * 17].join(',') : [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); };
+  /* o: w 宽, h 高（默认按图片比例）, rot, spin 转速, life, grow 结束时放大倍数, a 透明度, fadeIn, ax/ay 锚点, vx/vy, rgb 染色 */
+  function tex(name, x, y, o) {
+    o = o || {};
+    const im = o.rgb ? Assets.tinted(name, o.rgb) : Assets.get('fx:' + name);
+    if (!im) return null;
+    if (S.fx.length > 180 && !o.force) return true;
+    const w = o.w || 64;
+    S.fx.push({ im, x, y, w, h: o.h || w * im.height / im.width, rot: o.rot || 0, spin: o.spin || 0, life: o.life || 0.4, max: o.life || 0.4,
+      grow: o.grow || 1, a: o.a == null ? 1 : o.a, fadeIn: o.fadeIn || 0, ax: o.ax == null ? 0.5 : o.ax, ay: o.ay == null ? 0.5 : o.ay, vx: o.vx || 0, vy: o.vy || 0 });
+    return true;
+  }
+  const glowCache = {};
+  function glow(x, y, r, rgb, a) {
+    let g = glowCache[rgb];
+    if (!g) {
+      g = glowCache[rgb] = document.createElement('canvas'); g.width = g.height = 64;
+      const gc = g.getContext('2d'), gr = gc.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(' + rgb + ',1)'); gr.addColorStop(0.3, 'rgba(' + rgb + ',.55)'); gr.addColorStop(0.7, 'rgba(' + rgb + ',.12)'); gr.addColorStop(1, 'rgba(' + rgb + ',0)');
+      gc.fillStyle = gr; gc.fillRect(0, 0, 64, 64);
+    }
+    c.globalAlpha = Math.max(0, Math.min(1, a)); c.drawImage(g, x - r, y - r, r * 2, r * 2);
+  }
+  /* 绘制时用：直接画一张贴图（不进特效列表），需在 'lighter' 下调用 */
+  function img(name, x, y, w, h, rot, a, rgb) {
+    const im = rgb ? Assets.tinted(name, rgb) : Assets.get('fx:' + name);
+    if (!im) return false;
+    h = h || w * im.height / im.width;
+    c.globalAlpha = Math.max(0, Math.min(1, a == null ? 1 : a));
+    c.save(); c.translate(x, y); if (rot) c.rotate(rot); c.drawImage(im, -w / 2, -h / 2, w, h); c.restore();
+    return true;
+  }
+  /* 大招特写横幅：有特写图的武将，放大招时从右边滑进来（同一时间只放一张，最快 5 秒一次） */
+  function cutIn(h, manual) {
+    const im = Assets.get('cut:' + h.def.id);
+    if (!im || (!manual && S.t - S.lastCut < 5)) return;
+    S.lastCut = S.t; S.cut = { im, name: h.def.ult, who: h.def.name, color: QUALITIES[h.def.q].color, t: 0, dur: 1.15 };
+  }
+
   function bolt(x1, y1, x2, y2, wide) {
+    if ((wide || 1) >= 1.5 && y2 - y1 > 80 && tex('bolt', x2, y2 + 8, { w: 46 * wide, h: y2 - y1 + 40, ay: 1, life: 0.28, rot: Math.atan2(x2 - x1, y1 - y2) * 0.5 })) {
+      tex('el_hit_thunder', x2, y2, { w: 54 * wide, life: 0.3, grow: 1.3, rot: rand() * TAU });
+      return;
+    }
     const pts = [[x1, y1]], n = 6;
     for (let i = 1; i < n; i++) { const p = i / n; pts.push([x1 + (x2 - x1) * p + (rand() - 0.5) * 26, y1 + (y2 - y1) * p + (rand() - 0.5) * 16]); }
     pts.push([x2, y2]);
@@ -125,6 +180,7 @@ const Battle = (function () {
     dmg = Math.max(1, Math.round(dmg * m * (0.9 + rand() * 0.2) * (crit ? 2 + (src ? src.critDmg : 0) : 1)));
     if (src) src.dmg += Math.min(dmg, Math.max(0, e.hp));
     e.hp -= dmg; e.flash = 0.1;
+    if (crit && !o.dot && S.fx.length < 120) tex('burst', e.x, e.y - e.def.r * 0.6, { w: 40 + e.def.r, life: 0.22, grow: 1.3, rgb: '255,225,140', rot: rand() * TAU });
     text(e.x + (rand() - 0.5) * 18, e.y - e.def.r - 8 - rand() * 8, dmg, crit ? '#ffdf4a' : elColor(el), crit ? 23 : (o.dot ? 12 : 15), 0.75, crit);
     if (o.basic && src && src.sk && src.sk.passive.onHit && e.hp > 0) src.sk.passive.onHit(B, src, e);
     if (e.hp <= 0) kill(e, src, el);
@@ -132,7 +188,7 @@ const Battle = (function () {
   function kill(e, src, el) {
     e.dead = true; S.kills++;
     burst(e.x, e.y, e.def.id === 'boss' ? 40 : 7, e.def.body, 120, 4, 0.5);
-    if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; }
+    if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); }
     if (isBig(e) || rand() < CFG.COIN_DROP_RATE) dropCoin(e);
     if (rand() < CFG.BUN_DROP_RATE) S.drops.push({ k: 'bun', x: e.x, y: e.y, sx: e.x, sy: e.y, t: 0, dur: 0.8, wait: 0.5, val: 0.04 });
     if (src && src.sk && src.sk.passive.onKill) src.sk.passive.onKill(B, src, e, el);
@@ -178,21 +234,25 @@ const Battle = (function () {
     if (el === 'fire') {
       const tick = dmg * 0.12 * (h ? h.m.burn : 1);
       inRadius(x, y, r, e => { hit(e, dmg, 'fire', h, o); burn(e, 3, tick, h); });
-      ring(x, y, r * 0.2, r, 0.35, '#ff8a3a', 4, true); ring(x, y, r * 0.3, r * 1.05, 0.3, '#ffd35a', 3);
-      burst(x, y, big ? 22 : 10, '#ff9a3a', 160, 5, 0.45); burst(x, y, big ? 10 : 4, '#3a2a22', 90, 6, 0.6);
+      if (!tex('el_hit_fire', x, y - r * 0.15, { w: r * 2.7, h: r * 2.3, life: big ? 0.6 : 0.45, grow: 1.3, rot: rand() * TAU })) { ring(x, y, r * 0.2, r, 0.35, '#ff8a3a', 4, true); ring(x, y, r * 0.3, r * 1.05, 0.3, '#ffd35a', 3); }
+      burst(x, y, big ? 16 : 6, '#ff9a3a', 160, 5, 0.45); burst(x, y, big ? 8 : 3, '#3a2a22', 90, 6, 0.6);
       if (big) S.shake = Math.max(S.shake, 0.2);
     } else if (el === 'ice') {
       inRadius(x, y, r, e => { hit(e, dmg, 'ice', h, o); slow(e, 2.2); });
-      ring(x, y, 6, r, 0.3, '#bfeaff', 3); burst(x, y, 9, '#d9f4ff', 130, 3.5, 0.4);
+      if (!tex('el_hit_ice', x, y, { w: r * 2.5, h: r * 2.1, life: 0.4, grow: 1.25, rot: rand() * TAU })) ring(x, y, 6, r, 0.3, '#bfeaff', 3);
+      burst(x, y, 6, '#d9f4ff', 130, 3.5, 0.4);
     } else if (el === 'poison') {
       pool(h, x, y, r, 4 * (h ? h.m.life : 1), dmg, 'poison');
-      burst(x, y, 8, '#8be84f', 100, 4, 0.4);
+      tex('el_hit_wind', x, y, { w: r * 2.2, h: r * 1.6, life: 0.4, grow: 1.3, rgb: '120,235,60', rot: rand() * TAU });
+      burst(x, y, 6, '#8be84f', 100, 4, 0.4);
     } else if (el === 'arrow') {
       inRadius(x, y, r, e => hit(e, dmg, 'arrow', h, { crit: 0.15 }));
-      burst(x, y, 3, '#ffe9a8', 70, 2.5, 0.25);
+      tex('burst', x, y, { w: r * 1.8, life: 0.2, rgb: '255,225,160', rot: rand() * TAU });
+      burst(x, y, 2, '#ffe9a8', 70, 2.5, 0.25);
     } else if (el === 'rock') {
       inRadius(x, y, r, e => { hit(e, dmg, 'rock', null); stun(e, 1); });
       ring(x, y, 8, r, 0.35, '#c8a878', 5); burst(x, y, 14, '#8a6a48', 180, 5, 0.5); burst(x, y, 6, '#d8c8a8', 120, 3, 0.4);
+      tex('burst', x, y - 6, { w: r * 2.2, life: 0.35, grow: 1.3, rgb: '220,180,130', rot: rand() * TAU });
       S.shake = Math.max(S.shake, 0.15);
     }
   }
@@ -208,6 +268,7 @@ const Battle = (function () {
       used.add(cur); px = cur.x; py = cur.y - 6;
       if (stunT) stun(cur, stunT);
       hit(cur, dmg, 'thunder', h, basic ? { basic: true } : null); burst(px, py, 3, '#d9ccff', 90, 2.5, 0.25);
+      if (i < 3) tex('el_hit_thunder', px, py, { w: 40, life: 0.2, rot: rand() * TAU });
       dmg *= 0.88;
       let nx = null, nd = 140 * 140;
       for (const e of S.live) { if (e.dead || used.has(e)) continue; const dx = e.x - px, dy = e.y - py, d2 = dx * dx + dy * dy; if (d2 < nd) { nd = d2; nx = e; } }
@@ -221,7 +282,7 @@ const Battle = (function () {
   }
   function shotBlade(h, x, y, ang, o) {
     S.shots.push({ k: 'blade', h, x, y, vx: Math.cos(ang) * (o.spd || 430), vy: Math.sin(ang) * (o.spd || 430), w: o.w || 50, dmg: o.dmg, hit: new Set(), life: o.life || 2.2,
-      big: !!o.big, push: o.push || 0, slow: o.slow || 0, look: o.look || 'blade', el: o.el || 'blade', color: o.color || '', basic: !!o.basic });
+      big: !!o.big, push: o.push || 0, slow: o.slow || 0, look: o.look || 'blade', el: o.el || 'blade', color: o.color || '', basic: !!o.basic, tex: o.tex || '', texW: o.texW || 0 });
   }
   function shotLob(h, el, x0, y0, tx, ty, o) {
     S.shots.push({ k: 'lob', h, el, x: x0, y: y0, px: x0, py: y0, x0, y0, tx, ty, t: 0, dur: o.dur || 0.5, arc: o.arc || 0, r: o.r || 50, dmg: o.dmg, big: !!o.big, size: o.size || 1, slow: o.slow || 0, basic: !!o.basic });
@@ -243,7 +304,7 @@ const Battle = (function () {
       arrow: shotArrow, blade: shotBlade, lob: shotLob,
       rain(h, tx, ty, dmg, slowT) { shotLob(h, 'arrow', tx - 50, ty - 320, tx, ty, { dur: 0.26, r: 26, dmg, slow: slowT }); },
       sweep(h, dmg, o) { S.shots.push({ k: 'sweep', h, y: WY - 20, vy: -420, dmg, hit: new Set(), slow: (o && o.slow) || 0 }); },
-      ship(h, x, a) { S.shots.push({ k: 'ship', h, x, y: RANGE_Y - 120, vy: 190, a, hit: new Set(), trail: 0 }); },
+      ship(h, x, a) { S.shots.push({ k: 'ship', h, x, y: RANGE_Y - 120, vy: 260, a, hit: new Set(), trail: 0 }); },
       zone(o) { o.max = o.life; o.tick = o.tick || 0; o.t = 0; if (o.k === 'icewall') o.hit = new Set(); S.zones.push(o); },
       slash(x, y) { S.slashes.push({ x, y, a: rand() * TAU, life: 0.22, max: 0.22 }); burst(x, y, 6, '#ffffff', 160, 3, 0.25); },
       stun, slow, burn, poison, vuln, fear, confuse,
@@ -255,6 +316,7 @@ const Battle = (function () {
       teamHaste(t, mul) { S.haste.t = t; S.haste.mul = mul; },
       heal(frac) { const v = Math.round(S.wallMax * frac); S.wall = Math.min(S.wallMax, S.wall + v); text(W / 2, WY - 10, '城防 +' + v, '#8dff8a', 18, 1.2, true); },
       ring, burst, bolt, later,
+      tex: (name, x, y, o) => tex(name, x, y, Object.assign({ force: true }, o)),
       text: (x, y, s, col, size, life) => text(x, y, s, col, size, life, true),
       flash(rgb, a, t) { S.flash = { color: rgb, a, t, max: t }; },
       shake(t) { S.shake = Math.max(S.shake, t); },
@@ -293,7 +355,9 @@ const Battle = (function () {
     if (S.aim === h.slot) S.aim = null;
     const a = h.atk * S.buffs.atk * S.buffs.ult, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
     text(h.x, h.y - 58, '【' + h.def.ult + '】' + (h.awake ? '·觉醒' : ''), q.color, 21, 1.5, true);
-    ring(h.x, h.y, 10, 90, 0.5, q.color, 4);
+    ring(h.x, h.y + 26, 12, 70, 0.5, q.color, 4);
+    tex('pillar', h.x, h.y + 34, { w: 80, h: 300, ay: 1, life: 0.75, fadeIn: 0.12, rgb: hexRgb(q.color), force: true });
+    cutIn(h, !!pt || !Save.data.auto);
     B.pt = pt || null;
     if (h.sk) h.sk.ult.cast(B, h, a, k); else defaultUlt(h, a);
     B.pt = null;
@@ -490,7 +554,7 @@ const Battle = (function () {
           const dx = e.x - s.x, dy = e.y - s.y, rr = 34 + e.def.r;
           if (dx * dx + dy * dy < rr * rr) { s.hit.add(e); hit(e, s.a * 3, 'fire', s.h); burn(e, 4, s.a * 0.3, s.h); }
         }
-        if (s.y > RANGE_Y && (s.trail -= dt) <= 0) { s.trail = 0.28; pool(s.h, s.x, s.y, 34, 3, s.a * 0.3, 'fire'); }
+        if (s.y > RANGE_Y && (s.trail -= dt) <= 0) { s.trail = 0.45; pool(s.h, s.x, s.y, 34, 3, s.a * 0.45, 'fire'); }
         part(s.x + (rand() - 0.5) * 20, s.y - 10, (rand() - 0.5) * 30, -40, 0.4, rand() < 0.5 ? '#ff8a3a' : '#ffd35a', 5);
         if (s.y >= WY - 50) { explode('fire', s.x, s.y, 100, s.a * 4, true, s.h); done = true; }
       } else if (s.k === 'earrow') {
@@ -579,6 +643,8 @@ const Battle = (function () {
     for (let i = S.bolts.length - 1; i >= 0; i--) if ((S.bolts[i].life -= dt) <= 0) S.bolts.splice(i, 1);
     for (let i = S.rings.length - 1; i >= 0; i--) if ((S.rings[i].life -= dt) <= 0) S.rings.splice(i, 1);
     for (let i = S.slashes.length - 1; i >= 0; i--) if ((S.slashes[i].life -= dt) <= 0) S.slashes.splice(i, 1);
+    for (let i = S.fx.length - 1; i >= 0; i--) { const f = S.fx[i]; if ((f.life -= dt) <= 0) { S.fx.splice(i, 1); continue; } f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt; }
+    if (S.cut && (S.cut.t += dt) >= S.cut.dur) S.cut = null;
     if (S.shake > 0) S.shake -= dt;
     if (S.wallFlash > 0) S.wallFlash -= dt;
     if (S.flash && (S.flash.t -= dt) <= 0) S.flash = null;
@@ -606,9 +672,26 @@ const Battle = (function () {
       if (s.k === 'arrow') { ax = s.x - s.px; ay = s.y - s.py; } else { ax = s.tx - s.x0; ay = s.ty - s.y0; }
       const d = Math.hypot(ax, ay) || 1; ax /= d; ay /= d;
       if (s.k === 'earrow') drawArrow(s.x, s.y, ax, ay, 10, '#2a1d14', 1.6, 0);
-      else drawArrow(s.x, s.y, ax, ay, s.big ? 24 : 16, s.burn ? '#ffb070' : '#fff1c2', s.big ? 3.4 : 2.2, s.big ? 3.2 : 2.2);
+      else {
+        c.globalCompositeOperation = 'lighter';
+        if (!(s.big && img(s.burn ? 'el_arrow_fire' : 'thrust', s.x - ax * 20, s.y - ay * 20, s.burn ? 70 : 90, 0, Math.atan2(ay, ax), 1))) glow(s.x, s.y, s.big ? 14 : 8, s.burn ? '255,150,70' : '255,230,160', 0.6);
+        c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+        drawArrow(s.x, s.y, ax, ay, s.big ? 24 : 16, s.burn ? '#ffb070' : '#fff1c2', s.big ? 3.4 : 2.2, s.big ? 3.2 : 2.2);
+      }
     } else if (s.k === 'blade') {
       const ang = Math.atan2(s.vy, s.vx);
+      c.globalCompositeOperation = 'lighter';
+      let done = false;
+      if (s.tex) done = img(s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang, 1);
+      else if (s.look === 'arrow') done = img('thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1);
+      else if (s.look === 'ice') done = img('el_arrow_ice', s.x - Math.cos(ang) * s.w * 0.6, s.y - Math.sin(ang) * s.w * 0.6, Math.max(70, s.w * 2.6), 0, ang, 1);
+      else {
+        const rgb = s.color === 'green' ? '110,255,170' : s.color === 'red' ? '255,120,90' : s.big ? '205,175,255' : '225,210,255';
+        done = img('slash', s.x, s.y, s.w * 1.7, s.w * 0.85, ang + Math.PI / 2, s.big ? 1 : 0.9, rgb);
+        if (done && s.big) glow(s.x, s.y, s.w * 0.7, rgb, 0.35);
+      }
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+      if (done) return;
       if (s.look === 'arrow' || s.look === 'ice') {
         c.save(); c.translate(s.x, s.y); c.rotate(ang);
         const L = Math.max(22, s.w * 0.9), col = s.look === 'ice' ? '#8fdcff' : '#fff1c2';
@@ -632,6 +715,12 @@ const Battle = (function () {
       c.beginPath(); c.arc(0, 0, R + 2, Math.PI * 1.1, Math.PI * 1.9); c.stroke();
       c.restore();
     } else if (s.k === 'lob') {
+      if (s.el === 'fire' || s.el === 'poison') {
+        c.globalCompositeOperation = 'lighter';
+        const r = (s.big ? 15 : 8) * s.size, ok = s.el === 'fire' ? img('el_orb_fire', s.x, s.y, r * 4, 0, S.t * 8, 1) : img('el_orb_wind', s.x, s.y, 26, 0, S.t * 9, 1, '120,235,60');
+        c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+        if (ok) return;
+      }
       if (s.el === 'fire') {
         const r = (s.big ? 15 : 8) * s.size;
         c.globalCompositeOperation = 'lighter';
@@ -640,6 +729,10 @@ const Battle = (function () {
         c.fillStyle = '#fff3c4'; Art.circ(c, s.x, s.y, r * 0.5);
       } else if (s.el === 'ice') {
         const a = Math.atan2(s.ty - s.y0, s.tx - s.x0);
+        c.globalCompositeOperation = 'lighter';
+        const ok = img('el_arrow_ice', s.x - Math.cos(a) * 18, s.y - Math.sin(a) * 18, 64, 0, a, 1);
+        c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+        if (ok) return;
         c.save(); c.translate(s.x, s.y); c.rotate(a);
         c.fillStyle = '#8fdcff'; c.beginPath(); c.moveTo(13, 0); c.lineTo(-9, -5); c.lineTo(-5, 0); c.lineTo(-9, 5); c.closePath(); c.fill();
         c.fillStyle = '#ffffff'; c.beginPath(); c.moveTo(13, 0); c.lineTo(-4, -1.8); c.lineTo(-4, 1.8); c.closePath(); c.fill();
@@ -654,7 +747,16 @@ const Battle = (function () {
       const g = c.createLinearGradient(0, s.y - 10, 0, s.y + 50); g.addColorStop(0, 'rgba(230,220,255,.85)'); g.addColorStop(1, 'rgba(160,110,255,0)');
       c.fillStyle = g; c.fillRect(0, s.y - 6, W, 56);
       c.fillStyle = '#ffffff'; c.fillRect(0, s.y - 7, W, 3);
+      c.globalCompositeOperation = 'lighter';
+      for (let x = 30; x < W; x += 80) img('slash', x, s.y + 4, 110, 40, 0, 0.8, '225,210,255');
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     } else if (s.k === 'ship') {
+      // 火船：贴图画成拖着长长火尾冲下来的火流星；没有贴图时退回画一条小船
+      c.globalCompositeOperation = 'lighter';
+      const ok = img('flame', s.x, s.y - 70, 70, 170, Math.PI + Math.sin(S.t * 20) * 0.04, 0.9);
+      if (ok) { glow(s.x, s.y, 46, '255,140,50', 0.5); img('el_orb_fire', s.x, s.y, 74, 74, S.t * 7, 1); }
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+      if (ok) return;
       c.save(); c.translate(s.x, s.y);
       c.globalCompositeOperation = 'lighter';
       const g = c.createRadialGradient(0, -10, 2, 0, -10, 46); g.addColorStop(0, 'rgba(255,200,90,.9)'); g.addColorStop(1, 'rgba(255,80,20,0)');
@@ -666,6 +768,28 @@ const Battle = (function () {
     }
   }
   function drawZone(z, layer) {
+    if (z.k === 'pool' && layer === 2) {                   // 叠加层：火焰 / 毒雾贴图
+      const f = Math.min(1, z.life / 0.6) * Math.min(1, (z.max - z.life) / 0.25 + 0.15);
+      if (z.el === 'fire') {
+        glow(z.x, z.y, z.r * 1.2, '255,110,30', 0.25 * f);
+        const nf = z.r > 45 ? 3 : 2;
+        for (let i = 0; i < nf; i++) { const b = z.blobs[i], fl = 0.85 + Math.sin(S.t * 14 + i * 2) * 0.15; img('flame', z.x + b[0] * z.r, z.y + b[1] * z.r * 0.6 - z.r * 0.3 * fl, z.r * 0.45, z.r * 0.85 * fl, 0, 0.55 * f); }
+      } else img('whirl', z.x, z.y, z.r * 2.2, z.r * 1.3, S.t * 0.8, 0.55 * f, '110,230,50');
+      return;
+    }
+    if (z.k === 'tornado' && layer === 2) {
+      const f = Math.min(1, z.life / 0.4) * Math.min(1, (z.max - z.life) / 0.3 + 0.1);
+      let ok = true;
+      for (let i = 0; i < 4 && ok; i++) { const p = i / 3, rx = z.r * (0.45 + 0.85 * p); ok = img('el_orb_wind', z.x + Math.sin(S.t * 5 + i) * z.r * 0.12, z.y - p * z.r * 2.1, rx * 2, rx * 0.75, S.t * (9 - i * 1.5), 0.8 * f); }
+      if (ok) z.texOK = true;
+      return;
+    }
+    if (z.k === 'storm' && layer === 2) { img('circle', z.x, z.y, z.r * 1.6, z.r * 0.95, S.t * 0.6, 0.1 * Math.min(1, z.life / 0.5), '190,160,255'); return; }
+    if (z.k === 'mine' && layer === 2) { img('circle', z.x, z.y, 44, 26, S.t * 2, 0.7 + Math.sin(S.t * 8 + z.x) * 0.25, '190,160,255'); return; }
+    if (z.k === 'wind' && layer === 2) { const f = Math.min(1, z.life / 0.6, (z.max - z.life) / 0.4 + 0.1); img('circle', W / 2, WY - 120, 300, 170, S.t * 0.5, 0.07 * f, '200,255,235'); return; }
+    if (z.k === 'frost' && layer === 2) { img('circle', z.x, z.y, z.r * 2.1, z.r * 1.3, -S.t * 0.4, 0.25 * Math.min(1, z.life / 0.4), '170,225,255'); return; }
+    if (z.k === 'barrier' && layer === 2) { const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.3 + 0.1); for (let x = 40; x < W; x += 92) img('el_orb_wind', x, z.y, 110, 60, S.t * 6 + x, 0.55 * f); return; }
+    if (layer === 2) return;
     if (z.k === 'pool' && layer === 0) {
       const f = Math.min(1, z.life / 0.6) * Math.min(1, (z.max - z.life) / 0.25 + 0.15), fire = z.el === 'fire';
       c.globalAlpha = 0.42 * f; c.fillStyle = fire ? '#b8401a' : '#2f9a1a';
@@ -675,7 +799,7 @@ const Battle = (function () {
       c.globalAlpha = 0.7 * f; c.fillStyle = fire ? '#ffe08a' : '#d8ff9a';
       for (let i = 0; i < 5; i++) { const b = z.blobs[i], pr = (S.t * 0.9 + i * 0.37) % 1; Art.circ(c, z.x + b[0] * z.r * 1.3, z.y + b[1] * z.r * 0.8 - pr * 10, (1 - pr) * 4 * (z.r / 54) + 0.5); }
       c.globalAlpha = 1;
-    } else if (z.k === 'tornado' && layer === 1) {
+    } else if (z.k === 'tornado' && layer === 1 && !z.texOK) {
       const f = Math.min(1, z.life / 0.4) * Math.min(1, (z.max - z.life) / 0.3 + 0.1), hgt = z.r * 2.3;
       c.lineCap = 'round';
       for (let i = 0; i < 10; i++) {
@@ -721,8 +845,9 @@ const Battle = (function () {
   }
   /* 敌人头上的状态：中毒、受惊、混乱、标记 */
   function drawStatus(e) {
-    const top = e.y - e.def.r * 2.1 - (e.def.id === 'boss' ? 30 : 12);
-    if (e.psn > 0) { c.fillStyle = 'rgba(120,230,70,.35)'; Art.circ(c, e.x, e.y, e.def.r * 0.9); }
+    const ds = e.ds || 1, top = e.y - e.def.r * 2.5 * ds - (e.def.id === 'boss' ? 30 : 12);
+    if (e.psn > 0 && !Assets.get(e.spr || 'enemy:' + e.def.id)) { c.fillStyle = 'rgba(120,230,70,.35)'; Art.circ(c, e.x, e.y, e.def.r * 0.9); }
+    if (e.burn > 0 && Assets.get('fx:flame')) { c.globalCompositeOperation = 'lighter'; img('flame', e.x, e.y - e.def.r * 0.8, e.def.r * 1.4, e.def.r * 2.4, 0, 0.55 + Math.sin(S.t * 18 + e.ph) * 0.15); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; }
     if (e.fear > 0) outlined('!', e.x, top, 15, '#ffe08a', 'center', 3);
     else if (e.conf > 0) {
       for (let i = 0; i < 3; i++) { const a = S.t * 6 + i * TAU / 3; c.fillStyle = '#e8b0ff'; Art.circ(c, e.x + Math.cos(a) * 9, top + Math.sin(a) * 3, 2.2); }
@@ -758,9 +883,19 @@ const Battle = (function () {
     }
     const es = S.enemies.slice().sort((a, b) => a.y - b.y);
     for (const e of es) { Art.enemy(c, e, S.t); drawStatus(e); }
+    c.drawImage(haze(), 0, 0, W, 300);                       // 远处的敌人罩一层烟尘：2.5D 纵深
     drawHeroes(S.heroes, S.t);
     for (const s of S.shots) drawShot(s);
     for (const z of S.zones) drawZone(z, 1);
+    c.globalCompositeOperation = 'lighter';
+    for (const z of S.zones) drawZone(z, 2);
+    for (const f of S.fx) {
+      const p = 1 - f.life / f.max, k = 1 + (f.grow - 1) * p;
+      c.globalAlpha = Math.max(0, Math.min(1, f.a * Math.min(1, f.life / f.max * 2.5) * (f.fadeIn ? Math.min(1, p / f.fadeIn) : 1)));
+      c.save(); c.translate(f.x, f.y); if (f.rot) c.rotate(f.rot); c.scale(k, k);
+      c.drawImage(f.im, -f.w * f.ax, -f.h * f.ay, f.w, f.h); c.restore();
+    }
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
 
     // 光环、刀光、粒子、闪电
     for (const r of S.rings) {
@@ -791,7 +926,10 @@ const Battle = (function () {
     }
     c.globalAlpha = 1;
     c.restore();
+    c.drawImage(grade(), 0, 0, W, H);
     if (S.flash) { c.fillStyle = 'rgba(' + S.flash.color + ',' + (S.flash.a * S.flash.t / S.flash.max) + ')'; c.fillRect(0, 0, W, H); }
+
+    if (S.cut) drawCut(S.cut);
 
     // —— 顶部信息 ——
     const tg = c.createLinearGradient(0, 0, 0, 120); tg.addColorStop(0, 'rgba(10,6,4,.75)'); tg.addColorStop(1, 'rgba(10,6,4,0)');
@@ -827,6 +965,43 @@ const Battle = (function () {
     }
   }
 
+  let hazeCv = null, gradeCv = null;
+  function haze() {
+    if (hazeCv) return hazeCv;
+    hazeCv = document.createElement('canvas'); hazeCv.width = 4; hazeCv.height = 300;
+    const g = hazeCv.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 300);
+    gr.addColorStop(0, 'rgba(36,24,18,.78)'); gr.addColorStop(0.45, 'rgba(48,32,22,.32)'); gr.addColorStop(1, 'rgba(48,32,22,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 300);
+    return hazeCv;
+  }
+  /* 整体调色：压暗四角 + 一点暖色，弱化平涂的卡通感（预先画好，每帧贴一次） */
+  function grade() {
+    if (gradeCv) return gradeCv;
+    gradeCv = document.createElement('canvas'); gradeCv.width = 270; gradeCv.height = 480;
+    const g = gradeCv.getContext('2d'), gr = g.createRadialGradient(135, 230, 60, 135, 240, 330);
+    gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.7, 'rgba(10,5,2,.12)'); gr.addColorStop(1, 'rgba(10,5,2,.5)');
+    g.fillStyle = gr; g.fillRect(0, 0, 270, 480);
+    return gradeCv;
+  }
+
+  /* 大招特写横幅：滑入 → 停住 → 滑出 */
+  function drawCut(k) {
+    const p = k.t / k.dur, ein = Math.min(1, p / 0.16), eout = Math.max(0, (p - 0.8) / 0.2);
+    const off = (1 - ein) * (1 - ein) * W - eout * eout * W, y = 400, hh = 150;
+    c.save();
+    c.globalAlpha = Math.min(1, ein * 2) * (1 - eout);
+    c.fillStyle = 'rgba(0,0,0,.45)'; c.fillRect(0, y - hh / 2 - 6, W, hh + 12);
+    c.beginPath(); c.moveTo(off + 20, y - hh / 2); c.lineTo(off + W + 40, y - hh / 2); c.lineTo(off + W + 10, y + hh / 2); c.lineTo(off - 10, y + hh / 2); c.closePath(); c.clip();
+    const iw = W + 60, ih = iw * k.im.height / k.im.width;
+    c.drawImage(k.im, off - 20, y - ih / 2 + (p * 14 - 7), iw, ih);
+    c.restore();
+    c.globalAlpha = Math.min(1, ein * 2) * (1 - eout);
+    c.fillStyle = k.color; c.fillRect(off, y - hh / 2 - 4, W, 4); c.fillRect(off - 20, y + hh / 2, W, 4);
+    outlined(k.name, W - 30 - off * 0.6, y + hh / 2 - 16, 40, '#fff3d6', 'right', 6);
+    outlined(k.who, W - 34 - off * 0.6, y - hh / 2 + 30, 18, k.color, 'right', 4);
+    c.globalAlpha = 1;
+  }
+
   /* 主城待机画面：城墙上站着当前阵容 */
   function renderIdle() {
     c.setTransform(2, 0, 0, 2, 0, 0);
@@ -834,6 +1009,7 @@ const Battle = (function () {
     const list = [];
     Save.data.team.forEach((id, i) => { if (id) list.push({ def: HERO_MAP[id], x: SLOTS[i][0], y: SLOTS[i][1], anim: 0, rage: 0 }); });
     drawHeroes(list, idleT);
+    c.drawImage(grade(), 0, 0, W, H);
   }
 
   function step(dt) {

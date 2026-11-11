@@ -12,7 +12,7 @@ Write-Host "Serving $root at http://localhost:$Port/"
 # 重写 assets/manifest.js：游戏只加载清单里的图片（发布前也要跑一次，或手动编辑）
 $adir0 = Join-Path $root 'assets'
 if (Test-Path -LiteralPath $adir0) {
-  $imgs = @(Get-ChildItem -LiteralPath $adir0 -Recurse -File | Where-Object { $_.Extension -match '^\.(png|jpg|jpeg|webp)$' } | ForEach-Object {
+  $imgs = @(Get-ChildItem -LiteralPath $adir0 -Recurse -File | Where-Object { $_.Extension -match '^\.(png|jpg|jpeg|webp)$' -and $_.FullName -notmatch '[\\/]_sheets[\\/]' } | ForEach-Object {
     "'" + $_.FullName.Substring($adir0.Length + 1).Replace('\', '/').Replace("'", '') + "'"
   })
   $js = "/* 自动生成（serve.ps1）：已放进 assets/ 的图片清单，游戏只加载这里列出的文件 */`nwindow.ASSET_LIST = [" + ($imgs -join ', ') + "];`n"

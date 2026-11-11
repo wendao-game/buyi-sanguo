@@ -61,7 +61,7 @@ const SKILLS = (function () {
       ult: { desc: '全场瘴气：所有敌人中毒 6 秒（觉醒 9 秒）',
         cast(B, h, a, k) {
           B.flash('120,220,80', 0.25, 0.5);
-          for (const e of B.lives()) { B.poison(e, 6 * k, a * 0.55, h); B.burst(e.x, e.y, 3, '#8be84f', 60, 3, 0.5); }
+          for (const e of B.lives()) { B.poison(e, 6 * k, a * 0.55, h); B.burst(e.x, e.y, 3, '#8be84f', 60, 3, 0.5); B.tex('el_hit_wind', e.x, e.y - 6, { w: 60, life: 0.5, grow: 1.3, rgb: '120,235,60' }); }
         } },
     },
     panfeng: {
@@ -158,7 +158,7 @@ const SKILLS = (function () {
     liru: {
       passive: { name: '魔王之智', desc: '中毒的敌人受到全军伤害 +15%', aura(ctx) { ctx.S.psnVuln = Math.max(ctx.S.psnVuln, 0.15); } },
       ult: { desc: '鸩毒：给血量最高的 3 个敌人下剧毒，8 秒内共造成 ×13 伤害（觉醒 5 个）',
-        cast(B, h, a, k) { B.strongest(R(3, k)).forEach(e => { B.poison(e, 8, a * 1.6, h); B.burst(e.x, e.y, 12, '#5a1a6a', 120, 4, 0.6); }); } },
+        cast(B, h, a, k) { B.strongest(R(3, k)).forEach(e => { B.poison(e, 8, a * 1.6, h); B.burst(e.x, e.y, 12, '#5a1a6a', 120, 4, 0.6); B.tex('el_hit_dark', e.x, e.y - 10, { w: 110, life: 0.6, grow: 1.3, rgb: '150,240,90' }); }); } },
     },
     xushu: {
       passive: { name: '单福先生', desc: '旋风击退距离 +50%', mod: { push: 0.5 } },
@@ -201,7 +201,7 @@ const SKILLS = (function () {
       ult: { desc: '乱武：全场敌人陷入混乱 4 秒，停止攻城、互相砍杀（敌将 1.5 秒，觉醒 6 秒）',
         cast(B, h, a, k) {
           B.flash('140,60,160', 0.3, 0.6);
-          for (const e of B.lives()) { B.confuse(e, (e.def.id === 'boss' ? 1.5 : 4) * k, h); B.poison(e, 4, a * 0.5, h); }
+          for (const e of B.lives()) { B.confuse(e, (e.def.id === 'boss' ? 1.5 : 4) * k, h); B.poison(e, 4, a * 0.5, h); B.tex('el_hit_dark', e.x, e.y - 10, { w: 60, life: 0.45, grow: 1.3, rgb: '200,120,255' }); }
         } },
     },
     zhenji: {
@@ -235,7 +235,7 @@ const SKILLS = (function () {
       ult: { aim: true, desc: '青龙偃月：月牙巨刃贯穿全场 ×6，之后 4 秒普攻刀气变大（觉醒 ×9、6 秒）',
         cast(B, h, a, k) {
           const p = B.at(110); if (!p) return;
-          B.blade(h, h.x, h.y - 22, Math.atan2(p.y - h.y, p.x - h.x), { w: 260, spd: 480, dmg: a * 6 * k, big: true, life: 2.6, color: 'green' });
+          B.blade(h, h.x, h.y - 22, Math.atan2(p.y - h.y, p.x - h.x), { w: 260, spd: 480, dmg: a * 6 * k, big: true, life: 2.6, color: 'green', tex: 'dragon_azure', texW: 380 });
           h.bigT = 4 * k; B.shake(0.35);
         } },
     },
@@ -251,7 +251,7 @@ const SKILLS = (function () {
     },
     zhouyu: {
       passive: { name: '美周郎', desc: '火球范围 +30%，灼烧伤害 +60%', mod: { r: 0.3, burn: 0.6 } },
-      ult: { desc: '火烧赤壁：4 艘火船冲进敌阵，沿途烧出火路，到城下爆炸（觉醒 6 艘）',
+      ult: { desc: '火烧赤壁：4 道火船化作的火流星冲进敌阵，沿途烧出火路，到城下爆炸（觉醒 6 道）',
         cast(B, h, a, k) {
           const n = R(4, k);
           for (let i = 0; i < n; i++) B.later(i * 0.15, () => B.ship(h, 70 + (B.W - 140) * (n === 1 ? 0.5 : i / (n - 1)), a));
@@ -266,7 +266,7 @@ const SKILLS = (function () {
           for (let i = 0; i < n; i++) B.later(i * 0.14, () => {
             const fromL = i % 2 === 0, y0 = B.TOP + 40 + Math.random() * (B.WY - B.TOP - 120), y1 = B.TOP + 40 + Math.random() * (B.WY - B.TOP - 120);
             const x0 = fromL ? -20 : B.W + 20, x1 = fromL ? B.W + 20 : -20;
-            B.blade(h, x0, y0, Math.atan2(y1 - y0, x1 - x0), { look: 'ice', el: 'ice', w: 60, spd: 900, dmg: a * 3, slow: 2, life: 1.2, big: true });
+            B.blade(h, x0, y0, Math.atan2(y1 - y0, x1 - x0), { look: 'ice', el: 'ice', w: 60, spd: 900, dmg: a * 3, slow: 2, life: 1.2, big: true, tex: 'dragon_white', texW: 190 });
           });
         } },
     },
@@ -276,7 +276,7 @@ const SKILLS = (function () {
       ult: { desc: '鬼谋：全场敌人 6 秒内受到的伤害 +35% 并持续中毒（觉醒 9 秒）',
         cast(B, h, a, k) {
           B.flash('80,40,120', 0.3, 0.6);
-          for (const e of B.lives()) { B.vuln(e, 6 * k, 0.35); B.poison(e, 6 * k, a * 0.5, h); B.mark(e, 6 * k); }
+          for (const e of B.lives()) { B.vuln(e, 6 * k, 0.35); B.poison(e, 6 * k, a * 0.5, h); B.mark(e, 6 * k); B.tex('el_hit_dark', e.x, e.y - 10, { w: 70, life: 0.5, grow: 1.3 }); }
         } },
     },
 
@@ -326,6 +326,7 @@ const SKILLS = (function () {
             for (let i = 0; i < 6; i++) B.later(r * 0.15 + i * 0.05, () => B.pool(h, 60 + i * 84, y, 52, 5 * k, a * 0.5, 'fire'));
           });
           B.flash('255,140,60', 0.25, 0.5);
+          B.tex('phoenix', -140, p.y - 40, { w: 300, vx: 640, life: 1.1, fadeIn: 0.1 });
         } },
     },
   };
