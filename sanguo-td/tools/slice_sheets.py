@@ -3,9 +3,10 @@
 拼图放在 sanguo-td/assets/_sheets/：
   hero_1.png … hero_4.png    武将（每张 3×3，顺序见下面的 SHEETS）
   enemy_1.png、enemy_2.png   敌人和各章敌将
+  fx_1.png … fx_3.png        技能特效（黑底）
   battle.png                 战场背景（竖版，会裁成 9:16 缩到 1080×1920）
 用法（在仓库根目录）：python3 sanguo-td/tools/slice_sheets.py
-在 import_buyi_art.py 之后运行：这里切出来的图会覆盖布衣三国的旧图。缺的拼图跳过。
+缺的拼图跳过；切出来的图覆盖同名旧图，最后重写 assets/manifest.js。
 """
 import os
 from PIL import Image
@@ -22,6 +23,14 @@ SHEETS_ORDER = {
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
 }
+# 特效拼图（黑底）：名字 -> 最长边
+FX_SHEETS = {
+    'fx_1': ['slash', 'burst', 'ring', 'flame', 'bolt', 'pillar', 'thrust', 'el_arrow_ice', 'el_arrow_fire'],
+    'fx_2': ['el_hit_fire', 'el_hit_ice', 'el_hit_thunder', 'el_hit_wind', 'el_hit_dark', 'el_orb_fire', 'el_orb_wind', 'whirl', 'circle'],
+    'fx_3': ['dragon_azure', 'dragon_white', 'phoenix', None, None, None, None, None, None],
+}
+FX_SIZE = {'slash': 384, 'bolt': 384, 'pillar': 384, 'thrust': 384, 'circle': 320, 'whirl': 256, 'flame': 256,
+           'el_orb_fire': 128, 'el_orb_wind': 160, 'dragon_azure': 512, 'dragon_white': 512, 'phoenix': 512}
 
 
 def clear_bg(im, tol=28):
@@ -32,8 +41,11 @@ def clear_bg(im, tol=28):
     px = im.load(); w, h = im.size
     corners = [px[2, 2], px[w - 3, 2], px[2, h - 3], px[w - 3, h - 3]]
     ref = max(set(corners), key=corners.count)
-    data = [(r, g, b, 0) if abs(r - ref[0]) + abs(g - ref[1]) + abs(b - ref[2]) < tol * 3 else (r, g, b, a) for (r, g, b, a) in im.getdata()]
-    im.putdata(data)
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if abs(r - ref[0]) + abs(g - ref[1]) + abs(b - ref[2]) < tol * 3:
+                px[x, y] = (r, g, b, 0)
     return im
 
 
@@ -58,6 +70,7 @@ def main():
             continue
         sheet = clear_bg(Image.open(path))
         w, h = sheet.size
+        os.makedirs(os.path.join(DST, folder), exist_ok=True)
         for i, cid in enumerate(ids):
             if not cid:
                 continue
@@ -65,6 +78,28 @@ def main():
             cell = sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3))
             if standardize(cell, os.path.join(DST, folder, cid + '.png')):
                 done += 1
+    for name, ids in FX_SHEETS.items():
+        path = os.path.join(SHEETS, name + '.png')
+        if not os.path.exists(path):
+            continue
+        src = Image.open(path).convert('RGBA')
+        sheet = Image.new('RGB', src.size, (0, 0, 0)); sheet.paste(src, mask=src.getchannel('A'))   # 透明底也当黑底
+        w, h = sheet.size
+        os.makedirs(os.path.join(DST, 'fx'), exist_ok=True)
+        for i, fid in enumerate(ids):
+            if not fid:
+                continue
+            col, row = i % 3, i // 3
+            cell = sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3))
+            box = cell.convert('L').point(lambda v: 255 if v > 18 else 0).getbbox()
+            if not box:
+                continue
+            m = max(4, (box[2] - box[0]) // 25)
+            cell = cell.crop((max(0, box[0] - m), max(0, box[1] - m), min(cell.width, box[2] + m), min(cell.height, box[3] + m)))
+            n = FX_SIZE.get(fid, 192)
+            cell.thumbnail((n, n), Image.LANCZOS)
+            cell.save(os.path.join(DST, 'fx', fid + '.jpg'), quality=86)
+            done += 1
     bg = os.path.join(SHEETS, 'battle.png')
     if os.path.exists(bg):
         im = Image.open(bg).convert('RGB')

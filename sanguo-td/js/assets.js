@@ -6,7 +6,7 @@
  *   assets/heroes/<武将id>_head.png   武将头像（可选，没有就用立绘上半身）
  *   assets/enemies/<敌人id>.png       敌人；<id>_2.png 第 2 章起换的造型；boss_<章>.png 各章敌将
  *   assets/cutins/<武将id>.jpg        放大招时的横幅特写（可选）
- *   assets/fx/<名字>.jpg              技能特效贴图（黑底，叠加混合）
+ *   assets/fx/<名字>.jpg              技能特效贴图（黑底，叠加混合）；没放的由 fxgen.js 生成
  * 没放图的继续用程序画的，可以一张一张替换。规格见《美术素材规格.md》
  * 图片要登记在 assets/manifest.js 里才会加载（serve.ps1 或 tools/import_buyi_art.py 自动生成）
  * ============================================================ */
@@ -57,5 +57,8 @@ const Assets = (function () {
     return (tintCache[key] = cv);
   }
 
-  return { load, get: k => img[alias(k)] || null, keys: () => Object.keys(img), tinted };
+  /* 代码生成的贴图（fxgen.js）也登记进来，和图片一样取用 */
+  const put = (key, cv) => { img[key] = cv; };
+
+  return { load, get: k => img[alias(k)] || null, keys: () => Object.keys(img), tinted, put };
 })();

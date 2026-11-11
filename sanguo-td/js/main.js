@@ -19,6 +19,7 @@
 
   // 先加载 assets/ 里已有的图片（没有就用程序绘制），再进主城
   Assets.load().then(() => {
+    FXGen.build(Assets);                       // 没有图片的特效贴图用代码生成
     Battle.init(document.getElementById('cv'));
     UI.init();
     Cloud.init();

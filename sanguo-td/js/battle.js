@@ -682,8 +682,8 @@ const Battle = (function () {
       const ang = Math.atan2(s.vy, s.vx);
       c.globalCompositeOperation = 'lighter';
       let done = false;
-      if (s.tex) done = img(s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang, 1);
-      else if (s.look === 'arrow') done = img('thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1);
+      if (s.tex) done = img(s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang, 1);   // 青龙、白龙这类专属贴图；没有就按普通刀光 / 冰枪画
+      if (done) { /* 已画 */ } else if (s.look === 'arrow') done = img('thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1);
       else if (s.look === 'ice') done = img('el_arrow_ice', s.x - Math.cos(ang) * s.w * 0.6, s.y - Math.sin(ang) * s.w * 0.6, Math.max(70, s.w * 2.6), 0, ang, 1);
       else {
         const rgb = s.color === 'green' ? '110,255,170' : s.color === 'red' ? '255,120,90' : s.big ? '205,175,255' : '225,210,255';
@@ -814,7 +814,6 @@ const Battle = (function () {
       const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.4 + 0.1), cy = z.y - z.r * 0.9 - 60;
       c.globalAlpha = 0.55 * f; c.fillStyle = '#2a2240';
       for (let i = 0; i < 6; i++) Art.ell(c, z.x + Math.cos(i * 1.1 + S.t) * z.r * 0.55, cy + Math.sin(i * 1.7) * 10, z.r * 0.45, 22);
-      c.globalAlpha = 0.18 * f; c.fillStyle = '#c4b0ff'; Art.ell(c, z.x, z.y, z.r, z.r * 0.6);
       c.globalAlpha = 1;
     } else if (z.k === 'mine' && layer === 0) {
       const p = 0.6 + Math.sin(S.t * 8 + z.x) * 0.3;
