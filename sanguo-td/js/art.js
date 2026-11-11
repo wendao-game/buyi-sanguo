@@ -27,6 +27,25 @@ const Art = (function () {
 
   /* ---------------- 战场背景（只画一次，缓存成离屏画布） ---------------- */
   let bgCanvas = null;
+  /* 代码画的小人：先画到离屏画布，描一圈粗黑边、加一点左上亮右下暗的明暗，按 key 缓存。
+   * box = [x0, y0, 宽, 高]（本地单位）；返回 { im, x, y, w, h }，直接 drawImage(im, x, y, w, h) */
+  const procCache = {};
+  function procSprite(key, box, draw) {
+    if (procCache[key]) return procCache[key];
+    const K = 4, pad = 2, cw = (box[2] + pad * 2) * K, ch = (box[3] + pad * 2) * K;
+    const raw = document.createElement('canvas'); raw.width = cw; raw.height = ch;
+    const rc = raw.getContext('2d'); rc.scale(K, K); rc.translate(pad - box[0], pad - box[1]); draw(rc);
+    const out = document.createElement('canvas'); out.width = cw; out.height = ch;
+    const oc = out.getContext('2d'), dark = spriteTint(raw, '26,17,13'), th = 1.15 * K;
+    for (let i = 0; i < 14; i++) { const a = i / 14 * TAU; oc.drawImage(dark, Math.cos(a) * th, Math.sin(a) * th); }
+    oc.drawImage(raw, 0, 0);
+    oc.globalCompositeOperation = 'source-atop';
+    const g = oc.createLinearGradient(0, 0, cw, ch);
+    g.addColorStop(0, 'rgba(255,240,210,.18)'); g.addColorStop(0.5, 'rgba(255,240,210,0)'); g.addColorStop(1, 'rgba(20,10,30,.24)');
+    oc.fillStyle = g; oc.fillRect(0, 0, cw, ch);
+    return (procCache[key] = { im: out, x: box[0] - pad, y: box[1] - pad, w: box[2] + pad * 2, h: box[3] + pad * 2 });
+  }
+
   /* 2.5D：越远（越靠画面上方）越小 */
   function depth(y) { return 0.58 + 0.42 * Math.max(0, Math.min(1, y / CFG.WALL_Y)); }
   /* 投影：光从左上方来，人影斜着落在右下方的地上 */
@@ -257,10 +276,11 @@ const Art = (function () {
   function hero(c, d, x, y, s, t, anim, noAura) {
     const fac = FACTIONS[d.fac], q = QUALITIES[d.q];
     c.save(); c.translate(x, y); c.scale(s, s);
-    const hasIm = !!Assets.get('hero:' + d.id);
     if (!noAura) {
-      // 有立绘：脚下一块深色圆形底座托住人物（高俯视角的画法）；没有立绘：原来的小影子
-      c.fillStyle = hasIm ? 'rgba(14,9,6,.62)' : 'rgba(0,0,0,.4)'; ell(c, 0, 20, hasIm ? 25 : 17, hasIm ? 9.5 : 6);
+      // 脚下一块深色圆形底座托住人物（高俯视角的画法），外圈是品质色
+      const bg = c.createRadialGradient(0, 20, 2, 0, 20, 26);
+      bg.addColorStop(0, 'rgba(8,5,4,.78)'); bg.addColorStop(0.75, 'rgba(14,9,6,.62)'); bg.addColorStop(1, 'rgba(14,9,6,.35)');
+      c.fillStyle = bg; ell(c, 0, 20, 25, 9.5);
       if (d.q >= 3) {
         c.globalCompositeOperation = 'lighter';
         const gl = c.createRadialGradient(0, 14, 2, 0, 14, 30);
@@ -268,21 +288,30 @@ const Art = (function () {
         c.fillStyle = gl; ell(c, 0, 14, 30, 16);
         c.globalCompositeOperation = 'source-over';
       }
-      c.strokeStyle = q.color; c.lineWidth = 2; c.globalAlpha = 0.9;
-      c.beginPath(); c.ellipse(0, 20, hasIm ? 26 : 20, hasIm ? 10 : 7.5, 0, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = 3.2; c.beginPath(); c.ellipse(0, 20, 26, 10, 0, 0, TAU); c.stroke();
+      c.strokeStyle = q.color; c.lineWidth = 1.8; c.globalAlpha = 0.95;
+      c.beginPath(); c.ellipse(0, 20, 26, 10, 0, 0, TAU); c.stroke(); c.globalAlpha = 1;
     }
     const a = Math.min(1, anim || 0);
     const im = Assets.get('hero:' + d.id);
-    if (im) {                                // 有立绘图片：脚底锚点对齐站位，保留呼吸和出手动作
-      const hU = SPRITE.hero.units, wU = hU * im.width / im.height, k = 1 + a * 0.06;
-      c.translate(0, 20 - a * 5);
-      c.scale(k, k * (1 + Math.sin(t * 2.4 + d.seed) * 0.012));
+    if (im) {                                // 有立绘图片：脚底锚点对齐站位，保留呼吸和出手动作（出手时向前一顿、略微压扁再弹回）
+      const hU = SPRITE.hero.units, wU = hU * im.width / im.height, k = 1 + a * 0.05;
+      c.translate(0, 20 - a * 7);
+      c.scale(k * (1 + a * 0.03), k * (1 - a * 0.02) * (1 + Math.sin(t * 2.4 + d.seed) * 0.012));
       c.drawImage(im, -wU * SPRITE.hero.ax, -hU * SPRITE.hero.ay, wU, hU);
       c.restore();
       return;
     }
-    c.translate(0, Math.sin(t * 2.4 + d.seed) * 1.1 - a * 5);
-    c.rotate(-a * 0.08);
+    // 没有立绘：代码画的小人，描上粗黑边，和手绘立绘是同一种卡通画法
+    const ps = procSprite('hero:' + d.id, [-26, -48, 58, 74], cc => heroBody(cc, d));
+    c.translate(0, Math.sin(t * 2.4 + d.seed) * 1.1 - a * 6);
+    c.rotate(-a * 0.07);
+    if (!noAura) { c.translate(0, 20); c.scale(1.2, 1.2); c.translate(0, -20); }
+    c.drawImage(ps.im, ps.x, ps.y, ps.w, ps.h);
+    c.restore();
+  }
+  function heroBody(c, d) {
+    const fac = FACTIONS[d.fac], q = QUALITIES[d.q];
     weapon(c, d.el);
     // 披风（金以上）
     if (d.q >= 4) { c.fillStyle = fac.dark; c.beginPath(); c.moveTo(-9, -3); c.quadraticCurveTo(-22, 10, -17, 21); c.lineTo(-8, 18); c.closePath(); c.fill(); }
@@ -304,7 +333,6 @@ const Art = (function () {
       c.strokeStyle = '#7a4a3a'; c.lineWidth = 0.9; c.beginPath(); c.arc(0, -8.6, 2, 0.15, Math.PI - 0.15); c.stroke();
     }
     headgear(c, d.el, fac);
-    c.restore();
   }
 
   /* 头像：返回 dataURL（带缓存） */
@@ -336,31 +364,49 @@ const Art = (function () {
   }
 
   /* ---------------- 敌人 ---------------- */
+  /* 敌人用哪张图：有图片用图片；没有就用代码画的小人（描粗黑边、放大一些） */
+  function enemySprite(e) {
+    const d = e.def, im = (e.spr && Assets.get(e.spr)) || Assets.get('enemy:' + d.id);
+    if (im) { const hU = SPRITE.enemy.units, wU = hU * im.width / im.height; return { im, x: -wU * SPRITE.enemy.ax, y: 12.4 - hU * SPRITE.enemy.ay, w: wU, h: hU, k: 1, top: 2.55 }; }
+    const ps = procSprite('enemy:' + d.id, [-20, -30, 44, 54], cc => enemyBody(cc, d));
+    return { im: ps.im, x: ps.x, y: ps.y, w: ps.w, h: ps.h, k: 1.3, top: 2.35 };
+  }
   function enemy(c, e, t) {
-    const d = e.def, ds = depth(e.y), s = d.r / 13 * ds;
+    const d = e.def, ds = depth(e.y), s = d.r / 13 * ds, sp = enemySprite(e);
     e.ds = ds;
     c.save(); c.translate(e.x, e.y);
-    c.fillStyle = 'rgba(0,0,0,.35)'; ell(c, 0, d.r * 0.95 * ds, d.r * 0.95 * ds, d.r * 0.36 * ds);
+    c.fillStyle = 'rgba(0,0,0,.35)'; ell(c, 0, d.r * 0.95 * ds, d.r * 1.05 * ds, d.r * 0.4 * ds);
     const moving = e.frozen <= 0 && e.y < e.stopY;
     c.translate(0, moving ? -Math.abs(Math.sin(e.walk)) * 2.4 : (e.frozen > 0 ? 0 : Math.sin(t * 9 + e.ph) * 1.2));
     c.scale(s, s);
-    const im = (e.spr && Assets.get(e.spr)) || Assets.get('enemy:' + d.id);
-    if (im) {                                                 // 有图片：脚底锚点对齐阴影中心
-      const hU = SPRITE.enemy.units, wU = hU * im.width / im.height;
-      castShadow(c, im, -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU, 12.4, 0.28);
-      if (e.flip) c.scale(-1, 1);
-      c.drawImage(im, -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU);
-      if (e.flash > 0) {                                      // 受击：同一张图叠加一层发白
-        c.globalCompositeOperation = 'lighter'; c.globalAlpha = Math.min(1, e.flash * 6) * 0.55;
-        c.drawImage(im, -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU);
-        c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
-      }
-      if (e.frozen > 0) { c.globalAlpha = 0.7; c.drawImage(spriteTint(im, '150,215,255'), -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU); c.globalAlpha = 1; }
-      else if (e.psn > 0) { c.globalAlpha = 0.35; c.drawImage(spriteTint(im, '120,230,70'), -wU * SPRITE.enemy.ax, 12.4 - hU * SPRITE.enemy.ay, wU, hU); c.globalAlpha = 1; }
-      c.restore();
-      drawBars(c, e, d, 2.55 * ds);
-      return;
-    } else {
+    if (sp.k !== 1) { c.translate(0, 12); c.scale(sp.k, sp.k); c.translate(0, -12); }
+    if (moving) c.rotate(Math.sin(e.walk) * 0.05);            // 走路时左右晃
+    castShadow(c, sp.im, sp.x, sp.y, sp.w, sp.h, 12.4, 0.26);
+    if (e.flip) c.scale(-1, 1);
+    c.drawImage(sp.im, sp.x, sp.y, sp.w, sp.h);
+    if (e.flash > 0) {                                        // 受击：同一张图叠加一层发白
+      c.globalCompositeOperation = 'lighter'; c.globalAlpha = Math.min(1, e.flash * 6) * 0.6;
+      c.drawImage(sp.im, sp.x, sp.y, sp.w, sp.h);
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    }
+    if (e.frozen > 0) { c.globalAlpha = 0.7; c.drawImage(spriteTint(sp.im, '150,215,255'), sp.x, sp.y, sp.w, sp.h); }
+    else if (e.psn > 0) { c.globalAlpha = 0.35; c.drawImage(spriteTint(sp.im, '120,230,70'), sp.x, sp.y, sp.w, sp.h); }
+    else if (e.slow > 0) { c.globalAlpha = 0.3; c.drawImage(spriteTint(sp.im, '150,215,255'), sp.x, sp.y, sp.w, sp.h); }
+    c.globalAlpha = 1;
+    c.restore();
+    drawBars(c, e, d, sp.top * ds);
+  }
+  /* 阵亡：原地发白、往上飘着淡出（p 0→1） */
+  function enemyGhost(c, g, p) {
+    const d = g.def, ds = depth(g.y), s = d.r / 13 * ds, sp = enemySprite(g);
+    c.save(); c.translate(g.x, g.y - p * 12 * ds); c.scale(s * (1 + p * 0.12), s * (1 - p * 0.2));
+    if (sp.k !== 1) { c.translate(0, 12); c.scale(sp.k, sp.k); c.translate(0, -12); }
+    if (g.flip) c.scale(-1, 1);
+    c.globalAlpha = (1 - p) * 0.85; c.drawImage(sp.im, sp.x, sp.y, sp.w, sp.h);
+    c.globalCompositeOperation = 'lighter'; c.globalAlpha = (1 - p) * 0.7; c.drawImage(sp.im, sp.x, sp.y, sp.w, sp.h);
+    c.restore();
+  }
+  function enemyBody(c, d) {
     if (d.id === 'rider') {                                   // 战马
       c.fillStyle = '#5b3a24'; ell(c, 0, 5, 8, 12);
       c.fillStyle = '#6e4a30'; ell(c, 0, 15, 5, 6.5);
@@ -398,14 +444,6 @@ const Art = (function () {
     c.strokeStyle = '#1e1410'; c.lineWidth = 1.2;              // 怒眉
     c.beginPath(); c.moveTo(-5, -9.6); c.lineTo(-1.4, -8.2); c.moveTo(5, -9.6); c.lineTo(1.4, -8.2); c.stroke();
     c.fillStyle = '#1e1410'; circ(c, -3, -7.2, 0.95); circ(c, 3, -7.2, 0.95);
-    }
-    // 状态叠色
-    if (e.flash > 0) { c.fillStyle = 'rgba(255,255,255,.42)'; circ(c, 0, -1, 12); }
-    else if (e.frozen > 0) { c.fillStyle = 'rgba(150,220,255,.55)'; rr(c, -11, -18, 22, 32, 6); c.fill(); c.strokeStyle = 'rgba(255,255,255,.8)'; c.lineWidth = 1; c.stroke(); }
-    else if (e.slow > 0) { c.fillStyle = 'rgba(120,200,255,.28)'; circ(c, 0, 0, 13); }
-    if (e.burn > 0) { c.fillStyle = 'rgba(255,120,40,.85)'; const fy = -20 - Math.sin(t * 20 + e.ph) * 2; c.beginPath(); c.moveTo(0, fy - 6); c.quadraticCurveTo(5, fy, 0, fy + 4); c.quadraticCurveTo(-5, fy, 0, fy - 6); c.fill(); }
-    c.restore();
-    drawBars(c, e, d);
   }
   /* 立绘整体染色（冻结、中毒），按图片和颜色缓存 */
   const tintMap = new Map();
@@ -427,5 +465,5 @@ const Art = (function () {
     }
   }
 
-  return { background, hero, enemy, portrait, depth, circ, ell, rr, TAU };
+  return { background, hero, enemy, enemyGhost, portrait, depth, circ, ell, rr, TAU };
 })();

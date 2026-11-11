@@ -50,6 +50,8 @@ section { display: flex; flex-direction: column; gap: 14px; }
 .slip button.ok { background: var(--accent); color: var(--bg); }
 .slip pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--body); font-size: 13px; line-height: 1.65; color: var(--code); max-height: 9.5em; overflow: auto; }
 .slip pre.open { max-height: none; }
+.tag-done { font-size: 12px; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--accent); color: var(--accent); }
+.slip.done { opacity: .72; }
 .more { align-self: flex-start; font-size: 13px; color: var(--muted); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; }
 .slip .more { margin: 0; padding: 0; border: 0; color: var(--muted); font-weight: 400; }
 .slip .more:hover, .slip .more:focus-visible { background: none; color: var(--fg); }
@@ -59,7 +61,7 @@ section { display: flex; flex-direction: column; gap: 14px; }
 <div class="wrap">
   <header>
     <h1>烽火守城 · <span>国风卡通</span> 出图</h1>
-    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 已经画好，是后面所有图的标准：每次把它们一起发给 GPT。剩下 12 张：武将 2～4、头像 2～4、敌人 2 张、战场背景 1 张、技能特效 3 张。</p>
+    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 已经画好，是后面所有图的标准：每次把它们一起发给 GPT。战场背景和特效 1 也已画好。还剩 10 张：武将 2～4、头像 2～4、敌人 2 张、特效 2～3。</p>
   </header>
 
   <ol class="steps">
@@ -195,6 +197,9 @@ const groups = [
   { title: '技能特效', note: '3 张九宫格，黑底。没画之前游戏用代码生成的特效。', items: FX.map(h => ({ file: h[0] + '.png', name: h[1], who: h[2].filter(t => !t.startsWith('（')).map(t => t.split('：')[0]).join('、'), text: FX_STYLE + '\n\n' + FX_GRID + '\n\n' + h[2].map((t, i) => (i + 1) + '. ' + t).join('\n') })) },
 ];
 
+/* 已经画好并换进游戏的图（要重画也可以，照样复制提示词） */
+const DONE = ['hero_1.png', 'head_1.png', 'battle.png', 'fx_1.png'];
+
 const root = document.getElementById('groups');
 groups.forEach(g => {
   const sec = document.createElement('section');
@@ -202,8 +207,9 @@ groups.forEach(g => {
   g.items.forEach((it, idx) => {
     const id = 'p-' + it.file.replace(/\W/g, '');
     const div = document.createElement('div');
-    div.className = 'slip';
-    div.innerHTML = `<header><h3>${it.name}</h3><span class="file">${it.file}</span><button type="button" id="b-${id}">复制</button><span class="who">${it.who}</span></header>
+    const isDone = DONE.includes(it.file);
+    div.className = 'slip' + (isDone ? ' done' : '');
+    div.innerHTML = `<header><h3>${it.name}</h3><span class="file">${it.file}</span>${isDone ? '<span class="tag-done">已画好 · 已在游戏里</span>' : ''}<button type="button" id="b-${id}">复制</button><span class="who">${it.who}</span></header>
       <pre id="${id}"></pre><button type="button" class="more" aria-controls="${id}">展开全文</button>`;
     div.querySelector('pre').textContent = it.text;
     const btn = div.querySelector('#b-' + id), pre = div.querySelector('pre'), more = div.querySelector('.more');

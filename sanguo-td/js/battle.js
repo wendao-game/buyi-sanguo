@@ -25,7 +25,7 @@ const Battle = (function () {
     const bonus = teamBonus(Save.data.team);
     S = {
       stage, ch: chapterOf(stage), wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
-      queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [],
+      queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
       cut: null, lastCut: -99,
       t: 0, coins: 0, kills: 0,
       buffs: { atk: 1 + bonus.atk, spd: 1 + bonus.spd, crit: bonus.crit, rage: 1 + bonus.rage, ult: 1 + bonus.ult, coin: 1, boss: 1, el: {} },
@@ -155,8 +155,9 @@ const Battle = (function () {
   }
 
   function bolt(x1, y1, x2, y2, wide) {
-    if ((wide || 1) >= 1.5 && y2 - y1 > 80 && tex('bolt', x2, y2 + 8, { w: 46 * wide, h: y2 - y1 + 40, ay: 1, life: 0.28, rot: Math.atan2(x2 - x1, y1 - y2) * 0.5 })) {
+    if ((wide || 1) >= 1.5 && y2 - y1 > 80 && tex('bolt', x2, y2 + 8, { w: 46 * wide, h: y2 - y1 + 40, ay: 1, life: 0.28, rot: Math.atan2(x1 - x2, y2 - y1) })) {
       tex('el_hit_thunder', x2, y2, { w: 54 * wide, life: 0.3, grow: 1.3, rot: rand() * TAU });
+      if (wide >= 2) decal(x2, y2, 26 * wide);
       return;
     }
     const pts = [[x1, y1]], n = 6;
@@ -187,7 +188,8 @@ const Battle = (function () {
   }
   function kill(e, src, el) {
     e.dead = true; S.kills++;
-    burst(e.x, e.y, e.def.id === 'boss' ? 40 : 7, e.def.body, 120, 4, 0.5);
+    burst(e.x, e.y, e.def.id === 'boss' ? 40 : 4, e.def.body, 120, 4, 0.5);
+    if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.38, max: 0.38 });
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); }
     if (isBig(e) || rand() < CFG.COIN_DROP_RATE) dropCoin(e);
     if (rand() < CFG.BUN_DROP_RATE) S.drops.push({ k: 'bun', x: e.x, y: e.y, sx: e.x, sy: e.y, t: 0, dur: 0.8, wait: 0.5, val: 0.04 });
@@ -237,6 +239,7 @@ const Battle = (function () {
       if (!tex('el_hit_fire', x, y - r * 0.15, { w: r * 2.7, h: r * 2.3, life: big ? 0.6 : 0.45, grow: 1.3, rot: rand() * TAU })) { ring(x, y, r * 0.2, r, 0.35, '#ff8a3a', 4, true); ring(x, y, r * 0.3, r * 1.05, 0.3, '#ffd35a', 3); }
       burst(x, y, big ? 16 : 6, '#ff9a3a', 160, 5, 0.45); burst(x, y, big ? 8 : 3, '#3a2a22', 90, 6, 0.6);
       if (big) S.shake = Math.max(S.shake, 0.2);
+      if (r > 50) decal(x, y, r * 0.8);
     } else if (el === 'ice') {
       inRadius(x, y, r, e => { hit(e, dmg, 'ice', h, o); slow(e, 2.2); });
       if (!tex('el_hit_ice', x, y, { w: r * 2.5, h: r * 2.1, life: 0.4, grow: 1.25, rot: rand() * TAU })) ring(x, y, 6, r, 0.3, '#bfeaff', 3);
@@ -254,7 +257,13 @@ const Battle = (function () {
       ring(x, y, 8, r, 0.35, '#c8a878', 5); burst(x, y, 14, '#8a6a48', 180, 5, 0.5); burst(x, y, 6, '#d8c8a8', 120, 3, 0.4);
       tex('burst', x, y - 6, { w: r * 2.2, life: 0.35, grow: 1.3, rgb: '220,180,130', rot: rand() * TAU });
       S.shake = Math.max(S.shake, 0.15);
+      decal(x, y, r * 0.75);
     }
+  }
+  /* 地面焦痕：爆炸、落石、落雷之后留几秒 */
+  function decal(x, y, r) {
+    if (S.decals.length >= 18) S.decals.shift();
+    S.decals.push({ x, y, r, rot: rand() * TAU, life: 6, max: 6 });
   }
   function pool(h, x, y, r, life, dmg, el) {
     const blobs = [];
@@ -470,6 +479,7 @@ const Battle = (function () {
       if (e.y < e.stopY) {
         e.y += sp * dt; e.walk += dt * sp * 0.22;
         e.x = Math.max(48, Math.min(W - 48, e.x + Math.sin(S.t * 1.3 + e.ph) * 7 * dt));
+        if (e.y > WY - 230) { const tx = Math.max(118, Math.min(422, e.x)); e.x += (tx - e.x) * Math.min(1, dt * 1.6); }   // 快到城下时往城楼正面那段墙收拢
       } else if ((e.acd -= dt) <= 0) {
         e.acd = e.def.id === 'boss' ? 1.4 : 1;
         S.wall -= e.atk; S.wallFlash = 0.15; S.shake = Math.max(S.shake, e.def.id === 'boss' ? 0.25 : 0.06);
@@ -645,6 +655,8 @@ const Battle = (function () {
     for (let i = S.slashes.length - 1; i >= 0; i--) if ((S.slashes[i].life -= dt) <= 0) S.slashes.splice(i, 1);
     for (let i = S.fx.length - 1; i >= 0; i--) { const f = S.fx[i]; if ((f.life -= dt) <= 0) { S.fx.splice(i, 1); continue; } f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt; }
     if (S.cut && (S.cut.t += dt) >= S.cut.dur) S.cut = null;
+    for (let i = S.ghosts.length - 1; i >= 0; i--) if ((S.ghosts[i].life -= dt) <= 0) S.ghosts.splice(i, 1);
+    for (let i = S.decals.length - 1; i >= 0; i--) if ((S.decals[i].life -= dt) <= 0) S.decals.splice(i, 1);
     if (S.shake > 0) S.shake -= dt;
     if (S.wallFlash > 0) S.wallFlash -= dt;
     if (S.flash && (S.flash.t -= dt) <= 0) S.flash = null;
@@ -874,7 +886,17 @@ const Battle = (function () {
     c.save();
     if (S.shake > 0) c.translate((rand() - 0.5) * 9 * Math.min(1, S.shake * 4), (rand() - 0.5) * 9 * Math.min(1, S.shake * 4));
     c.drawImage(Art.background(), 0, 0, W, H);
-    if (S.wallFlash > 0) { c.fillStyle = 'rgba(255,60,40,' + (S.wallFlash * 2) + ')'; c.fillRect(0, WY - 14, W, 32); }
+    ambientGround(S.t);
+    if (S.wallFlash > 0) {                                  // 城墙挨打：垛口一带泛红
+      c.globalCompositeOperation = 'lighter'; c.save(); c.translate(W / 2, WY + 4); c.scale(1, 0.2);
+      glow(0, 0, 210, '255,70,40', Math.min(1, S.wallFlash * 5)); c.restore();
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    }
+    for (const d of S.decals) {
+      c.globalAlpha = Math.min(1, d.life / 2) * 0.42;
+      c.save(); c.translate(d.x, d.y); c.scale(1, 0.6); c.rotate(d.rot); c.drawImage(scorch(), -d.r, -d.r, d.r * 2, d.r * 2); c.restore();
+    }
+    c.globalAlpha = 1;
     for (const z of S.zones) drawZone(z, 0);
     for (const d of S.drops) {
       if (d.k === 'coin') drawCoin(d.x, d.y, 6);
@@ -882,7 +904,9 @@ const Battle = (function () {
     }
     const es = S.enemies.slice().sort((a, b) => a.y - b.y);
     for (const e of es) { Art.enemy(c, e, S.t); drawStatus(e); }
-    c.drawImage(haze(), 0, 0, W, 300);                       // 远处的敌人罩一层烟尘：2.5D 纵深
+    for (const g of S.ghosts) Art.enemyGhost(c, g, 1 - g.life / g.max);
+    c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+    c.drawImage(haze(), 0, 0, W, Assets.get('bg') ? 200 : 300);                       // 远处的敌人罩一层烟尘：2.5D 纵深
     drawHeroes(S.heroes, S.t);
     for (const s of S.shots) drawShot(s);
     for (const z of S.zones) drawZone(z, 1);
@@ -925,6 +949,7 @@ const Battle = (function () {
     }
     c.globalAlpha = 1;
     c.restore();
+    ambientAir(S.t);
     c.drawImage(grade(), 0, 0, W, H);
     if (S.flash) { c.fillStyle = 'rgba(' + S.flash.color + ',' + (S.flash.a * S.flash.t / S.flash.max) + ')'; c.fillRect(0, 0, W, H); }
 
@@ -934,6 +959,8 @@ const Battle = (function () {
     const tg = c.createLinearGradient(0, 0, 0, 120); tg.addColorStop(0, 'rgba(10,6,4,.75)'); tg.addColorStop(1, 'rgba(10,6,4,0)');
     c.fillStyle = tg; c.fillRect(0, 0, W, 120);
     outlined('第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关', W / 2, 40, 21, '#ffd76a');
+    c.strokeStyle = 'rgba(232,193,90,.6)'; c.lineWidth = 1.2;      // 进度条、城防条的金边
+    Art.rr(c, 128, 51, 284, 20, 10); c.stroke(); Art.rr(c, 128, 75, 284, 15, 7.5); c.stroke();
     const bx = 130, bw = 280;
     c.fillStyle = 'rgba(0,0,0,.6)'; Art.rr(c, bx - 2, 51, bw + 4, 20, 10); c.fill();
     const wp = S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);
@@ -964,12 +991,49 @@ const Battle = (function () {
     }
   }
 
+  /* —— 氛围 —— 灯笼的暖光（位置对着背景图里的四盏灯笼，没换背景图时不画）、飘动的火星和尘土 */
+  const LANTERNS = [[127, 652, 46], [406, 652, 46], [37, 826, 54], [503, 826, 54]];
+  function ambientGround(t) {
+    if (!Assets.get('bg')) return;
+    c.globalCompositeOperation = 'lighter';
+    LANTERNS.forEach((l, i) => {
+      const f = 0.75 + Math.sin(t * 7 + i * 2.3) * 0.08 + Math.sin(t * 13.7 + i) * 0.05;
+      glow(l[0], l[1], l[2] * (0.95 + f * 0.1), '255,170,70', 0.42 * f);
+      c.save(); c.translate(l[0], l[1] + 26); c.scale(1, 0.4); glow(0, 0, l[2] * 1.5, '255,150,60', 0.2 * f); c.restore();   // 灯光洒在地上
+    });
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  }
+  function ambientAir(t) {
+    c.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 26; i++) {                           // 火星：位置只由时间算出来，不占状态
+      const sp = 9 + (i * 7 % 11), ph = i * 37.7, span = H * 0.95;
+      const y = H * 0.9 - ((t * sp + ph * 9) % span), x = (i * 53.3 % W) + Math.sin(t * 0.7 + ph) * 16 + t * 3 % 1;
+      const tw = 0.5 + Math.sin(t * 3 + ph) * 0.5, r = 1.2 + (i % 3) * 0.6;
+      glow(x, y, r * 4, i % 4 ? '255,170,80' : '255,225,160', 0.22 * tw * Math.min(1, y / 120));
+    }
+    c.globalAlpha = 0.05;                                    // 远处两团缓缓飘的尘雾
+    for (let i = 0; i < 2; i++) { const x = ((t * (6 + i * 4) + i * 300) % (W + 400)) - 200; c.save(); c.translate(x, 150 + i * 90); c.scale(1, 0.3); glow(0, 0, 190, '255,225,190', 0.11); c.restore(); }
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  }
+  let scorchCv = null;
+  function scorch() {
+    if (scorchCv) return scorchCv;
+    scorchCv = document.createElement('canvas'); scorchCv.width = scorchCv.height = 128;
+    const g = scorchCv.getContext('2d');
+    for (let i = 0; i < 26; i++) {
+      const a = (i * 2.4) % TAU, d = (i * 13 % 34), r = 14 + (i * 7 % 22), x = 64 + Math.cos(a) * d, y = 64 + Math.sin(a) * d;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(18,10,6,.5)'); gr.addColorStop(1, 'rgba(18,10,6,0)');
+      g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+    }
+    return scorchCv;
+  }
+
   let hazeCv = null, gradeCv = null;
   function haze() {
     if (hazeCv) return hazeCv;
     hazeCv = document.createElement('canvas'); hazeCv.width = 4; hazeCv.height = 300;
     const g = hazeCv.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 300);
-    gr.addColorStop(0, 'rgba(36,24,18,.78)'); gr.addColorStop(0.45, 'rgba(48,32,22,.32)'); gr.addColorStop(1, 'rgba(48,32,22,0)');
+    gr.addColorStop(0, 'rgba(36,24,18,.6)'); gr.addColorStop(0.4, 'rgba(48,32,22,.2)'); gr.addColorStop(1, 'rgba(48,32,22,0)');
     g.fillStyle = gr; g.fillRect(0, 0, 4, 300);
     return hazeCv;
   }
@@ -1005,9 +1069,11 @@ const Battle = (function () {
   function renderIdle() {
     c.setTransform(2, 0, 0, 2, 0, 0);
     c.drawImage(Art.background(), 0, 0, W, H);
+    ambientGround(idleT);
     const list = [];
     Save.data.team.forEach((id, i) => { if (id) list.push({ def: HERO_MAP[id], x: SLOTS[i][0], y: SLOTS[i][1], anim: 0, rage: 0 }); });
     drawHeroes(list, idleT);
+    ambientAir(idleT);
     c.drawImage(grade(), 0, 0, W, H);
   }
 
