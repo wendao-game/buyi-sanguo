@@ -121,7 +121,7 @@ def main():
         os.makedirs(os.path.join(DST, 'heroes'), exist_ok=True)
         for i, cid in enumerate(ids):
             col, row = i % 3, i // 3
-            cell = sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3))
+            cell = keep_main(sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3)))
             box = cell.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
             if not box:
                 continue
