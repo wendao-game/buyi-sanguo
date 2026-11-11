@@ -61,7 +61,7 @@ section { display: flex; flex-direction: column; gap: 14px; }
 <div class="wrap">
   <header>
     <h1>烽火守城 · <span>国风卡通</span> 出图</h1>
-    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 已经画好，是后面所有图的标准：每次把它们一起发给 GPT。战场背景、特效 1 和两张敌人也已画好。还剩 8 张：武将 2～4、头像 2～4、特效 2～3。</p>
+    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 已经画好，是后面所有图的标准：每次把它们一起发给 GPT。战场背景、三张特效和两张敌人也已画好。还剩 6 张：武将 2～4、头像 2～4。</p>
   </header>
 
   <ol class="steps">
@@ -198,7 +198,7 @@ const groups = [
 ];
 
 /* 已经画好并换进游戏的图（要重画也可以，照样复制提示词） */
-const DONE = ['hero_1.png', 'head_1.png', 'battle.png', 'fx_1.png', 'enemy_1.png', 'enemy_2.png'];
+const DONE = ['hero_1.png', 'head_1.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'enemy_1.png', 'enemy_2.png'];
 
 const root = document.getElementById('groups');
 groups.forEach(g => {

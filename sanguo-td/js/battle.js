@@ -236,17 +236,17 @@ const Battle = (function () {
     if (el === 'fire') {
       const tick = dmg * 0.12 * (h ? h.m.burn : 1);
       inRadius(x, y, r, e => { hit(e, dmg, 'fire', h, o); burn(e, 3, tick, h); });
-      if (!tex('el_hit_fire', x, y - r * 0.15, { w: r * 2.7, h: r * 2.3, life: big ? 0.6 : 0.45, grow: 1.3, rot: rand() * TAU })) { ring(x, y, r * 0.2, r, 0.35, '#ff8a3a', 4, true); ring(x, y, r * 0.3, r * 1.05, 0.3, '#ffd35a', 3); }
+      if (!tex('el_hit_fire', x, y - r * 0.1, { w: r * 2.1, h: r * 1.8, life: big ? 0.5 : 0.4, grow: 1.2, a: big ? 0.8 : 0.9, rot: rand() * TAU })) { ring(x, y, r * 0.2, r, 0.35, '#ff8a3a', 4, true); ring(x, y, r * 0.3, r * 1.05, 0.3, '#ffd35a', 3); }
       burst(x, y, big ? 16 : 6, '#ff9a3a', 160, 5, 0.45); burst(x, y, big ? 8 : 3, '#3a2a22', 90, 6, 0.6);
       if (big) S.shake = Math.max(S.shake, 0.2);
       if (r > 50) decal(x, y, r * 0.8);
     } else if (el === 'ice') {
       inRadius(x, y, r, e => { hit(e, dmg, 'ice', h, o); slow(e, 2.2); });
-      if (!tex('el_hit_ice', x, y, { w: r * 2.5, h: r * 2.1, life: 0.4, grow: 1.25, rot: rand() * TAU })) ring(x, y, 6, r, 0.3, '#bfeaff', 3);
+      if (!tex('el_hit_ice', x, y, { w: r * 2.1, h: r * 1.8, life: 0.4, grow: 1.2, a: 0.9, rot: rand() * TAU })) ring(x, y, 6, r, 0.3, '#bfeaff', 3);
       burst(x, y, 6, '#d9f4ff', 130, 3.5, 0.4);
     } else if (el === 'poison') {
       pool(h, x, y, r, 4 * (h ? h.m.life : 1), dmg, 'poison');
-      tex('el_hit_wind', x, y, { w: r * 2.2, h: r * 1.6, life: 0.4, grow: 1.3, rgb: '120,235,60', rot: rand() * TAU });
+      tex('el_hit_wind', x, y, { w: r * 1.8, h: r * 1.3, life: 0.4, grow: 1.3, a: 0.7, rgb: '120,235,60', rot: rand() * TAU });
       burst(x, y, 6, '#8be84f', 100, 4, 0.4);
     } else if (el === 'arrow') {
       inRadius(x, y, r, e => hit(e, dmg, 'arrow', h, { crit: 0.15 }));
@@ -786,7 +786,7 @@ const Battle = (function () {
         glow(z.x, z.y, z.r * 1.1, '255,110,30', 0.18 * f);
         const nf = z.r > 60 ? 2 : 1;                         // 火堆多的时候（连营、火路）每处只画一两簇，免得连成一片盖住敌人
         for (let i = 0; i < nf; i++) { const b = z.blobs[i], fl = 0.85 + Math.sin(S.t * 14 + i * 2 + z.x) * 0.15; img('flame', z.x + b[0] * z.r * 0.6, z.y + b[1] * z.r * 0.4 - z.r * 0.25 * fl, z.r * 0.42, z.r * 0.7 * fl, 0, 0.38 * f); }
-      } else img('whirl', z.x, z.y, z.r * 2.2, z.r * 1.3, S.t * 0.8, 0.55 * f, '110,230,50');
+      } else img('whirl', z.x, z.y, z.r * 2, z.r * 1.2, S.t * 0.8, 0.3 * f, '110,230,50');
       return;
     }
     if (z.k === 'tornado' && layer === 2) {
