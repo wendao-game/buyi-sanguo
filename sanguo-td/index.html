@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>烽火守城 · 三国塔防</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app" data-screen="home">
+    <canvas id="cv" width="1080" height="1920"></canvas>
+    <div id="dim"></div>
+
+    <header id="topbar">
+      <div class="cur"><i class="ico coin"></i><b id="tCoins">0</b></div>
+      <div class="cur"><i class="ico ticket"></i><b id="tTickets">0</b><button class="plus" data-act="nav" data-tab="gacha">+</button></div>
+    </header>
+
+    <section id="home" class="screen"></section>
+    <section id="heroes" class="screen"></section>
+    <section id="gacha" class="screen"></section>
+
+    <nav id="nav">
+      <button data-act="nav" data-tab="home"><i>城</i>主城</button>
+      <button data-act="nav" data-tab="heroes"><i>将</i>武将</button>
+      <button data-act="nav" data-tab="gacha"><i>募</i>招募</button>
+    </nav>
+
+    <div id="hud">
+      <button class="hbtn" id="bPause" data-act="pause">Ⅱ</button>
+      <button class="hbtn" id="bSpeed" data-act="speed">×1</button>
+      <button class="hbtn" id="bAuto" data-act="auto">自动</button>
+      <div id="ultbar"></div>
+    </div>
+
+    <div id="modal"></div>
+    <div id="toast"></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/save.js"></script>
+  <script src="js/assets.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/battle.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
