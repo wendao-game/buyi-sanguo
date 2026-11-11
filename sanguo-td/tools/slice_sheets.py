@@ -174,6 +174,12 @@ def main():
         fp.write('/* 已放进 assets/ 的图片清单（游戏只加载这里列出的文件）。\n'
                  ' * 由 serve.ps1 或 tools/slice_sheets.py 自动生成，也可以手动编辑。 */\n')
         fp.write('window.ASSET_LIST = [\n' + ''.join("  '%s',\n" % f for f in files) + '];\n')
+        import hashlib                                         # 素材版本号：所有图片内容的哈希，换了任何一张图就会变
+        hs = hashlib.sha1()
+        for f in files:
+            with open(os.path.join(DST, f), 'rb') as fh:
+                hs.update(f.encode() + hashlib.sha1(fh.read()).digest())
+        fp.write("window.ASSET_VER = '%s';\n" % hs.hexdigest()[:10])
     print('%d images written, manifest has %d files' % (done, len(files)))
 
 

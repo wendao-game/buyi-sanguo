@@ -38,16 +38,16 @@
     <div id="toast"></div>
   </div>
 
-  <script src="js/data.js"></script>
-  <script src="js/skills.js"></script>
-  <script src="js/save.js"></script>
-  <script src="js/platform.js"></script>
-  <script src="assets/manifest.js"></script>
-  <script src="js/assets.js"></script>
-  <script src="js/fxgen.js"></script>
-  <script src="js/art.js"></script>
-  <script src="js/battle.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/main.js"></script>
+  <!-- 脚本带版本号加载，防止手机浏览器用旧缓存：改了代码就把 BUILD 改一下；素材清单每次都取最新的 -->
+  <script>
+    (function () {
+      var BUILD = '20261111-6';
+      ['js/data.js', 'js/skills.js', 'js/save.js', 'js/platform.js', 'assets/manifest.js', 'js/assets.js',
+       'js/fxgen.js', 'js/art.js', 'js/battle.js', 'js/ui.js', 'js/main.js'].forEach(function (s) {
+        var q = s === 'assets/manifest.js' ? 't=' + Date.now() : 'v=' + BUILD;
+        document.write('<script src="' + s + '?' + q + '"><\/script>');
+      });
+    })();
+  </script>
 </body>
 </html>

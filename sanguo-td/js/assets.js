@@ -31,7 +31,7 @@ const Assets = (function () {
       const im = new Image();
       im.onload = () => { img[file.replace(/\.(png|jpe?g|webp)$/i, '')] = im; resolve(true); };
       im.onerror = () => resolve(false);
-      im.src = 'assets/' + file;
+      im.src = 'assets/' + file + (window.ASSET_VER ? '?v=' + window.ASSET_VER : '');   // 换了图版本号就变，不会用到手机里缓存的旧图
     });
   }
   /* 只加载 assets/manifest.js 里列出的图（window.ASSET_LIST），不再逐个去试，没放图时不会有一堆 404 */

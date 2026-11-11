@@ -15,7 +15,8 @@ if (Test-Path -LiteralPath $adir0) {
   $imgs = @(Get-ChildItem -LiteralPath $adir0 -Recurse -File | Where-Object { $_.Extension -match '^\.(png|jpg|jpeg|webp)$' -and $_.FullName -notmatch '[\\/]_sheets[\\/]' } | ForEach-Object {
     "'" + $_.FullName.Substring($adir0.Length + 1).Replace('\', '/').Replace("'", '') + "'"
   })
-  $js = "/* 自动生成（serve.ps1）：已放进 assets/ 的图片清单，游戏只加载这里列出的文件 */`nwindow.ASSET_LIST = [" + ($imgs -join ', ') + "];`n"
+  $ver = (Get-ChildItem -LiteralPath $adir0 -Recurse -File | Measure-Object -Property LastWriteTime -Maximum).Maximum.ToString('yyyyMMddHHmmss')
+  $js = "/* 自动生成（serve.ps1）：已放进 assets/ 的图片清单，游戏只加载这里列出的文件 */`nwindow.ASSET_LIST = [" + ($imgs -join ', ') + "];`nwindow.ASSET_VER = '" + $ver + "';`n"
   [System.IO.File]::WriteAllText((Join-Path $adir0 'manifest.js'), $js, (New-Object System.Text.UTF8Encoding $false))
   Write-Host ("assets/manifest.js: " + $imgs.Count + " images")
 }
