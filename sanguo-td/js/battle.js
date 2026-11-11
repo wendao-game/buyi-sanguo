@@ -7,7 +7,7 @@
 const Battle = (function () {
   const W = CFG.W, H = CFG.H, WY = CFG.WALL_Y, TAU = Math.PI * 2;
   const SLOTS = CFG.SLOTS;
-  const RANGE_Y = 175;            // 敌人走出远处烟尘（越过这条线）后武将才会攻击
+  const RANGE_Y = 120;            // 敌人越过这条线后武将才会攻击（到城墙线约 550，和换背景前一样）
   const FONT = '"Microsoft YaHei","PingFang SC",sans-serif';
   const rand = Math.random;
   const isBig = e => e.def.id === 'boss' || e.def.id === 'elite';
