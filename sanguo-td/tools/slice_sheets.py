@@ -3,6 +3,7 @@
 拼图放在 sanguo-td/assets/_sheets/：
   hero_1.png … hero_4.png    武将（每张 3×3，顺序见下面的 SHEETS）
   enemy_1.png、enemy_2.png   敌人和各章敌将
+  head_1.png … head_4.png    武将正面头像（顺序同 hero_1 … hero_4）
   fx_1.png … fx_3.png        技能特效（黑底）
   battle.png                 战场背景（竖版，会裁成 9:16 缩到 1080×1920）
 用法（在仓库根目录）：python3 sanguo-td/tools/slice_sheets.py
@@ -23,6 +24,8 @@ SHEETS_ORDER = {
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
 }
+# 头像拼图：顺序和武将拼图一样，切出来存 heroes/<id>_head.png
+HEAD_SHEETS = {'head_' + k[5:]: v[1] for k, v in SHEETS_ORDER.items() if k.startswith('hero_')}
 # 特效拼图（黑底）：名字 -> 最长边
 FX_SHEETS = {
     'fx_1': ['slash', 'burst', 'ring', 'flame', 'bolt', 'pillar', 'thrust', 'el_arrow_ice', 'el_arrow_fire'],
@@ -33,19 +36,22 @@ FX_SIZE = {'slash': 384, 'bolt': 384, 'pillar': 384, 'thrust': 384, 'circle': 32
            'el_orb_fire': 128, 'el_orb_wind': 160, 'dragon_azure': 512, 'dragon_white': 512, 'phoenix': 512}
 
 
-def clear_bg(im, tol=28):
-    """GPT 偶尔给不透明的纯色底：按四角的颜色抠掉"""
+def clear_bg(im, tol=24):
+    """透明底：清掉几乎看不见的半透明噪点。
+    不透明的纯色底（GPT 偶尔给白底）：只从每个格子的边缘往里抠和底色相近的连通区域，
+    人物身上的白色（白袍、白羽扇）不和边缘相连，不会被抠掉。"""
+    from PIL import ImageDraw
     im = im.convert('RGBA')
     if im.getchannel('A').getextrema()[0] < 250:
+        a = im.getchannel('A').point(lambda v: 0 if v < 16 else v)
+        im.putalpha(a)
         return im
-    px = im.load(); w, h = im.size
-    corners = [px[2, 2], px[w - 3, 2], px[2, h - 3], px[w - 3, h - 3]]
-    ref = max(set(corners), key=corners.count)
-    for y in range(h):
-        for x in range(w):
-            r, g, b, a = px[x, y]
-            if abs(r - ref[0]) + abs(g - ref[1]) + abs(b - ref[2]) < tol * 3:
-                px[x, y] = (r, g, b, 0)
+    w, h = im.size
+    for gx in range(4):                                        # 格子边线和外框上每隔 12 像素取一个种子
+        for t in range(0, max(w, h), 12):
+            for (x, y) in ((min(w - 1, gx * w // 3), min(h - 1, t)), (min(w - 1, t), min(h - 1, gx * h // 3))):
+                if x < w and y < h and im.getpixel((x, y))[3] > 0:
+                    ImageDraw.floodfill(im, (x, y), (0, 0, 0, 0), thresh=tol)
     return im
 
 
@@ -78,6 +84,24 @@ def main():
             cell = sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3))
             if standardize(cell, os.path.join(DST, folder, cid + '.png')):
                 done += 1
+    for name, ids in HEAD_SHEETS.items():
+        path = os.path.join(SHEETS, name + '.png')
+        if not os.path.exists(path):
+            continue
+        sheet = clear_bg(Image.open(path))
+        w, h = sheet.size
+        os.makedirs(os.path.join(DST, 'heroes'), exist_ok=True)
+        for i, cid in enumerate(ids):
+            col, row = i % 3, i // 3
+            cell = sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3))
+            box = cell.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
+            if not box:
+                continue
+            cell = cell.crop(box)
+            s = max(cell.size)                                 # 补成正方形：横向居中、头顶对齐
+            sq = Image.new('RGBA', (s, s), (0, 0, 0, 0)); sq.alpha_composite(cell, ((s - cell.width) // 2, 0))
+            sq.resize((256, 256), Image.LANCZOS).save(os.path.join(DST, 'heroes', cid + '_head.png'), optimize=True)
+            done += 1
     for name, ids in FX_SHEETS.items():
         path = os.path.join(SHEETS, name + '.png')
         if not os.path.exists(path):
@@ -120,7 +144,7 @@ def main():
     files.sort()
     with open(os.path.join(DST, 'manifest.js'), 'w', encoding='utf8') as fp:
         fp.write('/* 已放进 assets/ 的图片清单（游戏只加载这里列出的文件）。\n'
-                 ' * 由 serve.ps1、tools/import_buyi_art.py 或 tools/slice_sheets.py 自动生成，也可以手动编辑。 */\n')
+                 ' * 由 serve.ps1 或 tools/slice_sheets.py 自动生成，也可以手动编辑。 */\n')
         fp.write('window.ASSET_LIST = [\n' + ''.join("  '%s',\n" % f for f in files) + '];\n')
     print('%d images written, manifest has %d files' % (done, len(files)))
 
