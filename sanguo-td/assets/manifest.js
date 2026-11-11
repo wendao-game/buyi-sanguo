@@ -2,6 +2,22 @@
  * 由 serve.ps1 或 tools/slice_sheets.py 自动生成，也可以手动编辑。 */
 window.ASSET_LIST = [
   'bg/battle.jpg',
+  'enemies/archer.png',
+  'enemies/archer_2.png',
+  'enemies/boss_1.png',
+  'enemies/boss_2.png',
+  'enemies/boss_3.png',
+  'enemies/boss_4.png',
+  'enemies/boss_5.png',
+  'enemies/boss_6.png',
+  'enemies/boss_7.png',
+  'enemies/boss_8.png',
+  'enemies/boss_9.png',
+  'enemies/elite.png',
+  'enemies/grunt.png',
+  'enemies/grunt_2.png',
+  'enemies/rider.png',
+  'enemies/shield.png',
   'fx/bolt.jpg',
   'fx/burst.jpg',
   'fx/el_arrow_fire.jpg',
@@ -30,4 +46,4 @@ window.ASSET_LIST = [
   'heroes/zhugeliang.png',
   'heroes/zhugeliang_head.png',
 ];
-window.ASSET_VER = 'cce189ab9d';
+window.ASSET_VER = '535c8e2234';
