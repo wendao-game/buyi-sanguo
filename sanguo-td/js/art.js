@@ -257,8 +257,10 @@ const Art = (function () {
   function hero(c, d, x, y, s, t, anim, noAura) {
     const fac = FACTIONS[d.fac], q = QUALITIES[d.q];
     c.save(); c.translate(x, y); c.scale(s, s);
+    const hasIm = !!Assets.get('hero:' + d.id);
     if (!noAura) {
-      c.fillStyle = 'rgba(0,0,0,.4)'; ell(c, 0, 20, 17, 6);
+      // 有立绘：脚下一块深色圆形底座托住人物（高俯视角的画法）；没有立绘：原来的小影子
+      c.fillStyle = hasIm ? 'rgba(14,9,6,.62)' : 'rgba(0,0,0,.4)'; ell(c, 0, 20, hasIm ? 25 : 17, hasIm ? 9.5 : 6);
       if (d.q >= 3) {
         c.globalCompositeOperation = 'lighter';
         const gl = c.createRadialGradient(0, 14, 2, 0, 14, 30);
@@ -267,14 +269,13 @@ const Art = (function () {
         c.globalCompositeOperation = 'source-over';
       }
       c.strokeStyle = q.color; c.lineWidth = 2; c.globalAlpha = 0.9;
-      c.beginPath(); c.ellipse(0, 20, 20, 7.5, 0, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      c.beginPath(); c.ellipse(0, 20, hasIm ? 26 : 20, hasIm ? 10 : 7.5, 0, 0, TAU); c.stroke(); c.globalAlpha = 1;
     }
     const a = Math.min(1, anim || 0);
     const im = Assets.get('hero:' + d.id);
     if (im) {                                // 有立绘图片：脚底锚点对齐站位，保留呼吸和出手动作
       const hU = SPRITE.hero.units, wU = hU * im.width / im.height, k = 1 + a * 0.06;
       c.translate(0, 20 - a * 5);
-      if (!noAura) castShadow(c, im, -wU * SPRITE.hero.ax, -hU * SPRITE.hero.ay, wU, hU, -hU * SPRITE.hero.ay + hU * 0.86, 0.3);
       c.scale(k, k * (1 + Math.sin(t * 2.4 + d.seed) * 0.012));
       c.drawImage(im, -wU * SPRITE.hero.ax, -hU * SPRITE.hero.ay, wU, hU);
       c.restore();
