@@ -2,6 +2,15 @@
  * 由 serve.ps1 或 tools/slice_sheets.py 自动生成，也可以手动编辑。 */
 window.ASSET_LIST = [
   'bg/battle.jpg',
+  'fx/bolt.jpg',
+  'fx/burst.jpg',
+  'fx/el_arrow_fire.jpg',
+  'fx/el_arrow_ice.jpg',
+  'fx/flame.jpg',
+  'fx/pillar.jpg',
+  'fx/ring.jpg',
+  'fx/slash.jpg',
+  'fx/thrust.jpg',
   'heroes/caocao.png',
   'heroes/caocao_head.png',
   'heroes/guanyu.png',

@@ -356,7 +356,7 @@ const Battle = (function () {
     const a = h.atk * S.buffs.atk * S.buffs.ult, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
     text(h.x, h.y - 58, '【' + h.def.ult + '】' + (h.awake ? '·觉醒' : ''), q.color, 21, 1.5, true);
     ring(h.x, h.y + 26, 12, 70, 0.5, q.color, 4);
-    tex('pillar', h.x, h.y + 34, { w: 80, h: 300, ay: 1, life: 0.75, fadeIn: 0.12, rgb: hexRgb(q.color), force: true });
+    tex('pillar', h.x, h.y + 34, { w: 60, h: 260, ay: 1, life: 0.7, fadeIn: 0.12, a: 0.5, rgb: hexRgb(q.color), force: true });
     cutIn(h, !!pt || !Save.data.auto);
     B.pt = pt || null;
     if (h.sk) h.sk.ult.cast(B, h, a, k); else defaultUlt(h, a);
@@ -771,9 +771,9 @@ const Battle = (function () {
     if (z.k === 'pool' && layer === 2) {                   // 叠加层：火焰 / 毒雾贴图
       const f = Math.min(1, z.life / 0.6) * Math.min(1, (z.max - z.life) / 0.25 + 0.15);
       if (z.el === 'fire') {
-        glow(z.x, z.y, z.r * 1.2, '255,110,30', 0.25 * f);
-        const nf = z.r > 45 ? 3 : 2;
-        for (let i = 0; i < nf; i++) { const b = z.blobs[i], fl = 0.85 + Math.sin(S.t * 14 + i * 2) * 0.15; img('flame', z.x + b[0] * z.r, z.y + b[1] * z.r * 0.6 - z.r * 0.3 * fl, z.r * 0.45, z.r * 0.85 * fl, 0, 0.55 * f); }
+        glow(z.x, z.y, z.r * 1.1, '255,110,30', 0.18 * f);
+        const nf = z.r > 60 ? 2 : 1;                         // 火堆多的时候（连营、火路）每处只画一两簇，免得连成一片盖住敌人
+        for (let i = 0; i < nf; i++) { const b = z.blobs[i], fl = 0.85 + Math.sin(S.t * 14 + i * 2 + z.x) * 0.15; img('flame', z.x + b[0] * z.r * 0.6, z.y + b[1] * z.r * 0.4 - z.r * 0.25 * fl, z.r * 0.42, z.r * 0.7 * fl, 0, 0.38 * f); }
       } else img('whirl', z.x, z.y, z.r * 2.2, z.r * 1.3, S.t * 0.8, 0.55 * f, '110,230,50');
       return;
     }
@@ -791,7 +791,7 @@ const Battle = (function () {
     if (z.k === 'barrier' && layer === 2) { const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.3 + 0.1); for (let x = 40; x < W; x += 92) img('el_orb_wind', x, z.y, 110, 60, S.t * 6 + x, 0.55 * f); return; }
     if (layer === 2) return;
     if (z.k === 'pool' && layer === 0) {
-      const f = Math.min(1, z.life / 0.6) * Math.min(1, (z.max - z.life) / 0.25 + 0.15), fire = z.el === 'fire';
+      const fire = z.el === 'fire', f = Math.min(1, z.life / 0.6) * Math.min(1, (z.max - z.life) / 0.25 + 0.15) * (fire ? 0.4 : 1);   // 火的地面色块淡一些，火焰贴图另画
       c.globalAlpha = 0.42 * f; c.fillStyle = fire ? '#b8401a' : '#2f9a1a';
       for (const b of z.blobs) Art.ell(c, z.x + b[0] * z.r, z.y + b[1] * z.r * 0.62, b[2] * z.r, b[2] * z.r * 0.62);
       c.globalAlpha = 0.5 * f; c.fillStyle = fire ? '#ff8a3a' : '#8dea4a';
@@ -846,7 +846,7 @@ const Battle = (function () {
   function drawStatus(e) {
     const ds = e.ds || 1, top = e.y - e.def.r * 2.5 * ds - (e.def.id === 'boss' ? 30 : 12);
     if (e.psn > 0 && !Assets.get(e.spr || 'enemy:' + e.def.id)) { c.fillStyle = 'rgba(120,230,70,.35)'; Art.circ(c, e.x, e.y, e.def.r * 0.9); }
-    if (e.burn > 0 && Assets.get('fx:flame')) { c.globalCompositeOperation = 'lighter'; img('flame', e.x, e.y - e.def.r * 0.8, e.def.r * 1.4, e.def.r * 2.4, 0, 0.55 + Math.sin(S.t * 18 + e.ph) * 0.15); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; }
+    if (e.burn > 0 && Assets.get('fx:flame')) { c.globalCompositeOperation = 'lighter'; img('flame', e.x, e.y - e.def.r * 0.8, e.def.r * 1.1, e.def.r * 1.9, 0, 0.35 + Math.sin(S.t * 18 + e.ph) * 0.1); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; }
     if (e.fear > 0) outlined('!', e.x, top, 15, '#ffe08a', 'center', 3);
     else if (e.conf > 0) {
       for (let i = 0; i < 3; i++) { const a = S.t * 6 + i * TAU / 3; c.fillStyle = '#e8b0ff'; Art.circ(c, e.x + Math.cos(a) * 9, top + Math.sin(a) * 3, 2.2); }
