@@ -165,6 +165,8 @@ button { font-family: inherit; border: 0; cursor: pointer; color: inherit; }
 .dskill .aimtag { font-style: normal; font-size: 11px; margin-left: 6px; padding: 0 5px; border-radius: 6px; background: #4ea8ff; color: #0d1a2a; }
 .dskill .awake { color: #ffb36a; font-weight: bold; } .dim { color: #8a7660; }
 h4.sub { font-size: 15px; color: var(--gold); margin: 12px 0 4px; }
+input.gift { flex: 1.6; min-width: 0; height: 48px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: #0d0907; color: #ffe9a8; font-size: 17px; letter-spacing: 1px; text-transform: uppercase; user-select: text; }
+input.gift::placeholder { color: #8a7660; letter-spacing: 0; }
 textarea.code { width: 100%; height: 150px; margin-top: 4px; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: #0d0907; color: #e8d8b8; font-size: 12px; word-break: break-all; resize: none; user-select: text; }
 .dmgs { margin: 6px 0 2px; }
 .dmg { position: relative; display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 8px; margin-top: 4px; border-radius: 8px; background: #00000055; overflow: hidden; font-size: 13px; color: #fff3d6; }

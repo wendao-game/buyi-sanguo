@@ -282,6 +282,20 @@ function settleBattle(stage, win, wavesCleared, dropped) {
   return { coins, tickets, first, dropped };
 }
 
+/* ---------------- 礼包码 ---------------- */
+/* 成功返回礼包内容 { tickets, coins, note }，失败返回错误文字 */
+function redeemGift(code) {
+  const key = String(code || '').replace(/\s+/g, '').toUpperCase(), g = CFG.GIFT_CODES[key];
+  if (!g) return '礼包码不对';
+  const S = Save.data;
+  S.gifts = Array.isArray(S.gifts) ? S.gifts : [];
+  if (S.gifts.includes(key)) return '这个礼包码已经用过了';
+  S.gifts.push(key);
+  gain(g.coins || 0, g.tickets || 0);
+  Save.save();
+  return g;
+}
+
 /* ---------------- 存档码：换设备 / 清数据时手动备份 ---------------- */
 const SAVE_CODE_TAG = 'SGTD1';
 function codeHash(str) {
