@@ -55,7 +55,35 @@ def clear_bg(im, tol=24):
     return im
 
 
+def keep_main(im):
+    """只留格子里最大的那块：相邻格子伸过来的兵器尖、零碎噪点清掉。
+    按行、按列找被空白隔开的段，各留像素最多的一段。"""
+    a = im.getchannel('A')
+    w, h = im.size
+    px = a.load()
+    for axis in (0, 1):
+        n = h if axis == 0 else w
+        cnt = [sum(1 for k in range(w if axis == 0 else h) if (px[k, i] if axis == 0 else px[i, k]) > 24) for i in range(n)]
+        runs, start = [], None
+        for i, c in enumerate(cnt + [0]):
+            if c and start is None:
+                start = i
+            elif not c and start is not None:
+                runs.append((sum(cnt[start:i]), start, i)); start = None
+        if len(runs) > 1:
+            _, s0, s1 = max(runs)
+            for i in list(range(0, s0)) + list(range(s1, n)):
+                for k in range(w if axis == 0 else h):
+                    if axis == 0:
+                        px[k, i] = 0
+                    else:
+                        px[i, k] = 0
+    im.putalpha(a)
+    return im
+
+
 def standardize(im, dst, size=320, foot=275, height=256):
+    im = keep_main(im)
     box = im.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
     if not box:
         return False
