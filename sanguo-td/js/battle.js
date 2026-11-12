@@ -184,7 +184,7 @@ const Battle = (function () {
     e.hp -= dmg; e.flash = 0.1;
     if (crit && !o.dot && S.fx.length < 120) { tex('burst', e.x, e.y - e.def.r * 0.6, { w: 44 + e.def.r, life: 0.24, grow: 1.35, rgb: '255,225,140', rot: rand() * TAU }); burst(e.x, e.y - e.def.r * 0.6, 4, '#ffe9a8', 230, 2.2, 0.28, 300); }
     else if (!o.dot && S.fx.length < 70) tex('burst', e.x, e.y - e.def.r * 0.5, { w: 20 + e.def.r * 0.7, life: 0.13, grow: 1.25, a: 0.75, rgb: hexRgb(elColor(el)), rot: rand() * TAU });   // 命中小闪光
-    text(e.x + (rand() - 0.5) * 18, e.y - e.def.r - 8 - rand() * 8, dmg, crit ? '#ffdf4a' : elColor(el), crit ? 23 : (o.dot ? 12 : 15), 0.75, crit);
+    text(e.x + (rand() - 0.5) * 18, e.y - e.def.r - 8 - rand() * 8, dmg, crit ? '#ffdf4a' : elColor(el), crit ? 28 : (o.dot ? 13 : 18), 0.75, crit);
     if (o.basic && src && src.sk && src.sk.passive.onHit && e.hp > 0) src.sk.passive.onHit(B, src, e);
     if (e.hp <= 0) kill(e, src, el);
   }
@@ -972,19 +972,20 @@ const Battle = (function () {
     // —— 顶部信息 ——
     const tg = c.createLinearGradient(0, 0, 0, 120); tg.addColorStop(0, 'rgba(10,6,4,.75)'); tg.addColorStop(1, 'rgba(10,6,4,0)');
     c.fillStyle = tg; c.fillRect(0, 0, W, 120);
-    outlined('第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关', W / 2, 40, 21, '#ffd76a');
-    c.strokeStyle = 'rgba(232,193,90,.6)'; c.lineWidth = 1.2;      // 进度条、城防条的金边
-    Art.rr(c, 128, 51, 284, 20, 10); c.stroke(); Art.rr(c, 128, 75, 284, 15, 7.5); c.stroke();
-    const bx = 130, bw = 280;
-    c.fillStyle = 'rgba(0,0,0,.6)'; Art.rr(c, bx - 2, 51, bw + 4, 20, 10); c.fill();
+    c.font = 'bold 27px SGBrush,' + FONT; c.textAlign = 'center'; c.lineJoin = 'round'; c.lineWidth = 5; c.strokeStyle = 'rgba(20,10,6,.9)';
+    const title = '第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关';
+    c.strokeText(title, W / 2, 40); c.fillStyle = '#ffd76a'; c.fillText(title, W / 2, 40);
+    const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
+    c.fillStyle = 'rgba(0,0,0,.65)'; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.fill(); Art.rr(c, bx + 17, 81, bw - 34, 16, 8); c.fill();
     const wp = S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);
-    if (wp > 0.02) { const g2 = c.createLinearGradient(bx, 0, bx + bw, 0); g2.addColorStop(0, '#e8c53a'); g2.addColorStop(1, '#7ed957'); c.fillStyle = g2; Art.rr(c, bx, 53, bw * wp, 16, 8); c.fill(); }
-    outlined(S.wave + '/' + CFG.WAVES + ' 波', W / 2, 66, 13, '#ffffff', 'center', 2.6);
-    c.fillStyle = 'rgba(0,0,0,.6)'; Art.rr(c, bx - 2, 75, bw + 4, 15, 7); c.fill();
+    if (wp > 0.03) { const g2 = c.createLinearGradient(0, 54, 0, 74); g2.addColorStop(0, '#8fe86a'); g2.addColorStop(1, '#3fae3e'); c.fillStyle = g2; Art.rr(c, bx, 54, bw * wp, 20, 10); c.fill(); }
     const hp = Math.max(0, S.wall / S.wallMax);
-    if (hp > 0.02) { c.fillStyle = hp > 0.5 ? '#e0483a' : hp > 0.25 ? '#e8802a' : '#ff2a2a'; Art.rr(c, bx, 77, bw * hp, 11, 5.5); c.fill(); }
-    outlined('城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2, 87, 11, '#ffffff', 'center', 2.4);
-    drawCoin(W - 92, 34, 9); outlined(String(Math.round(S.coins)), W - 78, 40, 17, '#ffe9a8', 'left');
+    if (hp > 0.03) { c.fillStyle = hp > 0.5 ? '#e0483a' : hp > 0.25 ? '#e8802a' : '#ff2a2a'; Art.rr(c, bx + 20, 83, (bw - 40) * hp, 12, 6); c.fill(); }
+    c.strokeStyle = 'rgba(240,210,122,.85)'; c.lineWidth = 1.6; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.stroke();
+    c.strokeStyle = 'rgba(232,193,90,.6)'; c.lineWidth = 1.2; Art.rr(c, bx + 17, 81, bw - 34, 16, 8); c.stroke();
+    outlined(S.wave + '/' + CFG.WAVES + ' 波', W / 2, 70, 16, '#ffffff', 'center', 3);
+    outlined('城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2, 93, 11, '#ffffff', 'center', 2.4);
+    drawCoin(W - 82, 30, 9); outlined(String(Math.round(S.coins)), W - 68, 36, 17, '#ffe9a8', 'left');
 
     if (S.aim !== null) {
       const h = S.heroes.find(q => q.slot === S.aim);

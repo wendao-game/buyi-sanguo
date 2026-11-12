@@ -7,7 +7,7 @@
 const UI = (function () {
   const $ = s => document.querySelector(s);
   let screen = 'home', heroTab = 'mine', closable = true, toastTimer = 0, pickSlot = -1;
-  let hudS = null, hudRage = [], hudRock = '', buffCb = null, lastRes = null, adTimer = 0, adResolve = null;
+  let hudS = null, hudRage = [], hudRock = '', hudSec = -1, buffCb = null, lastRes = null, adTimer = 0, adResolve = null;
 
   const fmt = n => (n >= 100000 ? (n / 10000).toFixed(1) + '万' : String(Math.floor(n)));
   const P = (id, px) => Art.portrait(id, px || 64);
@@ -239,8 +239,10 @@ const UI = (function () {
       hudS = S; hudRage = [];
       $('#ultbar').innerHTML = S.heroes.map(h =>
         `<button class="ult" data-act="ult" data-i="${h.slot}" style="--qc:${QUALITIES[h.def.q].color}"><img src="${P(h.def.id)}"><span>${h.def.ult}</span></button>`).join('');
-      hudRock = '';
+      hudRock = ''; hudSec = -1;
     }
+    const sec = Math.floor(S.t);
+    if (sec !== hudSec) { hudSec = sec; $('#bTime').textContent = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
     const rk = S.rock.n + '/' + S.rock.max + '/' + (S.rock.n < S.rock.max ? Math.floor(S.rock.t / CFG.ROCK_CD * 20) : 20);
     if (rk !== hudRock) {
       hudRock = rk;
@@ -363,6 +365,15 @@ const UI = (function () {
     speed: () => { const S = Save.data; S.speed = S.speed % 3 + 1; Save.save(); $('#bSpeed').textContent = '×' + S.speed; },
     auto: () => { const S = Save.data; S.auto = !S.auto; Save.save(); $('#bAuto').classList.toggle('off', !S.auto); toast(S.auto ? '自动释放大招：开' : '自动释放大招：关（点下方头像手动释放）'); },
     ult: d => { const r = Battle.ult(Number(d.i)); if (r === 'rage') toast('怒气未满'); else if (r === 'none') toast('射程内没有敌人'); },
+    stats: () => {
+      const S = Battle.state; if (!S || S.over || S.choosing) return;
+      S.paused = true; Battle.cancelAim();
+      const list = S.heroes.map(h => ({ id: h.def.id, dmg: Math.round(h.dmg) })).sort((a, b) => b.dmg - a.dmg);
+      const top = Math.max(1, ...list.map(x => x.dmg)), sum = Math.max(1, list.reduce((s, x) => s + x.dmg, 0));
+      modal(`<div class="mbox"><h2>战斗统计</h2><p class="mtext" style="font-size:13px">第 ${S.wave} / ${CFG.WAVES} 波 · 击败 ${S.kills} · 铜钱 ${Math.round(S.coins)}</p>
+        <div class="dmgs statlist">${list.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join('')}</div>
+        <div class="mrow"><button class="btn red" data-act="resume">继续战斗</button></div></div>`, false);
+    },
     rock: () => toast('点击战场任意位置投下礌石：伤害并眩晕敌人'),
     buff: d => { const cb = buffCb; buffCb = null; closeModal(); if (cb) cb(Number(d.i)); },
     resHome: () => { Battle.stop(); closeModal(); show('home'); },

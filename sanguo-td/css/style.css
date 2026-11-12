@@ -402,3 +402,19 @@ h4.sub { font-family: var(--fr); font-weight: normal; font-size: 17px; letter-sp
 #toast { font-family: var(--fr); font-size: 17px; letter-spacing: 1px; padding: 11px 26px; border: 0; background: linear-gradient(#3b271c, #1f130d); box-shadow: 0 0 0 1.5px #3a2410, 0 0 0 3px #d9b256, 0 8px 20px #000c; color: #ffe9a8; }
 input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 0 0 0 1.5px #6b4a2a, inset 0 3px 8px #000a; }
 .adbox b, .adbox .tv { font-family: var(--fr); }
+
+/* —— 战斗界面布局（v0.7）：左侧一列控制按钮，右侧一列大招，底部城楼不放东西 —— */
+.hbtn { left: 10px; }
+#bPause { top: 104px; }
+#bTime { position: absolute; left: 4px; width: 64px; top: 160px; text-align: center; font-family: var(--fr); font-size: 14px; color: #fff3d6; text-shadow: 0 0 3px #000, 0 1px 2px #000, 0 0 6px #000; pointer-events: none; }
+#bStats { top: 186px; display: flex; align-items: flex-end; justify-content: center; gap: 3px; padding-bottom: 15px; }
+#bStats i { width: 6px; border-radius: 2px 2px 0 0; background: linear-gradient(#fff0b4, #e9b53c); box-shadow: 0 1px 0 #00000080; }
+#bStats i:nth-child(1) { height: 11px; } #bStats i:nth-child(2) { height: 19px; } #bStats i:nth-child(3) { height: 14px; }
+#bSpeed { top: 250px; }
+#bAuto { top: 330px; }
+#bRock { top: 394px; }
+#ultbar { left: auto; right: 9px; top: 106px; bottom: auto; width: 60px; height: auto; flex-direction: column; justify-content: flex-start; align-items: center; gap: 22px; }
+.ult { width: 58px; height: 58px; flex: none; }
+.ult img { inset: 5px; width: 48px; height: 48px; }
+.ult span { left: -14px; right: -14px; bottom: -15px; font-size: 12px; }
+.statlist { margin-top: 4px; }

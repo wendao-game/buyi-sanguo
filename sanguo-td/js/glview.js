@@ -348,7 +348,7 @@ const GLView = (function () {
       if (S.wallFlash > 0) { sp(Lg, TX.glow, W / 2, WY + 4, 420, 84, { tint: 0xff4628, a: Math.min(1, S.wallFlash * 5), blend: ADD }); light(W / 2, WY, 260, 0xff6040, Math.min(1, S.wallFlash * 5)); }
       for (const d of S.decals) sp(Lg, TX.scorch, d.x, d.y, d.r * 2, d.r * 1.2, { rot: d.rot, a: Math.min(1, d.life / 2) * 0.42 });
       for (const z of S.zones) drawZone(z, 0, t);
-      for (const d of S.drops) { if (d.k === 'coin') sp(La, TX.coin, d.x, d.y, 13, 13); else { ell(La, d.x, d.y + 6, 8, 3, 0x000000, 0.3); sp(La, TX.bun, d.x, d.y, 19, 15); } }
+      for (const d of S.drops) { if (d.k === 'coin') sp(La, TX.coin, d.x, d.y, 13, 13); else { ell(La, d.x, d.y + 6, 8, 3, 0x000000, 0.3); sp(La, TX.bun, d.x, d.y, 19, 15); } if (d.wait > 0 && (d.k !== 'coin' || d.val >= 2)) txt(Lt, numW, d.k === 'coin' ? '铜钱' : '馒头', d.x, d.y + 20, 12, '#fff3d6', 'center', 2.6, Math.min(1, d.wait * 5)); }   // 刚掉出来时带个名字
       const es = S.enemies.slice().sort((a, b) => a.y - b.y);
       for (const e of es) drawEnemy(e, S.t);
       for (const g of S.ghosts) drawGhost(g);
@@ -439,18 +439,18 @@ const GLView = (function () {
 
   function drawHud(S, t) {
     sp(Lo, TX.gradV, 0, 0, W, 120, { ax: 0, ay: 0, tint: 0x0a0604, a: 0.75 });
-    txt(Lh, numH, '第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关', W / 2, 40, 21, '#ffd76a');
-    const bx = 130, bw = 280;
-    hudG.beginFill(0x000000, 0.6).drawRoundedRect(bx - 2, 51, bw + 4, 20, 10).drawRoundedRect(bx - 2, 75, bw + 4, 15, 7.5).endFill();
+    txt(Lh, numH, '第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关', W / 2, 40, 27, '#ffd76a', 'center', 5, 1, -1);
+    const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
+    hudG.beginFill(0x000000, 0.65).drawRoundedRect(bx - 3, 51, bw + 6, 26, 13).drawRoundedRect(bx + 17, 81, bw - 34, 16, 8).endFill();
     const wp = S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);
-    if (wp > 0.03) hudG.beginFill(0xd8cf48).drawRoundedRect(bx, 53, bw * wp, 16, 8).endFill().beginFill(0xffffff, 0.22).drawRoundedRect(bx + 2, 54, Math.max(0, bw * wp - 4), 5, 2.5).endFill();
+    if (wp > 0.03) hudG.beginFill(0x52c24a).drawRoundedRect(bx, 54, bw * wp, 20, 10).endFill().beginFill(0xffffff, 0.28).drawRoundedRect(bx + 3, 56, Math.max(0, bw * wp - 6), 6, 3).endFill();
     const hp = Math.max(0, S.wall / S.wallMax);
-    if (hp > 0.03) hudG.beginFill(hp > 0.5 ? 0xe0483a : hp > 0.25 ? 0xe8802a : 0xff2a2a).drawRoundedRect(bx, 77, bw * hp, 11, 5.5).endFill();
-    hudG.lineStyle(1.2, 0xe8c15a, 0.6).drawRoundedRect(128, 51, 284, 20, 10).drawRoundedRect(128, 75, 284, 15, 7.5).lineStyle(0);
-    txt(Lh, numH, S.wave + '/' + CFG.WAVES + ' 波', W / 2, 66, 13, '#ffffff', 'center', 2.6);
-    txt(Lh, numH, '城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2, 87, 11, '#ffffff', 'center', 2.4);
-    sp(Lh, TX.coin, W - 92, 34, 19, 19);
-    txt(Lh, numH, String(Math.round(S.coins)), W - 78, 40, 17, '#ffe9a8', 'left');
+    if (hp > 0.03) hudG.beginFill(hp > 0.5 ? 0xe0483a : hp > 0.25 ? 0xe8802a : 0xff2a2a).drawRoundedRect(bx + 20, 83, (bw - 40) * hp, 12, 6).endFill();
+    hudG.lineStyle(1.6, 0xf0d27a, 0.85).drawRoundedRect(bx - 3, 51, bw + 6, 26, 13).lineStyle(1.2, 0xe8c15a, 0.6).drawRoundedRect(bx + 17, 81, bw - 34, 16, 8).lineStyle(0);
+    txt(Lh, numH, S.wave + '/' + CFG.WAVES + ' 波', W / 2, 70, 16, '#ffffff', 'center', 3);
+    txt(Lh, numH, '城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2, 93, 11, '#ffffff', 'center', 2.4);
+    sp(Lh, TX.coin, W - 82, 30, 19, 19);
+    txt(Lh, numH, String(Math.round(S.coins)), W - 68, 36, 17, '#ffe9a8', 'left');
     if (S.aim !== null) {
       const h = S.heroes.find(q => q.slot === S.aim), a = 0.5 + Math.sin(t * 8) * 0.3;
       rect(Lo, 0, 120, W, WY - 120, 0x0a0604, 0.35);
