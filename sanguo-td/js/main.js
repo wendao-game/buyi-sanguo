@@ -18,7 +18,11 @@
   addEventListener('resize', fit); fit();
 
   // 先加载 assets/ 里已有的图片（没有就用程序绘制），再进主城
-  Assets.load().then(() => {
+  // 本地字体（css 里的 SGRound / SGBrush）先加载好，画布和 WebGL 里的文字才用得上；最多等 2.5 秒
+  const fontsReady = (document.fonts && document.fonts.load)
+    ? Promise.race([Promise.all([document.fonts.load('20px SGRound', '烽火守城0'), document.fonts.load('20px SGBrush', '烽火守城'), document.fonts.load('20px SGNum', '0123')]), new Promise(r => setTimeout(r, 2500))]).catch(() => {})
+    : Promise.resolve();
+  Promise.all([Assets.load(), fontsReady]).then(() => {
     FXGen.build(Assets);                       // 没有图片的特效贴图用代码生成
     GLView.init(document.getElementById('gl'));   // WebGL 战斗画面；起不来就自动用 2D 画面
     Battle.init(document.getElementById('cv'));

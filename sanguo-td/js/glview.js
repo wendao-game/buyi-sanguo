@@ -11,7 +11,8 @@
 
 const GLView = (function () {
   const W = CFG.W, H = CFG.H, WY = CFG.WALL_Y, TAU = Math.PI * 2, RANGE_Y = 120;
-  const FONTS = ['Microsoft YaHei', 'PingFang SC', 'sans-serif'];
+  const FONTS = ['SGNum', 'SGRound', 'Microsoft YaHei', 'PingFang SC', 'sans-serif'];            // 圆体：数字、界面文字
+  const FONTS_B = ['SGBrush', 'SGNum', 'SGRound', 'Microsoft YaHei', 'PingFang SC', 'sans-serif'];   // 毛笔体：大招名、胜负大字
   const LANTERNS = [[127, 652, 46], [406, 652, 46], [37, 826, 54], [503, 826, 54]];   // 背景图里四盏灯笼的位置
   const ADD = 1, MUL = 2;                                   // PIXI.BLEND_MODES
   let R = null, ok = false, err = '', cvEl = null, frameNo = 0;
@@ -84,12 +85,12 @@ const GLView = (function () {
   /* 数字（伤害、金币、城防）用位图字，随便换内容不用重新生成贴图；其他文字生成贴图后按内容缓存 */
   const NUM_RE = /^[0-9\/+\-!%. 城防波]+$/;
   const tcache = new Map();
-  function textTex(str, size, color, sw) {
-    const key = str + '|' + size + '|' + color + '|' + sw;
+  function textTex(str, size, color, sw, brush) {
+    const key = str + '|' + size + '|' + color + '|' + sw + (brush ? '|b' : '');
     let e = tcache.get(key);
     if (!e) {
       if (tcache.size > 90) { let ok2 = null, ot = Infinity; for (const [k, v] of tcache) if (v.used < ot) { ot = v.used; ok2 = k; } if (ok2 !== null) { tcache.get(ok2).t.destroy(true); tcache.delete(ok2); } }
-      const t = new PIXI.Text(str, { fontFamily: FONTS, fontWeight: 'bold', fontSize: size, fill: color, stroke: '#140a06', strokeThickness: sw, lineJoin: 'round', padding: 4 });
+      const t = new PIXI.Text(str, { fontFamily: brush ? FONTS_B : FONTS, fontWeight: 'bold', fontSize: size, fill: color, stroke: '#140a06', strokeThickness: sw, lineJoin: 'round', padding: 4 });
       t.resolution = 2; t.updateText(true);
       e = { t, used: 0 }; tcache.set(key, e);
     }
@@ -98,6 +99,8 @@ const GLView = (function () {
   }
   function txt(Lr, P, str, x, y, size, color, align, sw, a, k) {
     str = String(str); k = k || 1; sw = sw || 3.2;
+    let brush = str[0] === '【';                               // 【大招名】用毛笔体；k 传负数也表示用毛笔体
+    if (k < 0) { k = -k; brush = true; }
     const ax = align === 'left' ? 0 : align === 'right' ? 1 : 0.5;
     if (NUM_RE.test(str)) {
       let b = P.pool[P.n++];
@@ -107,7 +110,7 @@ const GLView = (function () {
       b.tint = col(color); b.anchor.set(ax, 0.72); b.position.set(x, y); b.scale.set(k); b.alpha = a == null ? 1 : Math.max(0, Math.min(1, a));
       return;
     }
-    const t = textTex(str, Math.round(size), color, sw);
+    const t = textTex(str, Math.round(size), color, sw, brush);
     sp(Lr, t, x, y, t.orig.width * k, t.orig.height * k, { ax, ay: 0.74, a });
   }
 
@@ -217,6 +220,7 @@ const GLView = (function () {
         const k = (1 + a * 0.05) * S;
         sp(La, tex, h.x, by - a * 7 * S, q.w * k * (1 + a * 0.03), q.h * k * (1 - a * 0.02) * breathe, { ax: q.ax, ay: q.ay });
       } else sp(La, tex, h.x, by + (Math.sin(t * 2.4 + d.seed) * 1.1 - a * 6) * S, q.w * S * q.k, q.h * S * q.k, { ax: q.ax, ay: q.ay, rot: -a * 0.07 });
+      if (a > 0.55) { const ec = col(ELEMENTS[d.el].color); glow(Lf, h.x + 10, h.y - 46, 26 * a, ec, 0.55 * a); sp(Lf, TX.disc, h.x + 10, h.y - 46, 7 * a, 7 * a, { tint: 0xffffff, a: 0.8 * a }); }   // 出手时兵器上一闪
       light(h.x, h.y - 10, 78, 0xfff0d8, 0.5);
       if (h.rage >= 100) light(h.x, by, 95, 0xffd870, 0.55);
     });
@@ -231,6 +235,7 @@ const GLView = (function () {
       if (s.k === 'earrow') { line(La, s.x - ax * 10, s.y - ay * 10, s.x, s.y, 1.6, 0x2a1d14, 1); return; }
       if (s.big) img(Lf, s.burn ? 'el_arrow_fire' : 'thrust', s.x - ax * 20, s.y - ay * 20, s.burn ? 70 : 90, 0, Math.atan2(ay, ax), 1);
       else glow(Lf, s.x, s.y, 8, s.burn ? 0xff9646 : 0xffe6a0, 0.6);
+      sp(Lf, TX.gradV, s.x, s.y, s.big ? 9 : 5, s.big ? 78 : 50, { ax: 0.5, ay: 0, rot: Math.atan2(-ay, -ax) - Math.PI / 2, tint: s.burn ? 0xff9646 : 0xffe9b0, a: 0.75 });   // 拖尾
       const L = s.big ? 24 : 16;
       line(La, s.x - ax * L, s.y - ay * L, s.x, s.y, s.big ? 3.4 : 2.2, s.burn ? 0xffb070 : 0xfff1c2, 1);
       ell(La, s.x, s.y, s.big ? 3.2 : 2.2, s.big ? 3.2 : 2.2, 0xffffff, 1);
@@ -241,11 +246,16 @@ const GLView = (function () {
       else if (s.look === 'ice') img(Lf, 'el_arrow_ice', s.x - Math.cos(ang) * s.w * 0.6, s.y - Math.sin(ang) * s.w * 0.6, Math.max(70, s.w * 2.6), 0, ang, 1);
       else {
         const rgb = s.color === 'green' ? '110,255,170' : s.color === 'red' ? '255,120,90' : s.big ? '205,175,255' : '225,210,255';
+        for (let i = 2; i >= 1; i--) img(Lf, 'slash', s.x - s.vx * 0.035 * i, s.y - s.vy * 0.035 * i, s.w * 1.7 * (1 - i * 0.08), s.w * 0.85, ang + Math.PI / 2, 0.3 / i, rgb);   // 残影
         img(Lf, 'slash', s.x, s.y, s.w * 1.7, s.w * 0.85, ang + Math.PI / 2, s.big ? 1 : 0.9, rgb);
         if (s.big) { glow(Lf, s.x, s.y, s.w * 0.7, rgb, 0.35); light(s.x, s.y, s.w, col(rgb), 0.6); }
       }
     } else if (s.k === 'lob') {
-      if (s.el === 'fire') { const r = (s.big ? 15 : 8) * s.size; img(Lf, 'el_orb_fire', s.x, s.y, r * 4, 0, t * 8, 1); light(s.x, s.y, r * 5, 0xffa050, 0.8); }
+      if (s.el === 'fire') {
+        const r = (s.big ? 15 : 8) * s.size, dx = s.x - s.px, dy = s.y - s.py;
+        for (let i = 4; i >= 1; i--) glow(Lf, s.x - dx * i * 1.5, s.y - dy * i * 1.5, r * (2.2 - i * 0.32), 0xff7a28, 0.5 - i * 0.09);   // 火尾
+        img(Lf, 'el_orb_fire', s.x, s.y, r * 4, 0, t * 8, 1); light(s.x, s.y, r * 5, 0xffa050, 0.8);
+      }
       else if (s.el === 'poison') img(Lf, 'el_orb_wind', s.x, s.y, 26, 0, t * 9, 1, '120,235,60');
       else if (s.el === 'ice') { const a = Math.atan2(s.ty - s.y0, s.tx - s.x0); img(Lf, 'el_arrow_ice', s.x - Math.cos(a) * 18, s.y - Math.sin(a) * 18, 64, 0, a, 1); }
       else if (s.el === 'rock') { const p = s.t / s.dur; ell(La, s.tx, s.ty + 4, 16 * p, 6 * p, 0x000000, 0.3); sp(La, TX.rock, s.x, s.y, 24, 24, { rot: t * 6 }); }
@@ -255,7 +265,7 @@ const GLView = (function () {
       for (let x = 30; x < W; x += 80) img(Lf, 'slash', x, s.y + 4, 110, 40, 0, 0.8, '225,210,255');
       light(W / 2, s.y, 300, 0xe0d0ff, 0.5);
     } else if (s.k === 'ship') {
-      img(Lf, 'flame', s.x, s.y - 70, 70, 170, Math.PI + Math.sin(t * 20) * 0.04, 0.9);
+      img(Lf, 'flame', s.x, s.y + 62, 62, 150, Math.PI + Math.sin(t * 20) * 0.04, 0.9);   // 火尾拖在后面（下方）
       glow(Lf, s.x, s.y, 46, 0xff8c32, 0.5); img(Lf, 'el_orb_fire', s.x, s.y, 74, 74, t * 7, 1);
       light(s.x, s.y, 150, 0xffa050, 0.9);
     }
@@ -370,8 +380,15 @@ const GLView = (function () {
         boltG.lineStyle({ width: 2.2 * b.wide, color: 0xffffff, alpha: a, cap: 'round', join: 'round' }); b.pts.forEach((p, i) => i ? boltG.lineTo(p[0], p[1]) : boltG.moveTo(p[0], p[1]));
         light(last[0], last[1], 90, 0xc8b0ff, 0.8 * a);
       }
-      for (const p of S.parts) { const r = p.size * (0.4 + 0.6 * p.life / p.max); sp(Lt, TX.soft, p.x, p.y, r * 2.6, r * 2.6, { tint: col(p.color), a: Math.min(1, p.life / p.max * 1.6) }); }
-      for (const x of S.texts) { const p = x.life / x.max; txt(Lt, numW, x.str, x.x, x.y, x.size, x.color, 'center', 3, Math.min(1, p * 2.2), p > 0.85 ? 1 + (p - 0.85) * 3 : 1); }
+      for (const p of S.parts) {
+        const c = col(p.color), k = p.life / p.max, lum = ((c >> 16) & 255) * 0.3 + ((c >> 8) & 255) * 0.59 + (c & 255) * 0.11;
+        if (lum < 80) { const r = p.size * (2.2 - k * 1.2); sp(Lt, TX.soft, p.x, p.y, r * 2.4, r * 2.4, { tint: c, a: 0.26 * Math.min(1, k * 2) }); continue; }   // 深色 = 烟：越飘越大、越淡
+        const v = Math.hypot(p.vx, p.vy), r = p.size * (0.5 + 0.5 * k), a = Math.min(1, k * 1.8);
+        if (v > 60) { const L = Math.min(22, v * 0.05); line(Lf, p.x - p.vx / v * L, p.y - p.vy / v * L, p.x, p.y, Math.max(1.2, r * 0.9), c, a); }                 // 亮色 = 火花：沿运动方向拉成一道光
+        sp(Lf, TX.glow, p.x, p.y, r * 4.4, r * 4.4, { tint: c, a: a * 0.75 });
+        sp(Lf, TX.disc, p.x, p.y, r * 1.1, r * 1.1, { tint: 0xffffff, a: a * 0.9 });
+      }
+      for (const x of S.texts) { const p = x.life / x.max; txt(Lt, numW, x.str, x.x, x.y, x.size, x.color, 'center', 3, Math.min(1, p * 2.2), p > 0.82 ? 1 + (p - 0.82) * 4.2 : 1); }
     }
     // 火星和远处的尘雾
     for (let i = 0; i < 46; i++) {
@@ -395,7 +412,8 @@ const GLView = (function () {
     lightSpr.visible = useLight;
     if (useLight) {
       const fl = S && S.flash ? S.flash.a * S.flash.t / S.flash.max : 0, b = v => Math.min(255, Math.round(v + fl * 120));
-      lightAmb.tint = (b(150) << 16) | (b(143) << 8) | b(172);
+      const dm = S && S.dim ? 1 - 0.42 * Math.sin(Math.PI * Math.min(1, S.dim.t / S.dim.max)) : 1;   // 放大招时压暗
+      lightAmb.tint = (b(150 * dm) << 16) | (b(143 * dm) << 8) | b(172 * dm);
       endLayer(lightPool);
       R.render(lightC, { renderTexture: lightRT, clear: true });
     } else lightPool.n = 0;
@@ -443,7 +461,7 @@ const GLView = (function () {
     if (S.banner) {
       const p = S.banner.t / S.banner.max, a = S.banner.max > 50 ? 1 : Math.min(1, p * 3, (1 - p) * 6);
       rect(Lh, 0, 300, W, 64, 0x0a0604, 0.6 * a); rect(Lh, 0, 300, W, 2, 0xd8b04a, a); rect(Lh, 0, 362, W, 2, 0xd8b04a, a);
-      txt(Lh, numH, S.banner.text, W / 2, 343, 30, S.over && !S.win ? '#ff6a5a' : '#ffe08a', 'center', 5, a);
+      txt(Lh, numH, S.banner.text, W / 2, 345, 36, S.over && !S.win ? '#ff6a5a' : '#ffe08a', 'center', 5, a, -1);
     }
   }
   /* 大招特写横幅（有特写图的武将才有） */
@@ -456,7 +474,7 @@ const GLView = (function () {
     cutSpr.texture = tex; cutSpr.position.set(off - 20, y - ih / 2 + (p * 14 - 7)); cutSpr.width = iw; cutSpr.height = ih; cutC.alpha = a;
     cutMask.clear().beginFill(0xffffff).drawPolygon([off + 20, y - hh / 2, off + W + 40, y - hh / 2, off + W + 10, y + hh / 2, off - 10, y + hh / 2]).endFill();
     rect(Lh, off, y - hh / 2 - 4, W, 4, k.color, a); rect(Lh, off - 20, y + hh / 2, W, 4, k.color, a);
-    txt(Lh, numH, k.name, W - 30 - off * 0.6, y + hh / 2 - 16, 40, '#fff3d6', 'right', 6, a);
+    txt(Lh, numH, k.name, W - 30 - off * 0.6, y + hh / 2 - 16, 44, '#fff3d6', 'right', 6, a, -1);
     txt(Lh, numH, k.who, W - 34 - off * 0.6, y - hh / 2 + 30, 18, k.color, 'right', 4, a);
   }
 

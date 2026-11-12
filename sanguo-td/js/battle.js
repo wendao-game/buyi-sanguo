@@ -8,7 +8,7 @@ const Battle = (function () {
   const W = CFG.W, H = CFG.H, WY = CFG.WALL_Y, TAU = Math.PI * 2;
   const SLOTS = CFG.SLOTS;
   const RANGE_Y = 120;            // 敌人越过这条线后武将才会攻击（到城墙线约 550，和换背景前一样）
-  const FONT = '"Microsoft YaHei","PingFang SC",sans-serif';
+  const FONT = 'SGNum,SGRound,"Microsoft YaHei","PingFang SC",sans-serif';   // 本地打包的字体（css 里声明）：SGNum 数字和字母，SGRound 站酷快乐体
   const rand = Math.random;
   const isBig = e => e.def.id === 'boss' || e.def.id === 'elite';
   const clampX = x => Math.max(40, Math.min(W - 40, x));
@@ -27,7 +27,7 @@ const Battle = (function () {
     S = {
       stage, ch: chapterOf(stage), wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
       queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
-      cut: null, lastCut: -99, shock: null,
+      cut: null, lastCut: -99, shock: null, dim: null,
       t: 0, coins: 0, kills: 0,
       buffs: { atk: 1 + bonus.atk, spd: 1 + bonus.spd, crit: bonus.crit, rage: 1 + bonus.rage, ult: 1 + bonus.ult, coin: 1, boss: 1, el: {} },
       bonus, wallBonus: bonus.wall, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 },
@@ -103,8 +103,8 @@ const Battle = (function () {
     if (S.parts.length > 700) return;
     S.parts.push({ x, y, vx, vy, life, max: life, color, size, g: g || 0 });
   }
-  function burst(x, y, n, color, spd, size, life) {
-    for (let i = 0; i < n; i++) { const a = rand() * TAU, v = spd * (0.3 + rand() * 0.7); part(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.6 + rand() * 0.4), color, size * (0.6 + rand() * 0.6)); }
+  function burst(x, y, n, color, spd, size, life, g) {
+    for (let i = 0; i < n; i++) { const a = rand() * TAU, v = spd * (0.3 + rand() * 0.7); part(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.6 + rand() * 0.4), color, size * (0.6 + rand() * 0.6), g); }
   }
   function ring(x, y, r0, r1, life, color, w, fill) {
     if (!fill && r1 > 40) { const s0 = Math.max(10, r0); if (tex('ring', x, y, { w: s0 * 2.3, h: s0 * 1.6, grow: r1 / s0, life, rgb: hexRgb(color), a: Math.min(1, 0.5 + (w || 3) / 10) })) return; }
@@ -182,7 +182,8 @@ const Battle = (function () {
     dmg = Math.max(1, Math.round(dmg * m * (0.9 + rand() * 0.2) * (crit ? 2 + (src ? src.critDmg : 0) : 1)));
     if (src) src.dmg += Math.min(dmg, Math.max(0, e.hp));
     e.hp -= dmg; e.flash = 0.1;
-    if (crit && !o.dot && S.fx.length < 120) tex('burst', e.x, e.y - e.def.r * 0.6, { w: 40 + e.def.r, life: 0.22, grow: 1.3, rgb: '255,225,140', rot: rand() * TAU });
+    if (crit && !o.dot && S.fx.length < 120) { tex('burst', e.x, e.y - e.def.r * 0.6, { w: 44 + e.def.r, life: 0.24, grow: 1.35, rgb: '255,225,140', rot: rand() * TAU }); burst(e.x, e.y - e.def.r * 0.6, 4, '#ffe9a8', 230, 2.2, 0.28, 300); }
+    else if (!o.dot && S.fx.length < 70) tex('burst', e.x, e.y - e.def.r * 0.5, { w: 20 + e.def.r * 0.7, life: 0.13, grow: 1.25, a: 0.75, rgb: hexRgb(elColor(el)), rot: rand() * TAU });   // 命中小闪光
     text(e.x + (rand() - 0.5) * 18, e.y - e.def.r - 8 - rand() * 8, dmg, crit ? '#ffdf4a' : elColor(el), crit ? 23 : (o.dot ? 12 : 15), 0.75, crit);
     if (o.basic && src && src.sk && src.sk.passive.onHit && e.hp > 0) src.sk.passive.onHit(B, src, e);
     if (e.hp <= 0) kill(e, src, el);
@@ -190,6 +191,7 @@ const Battle = (function () {
   function kill(e, src, el) {
     e.dead = true; S.kills++;
     burst(e.x, e.y, e.def.id === 'boss' ? 40 : 4, e.def.body, 120, 4, 0.5);
+    if (S.parts.length < 400) burst(e.x, e.y - 4, 3, '#ffe2a0', 170, 2, 0.3, 320);
     if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.38, max: 0.38 });
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (isBig(e) || rand() < CFG.COIN_DROP_RATE) dropCoin(e);
@@ -238,14 +240,16 @@ const Battle = (function () {
       const tick = dmg * 0.12 * (h ? h.m.burn : 1);
       inRadius(x, y, r, e => { hit(e, dmg, 'fire', h, o); burn(e, 3, tick, h); });
       if (!tex('el_hit_fire', x, y - r * 0.1, { w: r * 2.1, h: r * 1.8, life: big ? 0.5 : 0.4, grow: 1.2, a: big ? 0.8 : 0.9, rot: rand() * TAU })) { ring(x, y, r * 0.2, r, 0.35, '#ff8a3a', 4, true); ring(x, y, r * 0.3, r * 1.05, 0.3, '#ffd35a', 3); }
-      burst(x, y, big ? 16 : 6, '#ff9a3a', 160, 5, 0.45); burst(x, y, big ? 8 : 3, '#3a2a22', 90, 6, 0.6);
+      burst(x, y, big ? 18 : 7, '#ffb04a', big ? 300 : 210, 2.6, 0.5, 420);                                 // 飞溅的火星（会往下落）
+      for (let i = 0, n = big ? 3 : 1; i < n; i++) part(x + (rand() - 0.5) * r * 0.9, y + (rand() - 0.5) * r * 0.4, (rand() - 0.5) * 30, -30 - rand() * 30, 0.7 + rand() * 0.4, '#3a2e27', 5 + rand() * 3);   // 往上飘的黑烟
+      if (r > 50) ring(x, y, r * 0.3, r * 1.15, 0.28, '#ffc070', 3);
       if (big) S.shake = Math.max(S.shake, 0.2);
       if (r > 50) decal(x, y, r * 0.8);
       if (big && r >= 90) shockwave(x, y, r * 2.2, 1);
     } else if (el === 'ice') {
       inRadius(x, y, r, e => { hit(e, dmg, 'ice', h, o); slow(e, 2.2); });
       if (!tex('el_hit_ice', x, y, { w: r * 2.1, h: r * 1.8, life: 0.4, grow: 1.2, a: 0.9, rot: rand() * TAU })) ring(x, y, 6, r, 0.3, '#bfeaff', 3);
-      burst(x, y, 6, '#d9f4ff', 130, 3.5, 0.4);
+      burst(x, y, 8, '#d9f4ff', 220, 2.4, 0.42, 380);
     } else if (el === 'poison') {
       pool(h, x, y, r, 4 * (h ? h.m.life : 1), dmg, 'poison');
       tex('el_hit_wind', x, y, { w: r * 1.8, h: r * 1.3, life: 0.4, grow: 1.3, a: 0.7, rgb: '120,235,60', rot: rand() * TAU });
@@ -317,7 +321,7 @@ const Battle = (function () {
       arrow: shotArrow, blade: shotBlade, lob: shotLob,
       rain(h, tx, ty, dmg, slowT) { shotLob(h, 'arrow', tx - 50, ty - 320, tx, ty, { dur: 0.26, r: 26, dmg, slow: slowT }); },
       sweep(h, dmg, o) { S.shots.push({ k: 'sweep', h, y: WY - 20, vy: -420, dmg, hit: new Set(), slow: (o && o.slow) || 0 }); },
-      ship(h, x, a) { S.shots.push({ k: 'ship', h, x, y: RANGE_Y - 120, vy: 260, a, hit: new Set(), trail: 0 }); },
+      ship(h, x, a) { S.shots.push({ k: 'ship', h, x, y: WY - 34, vy: -250, a, hit: new Set(), trail: 0.25 }); },   // 火船从城下出发，冲向敌阵深处
       zone(o) { o.max = o.life; o.tick = o.tick || 0; o.t = 0; if (o.k === 'icewall') o.hit = new Set(); S.zones.push(o); },
       slash(x, y) { S.slashes.push({ x, y, a: rand() * TAU, life: 0.22, max: 0.22 }); burst(x, y, 6, '#ffffff', 160, 3, 0.25); },
       stun, slow, burn, poison, vuln, fear, confuse,
@@ -372,6 +376,9 @@ const Battle = (function () {
     tex('pillar', h.x, h.y + 34, { w: 60, h: 260, ay: 1, life: 0.7, fadeIn: 0.12, a: 0.5, rgb: hexRgb(q.color), force: true });
     cutIn(h, !!pt || !Save.data.auto);
     shockwave(h.x, h.y, 260, 0.8);
+    tex('circle', h.x, h.y + 29, { w: 96, h: 38, spin: 2.6, life: 0.95, grow: 1.7, rgb: hexRgb(q.color), a: 0.95, fadeIn: 0.08, force: true });   // 脚下法阵
+    for (let i = 0; i < 10; i++) part(h.x + (rand() - 0.5) * 56, h.y + 24 - rand() * 20, (rand() - 0.5) * 20, -150 - rand() * 170, 0.45 + rand() * 0.35, q.color, 2.4);   // 往上蹿的光点
+    S.dim = { t: 0.5, max: 0.5 };                               // 放大招的一瞬间场景压暗，特效更突出
     B.pt = pt || null;
     if (h.sk) h.sk.ult.cast(B, h, a, k); else defaultUlt(h, a);
     B.pt = null;
@@ -569,9 +576,9 @@ const Battle = (function () {
           const dx = e.x - s.x, dy = e.y - s.y, rr = 34 + e.def.r;
           if (dx * dx + dy * dy < rr * rr) { s.hit.add(e); hit(e, s.a * 3, 'fire', s.h); burn(e, 4, s.a * 0.3, s.h); }
         }
-        if (s.y > RANGE_Y && (s.trail -= dt) <= 0) { s.trail = 0.45; pool(s.h, s.x, s.y, 34, 3, s.a * 0.45, 'fire'); }
-        part(s.x + (rand() - 0.5) * 20, s.y - 10, (rand() - 0.5) * 30, -40, 0.4, rand() < 0.5 ? '#ff8a3a' : '#ffd35a', 5);
-        if (s.y >= WY - 50) { explode('fire', s.x, s.y, 100, s.a * 4, true, s.h); done = true; }
+        if ((s.trail -= dt) <= 0) { s.trail = 0.45; pool(s.h, s.x, s.y + 20, 34, 3, s.a * 0.45, 'fire'); }
+        part(s.x + (rand() - 0.5) * 20, s.y + 16, (rand() - 0.5) * 30, 50, 0.4, rand() < 0.5 ? '#ff8a3a' : '#ffd35a', 5);
+        if (s.y <= RANGE_Y + 70) { explode('fire', s.x, s.y, 100, s.a * 4, true, s.h); done = true; }   // 冲到敌阵深处爆炸
       } else if (s.k === 'earrow') {
         s.t += dt; const p = Math.min(1, s.t / s.dur);
         s.x = s.x0 + (s.tx - s.x0) * p; s.y = s.y0 + (s.ty - s.y0) * p;
@@ -661,6 +668,7 @@ const Battle = (function () {
     for (let i = S.fx.length - 1; i >= 0; i--) { const f = S.fx[i]; if ((f.life -= dt) <= 0) { S.fx.splice(i, 1); continue; } f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt; }
     if (S.cut && (S.cut.t += dt) >= S.cut.dur) S.cut = null;
     if (S.shock && (S.shock.t -= dt) <= 0) S.shock = null;
+    if (S.dim && (S.dim.t -= dt) <= 0) S.dim = null;
     for (let i = S.ghosts.length - 1; i >= 0; i--) if ((S.ghosts[i].life -= dt) <= 0) S.ghosts.splice(i, 1);
     for (let i = S.decals.length - 1; i >= 0; i--) if ((S.decals[i].life -= dt) <= 0) S.decals.splice(i, 1);
     if (S.shake > 0) S.shake -= dt;
@@ -769,9 +777,9 @@ const Battle = (function () {
       for (let x = 30; x < W; x += 80) img('slash', x, s.y + 4, 110, 40, 0, 0.8, '225,210,255');
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     } else if (s.k === 'ship') {
-      // 火船：贴图画成拖着长长火尾冲下来的火流星；没有贴图时退回画一条小船
+      // 火船：贴图画成拖着火尾往敌阵冲的火流星（火尾在后面，也就是下方）；没有贴图时退回画一条小船
       c.globalCompositeOperation = 'lighter';
-      const ok = img('flame', s.x, s.y - 70, 70, 170, Math.PI + Math.sin(S.t * 20) * 0.04, 0.9);
+      const ok = img('flame', s.x, s.y + 62, 62, 150, Math.PI + Math.sin(S.t * 20) * 0.04, 0.9);
       if (ok) { glow(s.x, s.y, 46, '255,140,50', 0.5); img('el_orb_fire', s.x, s.y, 74, 74, S.t * 7, 1); }
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
       if (ok) return;

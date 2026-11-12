@@ -251,7 +251,7 @@ const SKILLS = (function () {
     },
     zhouyu: {
       passive: { name: '美周郎', desc: '火球范围 +30%，灼烧伤害 +60%', mod: { r: 0.3, burn: 0.6 } },
-      ult: { desc: '火烧赤壁：4 道火船化作的火流星冲进敌阵，沿途烧出火路，到城下爆炸（觉醒 6 道）',
+      ult: { desc: '火烧赤壁：4 艘火船从城下冲向敌阵，沿途烧出火路，冲到敌阵深处爆炸（觉醒 6 艘）',
         cast(B, h, a, k) {
           const n = R(4, k);
           for (let i = 0; i < n; i++) B.later(i * 0.15, () => B.ship(h, 70 + (B.W - 140) * (n === 1 ? 0.5 : i / (n - 1)), a));

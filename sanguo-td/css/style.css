@@ -218,3 +218,187 @@ textarea.code { width: 100%; height: 150px; margin-top: 4px; padding: 8px; borde
 
 #toast { position: absolute; left: 50%; top: 118px; transform: translateX(-50%); padding: 10px 22px; border-radius: 22px; background: #000000d0; border: 1px solid var(--gold); color: #ffe9a8; font-size: 16px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 30; }
 #toast.on { opacity: 1; }
+
+/* ============================================================
+ * 皮肤（v0.6）：只改外观，不动上面的布局
+ * 字体：本地打包的两款开源字体（assets/fonts/，tools/build_fonts.py 生成），不走外网
+ *   SGRound 站酷快乐体：按钮、标题、名字、数字      SGBrush 马善政毛笔体：logo、大标题
+ *   小号说明文字保持系统字体
+ * 面板：深漆木底 + 双层金边 + 四角回纹；按钮：有厚度的釉面
+ * ============================================================ */
+@font-face { font-family: 'SGRound'; src: url('../assets/fonts/round.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'SGNum'; src: url('../assets/fonts/num.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'SGBrush'; src: url('../assets/fonts/brush.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+:root {
+  --fr: 'SGNum', 'SGRound', "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --fb: 'SGBrush', 'SGNum', 'SGRound', "STKaiti", "KaiTi", serif;
+  --fs: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --gold-hi: #fff0b4; --gold-lo: #b8862a; --lacquer: #2c1b13;
+  --c-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cpath d='M2 28V8a6 6 0 0 1 6-6h20' fill='none' stroke='%23f2d27a' stroke-width='2.4'/%3E%3Cpath d='M8 28V13a5 5 0 0 1 5-5h15M14 22v-5a3 3 0 0 1 3-3h5' fill='none' stroke='%23b8862a' stroke-width='1.6'/%3E%3C/svg%3E");
+  --c-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cg transform='translate(30 0) scale(-1 1)'%3E%3Cpath d='M2 28V8a6 6 0 0 1 6-6h20' fill='none' stroke='%23f2d27a' stroke-width='2.4'/%3E%3Cpath d='M8 28V13a5 5 0 0 1 5-5h15M14 22v-5a3 3 0 0 1 3-3h5' fill='none' stroke='%23b8862a' stroke-width='1.6'/%3E%3C/g%3E%3C/svg%3E");
+  --c-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cg transform='translate(0 30) scale(1 -1)'%3E%3Cpath d='M2 28V8a6 6 0 0 1 6-6h20' fill='none' stroke='%23f2d27a' stroke-width='2.4'/%3E%3Cpath d='M8 28V13a5 5 0 0 1 5-5h15M14 22v-5a3 3 0 0 1 3-3h5' fill='none' stroke='%23b8862a' stroke-width='1.6'/%3E%3C/g%3E%3C/svg%3E");
+  --c-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cg transform='translate(30 30) scale(-1 -1)'%3E%3Cpath d='M2 28V8a6 6 0 0 1 6-6h20' fill='none' stroke='%23f2d27a' stroke-width='2.4'/%3E%3Cpath d='M8 28V13a5 5 0 0 1 5-5h15M14 22v-5a3 3 0 0 1 3-3h5' fill='none' stroke='%23b8862a' stroke-width='1.6'/%3E%3C/g%3E%3C/svg%3E");
+  --panel-bg: var(--c-tl) left 6px top 6px / 30px no-repeat, var(--c-tr) right 6px top 6px / 30px no-repeat, var(--c-bl) left 6px bottom 6px / 30px no-repeat, var(--c-br) right 6px bottom 6px / 30px no-repeat,
+    repeating-linear-gradient(135deg, #ffffff06 0 2px, transparent 2px 9px),
+    radial-gradient(120% 90% at 50% 0%, #5c3a27 0%, #2f1d14 58%, #1d120c 100%);
+  --panel-shadow: 0 0 0 1.5px #4a2f14, 0 0 0 3.5px #d9b256, 0 0 0 5px #38230f, 0 14px 34px #000c, inset 0 0 0 1px #ffffff17, inset 0 0 44px #00000066;
+}
+html, body { font-family: var(--fs); }
+button, input, textarea { font-family: var(--fs); }
+
+/* —— 面板 —— */
+.stagecard, .mbox { border: 0; border-radius: 14px; background: var(--panel-bg); box-shadow: var(--panel-shadow); }
+.stagecard { margin: 30px 30px 0; padding: 22px 22px 24px; }
+.mbox { padding: 24px 24px 24px; }
+.gbox { border: 0; border-radius: 12px; background: repeating-linear-gradient(135deg, #ffffff05 0 2px, transparent 2px 9px), linear-gradient(#3b271c, #24160f); box-shadow: 0 0 0 1px #3a2410, 0 0 0 2.5px #8c6a34, 0 6px 14px #0008, inset 0 0 0 1px #ffffff12; }
+.gbox h3 { font-family: var(--fr); font-size: 18px; color: var(--gold2); font-weight: normal; letter-spacing: 1px; }
+.gbox h3 span { font-family: var(--fs); }
+
+/* —— 按钮：釉面 + 厚度 —— */
+.btn { font-family: var(--fr); font-weight: normal; font-size: 19px; letter-spacing: 1.5px; height: 50px; border: 0; border-radius: 12px; color: #fff6e0; text-shadow: 0 2px 0 #00000070;
+  background: linear-gradient(#b98456, #86532e 52%, #633a1c);
+  box-shadow: inset 0 1.5px 0 #ffffff5c, inset 0 -3px 0 #00000042, 0 0 0 1.5px #3a2010, 0 0 0 3px #c9a05a, 0 4px 0 3px #2a1608, 0 8px 12px #0009; }
+.btn:active { transform: translateY(3px); box-shadow: inset 0 1.5px 0 #ffffff5c, inset 0 -2px 0 #00000042, 0 0 0 1.5px #3a2010, 0 0 0 3px #c9a05a, 0 1px 0 3px #2a1608, 0 3px 6px #0009; }
+.btn.red { background: linear-gradient(#ff7256, #cf3630 52%, #951d22); box-shadow: inset 0 1.5px 0 #ffffff66, inset 0 -3px 0 #00000042, 0 0 0 1.5px #4a0f10, 0 0 0 3px #f0c66a, 0 4px 0 3px #3a0a0c, 0 8px 12px #0009; }
+.btn.red:active { box-shadow: inset 0 1.5px 0 #ffffff66, inset 0 -2px 0 #00000042, 0 0 0 1.5px #4a0f10, 0 0 0 3px #f0c66a, 0 1px 0 3px #3a0a0c, 0 3px 6px #0009; }
+.btn.gold { background: linear-gradient(#fff0a0, #f0bd45 50%, #c08a22); color: #4a2a08; text-shadow: 0 1px 0 #fff6c8b0; box-shadow: inset 0 1.5px 0 #ffffffb0, inset 0 -3px 0 #7a520f55, 0 0 0 1.5px #5a3a0c, 0 0 0 3px #fff0b4, 0 4px 0 3px #4a300a, 0 8px 12px #0009; }
+.btn.gold:active { box-shadow: inset 0 1.5px 0 #ffffffb0, inset 0 -2px 0 #7a520f55, 0 0 0 1.5px #5a3a0c, 0 0 0 3px #fff0b4, 0 1px 0 3px #4a300a, 0 3px 6px #0009; }
+.btn.gray { background: linear-gradient(#77726a, #4c4842 52%, #35322e); color: #cfc8bc; box-shadow: inset 0 1.5px 0 #ffffff3a, inset 0 -3px 0 #00000042, 0 0 0 1.5px #1f1d1a, 0 0 0 3px #8a8478, 0 4px 0 3px #171513, 0 8px 12px #0009; }
+.btn small { font-family: var(--fs); letter-spacing: 0; text-shadow: none; opacity: .88; }
+.mrow { gap: 18px; margin-top: 20px; }
+.link { font-family: var(--fr); color: #e0c48c; text-decoration: none; border-bottom: 1px dashed #c8a86a88; padding: 4px 2px; }
+
+/* —— 顶栏 —— */
+.cur { height: 36px; border: 0; border-radius: 18px; font-family: var(--fr); font-size: 19px; background: linear-gradient(#1c120c, #2e1e15); box-shadow: 0 0 0 1px #3a2410, 0 0 0 2.5px #b8904a, inset 0 2px 6px #000a, 0 3px 8px #0008; }
+.cur b { font-weight: normal; letter-spacing: .5px; }
+.ico.coin { box-shadow: 0 0 0 1.5px #7a5410, 0 2px 3px #0008; }
+.plus { background: linear-gradient(#fff0a0, #e9b53c); box-shadow: 0 0 0 1.5px #7a5410, 0 2px 0 #4a300a; }
+
+/* —— 底部导航 —— */
+#nav { height: 84px; border-top: 0; background: repeating-linear-gradient(135deg, #ffffff05 0 2px, transparent 2px 9px), linear-gradient(#3a271c, #150d09); box-shadow: 0 -1px 0 #3a2410, 0 -3px 0 #c9a05a, 0 -4.5px 0 #38230f, 0 -10px 24px #000a; }
+#nav button { font-family: var(--fr); font-size: 15px; letter-spacing: 2px; gap: 2px; color: #a8947a; }
+#nav i { font-family: var(--fb); width: 44px; height: 44px; line-height: 44px; font-size: 27px; font-weight: normal; border: 0; border-radius: 12px; color: #c8b08a; background: linear-gradient(#4a3426, #2a1c14); box-shadow: 0 0 0 1px #2a1810, 0 0 0 2.5px #7a5a34, inset 0 1.5px 0 #ffffff24; transition: transform .15s; }
+#nav button.on i { color: #fff0b4; background: radial-gradient(120% 120% at 50% 0%, #ff7256, #b0242a 55%, #7a1218); box-shadow: 0 0 0 1px #4a0f10, 0 0 0 2.5px #f0c66a, 0 0 16px #ff6a3a99, inset 0 1.5px 0 #ffffff59; transform: translateY(-4px) scale(1.06); }
+
+/* —— 主城 —— */
+.logo { margin-top: 18px; }
+.logo b { font-family: var(--fb); font-weight: normal; font-size: 92px; letter-spacing: 4px; line-height: 1.1; text-shadow: none; color: #ffd76a;
+  background: linear-gradient(#fffbe0 8%, #ffe07a 42%, #f08a2a 92%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 0 #6a1410) drop-shadow(0 6px 0 #2a0806) drop-shadow(0 0 22px #ff8a2a88); }
+.logo span { font-family: var(--fb); font-size: 21px; letter-spacing: 10px; padding: 3px 12px 3px 22px; margin-top: 0; border: 0; border-radius: 6px; color: #fff0c8; background: linear-gradient(#c8343a, #8a161c); box-shadow: 0 0 0 1.5px #5a0f12, 0 0 0 3px #e8c15a, 0 4px 10px #000a; }
+.chap { font-family: var(--fr); font-size: 19px; letter-spacing: 3px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.chap::before, .chap::after { content: ""; width: 54px; height: 2px; background: linear-gradient(90deg, transparent, #d9b256); }
+.chap::after { transform: scaleX(-1); }
+.sname { font-family: var(--fb); font-weight: normal; font-size: 46px; letter-spacing: 4px; color: #fff3d6; text-shadow: 0 3px 0 #5a1a10, 0 0 18px #ff8a2a55; }
+.sname small { font-family: var(--fr); font-size: 14px; letter-spacing: 1px; text-shadow: none; }
+.stagesel button { width: 48px; height: 48px; border: 0; background: linear-gradient(#b98456, #633a1c); box-shadow: inset 0 1.5px 0 #ffffff5c, 0 0 0 1.5px #3a2010, 0 0 0 3px #c9a05a, 0 4px 0 3px #2a1608; color: #fff0b4; }
+.stagesel button:active { transform: translateY(3px); }
+.powers { font-family: var(--fr); font-size: 16px; gap: 0; }
+.powers span { padding: 3px 14px; background: #00000059; border-radius: 12px; margin: 0 5px; box-shadow: inset 0 0 0 1px #ffffff12; }
+.reward { font-size: 13px; }
+.fightrow { gap: 18px; }
+.btn-big { font-family: var(--fb); font-weight: normal; font-size: 36px; letter-spacing: 14px; padding-left: 14px; width: 250px; height: 68px; border: 0; border-radius: 34px; color: #fff6dc; text-shadow: 0 3px 0 #5a0f0c;
+  background: radial-gradient(130% 150% at 50% 0%, #ff9a56, #df3f26 45%, #8f1418);
+  box-shadow: inset 0 2px 0 #ffffff70, inset 0 -4px 0 #00000045, 0 0 0 2px #5a1208, 0 0 0 4.5px #f6d476, 0 0 0 6px #5a3a10, 0 6px 0 6px #2a0a06, 0 0 30px #ff6a2a88; animation: fightGlow 1.8s ease-in-out infinite; }
+.btn-big:active { transform: translateY(4px); box-shadow: inset 0 2px 0 #ffffff70, inset 0 -3px 0 #00000045, 0 0 0 2px #5a1208, 0 0 0 4.5px #f6d476, 0 0 0 6px #5a3a10, 0 2px 0 6px #2a0a06, 0 0 22px #ff6a2a88; }
+.btn-big.small { width: 196px; }
+@keyframes fightGlow { 50% { filter: brightness(1.12); } }
+.btn.sweep { border-radius: 32px; font-size: 21px; }
+.tip { font-family: var(--fs); }
+
+/* —— 武将 —— */
+.tslot { border: 0; border-radius: 12px; background: linear-gradient(#00000080, #00000050); box-shadow: inset 0 0 0 2px #6b4a2a80; font-family: var(--fr); }
+.tslot.has { border: 0; background: linear-gradient(#4a3020, #24160f); box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px var(--qc), 0 6px 12px #0009, inset 0 1.5px 0 #ffffff26; }
+.tslot.pick { box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px #fff0b4, 0 0 18px #ffe08acc, inset 0 1.5px 0 #ffffff26; }
+.tslot img { border-radius: 10px; box-shadow: 0 0 0 1.5px #00000080; }
+.tslot span { font-size: 16px; }
+.tslot em { font-family: var(--fr); font-size: 12px; left: 5px; top: 3px; }
+.tinfo { font-family: var(--fr); }
+.tinfo b { font-weight: normal; font-size: 20px; }
+.bond { border: 0; border-radius: 9px; background: linear-gradient(#3b271c, #1f130d); box-shadow: inset 0 0 0 1.5px #6b4a2a; }
+.bond b { font-family: var(--fr); font-weight: normal; font-size: 13px; }
+.bond.combo { box-shadow: inset 0 0 0 1.5px #b968ff; } .bond.fac { box-shadow: inset 0 0 0 1.5px #4ea8ff; }
+.tabs button { font-family: var(--fr); font-size: 17px; letter-spacing: 1px; border: 0; background: linear-gradient(#33221a, #24160f); box-shadow: inset 0 0 0 1.5px #5a3e22; color: #a8947a; }
+.tabs button.on { background: linear-gradient(#a06a3c, #5e3519); color: #fff0b4; box-shadow: inset 0 1.5px 0 #ffffff4a, inset 0 0 0 1.5px #c9a05a; font-weight: normal; }
+.grid { border: 0; background: repeating-linear-gradient(135deg, #ffffff04 0 2px, transparent 2px 9px), #00000070; box-shadow: inset 0 0 0 1.5px #5a3e22, inset 0 6px 14px #0008; gap: 14px 11px; padding: 16px 11px 12px; }
+.card { border: 0; border-radius: 10px; padding: 5px 5px 7px; background: linear-gradient(#45301f, #1f130d); box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px var(--qc), 0 5px 9px #0009, inset 0 1.5px 0 #ffffff26; }
+.card::after { content: ""; position: absolute; left: 5px; right: 5px; top: 5px; height: 34%; border-radius: 7px 7px 40% 40%; background: linear-gradient(#ffffff2e, #ffffff00); pointer-events: none; }
+.card img { border-radius: 7px; box-shadow: 0 0 0 1.5px #00000080; }
+.card .cname { font-family: var(--fr); font-size: 16px; margin-top: 5px; }
+.card .cmeta { font-family: var(--fr); font-size: 12px; }
+.card .qtag { font-family: var(--fr); font-size: 13px; font-weight: normal; left: -4px; top: -4px; padding: 1px 7px; border-radius: 8px 3px 8px 3px; box-shadow: 0 0 0 1.5px #1a0e08, 0 2px 4px #0008; z-index: 2; }
+.card .badge { font-family: var(--fr); font-size: 13px; font-weight: normal; right: -4px; top: -4px; padding: 1px 7px; border-radius: 3px 8px 3px 8px; background: linear-gradient(#e2472a, #951d22); box-shadow: 0 0 0 1.5px #1a0e08, 0 2px 4px #0008; z-index: 2; }
+.stars { text-shadow: 0 0 4px #ffb300; }
+
+/* —— 招募 —— */
+.gbanner { height: 184px; border: 0; border-radius: 14px; background: radial-gradient(circle at 50% 118%, #ffb04a 0%, #d2473d 34%, #6a1418 70%, #2a0a0c 100%); box-shadow: 0 0 0 1.5px #4a2f14, 0 0 0 3.5px #f0c66a, 0 0 0 5px #38230f, 0 10px 24px #000b, inset 0 0 40px #0006; }
+.gbanner::before { content: ""; position: absolute; left: 50%; top: 100%; width: 900px; height: 900px; margin: -450px 0 0 -450px; background: repeating-conic-gradient(from 0deg, #ffe9a826 0 6deg, transparent 6deg 18deg); animation: rays 40s linear infinite; pointer-events: none; }
+@keyframes rays { to { transform: rotate(360deg); } }
+.gbanner > * { position: relative; }
+.gbanner h2 { font-family: var(--fb); font-weight: normal; font-size: 56px; letter-spacing: 10px; margin-top: 8px; color: #ffe9a8; background: linear-gradient(#fffbe0, #ffd76a 55%, #f08a2a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; filter: drop-shadow(0 3px 0 #5a0f12) drop-shadow(0 0 16px #ffb36a99); }
+.gbanner p { font-family: var(--fr); font-size: 14px; }
+.gshow img { width: 60px; height: 60px; border: 0; border-radius: 50%; box-shadow: 0 0 0 2px #2a0a0c, 0 0 0 4px #ffb04a, 0 0 14px #ff8a2acc; }
+.gsoon { position: absolute !important; font-family: var(--fr); font-weight: normal; font-size: 12px; box-shadow: 0 2px 6px #0008; }
+.gstat { font-family: var(--fr); font-size: 16px; }
+.gstat b { font-weight: normal; font-size: 22px; }
+.grow { gap: 18px; padding: 0 18px; }
+.grow .btn { font-size: 23px; height: 70px; }
+
+/* —— 弹窗 —— */
+#modal { background: radial-gradient(circle at 50% 45%, #1a0e0acc, #000000e0); }
+.mbox h2 { font-family: var(--fb); font-weight: normal; font-size: 36px; letter-spacing: 6px; color: #ffe08a; display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 14px; text-shadow: 0 3px 0 #5a1a10, 0 0 18px #ff8a2a55; }
+.mbox h2::before, .mbox h2::after { content: ""; flex: 1; max-width: 90px; height: 2px; background: linear-gradient(90deg, transparent, #d9b256); }
+.mbox h2::after { transform: scaleX(-1); }
+.mbox .x { right: 10px; top: 10px; width: 38px; height: 38px; font-family: var(--fr); font-size: 24px; line-height: 38px; color: #fff0c8; background: linear-gradient(#cf3630, #8a161c); box-shadow: 0 0 0 1.5px #4a0f10, 0 0 0 3px #f0c66a, 0 4px 8px #000a; z-index: 3; }
+.mtext { font-family: var(--fs); }
+.dhead img { border: 0; border-radius: 14px; box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 4px var(--qc), 0 0 20px var(--qc); background: #24160f; }
+.dhead h3 { font-family: var(--fb); font-weight: normal; font-size: 40px; letter-spacing: 3px; text-shadow: 0 3px 0 #00000080; }
+.dhead p { font-family: var(--fr); font-size: 14px; }
+.tag { font-family: var(--fr); font-weight: normal; font-size: 13px; padding: 2px 10px; border-radius: 10px; box-shadow: 0 2px 0 #00000059; }
+.tag.dark { box-shadow: inset 0 0 0 1px var(--line); border: 0; }
+.dstat div { font-family: var(--fr); border-radius: 10px; background: linear-gradient(#00000070, #00000040); box-shadow: inset 0 0 0 1px #ffffff14; font-size: 13px; }
+.dstat b { font-weight: normal; font-size: 24px; text-shadow: 0 2px 0 #00000080; }
+.dskill { border-radius: 10px; background: linear-gradient(#00000070, #00000040); box-shadow: inset 3px 0 0 #d9b256, inset 0 0 0 1px #ffffff12; padding: 10px 12px 10px 16px; font-size: 13.5px; }
+.dskill b { font-family: var(--fr); font-weight: normal; font-size: 15px; }
+.pick button { border: 0; border-radius: 10px; font-family: var(--fr); box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px var(--qc); background: linear-gradient(#45301f, #1f130d); padding: 4px 3px 5px; }
+h4.sub { font-family: var(--fr); font-weight: normal; font-size: 17px; letter-spacing: 1px; }
+.rates td:first-child { font-family: var(--fr); font-weight: normal; }
+
+/* 军令三选一 */
+.buffs { gap: 14px; }
+.buffs button { position: relative; border: 0; border-radius: 14px; padding: 34px 8px 22px; background: repeating-linear-gradient(135deg, #ffffff06 0 2px, transparent 2px 9px), radial-gradient(120% 90% at 50% 0%, #7a4a2c, #3a2416 60%, #24160e); box-shadow: 0 0 0 1.5px #3a2010, 0 0 0 3.5px #e8c15a, 0 6px 0 3.5px #2a1608, 0 12px 18px #000a, inset 0 1.5px 0 #ffffff40; }
+.buffs button::before { content: "令"; position: absolute; left: 50%; top: -16px; width: 34px; height: 34px; margin-left: -17px; border-radius: 8px; transform: rotate(45deg); background: linear-gradient(135deg, #ff7256, #951d22); box-shadow: 0 0 0 1.5px #4a0f10, 0 0 0 3px #f0c66a; }
+.buffs button::after { content: "令"; position: absolute; left: 50%; top: -16px; width: 34px; margin-left: -17px; line-height: 34px; text-align: center; font-family: var(--fb); font-size: 21px; color: #fff0c8; }
+.buffs button:active { transform: translateY(4px); }
+.buffs b { font-family: var(--fb); font-weight: normal; font-size: 23px; letter-spacing: 0; white-space: nowrap; text-shadow: 0 2px 0 #5a1a10; }
+.buffs span { font-family: var(--fs); font-size: 13.5px; }
+
+/* 结算 */
+.res h2 { font-size: 60px; letter-spacing: 8px; margin: 2px 0 10px; color: #ffe08a; background: linear-gradient(#fffbe0, #ffd76a 50%, #f08a2a); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; filter: drop-shadow(0 4px 0 #6a1410) drop-shadow(0 0 20px #ff8a2a99); }
+.res.lose h2 { background: linear-gradient(#ffd0c8, #ff7a6a 50%, #b02a2a); -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 4px 0 #3a0a0c) drop-shadow(0 0 16px #ff4a3a66); }
+.res li { font-family: var(--fr); font-size: 17px; border-bottom: 0; margin-top: 5px; border-radius: 9px; background: linear-gradient(90deg, #00000066, #00000026); padding: 9px 14px; }
+.res li b { font-weight: normal; font-size: 19px; }
+.dmg { font-family: var(--fr); border-radius: 9px; height: 36px; }
+.dmg b { font-weight: normal; font-size: 13px; }
+.pull { border: 0; border-radius: 10px; background: linear-gradient(#45301f, #1a100b); box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px var(--qc); padding: 5px 4px 6px; }
+.pull.hi { box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px var(--qc), 0 0 18px 3px var(--qc); }
+.pull b { font-family: var(--fr); font-weight: normal; font-size: 14px; }
+.pull i { font-family: var(--fr); font-weight: normal; }
+
+/* —— 战斗按钮 —— */
+.hbtn { font-family: var(--fr); font-weight: normal; width: 52px; height: 52px; border: 0; color: #fff0b4; text-shadow: 0 2px 0 #00000080; background: radial-gradient(circle at 50% 28%, #6a452a, #2e1b10 72%); box-shadow: inset 0 1.5px 0 #ffffff40, 0 0 0 1.5px #1a0e08, 0 0 0 3.5px #c9a05a, 0 0 0 5px #38230f, 0 5px 10px #000b; }
+.hbtn:active { transform: translateY(2px); }
+#bAuto { font-size: 16px; }
+#bAuto.off { color: #8a8278; box-shadow: inset 0 1.5px 0 #ffffff26, 0 0 0 1.5px #1a0e08, 0 0 0 3.5px #6b6258, 0 0 0 5px #24211e, 0 5px 10px #000b; }
+#bRock { font-size: 19px; background: conic-gradient(#f0c66ab0 var(--p), #00000000 0), radial-gradient(circle at 50% 28%, #6a452a, #2e1b10 72%); }
+#bRock small { font-family: var(--fr); right: -6px; bottom: -6px; width: 23px; height: 23px; line-height: 23px; font-size: 14px; background: linear-gradient(#fff0a0, #e9b53c); color: #4a2a08; text-shadow: none; box-shadow: 0 0 0 1.5px #5a3a0c; }
+#ultbar { bottom: 8px; height: 66px; gap: 18px; }
+.ult { width: 66px; height: 66px; box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px #8c6a34, 0 0 0 5px #24160f, 0 5px 10px #000c; }
+.ult img { inset: 6px; width: 54px; height: 54px; box-shadow: 0 0 0 1.5px #1a0e08; }
+.ult span { font-family: var(--fr); font-weight: normal; font-size: 12.5px; bottom: -6px; letter-spacing: .5px; }
+.ult.ready { box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px #fff0b4, 0 0 0 5px #24160f, 0 0 18px 4px var(--qc); }
+@keyframes pulse { from { transform: scale(1); filter: brightness(1); } to { transform: scale(1.08); filter: brightness(1.2); } }
+
+#toast { font-family: var(--fr); font-size: 17px; letter-spacing: 1px; padding: 11px 26px; border: 0; background: linear-gradient(#3b271c, #1f130d); box-shadow: 0 0 0 1.5px #3a2410, 0 0 0 3px #d9b256, 0 8px 20px #000c; color: #ffe9a8; }
+input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 0 0 0 1.5px #6b4a2a, inset 0 3px 8px #000a; }
+.adbox b, .adbox .tv { font-family: var(--fr); }
