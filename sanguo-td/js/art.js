@@ -310,6 +310,13 @@ const Art = (function () {
     c.drawImage(ps.im, ps.x, ps.y, ps.w, ps.h);
     c.restore();
   }
+  /* 给 WebGL 画面用：武将用哪张图、多大、脚底锚点在图里的比例位置（单位和 hero() 里一样，战场上再乘 1.45） */
+  function heroSprite(d) {
+    const im = Assets.get('hero:' + d.id);
+    if (im) { const hU = SPRITE.hero.units; return { im, w: hU * im.width / im.height, h: hU, ax: SPRITE.hero.ax, ay: SPRITE.hero.ay, k: 1, proc: false }; }
+    const ps = procSprite('hero:' + d.id, [-26, -48, 58, 74], cc => heroBody(cc, d));
+    return { im: ps.im, w: ps.w, h: ps.h, ax: -ps.x / ps.w, ay: (20 - ps.y) / ps.h, k: 1.2, proc: true };
+  }
   function heroBody(c, d) {
     const fac = FACTIONS[d.fac], q = QUALITIES[d.q];
     weapon(c, d.el);
@@ -465,5 +472,5 @@ const Art = (function () {
     }
   }
 
-  return { background, hero, enemy, enemyGhost, portrait, depth, circ, ell, rr, TAU };
+  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU };
 })();

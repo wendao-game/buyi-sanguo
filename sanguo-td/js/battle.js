@@ -17,6 +17,7 @@ const Battle = (function () {
   function init(canvas) {
     cv = canvas; c = cv.getContext('2d');
     cv.addEventListener('pointerdown', onTap);
+    const gl = document.getElementById('gl'); if (gl) gl.addEventListener('pointerdown', onTap);
     B = makeApi();
   }
 
@@ -26,7 +27,7 @@ const Battle = (function () {
     S = {
       stage, ch: chapterOf(stage), wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
       queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
-      cut: null, lastCut: -99,
+      cut: null, lastCut: -99, shock: null,
       t: 0, coins: 0, kills: 0,
       buffs: { atk: 1 + bonus.atk, spd: 1 + bonus.spd, crit: bonus.crit, rage: 1 + bonus.rage, ult: 1 + bonus.ult, coin: 1, boss: 1, el: {} },
       bonus, wallBonus: bonus.wall, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 },
@@ -190,7 +191,7 @@ const Battle = (function () {
     e.dead = true; S.kills++;
     burst(e.x, e.y, e.def.id === 'boss' ? 40 : 4, e.def.body, 120, 4, 0.5);
     if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.38, max: 0.38 });
-    if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); }
+    if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (isBig(e) || rand() < CFG.COIN_DROP_RATE) dropCoin(e);
     if (rand() < CFG.BUN_DROP_RATE) S.drops.push({ k: 'bun', x: e.x, y: e.y, sx: e.x, sy: e.y, t: 0, dur: 0.8, wait: 0.5, val: 0.04 });
     if (src && src.sk && src.sk.passive.onKill) src.sk.passive.onKill(B, src, e, el);
@@ -240,6 +241,7 @@ const Battle = (function () {
       burst(x, y, big ? 16 : 6, '#ff9a3a', 160, 5, 0.45); burst(x, y, big ? 8 : 3, '#3a2a22', 90, 6, 0.6);
       if (big) S.shake = Math.max(S.shake, 0.2);
       if (r > 50) decal(x, y, r * 0.8);
+      if (big && r >= 90) shockwave(x, y, r * 2.2, 1);
     } else if (el === 'ice') {
       inRadius(x, y, r, e => { hit(e, dmg, 'ice', h, o); slow(e, 2.2); });
       if (!tex('el_hit_ice', x, y, { w: r * 2.1, h: r * 1.8, life: 0.4, grow: 1.2, a: 0.9, rot: rand() * TAU })) ring(x, y, 6, r, 0.3, '#bfeaff', 3);
@@ -260,6 +262,8 @@ const Battle = (function () {
       decal(x, y, r * 0.75);
     }
   }
+  /* 冲击波（只有 WebGL 画面会画成扭曲的波纹）：r 扩散半径，k 强度 */
+  function shockwave(x, y, r, k) { if (!S.shock || S.shock.t < S.shock.max * 0.5 || (k || 1) >= (S.shock.k || 1)) S.shock = { x, y, r, k: k || 1, t: 0.55, max: 0.55 }; }
   /* 地面焦痕：爆炸、落石、落雷之后留几秒 */
   function decal(x, y, r) {
     if (S.decals.length >= 18) S.decals.shift();
@@ -367,6 +371,7 @@ const Battle = (function () {
     ring(h.x, h.y + 26, 12, 70, 0.5, q.color, 4);
     tex('pillar', h.x, h.y + 34, { w: 60, h: 260, ay: 1, life: 0.7, fadeIn: 0.12, a: 0.5, rgb: hexRgb(q.color), force: true });
     cutIn(h, !!pt || !Save.data.auto);
+    shockwave(h.x, h.y, 260, 0.8);
     B.pt = pt || null;
     if (h.sk) h.sk.ult.cast(B, h, a, k); else defaultUlt(h, a);
     B.pt = null;
@@ -403,7 +408,7 @@ const Battle = (function () {
 
   /* ---------------- 点击战场：瞄准中 = 放大招；否则投石 ---------------- */
   function onTap(ev) {
-    const r = cv.getBoundingClientRect();
+    const r = ev.currentTarget.getBoundingClientRect();
     tapAt((ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * H);
   }
   function tapAt(x, y) {
@@ -655,6 +660,7 @@ const Battle = (function () {
     for (let i = S.slashes.length - 1; i >= 0; i--) if ((S.slashes[i].life -= dt) <= 0) S.slashes.splice(i, 1);
     for (let i = S.fx.length - 1; i >= 0; i--) { const f = S.fx[i]; if ((f.life -= dt) <= 0) { S.fx.splice(i, 1); continue; } f.x += f.vx * dt; f.y += f.vy * dt; f.rot += f.spin * dt; }
     if (S.cut && (S.cut.t += dt) >= S.cut.dur) S.cut = null;
+    if (S.shock && (S.shock.t -= dt) <= 0) S.shock = null;
     for (let i = S.ghosts.length - 1; i >= 0; i--) if ((S.ghosts[i].life -= dt) <= 0) S.ghosts.splice(i, 1);
     for (let i = S.decals.length - 1; i >= 0; i--) if ((S.decals[i].life -= dt) <= 0) S.decals.splice(i, 1);
     if (S.shake > 0) S.shake -= dt;
@@ -1081,12 +1087,19 @@ const Battle = (function () {
     if (S.aim !== null) { if ((S.aimT += dt) > 8) S.aim = null; dt *= CFG.AIM_SLOW; }
     for (let i = 0, n = Save.data.speed || 1; i < n && S && !S.choosing; i++) { if (!S.over) update(dt); if (S) updateFx(dt); }
   }
+  /* 画一帧：WebGL 画面可用就用它（出错自动退回 2D），否则用这里的 2D 画法 */
+  function draw() {
+    if (typeof GLView !== 'undefined' && GLView.active()) {
+      try { GLView.render(S, S ? S.t : idleT); return; }
+      catch (e) { GLView.disable('绘制出错：' + (e && e.message)); if (typeof console !== 'undefined') console.error(e); }
+    }
+    if (S) render(); else renderIdle();
+  }
   function frame(dt) {
     dt = Math.min(dt, 0.05); idleT += dt;
-    if (!S) return renderIdle();
-    if (!S.paused && !S.choosing) step(dt);
-    if (!S) return renderIdle();
-    render(); UI.hud(S);
+    if (S && !S.paused && !S.choosing) step(dt);
+    draw();
+    if (S) UI.hud(S);
   }
 
   /* 只跑逻辑不画（自动化测试 / 数值模拟用） */

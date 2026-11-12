@@ -23,6 +23,7 @@ const Save = {
       speed: 1,
       auto: true,
       sweep: { date: '', count: 0 },
+      gfx: 'gl',           // 战斗画面：'gl' 高清（WebGL），'2d' 兼容
       earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
       at: 0,               // 最后保存时间
       ver: 2,

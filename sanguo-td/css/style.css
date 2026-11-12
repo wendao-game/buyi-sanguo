@@ -5,7 +5,8 @@ button { font-family: inherit; border: 0; cursor: pointer; color: inherit; }
 :root { --gold: #e8c15a; --gold2: #ffe08a; --red: #a3262b; --panel: #2a1c16; --line: #6b4a2a; --ink: #f3e6cf; }
 
 #app { position: absolute; left: 0; top: 0; width: 540px; height: 960px; transform-origin: 0 0; overflow: hidden; color: var(--ink); background: #1a120e; }
-#cv { position: absolute; inset: 0; width: 540px; height: 960px; display: block; }
+#cv, #gl { position: absolute; inset: 0; width: 540px; height: 960px; display: block; }
+#gl { display: none; }
 #dim { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(#120b08f2 0%, #120b08d9 45%, #120b0855 72%, #120b0800 86%); }
 #app[data-screen="heroes"] #dim, #app[data-screen="gacha"] #dim { background: #140d0af0; }
 #app[data-screen="battle"] #dim, #app[data-screen="battle"] #topbar, #app[data-screen="battle"] #nav { display: none; }

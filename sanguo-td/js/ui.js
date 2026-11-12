@@ -141,6 +141,7 @@ const UI = (function () {
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>设置 · 存档</h2>
       <p class="mtext" style="font-size:13px">${Platform.isTap() ? '在 TapTap 里进度会自动保存到云存档和本机备份。' : '网页版进度只存在这个浏览器里。'}换设备或清理数据前，可以复制存档码留底，之后在这里读入。</p>
       <div class="mrow"><button class="btn gold" data-act="codeOut">复制存档码</button><button class="btn" data-act="codeIn">读入存档码</button></div>
+      <div class="mrow"><button class="btn" data-act="gfx">战斗画面：${GLView.active() ? '高清（WebGL）' : '兼容（2D）'}<small>${GLView.ok ? '点击切换 · 手机发热或卡顿时可以换成兼容' : '这台设备开不了高清画面' + (GLView.error ? '：' + GLView.error : '')}</small></button></div>
       <div class="mrow"><input class="gift" id="giftCode" placeholder="礼包码" autocomplete="off" autocapitalize="characters"><button class="btn red" data-act="gift">兑换</button></div>
       <div class="mrow"><button class="btn gray" data-act="resetAsk">重置存档</button></div></div>`);
   }
@@ -289,6 +290,10 @@ const UI = (function () {
       const done = () => toast('已复制存档码');
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, () => { try { document.execCommand('copy'); done(); } catch (e) { toast('请长按手动复制'); } });
       else { try { document.execCommand('copy'); done(); } catch (e) { toast('请长按手动复制'); } }
+    },
+    gfx: () => {
+      if (!GLView.ok) return toast('这台设备开不了高清画面');
+      Save.data.gfx = Save.data.gfx === '2d' ? 'gl' : '2d'; Save.save(); GLView.apply(); settings();
     },
     gift: () => {
       const el = document.querySelector('#giftCode'), r = redeemGift(el && el.value);
