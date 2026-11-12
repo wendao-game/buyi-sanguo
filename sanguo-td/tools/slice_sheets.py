@@ -148,9 +148,9 @@ def main():
                 continue
             m = max(4, (box[2] - box[0]) // 25)
             cell = cell.crop((max(0, box[0] - m), max(0, box[1] - m), min(cell.width, box[2] + m), min(cell.height, box[3] + m)))
-            n = FX_SIZE.get(fid, 192)
+            n = 420                                            # 保留原图的清晰度（每格约 418 像素）：游戏里特效会放大着画，缩小了就糊
             cell.thumbnail((n, n), Image.LANCZOS)
-            cell.save(os.path.join(DST, 'fx', fid + '.jpg'), quality=86)
+            cell.save(os.path.join(DST, 'fx', fid + '.jpg'), quality=93)
             done += 1
     bg = os.path.join(SHEETS, 'battle.png')
     if os.path.exists(bg):

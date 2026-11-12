@@ -310,10 +310,23 @@ const Art = (function () {
     c.drawImage(ps.im, ps.x, ps.y, ps.w, ps.h);
     c.restore();
   }
+  /* 立绘打一层场景光：头肩偏暖偏亮、下摆偏冷偏暗，人物更有体积、和灯笼照着的城楼融在一起（按图片缓存） */
+  const litMap = new Map();
+  function lit(im) {
+    let cv = litMap.get(im); if (cv) return cv;
+    cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+    const c = cv.getContext('2d');
+    c.drawImage(im, 0, 0); c.globalCompositeOperation = 'source-atop';
+    const g = c.createLinearGradient(0, im.height * 0.08, im.width * 0.25, im.height * 0.9);
+    g.addColorStop(0, 'rgba(255,238,200,.16)'); g.addColorStop(0.45, 'rgba(255,238,200,0)'); g.addColorStop(1, 'rgba(26,12,48,.26)');
+    c.fillStyle = g; c.fillRect(0, 0, cv.width, cv.height);
+    litMap.set(im, cv);
+    return cv;
+  }
   /* 给 WebGL 画面用：武将用哪张图、多大、脚底锚点在图里的比例位置（单位和 hero() 里一样，战场上再乘 1.45） */
   function heroSprite(d) {
     const im = Assets.get('hero:' + d.id);
-    if (im) { const hU = SPRITE.hero.units; return { im, w: hU * im.width / im.height, h: hU, ax: SPRITE.hero.ax, ay: SPRITE.hero.ay, k: 1, proc: false }; }
+    if (im) { const hU = SPRITE.hero.units; return { im: lit(im), w: hU * im.width / im.height, h: hU, ax: SPRITE.hero.ax, ay: SPRITE.hero.ay, k: 1, proc: false }; }
     const ps = procSprite('hero:' + d.id, [-26, -48, 58, 74], cc => heroBody(cc, d));
     return { im: ps.im, w: ps.w, h: ps.h, ax: -ps.x / ps.w, ay: (20 - ps.y) / ps.h, k: 1.2, proc: true };
   }

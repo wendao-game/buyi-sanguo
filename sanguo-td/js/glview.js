@@ -37,6 +37,8 @@ const GLView = (function () {
       haze: canvasTex(4, 128, g => { const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, 'rgba(36,24,18,.6)'); gr.addColorStop(0.4, 'rgba(48,32,22,.2)'); gr.addColorStop(1, 'rgba(48,32,22,0)'); g.fillStyle = gr; g.fillRect(0, 0, 4, 128); }),
       grade: canvasTex(270, 480, g => { const gr = g.createRadialGradient(135, 230, 60, 135, 240, 330); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.7, 'rgba(10,5,2,.12)'); gr.addColorStop(1, 'rgba(10,5,2,.5)'); g.fillStyle = gr; g.fillRect(0, 0, 270, 480); }),
       scorch: canvasTex(128, 128, g => { for (let i = 0; i < 26; i++) { const a = (i * 2.4) % TAU, d = (i * 13 % 34), r = 14 + (i * 7 % 22), x = 64 + Math.cos(a) * d, y = 64 + Math.sin(a) * d; const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(18,10,6,.5)'); gr.addColorStop(1, 'rgba(18,10,6,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); } }),
+      ringThin: canvasTex(256, 256, g => { g.strokeStyle = '#fff'; g.lineWidth = 3.5; g.beginPath(); g.arc(128, 128, 122, 0, TAU); g.stroke(); }),
+      star: canvasTex(64, 64, g => { g.fillStyle = '#fff'; g.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 4 : 31; g.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } g.closePath(); g.fill(); }),
       spike: canvasTex(36, 60, g => { g.fillStyle = '#8fdcff'; g.beginPath(); g.moveTo(0, 60); g.lineTo(18, 0); g.lineTo(36, 60); g.closePath(); g.fill(); g.fillStyle = '#e8f8ff'; g.beginPath(); g.moveTo(12, 56); g.lineTo(18, 0); g.lineTo(22, 56); g.closePath(); g.fill(); }),
       rock: canvasTex(48, 48, g => { g.fillStyle = '#2a1d14'; g.beginPath(); g.arc(24, 24, 23, 0, TAU); g.fill(); g.fillStyle = '#6a5440'; g.beginPath(); g.arc(24, 24, 20, 0, TAU); g.fill(); g.fillStyle = '#8f7658'; g.beginPath(); g.arc(18, 18, 11, 0, TAU); g.fill(); }),
       coin: canvasTex(40, 40, g => { g.fillStyle = '#7a5410'; g.beginPath(); g.arc(20, 21, 18, 0, TAU); g.fill(); g.fillStyle = '#ffd24a'; g.beginPath(); g.arc(20, 19, 17, 0, TAU); g.fill(); g.fillStyle = '#fff1a8'; g.beginPath(); g.arc(15, 14, 7, 0, TAU); g.fill(); g.fillStyle = '#b8862a'; g.fillRect(14, 13, 12, 12); }),
@@ -216,9 +218,12 @@ const GLView = (function () {
       if (h.rage >= 100) { ringE(La, h.x, by, 31, 12, 0xffdc6e, 0.55 + Math.sin(t * 8) * 0.3, ADD); glow(La, h.x, by - 6, 42, 0xffd060, 0.22 + Math.sin(t * 8) * 0.08); }
       if (h.hasteT > 0 || h.bigT > 0) ringE(La, h.x, by, 26 + Math.sin(t * 12) * 2, 9, 0xfff0b4, 0.7);
       const breathe = 1 + Math.sin(t * 2.4 + d.seed) * 0.012;
-      if (!q.proc) {                                          // 手绘立绘：出手时向前一顿、压扁回弹
+      if (!q.proc) {                                          // 手绘立绘：出手时向前一顿、压扁回弹；平时轻轻晃
+        if (!tex.baseTexture._crisp) { tex.baseTexture._crisp = true; tex.baseTexture.mipmap = PIXI.MIPMAP_MODES.OFF; }   // 立绘只缩小一点点，不用缩略图，线条更利落
         const k = (1 + a * 0.05) * S;
-        sp(La, tex, h.x, by - a * 7 * S, q.w * k * (1 + a * 0.03), q.h * k * (1 - a * 0.02) * breathe, { ax: q.ax, ay: q.ay });
+        sp(La, tex, h.x, by - a * 7 * S, q.w * k * (1 + a * 0.03), q.h * k * (1 - a * 0.02) * breathe, { ax: q.ax, ay: q.ay, rot: Math.sin(t * 1.1 + d.seed * 2.3) * 0.013 * (1 - a) });
+        const gp = (t * 0.42 + d.seed * 0.37) % 1;             // 兵器上偶尔闪一下光
+        if (gp < 0.1) { const gk = Math.sin(Math.PI * gp / 0.1); sp(Lf, TX.star, h.x + 17 * S, h.y - 44 * S, 30 * gk, 30 * gk, { rot: gp * 6, a: 0.9 * gk }); glow(Lf, h.x + 17 * S, h.y - 44 * S, 16 * gk, 0xfff4d0, 0.5 * gk); }
       } else sp(La, tex, h.x, by + (Math.sin(t * 2.4 + d.seed) * 1.1 - a * 6) * S, q.w * S * q.k, q.h * S * q.k, { ax: q.ax, ay: q.ay, rot: -a * 0.07 });
       if (a > 0.55) { const ec = col(ELEMENTS[d.el].color); glow(Lf, h.x + 10, h.y - 46, 26 * a, ec, 0.55 * a); sp(Lf, TX.disc, h.x + 10, h.y - 46, 7 * a, 7 * a, { tint: 0xffffff, a: 0.8 * a }); }   // 出手时兵器上一闪
       light(h.x, h.y - 10, 78, 0xfff0d8, 0.5);
@@ -287,7 +292,7 @@ const GLView = (function () {
         for (let x = 30; x < W; x += 26) { const hgt = 18 + ((x * 7) % 11); sp(Lg, TX.spike, x, z.y + 8, 18, hgt, { ay: 1, a: f }); }
       } else if (z.k === 'frost') {
         const f = Math.min(1, z.life / 0.4, (z.max - z.life) / 0.2 + 0.1);
-        ell(Lg, z.x, z.y, z.r, z.r * 0.62, 0xcfefff, 0.35 * f); ringE(Lg, z.x, z.y, z.r, z.r * 0.62, 0xffffff, 0.8 * f);
+        ell(Lg, z.x, z.y, z.r, z.r * 0.62, 0xcfefff, 0.16 * f); sp(Lg, TX.ringThin, z.x, z.y, z.r * 2.1, z.r * 1.3, { tint: 0xe8f8ff, a: 0.6 * f });   // 冰封范围：淡淡一层霜加一圈细线
       }
       return;
     }
@@ -317,7 +322,7 @@ const GLView = (function () {
     } else if (z.k === 'storm') { img(Lf, 'circle', z.x, z.y, z.r * 1.6, z.r * 0.95, t * 0.6, 0.1 * Math.min(1, z.life / 0.5), '190,160,255'); }
     else if (z.k === 'mine') { img(Lf, 'circle', z.x, z.y, 44, 26, t * 2, 0.7 + Math.sin(t * 8 + z.x) * 0.25, '190,160,255'); light(z.x, z.y, 40, 0xc0a0ff, 0.4); }
     else if (z.k === 'wind') { const f = Math.min(1, z.life / 0.6, (z.max - z.life) / 0.4 + 0.1); img(Lf, 'circle', W / 2, WY - 120, 300, 170, t * 0.5, 0.07 * f, '200,255,235'); }
-    else if (z.k === 'frost') { img(Lf, 'circle', z.x, z.y, z.r * 2.1, z.r * 1.3, -t * 0.4, 0.25 * Math.min(1, z.life / 0.4), '170,225,255'); light(z.x, z.y, z.r * 1.5, 0xc0e8ff, 0.5); }
+    else if (z.k === 'frost') { img(Lf, 'circle', z.x, z.y, z.r * 1.9, z.r * 1.18, -t * 0.4, 0.14 * Math.min(1, z.life / 0.4), '170,225,255'); light(z.x, z.y, z.r * 1.5, 0xc0e8ff, 0.5); }
     else if (z.k === 'barrier') { const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.3 + 0.1); for (let x = 40; x < W; x += 92) img(Lf, 'el_orb_wind', x, z.y, 110, 60, t * 6 + x, 0.55 * f); }
   }
 
@@ -384,7 +389,7 @@ const GLView = (function () {
         const c = col(p.color), k = p.life / p.max, lum = ((c >> 16) & 255) * 0.3 + ((c >> 8) & 255) * 0.59 + (c & 255) * 0.11;
         if (lum < 80) { const r = p.size * (2.2 - k * 1.2); sp(Lt, TX.soft, p.x, p.y, r * 2.4, r * 2.4, { tint: c, a: 0.26 * Math.min(1, k * 2) }); continue; }   // 深色 = 烟：越飘越大、越淡
         const v = Math.hypot(p.vx, p.vy), r = p.size * (0.5 + 0.5 * k), a = Math.min(1, k * 1.8);
-        if (v > 60) { const L = Math.min(22, v * 0.05); line(Lf, p.x - p.vx / v * L, p.y - p.vy / v * L, p.x, p.y, Math.max(1.2, r * 0.9), c, a); }                 // 亮色 = 火花：沿运动方向拉成一道光
+        if (v > 60) { const L = Math.min(22, v * 0.05); line(Lf, p.x - p.vx / v * L, p.y - p.vy / v * L, p.x, p.y, Math.max(0.9, r * 0.75), c, a); }                 // 亮色 = 火花：沿运动方向拉成一道光
         sp(Lf, TX.glow, p.x, p.y, r * 4.4, r * 4.4, { tint: c, a: a * 0.75 });
         sp(Lf, TX.disc, p.x, p.y, r * 1.1, r * 1.1, { tint: 0xffffff, a: a * 0.9 });
       }

@@ -240,7 +240,9 @@ const Battle = (function () {
       const tick = dmg * 0.12 * (h ? h.m.burn : 1);
       inRadius(x, y, r, e => { hit(e, dmg, 'fire', h, o); burn(e, 3, tick, h); });
       if (!tex('el_hit_fire', x, y - r * 0.1, { w: r * 2.1, h: r * 1.8, life: big ? 0.5 : 0.4, grow: 1.2, a: big ? 0.8 : 0.9, rot: rand() * TAU })) { ring(x, y, r * 0.2, r, 0.35, '#ff8a3a', 4, true); ring(x, y, r * 0.3, r * 1.05, 0.3, '#ffd35a', 3); }
-      burst(x, y, big ? 18 : 7, '#ffb04a', big ? 300 : 210, 2.6, 0.5, 420);                                 // 飞溅的火星（会往下落）
+      burst(x, y, big ? 30 : 11, '#ffb04a', big ? 320 : 220, 1.7, 0.55, 420);
+      tex('burst', x, y - r * 0.1, { w: r * 1.5, life: 0.16, grow: 1.4, a: 0.95, rot: rand() * TAU });                       // 最里面一下白光
+      if (big) tex('el_hit_fire', x, y - r * 0.1, { w: r * 2.7, h: r * 2.3, life: 0.7, grow: 1.3, a: 0.3, fadeIn: 0.3, rot: rand() * TAU });   // 外面一层慢慢散开的余焰                                 // 飞溅的火星（会往下落）
       for (let i = 0, n = big ? 3 : 1; i < n; i++) part(x + (rand() - 0.5) * r * 0.9, y + (rand() - 0.5) * r * 0.4, (rand() - 0.5) * 30, -30 - rand() * 30, 0.7 + rand() * 0.4, '#3a2e27', 5 + rand() * 3);   // 往上飘的黑烟
       if (r > 50) ring(x, y, r * 0.3, r * 1.15, 0.28, '#ffc070', 3);
       if (big) S.shake = Math.max(S.shake, 0.2);
@@ -249,7 +251,8 @@ const Battle = (function () {
     } else if (el === 'ice') {
       inRadius(x, y, r, e => { hit(e, dmg, 'ice', h, o); slow(e, 2.2); });
       if (!tex('el_hit_ice', x, y, { w: r * 2.1, h: r * 1.8, life: 0.4, grow: 1.2, a: 0.9, rot: rand() * TAU })) ring(x, y, 6, r, 0.3, '#bfeaff', 3);
-      burst(x, y, 8, '#d9f4ff', 220, 2.4, 0.42, 380);
+      burst(x, y, 14, '#d9f4ff', 240, 1.6, 0.45, 380);
+      tex('burst', x, y, { w: r * 1.3, life: 0.15, grow: 1.4, a: 0.9, rgb: '210,240,255', rot: rand() * TAU });
     } else if (el === 'poison') {
       pool(h, x, y, r, 4 * (h ? h.m.life : 1), dmg, 'poison');
       tex('el_hit_wind', x, y, { w: r * 1.8, h: r * 1.3, life: 0.4, grow: 1.3, a: 0.7, rgb: '120,235,60', rot: rand() * TAU });
@@ -896,7 +899,7 @@ const Battle = (function () {
   }
 
   function render() {
-    c.setTransform(2, 0, 0, 2, 0, 0);
+    c.setTransform(2, 0, 0, 2, 0, 0); c.imageSmoothingQuality = 'high';
     c.save();
     if (S.shake > 0) c.translate((rand() - 0.5) * 9 * Math.min(1, S.shake * 4), (rand() - 0.5) * 9 * Math.min(1, S.shake * 4));
     c.drawImage(Art.background(), 0, 0, W, H);
