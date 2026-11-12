@@ -35,10 +35,12 @@ const Assets = (function () {
     });
   }
   /* 只加载 assets/manifest.js 里列出的图（window.ASSET_LIST），不再逐个去试，没放图时不会有一堆 404 */
-  function load() {
+  function load(onProgress) {
     const list = Array.isArray(window.ASSET_LIST) ? window.ASSET_LIST : [];
-    const timeout = new Promise(resolve => setTimeout(resolve, 8000));   // 网络卡住也不挡住进游戏
-    return Promise.race([Promise.all(list.map(loadOne)), timeout]).then(() => Object.keys(img));
+    let done = 0;
+    const one = f => loadOne(f).then(ok => { done++; if (onProgress) onProgress(done / list.length); return ok; });
+    const timeout = new Promise(resolve => setTimeout(resolve, 12000));  // 网络卡住也不挡住进游戏（没加载到的图先用代码画的）
+    return Promise.race([Promise.all(list.map(one)), timeout]).then(() => Object.keys(img));
   }
 
   /* 特效贴图换色：黑底贴图乘上颜色（黑的还是黑，亮的部分变成该颜色），带缓存 */

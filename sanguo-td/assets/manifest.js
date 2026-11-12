@@ -112,4 +112,4 @@ window.ASSET_LIST = [
   'heroes/zhugeliang.png',
   'heroes/zhugeliang_head.png',
 ];
-window.ASSET_VER = '3722d7a0fd';
+window.ASSET_VER = 'cef29ed1ed';

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>烽火守城 · 三国塔防</title>
-  <link rel="stylesheet" href="css/style.css?v=20261112-3">
+  <link rel="stylesheet" href="css/style.css?v=20261112-5">
 </head>
 <body>
   <div id="app" data-screen="home">
@@ -37,16 +37,18 @@
       <div id="ultbar"></div>
     </div>
 
+    <div id="tipbar" data-act="tipClose"></div>
     <div id="modal"></div>
     <div id="toast"></div>
+    <div id="loading"><b>烽火守城</b><div class="bar"><i id="loadBar"></i></div><span id="loadTxt">正在加载…</span></div>
   </div>
 
   <!-- 脚本带版本号加载，防止手机浏览器用旧缓存：改了代码就把 BUILD 改一下；素材清单每次都取最新的 -->
   <script>
     (function () {
-      var BUILD = '20261112-4';
+      var BUILD = '20261112-5';
       ['js/lib/pixi.min.js', 'js/data.js', 'js/skills.js', 'js/save.js', 'js/platform.js', 'assets/manifest.js', 'js/assets.js',
-       'js/fxgen.js', 'js/art.js', 'js/glview.js', 'js/battle.js', 'js/ui.js', 'js/main.js'].forEach(function (s) {
+       'js/fxgen.js', 'js/art.js', 'js/sfx.js', 'js/glview.js', 'js/battle.js', 'js/ui.js', 'js/main.js'].forEach(function (s) {
         var q = s === 'assets/manifest.js' ? 't=' + Date.now() : 'v=' + BUILD;
         document.write('<script src="' + s + '?' + q + '"><\/script>');
       });

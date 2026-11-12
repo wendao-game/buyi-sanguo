@@ -59,6 +59,7 @@ const Battle = (function () {
     const w = genWave(S.stage, S.wave);
     S.queue = w.list; S.waveDur = w.dur; S.waveT = 0; S.spawned = 0; S.waveSize = w.list.length;
     S.banner = { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', t: 1.8, max: 1.8 };
+    Sfx.play(S.wave === CFG.WAVES ? 'horn' : 'wave');
   }
   function spawn(q) {
     const d = ENEMIES[q.type], hp = Math.round(d.hp * stageHpMul(S.stage, S.wave));
@@ -90,6 +91,7 @@ const Battle = (function () {
   function finish(win) {
     if (S.over) return;
     S.over = true; S.win = win; S.aim = null;
+    Sfx.play(win ? 'win' : 'lose');
     S.banner = { text: win ? '大获全胜' : '城池失守', t: 99, max: 99 };
     const res = settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins));
     res.win = win; res.kills = S.kills; res.stage = S.stage; res.wave = S.wave;
@@ -159,6 +161,7 @@ const Battle = (function () {
     if ((wide || 1) >= 1.5 && y2 - y1 > 80 && tex('bolt', x2, y2 + 8, { w: 46 * wide, h: y2 - y1 + 40, ay: 1, life: 0.28, rot: Math.atan2(x1 - x2, y2 - y1) })) {
       tex('el_hit_thunder', x2, y2, { w: 54 * wide, life: 0.3, grow: 1.3, rot: rand() * TAU });
       if (wide >= 2) decal(x2, y2, 26 * wide);
+      Sfx.play('thunder');
       return;
     }
     const pts = [[x1, y1]], n = 6;
@@ -182,6 +185,7 @@ const Battle = (function () {
     dmg = Math.max(1, Math.round(dmg * m * (0.9 + rand() * 0.2) * (crit ? 2 + (src ? src.critDmg : 0) : 1)));
     if (src) src.dmg += Math.min(dmg, Math.max(0, e.hp));
     e.hp -= dmg; e.flash = 0.1;
+    if (crit && !o.dot) Sfx.play('crit');
     if (crit && !o.dot && S.fx.length < 120) { tex('burst', e.x, e.y - e.def.r * 0.6, { w: 44 + e.def.r, life: 0.24, grow: 1.35, rgb: '255,225,140', rot: rand() * TAU }); burst(e.x, e.y - e.def.r * 0.6, 4, '#ffe9a8', 230, 2.2, 0.28, 300); }
     else if (!o.dot && S.fx.length < 70) tex('burst', e.x, e.y - e.def.r * 0.5, { w: 20 + e.def.r * 0.7, life: 0.13, grow: 1.25, a: 0.75, rgb: hexRgb(elColor(el)), rot: rand() * TAU });   // 命中小闪光
     text(e.x + (rand() - 0.5) * 18, e.y - e.def.r - 8 - rand() * 8, dmg, crit ? '#ffdf4a' : elColor(el), crit ? 28 : (o.dot ? 13 : 18), 0.75, crit);
@@ -194,6 +198,7 @@ const Battle = (function () {
     if (S.parts.length < 400) burst(e.x, e.y - 4, 3, '#ffe2a0', 170, 2, 0.3, 320);
     if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.38, max: 0.38 });
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
+    if (e.def.id === 'boss') Sfx.play('bossdie');
     if (isBig(e) || rand() < CFG.COIN_DROP_RATE) dropCoin(e);
     if (rand() < CFG.BUN_DROP_RATE) S.drops.push({ k: 'bun', x: e.x, y: e.y, sx: e.x, sy: e.y, t: 0, dur: 0.8, wait: 0.5, val: 0.04 });
     if (src && src.sk && src.sk.passive.onKill) src.sk.passive.onKill(B, src, e, el);
@@ -247,6 +252,7 @@ const Battle = (function () {
       if (r > 50) ring(x, y, r * 0.3, r * 1.15, 0.28, '#ffc070', 3);
       if (big) S.shake = Math.max(S.shake, 0.2);
       if (r > 50) decal(x, y, r * 0.8);
+      if (r > 50) Sfx.play('boom');
       if (big && r >= 90) shockwave(x, y, r * 2.2, 1);
     } else if (el === 'ice') {
       inRadius(x, y, r, e => { hit(e, dmg, 'ice', h, o); slow(e, 2.2); });
@@ -267,6 +273,7 @@ const Battle = (function () {
       tex('burst', x, y - 6, { w: r * 2.2, life: 0.35, grow: 1.3, rgb: '220,180,130', rot: rand() * TAU });
       S.shake = Math.max(S.shake, 0.15);
       decal(x, y, r * 0.75);
+      Sfx.play('rock');
     }
   }
   /* 冲击波（只有 WebGL 画面会画成扭曲的波纹）：r 扩散半径，k 强度 */
@@ -350,6 +357,7 @@ const Battle = (function () {
     const tg = (el === 'arrow' || el === 'blade' || el === 'thunder') ? frontmost() : densest(60);
     if (!tg) return false;
     h.n++;
+    Sfx.play('atk_' + el);
     switch (el) {
       case 'arrow': shotArrow(h, tg, dmg, { basic: true }); break;
       case 'blade': {
@@ -372,6 +380,7 @@ const Battle = (function () {
     if (!S || S.over || S.choosing || h.rage < 100) return false;
     if (!S.live.some(e => !e.dead)) return false;
     h.rage = 0; h.anim = 1.6;
+    Sfx.play('ult');
     if (S.aim === h.slot) S.aim = null;
     const a = h.atk * S.buffs.atk * S.buffs.ult, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
     text(h.x, h.y - 58, '【' + h.def.ult + '】' + (h.awake ? '·觉醒' : ''), q.color, 21, 1.5, true);
@@ -497,6 +506,7 @@ const Battle = (function () {
         if (e.y > WY - 230) { const tx = Math.max(118, Math.min(422, e.x)); e.x += (tx - e.x) * Math.min(1, dt * 1.6); }   // 快到城下时往城楼正面那段墙收拢
       } else if ((e.acd -= dt) <= 0) {
         e.acd = e.def.id === 'boss' ? 1.4 : 1;
+        Sfx.play('wall');
         S.wall -= e.atk; S.wallFlash = 0.15; S.shake = Math.max(S.shake, e.def.id === 'boss' ? 0.25 : 0.06);
         if (e.def.range) S.shots.push({ k: 'earrow', x: e.x, y: e.y - 6, x0: e.x, y0: e.y - 6, tx: e.x + (rand() - 0.5) * 30, ty: WY - 4, t: 0, dur: 0.22 });
         else burst(e.x, WY - 12, 3, '#b9bcc6', 70, 3, 0.3);
@@ -514,7 +524,7 @@ const Battle = (function () {
       const tx = d.k === 'coin' ? W - 92 : d.sx, ty = d.k === 'coin' ? 38 : WY + 8;
       d.x = d.sx + (tx - d.sx) * ep; d.y = d.sy + (ty - d.sy) * ep - Math.sin(p * Math.PI) * 40;
       if (p >= 1) {
-        if (d.k === 'coin') S.coins += d.val;
+        if (d.k === 'coin') { S.coins += d.val; Sfx.play('coin'); }
         else { const v = Math.round(S.wallMax * d.val); S.wall = Math.min(S.wallMax, S.wall + v); text(d.x, WY - 6, '城防 +' + v, '#8dff8a', 15, 1, true); }
         S.drops.splice(i, 1);
       }

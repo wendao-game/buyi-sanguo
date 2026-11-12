@@ -82,6 +82,11 @@ def keep_main(im):
     return im
 
 
+def save_png(im, dst):
+    """存成 256 色调色板 PNG（带透明）：卡通画风颜色少，肉眼几乎看不出差别，体积只有原来的五分之一，手机上加载快很多"""
+    im.quantize(256, method=2, dither=0).save(dst, optimize=True)
+
+
 def standardize(im, dst, size=320, foot=275, height=256):
     im = keep_main(im)
     box = im.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
@@ -92,7 +97,7 @@ def standardize(im, dst, size=320, foot=275, height=256):
     im = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
     out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     out.alpha_composite(im, ((size - im.width) // 2, foot - im.height))
-    out.save(dst, optimize=True)
+    save_png(out, dst)
     return True
 
 
@@ -128,7 +133,7 @@ def main():
             cell = cell.crop(box)
             s = max(cell.size)                                 # 补成正方形：横向居中、头顶对齐
             sq = Image.new('RGBA', (s, s), (0, 0, 0, 0)); sq.alpha_composite(cell, ((s - cell.width) // 2, 0))
-            sq.resize((256, 256), Image.LANCZOS).save(os.path.join(DST, 'heroes', cid + '_head.png'), optimize=True)
+            save_png(sq.resize((256, 256), Image.LANCZOS), os.path.join(DST, 'heroes', cid + '_head.png'))
             done += 1
     for name, ids in FX_SHEETS.items():
         path = os.path.join(SHEETS, name + '.png')

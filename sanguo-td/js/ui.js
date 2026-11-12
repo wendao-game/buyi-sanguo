@@ -14,6 +14,19 @@ const UI = (function () {
   const stars = n => '<span class="stars">' + '★'.repeat(n) + '</span>' + '☆'.repeat(CFG.MAX_STAR - n);
   const qc = id => QUALITIES[HERO_MAP[id].q].color;
 
+  /* 新手提示条：每个 key 只出现一次（记在存档里），几秒后自己消失，点一下也会关 */
+  let tipTimer = 0;
+  function tip(key, html, ms) {
+    const T = Save.data.tips || (Save.data.tips = {});
+    if (T[key]) return false;
+    T[key] = 1; Save.save();
+    const el = $('#tipbar'); el.innerHTML = html; el.classList.add('on');
+    clearTimeout(tipTimer); tipTimer = setTimeout(hideTip, ms || 7000);
+    return true;
+  }
+  function hideTip() { clearTimeout(tipTimer); $('#tipbar').classList.remove('on'); }
+  const tipShown = () => $('#tipbar').classList.contains('on');
+
   function toast(msg) {
     const t = $('#toast'); t.textContent = msg; t.classList.add('on');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1600);
@@ -37,6 +50,10 @@ const UI = (function () {
 
   /* ---------------- 主城 ---------------- */
   function renderHome() {
+    const D0 = Save.data, fresh = D0.draws === 0 && D0.tickets >= 10;
+    const nb = document.querySelector('#nav button[data-tab=gacha]'); if (nb) nb.classList.toggle('hint', fresh);
+    if (fresh) tip('home1', '你有 <b>10 张招募令</b>：先去<b>「招募」</b>十连，凑满 5 名武将再出征', 10000);
+    else if (D0.stage > 1) tip('home2', '打过的关卡可以<b>扫荡</b>直接领金币；金币能升级武将，也能换招募令', 9000);
     const S = Save.data, st = S.pick, ch = chapterOf(st), cleared = st < S.stage, pw = teamPower(), rec = stageRecommend(st);
     $('#home').innerHTML = `
       <div class="logo"><b>烽火守城</b><span>三国塔防</span></div>
@@ -60,6 +77,7 @@ const UI = (function () {
 
   /* ---------------- 武将 ---------------- */
   function renderHeroes() {
+    if (Object.keys(Save.data.heroes).length > 3) tip('heroes1', '点两个位置可以<b>交换站位</b>。位置名变<b>绿</b> = 这名武将适合这个位置；中间是<b>主帅</b>，品质越高全军加成越多', 10000);
     const S = Save.data;
     const team = S.team.map((id, i) => {
       const role = SLOT_ROLES[i], fit = id && (role.leader || role.els.includes(HERO_MAP[id].el));
@@ -142,6 +160,7 @@ const UI = (function () {
       <p class="mtext" style="font-size:13px">${Platform.isTap() ? '在 TapTap 里进度会自动保存到云存档和本机备份。' : '网页版进度只存在这个浏览器里。'}换设备或清理数据前，可以复制存档码留底，之后在这里读入。</p>
       <div class="mrow"><button class="btn gold" data-act="codeOut">复制存档码</button><button class="btn" data-act="codeIn">读入存档码</button></div>
       <div class="mrow"><button class="btn" data-act="gfx">战斗画面：${GLView.active() ? '高清（WebGL）' : '兼容（2D）'}<small>${GLView.ok ? '点击切换 · 手机发热或卡顿时可以换成兼容' : '这台设备开不了高清画面' + (GLView.error ? '：' + GLView.error : '')}</small></button></div>
+      <div class="mrow"><button class="btn" data-act="sound">音效：${Save.data.sound === false ? '关' : '开'}</button></div>
       <div class="mrow"><input class="gift" id="giftCode" placeholder="礼包码" autocomplete="off" autocapitalize="characters"><button class="btn red" data-act="gift">兑换</button></div>
       <div class="mrow"><button class="btn gray" data-act="resetAsk">重置存档</button></div></div>`);
   }
@@ -249,6 +268,8 @@ const UI = (function () {
       const b = $('#bRock'), p = S.rock.n < S.rock.max ? S.rock.t / CFG.ROCK_CD * 100 : 100;
       b.innerHTML = '石<small>' + S.rock.n + '</small>'; b.style.setProperty('--p', p + '%'); b.classList.toggle('empty', S.rock.n <= 0);
     }
+    if (S.t > 4 && S.live.length >= 4 && !tipShown()) tip('rock1', '<b>点战场</b>任意位置可以投下礌石，砸晕扎堆的敌人（左边「石」是剩余块数）', 8000);
+    if (S.t > 16 && !tipShown() && S.heroes.some(h => h.rage >= 60)) tip('ult1', '怒气满了会<b>自动放大招</b>。关掉左边的「自动」，可以自己点右边头像选时机，带「可瞄准」的还能选落点', 9000);
     const btns = $('#ultbar').children;
     S.heroes.forEach((h, i) => {
       const p = Math.floor(h.rage);
@@ -262,6 +283,7 @@ const UI = (function () {
     modal(`<div class="mbox"><h2>军令三选一</h2><div class="buffs">${opts.map((o, i) => `<button data-act="buff" data-i="${i}"><b>${o.name}</b><span>${o.desc}</span></button>`).join('')}</div></div>`, false);
   }
   function showResult(r) {
+    hideTip();
     lastRes = r;
     const canNext = r.win;
     modal(`<div class="mbox res ${r.win ? '' : 'lose'}"><h2>${r.win ? '大获全胜' : '城池失守'}</h2><ul>
@@ -326,8 +348,8 @@ const UI = (function () {
       if (pickSlot === i) { pickSlot = -1; render(); if (t[i]) detail(t[i]); return; }
       teamSwap(pickSlot, i); pickSlot = -1; render(); toast('已交换站位');
     },
-    lvup: d => { const e = levelUp(d.id); if (e) return toast(e); render(); detail(d.id); },
-    starup: d => { const e = starUp(d.id); if (e) return toast(e); render(); detail(d.id); toast('升星成功'); },
+    lvup: d => { const e = levelUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('up'); render(); detail(d.id); },
+    starup: d => { const e = starUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('rare'); render(); detail(d.id); toast('升星成功'); },
     deploy: d => { const i = Save.data.team.indexOf(null); if (i < 0) return detail(d.id, true); teamSet(i, d.id); render(); detail(d.id); },
     undeploy: d => { const e = teamRemove(d.id); if (e) return toast(e); render(); detail(d.id); },
     replace: d => { teamSet(Number(d.i), d.id); render(); detail(d.id); },
@@ -336,6 +358,8 @@ const UI = (function () {
       const n = Number(d.n), res = gachaDraw(n);
       if (!res) { closeModal(); render(); return toast('招募令不足，可用金币兑换或观看广告'); }
       render(); showPulls(res);
+      Sfx.play(res.some(r => HERO_MAP[r.id].q >= 4) ? 'rare' : 'pull');
+      tip('gacha1', '抽到的武将在<b>「武将」</b>页上阵。同阵营、有缘分的武将一起上阵有加成，点<b>羁绊一览</b>可以看全部组合', 9000);
     },
     buy: d => {
       const n = d.n === 'all' ? Math.floor(Save.data.coins / CFG.TICKET_PRICE) : Number(d.n);
@@ -375,7 +399,9 @@ const UI = (function () {
         <div class="mrow"><button class="btn red" data-act="resume">继续战斗</button></div></div>`, false);
     },
     rock: () => toast('点击战场任意位置投下礌石：伤害并眩晕敌人'),
-    buff: d => { const cb = buffCb; buffCb = null; closeModal(); if (cb) cb(Number(d.i)); },
+    tipClose: () => hideTip(),
+    sound: () => { Save.data.sound = Save.data.sound === false; Save.save(); settings(); if (Save.data.sound) Sfx.play('up'); },
+    buff: d => { Sfx.play('buff'); const cb = buffCb; buffCb = null; closeModal(); if (cb) cb(Number(d.i)); },
     resHome: () => { Battle.stop(); closeModal(); show('home'); },
     resNext: () => { Battle.stop(); const S = Save.data; S.pick = Math.min(S.stage, lastRes.stage + 1); Save.save(); startBattle(S.pick); },
     resRetry: () => { Battle.stop(); startBattle(lastRes.stage); },
@@ -384,7 +410,7 @@ const UI = (function () {
   function init() {
     $('#app').addEventListener('click', e => {
       const t = e.target.closest('[data-act]');
-      if (t) { if (!t.disabled && ACT[t.dataset.act]) ACT[t.dataset.act](t.dataset, t); return; }
+      if (t) { if (!t.disabled && ACT[t.dataset.act]) { if (t.dataset.act !== 'ult' && t.dataset.act !== 'tipClose') Sfx.play('click'); ACT[t.dataset.act](t.dataset, t); } return; }
       if (e.target.id === 'modal' && closable) ACT.close();
     });
     show('home');

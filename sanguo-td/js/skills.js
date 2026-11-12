@@ -210,7 +210,7 @@ const SKILLS = (function () {
         cast(B, h, a, k) {
           const p = B.at(150); if (!p) return;
           const t = 3 * k;
-          B.ring(p.x, p.y, 20, 150, 0.5, '#cfefff', 7); B.flash('180,230,255', 0.3, 0.5);
+          B.ring(p.x, p.y, 20, 150, 0.5, '#cfefff', 7); B.flash('180,230,255', 0.3, 0.5); Sfx.play('freeze');
           B.area(p.x, p.y, 150, e => B.stun(e, t));
           B.zone({ k: 'frost', x: p.x, y: p.y, r: 150, life: t });
           B.later(t, () => { B.area(p.x, p.y, 160, e => B.hit(e, a * 6, 'ice', h)); B.burst(p.x, p.y, 30, '#e8f8ff', 260, 5, 0.6); B.ring(p.x, p.y, 20, 170, 0.4, '#ffffff', 5); });

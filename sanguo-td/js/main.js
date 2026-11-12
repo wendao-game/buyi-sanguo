@@ -22,12 +22,15 @@
   const fontsReady = (document.fonts && document.fonts.load)
     ? Promise.race([Promise.all([document.fonts.load('20px SGRound', '烽火守城0'), document.fonts.load('20px SGBrush', '烽火守城'), document.fonts.load('20px SGNum', '0123')]), new Promise(r => setTimeout(r, 2500))]).catch(() => {})
     : Promise.resolve();
-  Promise.all([Assets.load(), fontsReady]).then(() => {
+  const bar = document.getElementById('loadBar'), txt = document.getElementById('loadTxt');
+  const onProgress = p => { if (bar) bar.style.width = Math.round(p * 100) + '%'; if (txt) txt.textContent = '正在加载 ' + Math.round(p * 100) + '%'; };
+  Promise.all([Assets.load(onProgress), fontsReady]).then(() => {
     FXGen.build(Assets);                       // 没有图片的特效贴图用代码生成
     GLView.init(document.getElementById('gl'));   // WebGL 战斗画面；起不来就自动用 2D 画面
     Battle.init(document.getElementById('cv'));
     UI.init();
     Cloud.init();
+    const ld = document.getElementById('loading'); if (ld) { ld.classList.add('out'); setTimeout(() => ld.remove(), 450); }
     let last = performance.now();
     function loop(now) {
       const dt = (now - last) / 1000; last = now;

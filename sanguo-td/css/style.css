@@ -418,3 +418,21 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 .ult img { inset: 5px; width: 48px; height: 48px; }
 .ult span { left: -14px; right: -14px; bottom: -15px; font-size: 12px; }
 .statlist { margin-top: 4px; }
+
+/* —— 加载画面 —— */
+#loading { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; background: radial-gradient(circle at 50% 40%, #3a2418, #120b08 75%); transition: opacity .4s; }
+#loading.out { opacity: 0; pointer-events: none; }
+#loading b { font-family: var(--fb); font-weight: normal; font-size: 84px; letter-spacing: 4px; color: #ffd76a; text-shadow: 0 4px 0 #6a1410, 0 0 26px #ff8a2a88; }
+#loading .bar { width: 320px; height: 18px; border-radius: 9px; background: #00000080; box-shadow: 0 0 0 1.5px #3a2410, 0 0 0 3px #c9a05a, inset 0 2px 5px #000a; overflow: hidden; }
+#loading .bar i { display: block; width: 0; height: 100%; border-radius: 9px; background: linear-gradient(#ffe08a, #f08a2a); transition: width .15s; }
+#loading span { font-family: var(--fr); font-size: 16px; color: #c8b08a; letter-spacing: 1px; }
+
+/* —— 新手提示条：每条只出现一次，点一下关掉 —— */
+#tipbar { position: absolute; left: 50%; top: 124px; transform: translate(-50%, -12px); width: 380px; padding: 11px 16px 11px 46px; border-radius: 12px; z-index: 15; font-family: var(--fs); font-size: 14.5px; line-height: 1.55; color: #fff3d6; background: linear-gradient(#4a3020f2, #24160ff2); box-shadow: 0 0 0 1.5px #3a2410, 0 0 0 3px #e8c15a, 0 8px 20px #000c; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+#tipbar.on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+#tipbar::before { content: "提"; position: absolute; left: 11px; top: 50%; margin-top: -13px; width: 26px; height: 26px; border-radius: 7px; line-height: 26px; text-align: center; font-family: var(--fb); font-size: 18px; color: #fff0c8; background: linear-gradient(#ff7256, #951d22); box-shadow: 0 0 0 1.5px #f0c66a; }
+#tipbar b { color: #ffe08a; font-family: var(--fr); font-weight: normal; }
+#tipbar { top: auto; bottom: 98px; }                       /* 主城、武将、招募：贴在底部导航上方，不挡标题和按钮 */
+#app[data-screen="battle"] #tipbar { top: 110px; bottom: auto; width: 318px; font-size: 13.5px; }
+#nav button.hint i { animation: navHint 1s ease-in-out infinite alternate; }
+@keyframes navHint { to { box-shadow: 0 0 0 1px #4a0f10, 0 0 0 2.5px #fff0b4, 0 0 18px 4px #ffe08acc, inset 0 1.5px 0 #ffffff59; transform: translateY(-3px); } }
