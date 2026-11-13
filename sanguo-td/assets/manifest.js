@@ -13,10 +13,17 @@ window.ASSET_LIST = [
   'enemies/boss_7.png',
   'enemies/boss_8.png',
   'enemies/boss_9.png',
+  'enemies/catapult.png',
+  'enemies/drummer.png',
   'enemies/elite.png',
   'enemies/grunt.png',
   'enemies/grunt_2.png',
+  'enemies/heavy.png',
+  'enemies/ram.png',
+  'enemies/rattan.png',
   'enemies/rider.png',
+  'enemies/sapper.png',
+  'enemies/shaman.png',
   'enemies/shield.png',
   'fx/bolt.jpg',
   'fx/burst.jpg',
@@ -184,4 +191,4 @@ window.ASSET_LIST = [
   'weapons/zhangba.png',
   'weapons/zhemugong.png',
 ];
-window.ASSET_VER = 'eb791671a4';
+window.ASSET_VER = 'ea6b094dc6';
