@@ -121,7 +121,7 @@ const SKILLS = (function () {
     huaxiong: {
       passive: { name: '西凉骁骑', desc: '旋风推进速度 +60%，攻击 +15%', mod: { tspd: 0.6, atk: 0.15 } },
       ult: { desc: '三道旋风并排横扫整条战线（觉醒持续更久）',
-        cast(B, h, a, k) { [120, 270, 420].forEach(x => B.tornado(h, x, B.WY - 30, { r: 70, life: 4 * k, dmg: a * 0.9, push: 16, vy: -70, big: true })); } },
+        cast(B, h, a, k) { [120, 270, 420].forEach(x => B.tornado(h, x, B.WY - 30, { r: 70, life: 4 * k, dmg: a * 1.3, push: 16, vy: -70, big: true })); } },
     },
 
     /* ======================= 蓝 ======================= */
@@ -163,7 +163,7 @@ const SKILLS = (function () {
     xushu: {
       passive: { name: '单福先生', desc: '旋风击退距离 +50%', mod: { push: 0.5 } },
       ult: { desc: '巽风阵：城前布下风墙 6 秒，冲进来的敌人被持续吹回（觉醒 9 秒）',
-        cast(B, h, a, k) { B.zone({ k: 'barrier', h, y: B.WY - 110, life: 6 * k, dmg: a * 0.6, push: 22 }); } },
+        cast(B, h, a, k) { B.zone({ k: 'barrier', h, y: B.WY - 110, life: 6 * k, dmg: a * 1.0, push: 22 }); } },
     },
 
     /* ======================= 紫 ======================= */
@@ -219,7 +219,7 @@ const SKILLS = (function () {
     },
     taishici: {
       passive: { name: '信义笃烈', desc: '对校尉、敌将伤害 +40%', dmg(B, h, e) { return big(e) ? 1.4 : 1; } },
-      ult: { desc: '天义斩：冲进敌阵，双戟交叉斩向最靠近城墙的 5 个敌人，每记 ×5 并波及周围一大片（觉醒 8 个）',
+      ult: { desc: '天义斩：冲进敌阵，双戟交叉斩向最靠近城墙的 5 个敌人，每记 ×6 并波及周围一大片（觉醒 8 个）',
         cast(B, h, a, k) {
           const n = R(5, k);
           for (let i = 0; i < n; i++) B.later(i * 0.13, () => {
@@ -227,8 +227,8 @@ const SKILLS = (function () {
             const t = L[Math.min(i, L.length - 1)], x = t.x, y = t.y;                                        // 第 i 记斩第 i 靠前的人；人不够就都砍最前面的
             [-0.75, 0.75].forEach(r => B.tex('slash', x, y - 6, { w: 170, h: 78, rot: r, life: 0.24, grow: 1.25, rgb: '255,205,185', a: 0.95 }));   // 两道交叉的戟光
             B.tex('burst', x, y - 6, { w: 70, life: 0.14, grow: 1.4, rgb: '255,230,210' });
-            B.hit(t, a * 5, 'blade', h); B.shake(0.12);
-            B.area(x, y, 95, e => { if (e !== t) B.hit(e, a * 2.5, 'blade', h); });
+            B.hit(t, a * 6, 'blade', h); B.shake(0.12);
+            B.area(x, y, 110, e => { if (e !== t) B.hit(e, a * 3, 'blade', h); });
           });
         } },
     },
@@ -236,10 +236,10 @@ const SKILLS = (function () {
     /* ======================= 金 ======================= */
     guanyu: {
       passive: { name: '武圣', desc: '攻击 +20%；亲手击杀敌人恢复 5 怒气', mod: { atk: 0.2 }, onKill(B, h) { B.rage(h, 5); } },
-      ult: { aim: true, desc: '青龙偃月：月牙巨刃贯穿全场 ×4，之后 4 秒普攻刀气变大（觉醒 ×6、6 秒）',
+      ult: { aim: true, desc: '青龙偃月：月牙巨刃贯穿全场 ×5，之后 4 秒普攻刀气变大（觉醒 ×7.5、6 秒）',
         cast(B, h, a, k) {
           const p = B.at(110); if (!p) return;
-          B.blade(h, h.x, h.y - 22, Math.atan2(p.y - h.y, p.x - h.x), { w: 260, spd: 480, dmg: a * 4 * k, big: true, life: 2.6, color: 'green', tex: 'dragon_azure', texW: 380 });
+          B.blade(h, h.x, h.y - 22, Math.atan2(p.y - h.y, p.x - h.x), { w: 260, spd: 480, dmg: a * 5 * k, big: true, life: 2.6, color: 'green', tex: 'dragon_azure', texW: 380 });
           h.bigT = 4 * k; B.shake(0.35);
         } },
     },
@@ -264,13 +264,14 @@ const SKILLS = (function () {
     zhaoyun: {
       passive: { name: '龙胆', desc: '每第 3 次出手改为贯穿冰枪，伤害 ×1.5',
         onAttack(B, h, tg, d) { if (h.n % 3 === 0 && !tg.dead) B.blade(h, h.x, h.y - 22, Math.atan2(tg.y - h.y, tg.x - h.x), { look: 'ice', el: 'ice', w: 34, spd: 760, dmg: d * 1.5, slow: 1.5, life: 1.5 }); } },
-      ult: { desc: '七进七出：7 道冰枪在敌阵中左右穿梭，伤害 ×4.5 并减速（觉醒 10 道）',
+      ult: { desc: '七进七出：7 道冰枪从两侧杀进敌阵，每一枪都对准一个敌人贯穿过去，伤害 ×3.6 并减速（觉醒 10 道）',
         cast(B, h, a, k) {
           const n = R(7, k);
           for (let i = 0; i < n; i++) B.later(i * 0.14, () => {
-            const fromL = i % 2 === 0, y0 = B.TOP + 40 + Math.random() * (B.WY - B.TOP - 120), y1 = B.TOP + 40 + Math.random() * (B.WY - B.TOP - 120);
-            const x0 = fromL ? -20 : B.W + 20, x1 = fromL ? B.W + 20 : -20;
-            B.blade(h, x0, y0, Math.atan2(y1 - y0, x1 - x0), { look: 'ice', el: 'ice', w: 60, spd: 900, dmg: a * 4.5, slow: 2, life: 1.2, big: true, tex: 'dragon_white', texW: 190 });
+            const L = B.lives(); if (!L.length) return;
+            const t = L[(i * 3 + 1) % L.length], fromL = i % 2 === 0;                                  // 每一枪找一个敌人对准了穿，不再碰运气
+            const x0 = fromL ? -20 : B.W + 20, y0 = Math.max(B.TOP + 20, Math.min(B.WY - 60, t.y + (Math.random() - 0.5) * 160));
+            B.blade(h, x0, y0, Math.atan2(t.y - y0, t.x - x0), { look: 'ice', el: 'ice', w: 68, spd: 900, dmg: a * 3.6, slow: 2, life: 1.2, big: true, tex: 'dragon_white', texW: 190 });
           });
         } },
     },
@@ -387,20 +388,34 @@ const SKILLS = (function () {
     /* —— 蓝 —— */
     daqiao: {
       passive: { name: '国色', desc: '全军怒气获取 +6%；小乔在阵时再 +6%', aura(ctx) { ctx.S.buffs.rage *= ctx.has('xiaoqiao') ? 1.12 : 1.06; } },
-      ult: { desc: '国色凝霜：城墙前开出一排冰莲，城防回复 15%，靠近城墙的敌人被冻住 2.5 秒并受到 ×4 伤害（觉醒回复 22%）',
+      ult: { desc: '国色凝霜：城墙前开出一排冰莲，城防回复 15%，靠近城墙的敌人被冻住 2.5 秒并受到 ×6 伤害（觉醒回复 22%）',
         cast(B, h, a, k) {
           B.heal(0.15 * k); B.flash('190,235,255', 0.22, 0.5);
           for (let i = 0; i < 6; i++) B.later(i * 0.06, () => B.tex('lotus', 62 + i * 83, B.WY - 78 + (i % 2) * 22, { w: 96, life: 1.7, grow: 1.25, fadeIn: 0.12, spin: 0.5, a: 0.9 }));
-          for (const e of B.lives()) if (e.y > B.WY - 220) { B.stun(e, 2.5); B.hit(e, a * 4, 'ice', h); B.tex('lotus', e.x, e.y - 4, { w: 44, life: 0.7, grow: 1.5, a: 0.85 }); }
+          for (const e of B.lives()) if (e.y > B.WY - 260) { B.stun(e, 2.5); B.hit(e, a * 6, 'ice', h); B.tex('lotus', e.x, e.y - 4, { w: 44, life: 0.7, grow: 1.5, a: 0.85 }); }
         } },
     },
     xuchu: {
       passive: { name: '虎痴', desc: '城防每损失 10%，自身伤害 +3%', dmg(B) { return 1 + 0.3 * (1 - Math.max(0, B.S.wall) / B.S.wallMax); } },
-      ult: { desc: '裸衣狂斩：一声虎啸，三道虎爪撕开最前面的敌人（×2，波及周围）；之后 8 秒自身出手速度 ×1.7，刀气变大（觉醒 12 秒）',
+      ult: { desc: '裸衣狂斩：跳下城墙连扑三处敌群——先扑最密的，再扑离城最近的，最后扑阵后的；每扑 ×4 并震晕 1 秒。回来后 8 秒出手速度 ×1.4，刀气变大（觉醒 ×6、12 秒）',
         cast(B, h, a, k) {
-          B.haste(h, 8 * k, 1.7); h.bigT = 8 * k; B.ring(h.x, h.y, 10, 70, 0.5, '#ffb090', 5); B.shake(0.25);
-          const t = B.front();
-          if (t) { B.tex('claw', t.x, t.y - 8, { w: 180, life: 0.5, grow: 1.2, rot: -0.2 }); B.tex('claw', t.x, t.y - 8, { w: 130, life: 0.7, grow: 1.5, rot: -0.2, a: 0.4 }); B.area(t.x, t.y, 85, e => B.hit(e, a * 2, 'blade', h)); }
+          B.haste(h, 8 * k, 1.4); h.bigT = 8 * k; B.ring(h.x, h.y, 10, 70, 0.5, '#ffb090', 5);
+          const done = [], far = e => done.every(p => Math.hypot(p.x - e.x, p.y - e.y) > 150);
+          const pick = i => {
+            const L = B.lives(); if (!L.length) return null;
+            if (i === 0) return B.dense(130) || B.front();
+            const rest = L.filter(far), pool = rest.length ? rest : L;
+            return i === 1 ? pool.reduce((b, e) => e.y > b.y ? e : b) : pool.reduce((b, e) => e.y < b.y ? e : b);   // 第二扑找离城最近的，第三扑找阵后的
+          };
+          let px = h.x, py = h.y - 20;
+          for (let i = 0; i < 3; i++) B.later(i * 0.28, () => {
+            const t = pick(i); if (!t) return; const x = t.x, y = t.y; done.push({ x, y });
+            B.tex('wind_line', (px + x) / 2, (py + y) / 2, { w: Math.hypot(x - px, y - py) + 40, h: 46, rot: Math.atan2(y - py, x - px), life: 0.22, rgb: '255,170,110', a: 0.9 });   // 扑过去的一道残影
+            px = x; py = y;
+            B.tex('claw', x, y - 8, { w: 230, life: 0.45, grow: 1.2, rot: -0.2 + i * 1.1 }); B.tex('claw', x, y - 8, { w: 160, life: 0.65, grow: 1.5, rot: -0.2 + i * 1.1, a: 0.4 });
+            B.ring(x, y, 12, 140, 0.35, '#ffb070', 5); B.shock(x, y, 150, 0.5); B.shake(0.22);
+            B.area(x, y, 140, e => { B.hit(e, a * 4 * k, 'blade', h); B.stun(e, 1); });
+          });
         } },
     },
     huanggai: {
@@ -428,11 +443,14 @@ const SKILLS = (function () {
     dianwei: {
       passive: { name: '古之恶来', desc: '每次出手往左右各多掷一把小戟（伤害 ×0.45）',
         onAttack(B, h, tg, d) { if (tg.dead) return; const b = Math.atan2(tg.y - h.y, tg.x - h.x); [-0.26, 0.26].forEach(o => B.blade(h, h.x, h.y - 22, b + o, { w: 26, spd: 520, dmg: d * 0.45, life: 1.8 })); } },
-      ult: { desc: '恶来掷戟：掷出两把旋转的大铁戟，斜着飞穿敌阵再飞回手里，来回各 ×3.2（觉醒 ×4.8）',
+      ult: { desc: '恶来掷戟：两把旋转的大铁戟，一把掷向敌人最密的地方，一把掷向离城最近的敌人，贯穿敌阵后再飞回手里，来回各 ×4（觉醒 ×6）',
         cast(B, h, a, k) {
           B.shake(0.2);
-          [-1, 1].forEach(s => {
-            const ang = -Math.PI / 2 + s * 0.3, o = { w: 72, spd: 560, dmg: a * 3.2 * k, big: true, life: 0.92, tex: 'halberd', texW: 124, spin: 17 * s };
+          const d = B.dense(120), f = B.front(); if (!f) return;
+          let a1 = Math.atan2((d || f).y - (h.y - 22), (d || f).x - h.x), a2 = Math.atan2(f.y - (h.y - 22), f.x - h.x);
+          if (Math.abs(a1 - a2) < 0.35) { a1 -= 0.2; a2 += 0.2; }                                        // 两处挨得太近就左右岔开，别叠在一条线上
+          [a1, a2].forEach((ang, i) => {
+            const o = { w: 110, spd: 560, dmg: a * 4 * k, big: true, life: 0.92, tex: 'halberd', texW: 150, spin: i ? -17 : 17 };
             B.blade(h, h.x, h.y - 22, ang, o);
             B.later(0.96, () => B.blade(h, h.x + Math.cos(ang) * 515, h.y - 22 + Math.sin(ang) * 515, ang + Math.PI, o));
           });
@@ -496,10 +514,10 @@ const SKILLS = (function () {
     },
     sunshangxiang: {
       passive: { name: '弓腰姬', desc: '暴击率 +12%，暴击伤害 +40%', mod: { crit: 0.12, critDmg: 0.4 } },
-      ult: { desc: '弓腰连珠：一支红翎箭在敌人之间来回弹射 12 次，每次 ×4.5 且必定暴击（觉醒 18 次）',
+      ult: { desc: '弓腰连珠：一支红翎箭在敌人之间来回弹射 14 次，每次 ×4.5 且必定暴击（觉醒 21 次）',
         cast(B, h, a, k) {
           let px = h.x, py = h.y - 24, last = null;
-          for (let i = 0, n = R(12, k); i < n; i++) B.later(i * 0.09, () => {
+          for (let i = 0, n = R(14, k); i < n; i++) B.later(i * 0.09, () => {
             const L = B.lives().filter(e => e !== last); if (!L.length) return;
             const t = L[Math.floor(Math.random() * L.length)], dx = t.x - px, dy = t.y - py, d = Math.hypot(dx, dy);
             B.tex('thrust', (px + t.x) / 2, (py + t.y) / 2, { w: Math.max(60, d), h: 26, rot: Math.atan2(dy, dx), life: 0.17, rgb: '255,140,165', a: 1 });
@@ -557,6 +575,134 @@ const SKILLS = (function () {
             if (e.dead) return;
             B.hit(e, a * 3, 'thunder', h); B.bolt(e.x + (Math.random() - 0.5) * 30, e.y - 70, e.x, e.y - 6, 1.4);
           });
+        } },
+    },
+
+    /* ======================= v1.2 新增的 9 名武将（蓝绿卡池的配角） ======================= */
+    /* —— 绿 —— */
+    yuejin: {
+      passive: { name: '先登', desc: '对还没走到城下的敌人伤害 +20%', dmg(B, h, e) { return e.y < e.stopY ? 1.2 : 1; } },
+      ult: { desc: '先登破阵：杀到敌阵最后面插下战旗，旗子周围一大片敌人受到 ×4 伤害、眩晕 1.5 秒（觉醒 ×6）',
+        cast(B, h, a, k) {
+          const L = B.lives(); if (!L.length) return;
+          const back = L.reduce((b, e) => e.y < b.y ? e : b);                                           // 找站得最靠后的那个
+          let x = 0, y = 0, n = 0; for (const e of L) if (Math.hypot(e.x - back.x, e.y - back.y) < 150) { x += e.x; y += e.y; n++; }
+          x /= n; y /= n;
+          B.tex('wind_line', (h.x + x) / 2, (h.y + y) / 2, { w: Math.hypot(x - h.x, y - h.y), h: 40, rot: Math.atan2(y - h.y, x - h.x), life: 0.25, rgb: '255,190,150', a: 0.8 });
+          B.tex('banner', x + 10, y - 230, { w: 90, h: 135, life: 0.24, vy: 800, a: 1 });
+          B.later(0.22, () => {
+            B.tex('banner', x + 10, y - 50, { w: 90, h: 135, life: 1.6, a: 0.95 });
+            B.ring(x, y, 12, 160, 0.4, '#ffb080', 6); B.shock(x, y, 170, 0.5); B.shake(0.25); B.burst(x, y, 14, '#ffc890', 220, 4, 0.45);
+            B.area(x, y, 160, e => { B.hit(e, a * 4 * k, 'blade', h); B.stun(e, 1.5); });
+          });
+        } },
+    },
+    lidian: {
+      passive: { name: '儒雅', desc: '城防上限 +5%，冰枪范围 +15%', mod: { r: 0.15 }, aura(ctx) { ctx.S.wallBonus += 0.05; } },
+      ult: { aim: true, desc: '冰锥牢笼：一圈冰锥从地里戳出来，把敌人最密的一片围住，圈里的敌人受到 ×3.5 伤害并被冻住 2 秒（觉醒 3 秒）',
+        cast(B, h, a, k) {
+          const p = B.at(120); if (!p) return; const x = p.x, y = p.y, t = 2 * k;
+          for (let i = 0; i < 9; i++) B.later(i * 0.03, () => { const g = i / 9 * 6.283; B.tex('icespike', x + Math.cos(g) * 122, y + Math.sin(g) * 80 + 14, { w: 46, h: 92, ay: 1, life: t + 0.3, fadeIn: 0.08, a: 0.95 }); });
+          B.ring(x, y, 20, 130, 0.35, '#cfefff', 5); Sfx.play('freeze');
+          B.later(0.12, () => B.area(x, y, 125, e => { B.hit(e, a * 3.5, 'ice', h); B.stun(e, t); }));
+        } },
+    },
+    handang: {
+      passive: { name: '弓马娴熟', desc: '出手速度 +8%，暴击率 +5%', mod: { spd: 0.08, crit: 0.05 } },
+      ult: { desc: '火矢连珠：一口气射出 14 支火矢，每支找一个敌人落下炸开 ×1.6 并点燃（觉醒 21 支）',
+        cast(B, h, a, k) {
+          const n = R(14, k);
+          for (let i = 0; i < n; i++) B.later(i * 0.085, () => {
+            const L = B.lives(); if (!L.length) return; const t = L[(i * 5 + 2) % L.length];
+            B.lob(h, 'fire', h.x, h.y - 26, t.x, t.y, { dur: 0.3, arc: 60, r: 44, dmg: a * 1.6, size: 0.55 });
+            B.tex('el_arrow_fire', h.x, h.y - 30, { w: 70, rot: Math.atan2(t.y - h.y, t.x - h.x), life: 0.12, vx: (t.x - h.x) * 2, vy: (t.y - h.y) * 2, a: 0.9 });
+          });
+        } },
+    },
+    wangping: {
+      passive: { name: '无当飞军', desc: '对弓手伤害 +50%，对轻骑伤害 +20%', dmg(B, h, e) { return e.def.id === 'archer' ? 1.5 : e.def.id === 'rider' ? 1.2 : 1; } },
+      ult: { desc: '飞军弩阵：城墙两头架起两座弩台，7 秒内轮番朝离城最近的敌人射出贯穿弩箭，每支 ×1.2（觉醒 10 秒）',
+        cast(B, h, a, k) {
+          const life = 7 * k, xs = [84, B.W - 84], y = B.WY - 46;
+          xs.forEach(x => { B.tex('crossbow', x, y, { w: 84, life: life + 0.2, fadeIn: 0.15, a: 0.95 }); B.ring(x, y, 8, 60, 0.35, '#ffd9a0', 4); });
+          for (let i = 0; i < Math.round(life / 0.3); i++) B.later(0.2 + i * 0.3, () => {
+            const t = B.front(); if (!t) return; const x = xs[i % 2];
+            B.blade(h, x, y - 20, Math.atan2(t.y - (y - 20), t.x - x), { look: 'arrow', el: 'arrow', w: 26, spd: 820, dmg: a * 1.2, life: 1.1, rgb: '255,225,160' });
+            B.tex('burst', x, y - 26, { w: 34, life: 0.1, rgb: '255,235,190' });
+          });
+        } },
+    },
+    /* —— 蓝 —— */
+    zhoutai: {
+      passive: { name: '不屈', desc: '城防低于一半时，自身伤害 +25%', dmg(B) { return B.S.wall < B.S.wallMax * 0.5 ? 1.25 : 1; } },
+      ult: { desc: '不屈死战：提刀守在城门前 6 秒，每 0.5 秒横扫一次城下的敌人 ×0.8 并把他们逼退；城防回复 4%（觉醒 9 秒）',
+        cast(B, h, a, k) {
+          const life = 6 * k; B.heal(0.04);
+          B.tex('circle', B.W / 2, B.WY - 60, { w: 520, h: 150, life: life, fadeIn: 0.2, rgb: '255,90,70', a: 0.5, spin: 0.6 });
+          for (let i = 0; i < Math.round(life / 0.5); i++) B.later(i * 0.5, () => {
+            const x = B.W * (i % 2 ? 0.3 : 0.7);
+            B.tex('slash', x, B.WY - 95, { w: 330, h: 120, rot: i % 2 ? 0.12 : Math.PI - 0.12, life: 0.22, grow: 1.15, rgb: '255,110,90', a: 0.95 });
+            for (const e of B.lives()) if (e.y > B.WY - 210) { B.hit(e, a * 0.8, 'blade', h); B.push(e, 12); }
+          });
+        } },
+    },
+    chengong: {
+      passive: { name: '智迟', desc: '放完大招后 6 秒内出手速度 +50%', onUlt(B, h) { B.haste(h, 6, 1.5); } },
+      ult: { aim: true, desc: '明策困兽：在敌人最密的地方布下困阵 5 秒，阵里的敌人寸步难行、持续中毒，收阵时炸开 ×3（觉醒 7.5 秒）',
+        cast(B, h, a, k) {
+          const p = B.at(140); if (!p) return; const x = p.x, y = p.y, life = 5 * k;
+          B.tex('net', x, y, { w: 300, h: 210, life: life, fadeIn: 0.2, spin: 0.5, a: 0.9 });
+          B.pool(h, x, y, 135, life, a * 0.5, 'poison');
+          for (let i = 0; i < Math.round(life / 0.5); i++) B.later(i * 0.5, () => B.area(x, y, 140, e => B.slow(e, 0.8)));
+          B.area(x, y, 140, e => B.stun(e, 1.2));
+          B.later(life, () => { B.tex('net', x, y, { w: 300, h: 210, life: 0.3, grow: 0.3, a: 0.9 }); B.ring(x, y, 140, 10, 0.3, '#b8ff80', 5); B.burst(x, y, 20, '#a8f070', 240, 4, 0.5); B.area(x, y, 140, e => B.hit(e, a * 3, 'poison', h)); });
+        } },
+    },
+    madai: {
+      passive: { name: '斩将', desc: '对生命低于 35% 的敌人伤害 +60%', dmg(B, h, e) { return e.hp < e.max * 0.35 ? 1.6 : 1; } },
+      ult: { desc: '背后一刀：绕到场上最壮的 5 个敌人背后各捅一刀 ×9 并眩晕 0.8 秒，砍死一个回 8 点怒气（觉醒 8 个）',
+        cast(B, h, a, k) {
+          const n = R(5, k);
+          for (let i = 0; i < n; i++) B.later(i * 0.12, () => {
+            const L = B.lives().filter(e => !e._md).sort((p, q) => q.hp - p.hp); const t = L[0] || B.lives()[0]; if (!t) return;
+            t._md = 1; B.later(1, () => { t._md = 0; });
+            B.tex('dagger', t.x + 8, t.y - 96, { w: 34, h: 102, life: 0.16, vy: 520, a: 1 });
+            B.later(0.14, () => {
+              if (t.dead) return;
+              B.tex('slash', t.x, t.y - 8, { w: 120, h: 50, rot: 1.9, life: 0.2, grow: 1.2, rgb: '255,240,150', a: 0.95 }); B.bolt(t.x + 6, t.y - 70, t.x, t.y - 6, 1.2);
+              B.hit(t, a * 9, 'thunder', h); B.stun(t, 0.8);
+              if (t.dead) B.rage(h, 8);
+            });
+          });
+        } },
+    },
+    gongsunzan: {
+      passive: { name: '白马义从', desc: '每第 5 次出手改为三箭齐射，另外两支射向别的敌人',
+        onAttack(B, h, tg, d) { if (h.n % 5 === 0) for (let i = 0; i < 2; i++) { const t2 = B.rnd(); if (t2) B.arrow(h, t2, d); } } },
+      ult: { aim: true, desc: '白马合围：白马义从绕着敌人最密的地方跑成一圈，边跑边朝圈里放箭，共 14 支贯穿箭、每支 ×1.5（觉醒 21 支）',
+        cast(B, h, a, k) {
+          const p = B.at(140); if (!p) return; const n = R(14, k), x = p.x, y = p.y;
+          B.tex('circle', x, y, { w: 420, h: 300, life: n * 0.07 + 0.5, fadeIn: 0.15, rgb: '235,245,255', a: 0.45, spin: 2.2 });
+          for (let i = 0; i < n; i++) B.later(i * 0.07, () => {
+            const g = i * 2.4, sx = x + Math.cos(g) * 205, sy = y + Math.sin(g) * 145;              // 2.4 弧度一跳，绕着圈换位置
+            B.tex('wind_line', sx, sy, { w: 110, h: 26, rot: g + Math.PI / 2, life: 0.3, rgb: '255,255,255', a: 0.85 });   // 马跑过扬起的一道白尘
+            B.blade(h, sx, sy, Math.atan2(y - sy, x - sx) + (Math.random() - 0.5) * 0.3, { look: 'arrow', el: 'arrow', w: 24, spd: 760, dmg: a * 1.5, life: 0.55, rgb: '240,248,255' });
+          });
+        } },
+    },
+    /* —— 紫 —— */
+    zhanghe: {
+      passive: { name: '巧变', desc: '对被减速、被定住的敌人伤害 +30%', dmg(B, h, e) { return e.slow > 0 || e.frozen > 0 ? 1.3 : 1; } },
+      ult: { desc: '巧变移阵：把离城最近的 8 个敌人卷上天、扔回阵后，每个受到 ×4 伤害，落地再眩晕 1.2 秒并砸伤周围的敌人 ×2（觉醒 12 个）',
+        cast(B, h, a, k) {
+          const L = B.lives().slice().sort((p, q) => q.y - p.y).slice(0, R(8, k));
+          B.flash('160,255,225', 0.18, 0.35);
+          L.forEach((e, i) => B.later(i * 0.07, () => {
+            if (e.dead) return;
+            B.tex('wind_funnel', e.x, e.y + 10, { w: 70, h: 110, ay: 1, life: 0.45, grow: 1.2, a: 0.9 });
+            B.hit(e, a * 4, 'wind', h); B.push(e, 300);
+            B.later(0.3, () => { if (e.dead) return; B.stun(e, 1.2); B.ring(e.x, e.y, 8, 70, 0.3, '#9ff5d8', 4); B.area(e.x, e.y, 75, o => { if (o !== e) B.hit(o, a * 2, 'wind', h); }); });
+          }));
         } },
     },
   };

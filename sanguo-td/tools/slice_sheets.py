@@ -1,9 +1,9 @@
 """把 GPT 画的九宫格拼图切开，处理成游戏用的规格（新的 2.5D 画风，提示词见 tools/art-prompts-25d.html）。
 
 拼图放在 sanguo-td/assets/_sheets/：
-  hero_1.png … hero_6.png    武将（每张 3×3，顺序见下面的 SHEETS）
+  hero_1.png … hero_7.png    武将（每张 3×3，顺序见下面的 SHEETS）
   enemy_1.png、enemy_2.png   敌人和各章敌将
-  head_1.png … head_6.png    武将正面头像（顺序同 hero_1 … hero_6）
+  head_1.png … head_7.png    武将正面头像（顺序同 hero_1 … hero_7）
   weapon_1.png、weapon_2.png 兵器图标（透明底）
   fx_1.png … fx_3.png        技能特效（黑底）
   battle.png                 战场背景（竖版，会裁成 9:16 缩到 1080×1920）
@@ -24,6 +24,7 @@ SHEETS_ORDER = {
     'hero_4': ('heroes', ['zhoucang', 'peiyuan', 'guanhai', 'panfeng', 'mifang', 'god_guanyu', 'god_lvbu', 'god_zhuge', 'god_caocao']),
     'hero_5': ('heroes', ['liubei', 'sunce', 'machao', 'sunshangxiang', 'diaochan', 'guojia', 'dianwei', 'pangtong', 'xiaoqiao']),
     'hero_6': ('heroes', ['zuoci', 'daqiao', 'xuchu', 'huanggai', 'fazheng', 'yujin', 'lingtong', 'xingdaorong', 'jiangqin']),
+    'hero_7': ('heroes', ['zhanghe', 'zhoutai', 'chengong', 'madai', 'gongsunzan', 'yuejin', 'lidian', 'handang', 'wangping']),
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
 }

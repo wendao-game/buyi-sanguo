@@ -381,6 +381,54 @@ const FXGen = (function () {
       }
       radial(c, x, x, w * 0.12, [[0, 'rgba(255,255,235,1)'], [1, 'rgba(255,220,150,0)']]);
     }),
+    /* 冰锥（李典）：一根从地里戳出来的尖冰，底宽顶尖 */
+    icespike: () => mk(96, 192, (c, w, h) => {
+      [[0.5, 0.04, 0.3, '150,215,255', 0.55], [0.36, 0.34, 0.2, '200,235,255', 0.7], [0.66, 0.42, 0.18, '200,235,255', 0.7], [0.5, 0.1, 0.12, '245,252,255', 0.95]].forEach(S => {
+        c.beginPath(); c.moveTo(w * S[0], h * S[1]); c.lineTo(w * (S[0] + S[2]), h * 0.97); c.lineTo(w * (S[0] - S[2]), h * 0.97); c.closePath();
+        c.fillStyle = 'rgba(' + S[3] + ',' + S[4] + ')'; c.fill();
+      });
+      radial(c, w / 2, h * 0.95, w * 0.5, [[0, 'rgba(180,230,255,.5)'], [1, 'rgba(150,210,255,0)']]);
+    }),
+    /* 弩台（王平）：一张架在木架上的大弩，弩臂朝上 */
+    crossbow: () => mk(160, 160, (c, w) => {
+      const x = w / 2;
+      c.lineCap = 'round';
+      [[9, 'rgba(255,190,90,.25)'], [4, 'rgba(255,235,190,1)']].forEach(ps => {
+        c.strokeStyle = ps[1]; c.lineWidth = ps[0];
+        c.beginPath(); c.moveTo(x, w * 0.12); c.lineTo(x, w * 0.8); c.stroke();                                       // 弩身
+        c.beginPath(); c.moveTo(w * 0.1, w * 0.46); c.quadraticCurveTo(x, w * 0.12, w * 0.9, w * 0.46); c.stroke();    // 弩臂
+        c.beginPath(); c.moveTo(x - w * 0.2, w * 0.92); c.lineTo(x, w * 0.7); c.lineTo(x + w * 0.2, w * 0.92); c.stroke();   // 木架
+      });
+      c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(w * 0.1, w * 0.46); c.lineTo(x, w * 0.56); c.lineTo(w * 0.9, w * 0.46); c.stroke();   // 弦
+      c.fillStyle = 'rgba(255,255,255,1)'; c.beginPath(); c.moveTo(x, w * 0.04); c.lineTo(x + 7, w * 0.16); c.lineTo(x - 7, w * 0.16); c.closePath(); c.fill();
+    }),
+    /* 困阵（陈宫）：一张八角的网，一圈圈往里收 */
+    net: () => mk(320, 320, (c, w) => {
+      const x = w / 2;
+      [[6, 0.2], [2, 0.9]].forEach(ps => {
+        c.strokeStyle = 'rgba(175,255,120,' + ps[1] + ')'; c.lineWidth = ps[0]; c.lineJoin = 'round';
+        [0.47, 0.34, 0.21, 0.09].forEach(rr => { c.beginPath(); for (let i = 0; i <= 8; i++) { const a = i / 8 * TAU + Math.PI / 8, px = x + Math.cos(a) * w * rr, py = x + Math.sin(a) * w * rr; i ? c.lineTo(px, py) : c.moveTo(px, py); } c.stroke(); });
+        for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + Math.PI / 8; c.beginPath(); c.moveTo(x + Math.cos(a) * w * 0.09, x + Math.sin(a) * w * 0.09); c.lineTo(x + Math.cos(a) * w * 0.47, x + Math.sin(a) * w * 0.47); c.stroke(); }
+      });
+      for (let i = 0; i < 8; i++) { const a = i / 8 * TAU + Math.PI / 8; radial(c, x + Math.cos(a) * w * 0.47, x + Math.sin(a) * w * 0.47, 12, [[0, 'rgba(240,255,200,1)'], [1, 'rgba(160,255,90,0)']]); }
+    }),
+    /* 匕首（马岱）：刀尖朝下的短刀，带一道下劈的寒光 */
+    dagger: () => mk(64, 192, (c, w, h) => {
+      const x = w / 2;
+      const g = c.createLinearGradient(0, 0, 0, h * 0.6); g.addColorStop(0, 'rgba(255,240,170,0)'); g.addColorStop(1, 'rgba(255,240,170,.55)');
+      c.fillStyle = g; c.beginPath(); c.moveTo(x - 3, 0); c.lineTo(x + 3, 0); c.lineTo(x + 9, h * 0.6); c.lineTo(x - 9, h * 0.6); c.closePath(); c.fill();
+      c.fillStyle = 'rgba(255,252,235,1)'; c.beginPath(); c.moveTo(x - 9, h * 0.52); c.lineTo(x + 9, h * 0.52); c.lineTo(x, h * 0.97); c.closePath(); c.fill();
+      c.fillStyle = 'rgba(255,200,90,1)'; c.fillRect(x - 15, h * 0.48, 30, 6); c.fillRect(x - 4, h * 0.34, 8, h * 0.15);
+      radial(c, x, h * 0.9, w * 0.45, [[0, 'rgba(255,245,190,.7)'], [1, 'rgba(255,220,120,0)']]);
+    }),
+    /* 战旗（乐进）：一面插在地上的三角旗 */
+    banner: () => mk(128, 192, (c, w, h) => {
+      c.strokeStyle = 'rgba(255,235,200,1)'; c.lineWidth = 5; c.lineCap = 'round'; c.beginPath(); c.moveTo(w * 0.22, h * 0.04); c.lineTo(w * 0.22, h * 0.97); c.stroke();
+      const g = c.createLinearGradient(w * 0.22, 0, w, 0); g.addColorStop(0, 'rgba(255,90,60,.95)'); g.addColorStop(1, 'rgba(255,170,70,.75)');
+      c.fillStyle = g; c.beginPath(); c.moveTo(w * 0.22, h * 0.06); c.quadraticCurveTo(w * 0.6, h * 0.1, w * 0.95, h * 0.2); c.quadraticCurveTo(w * 0.62, h * 0.3, w * 0.22, h * 0.44); c.closePath(); c.fill();
+      c.fillStyle = 'rgba(255,245,215,1)'; c.beginPath(); c.arc(w * 0.22, h * 0.04, 6, 0, TAU); c.fill();
+      radial(c, w * 0.22, h * 0.95, w * 0.4, [[0, 'rgba(255,200,120,.5)'], [1, 'rgba(255,160,80,0)']]);
+    }),
     /* 月牙形的风痕：几笔粗细不同的弧叠在一起 */
     wind_arc: () => mk(256, 112, (c, w, h) => {
       const cx = w / 2, cy = h * 1.55, R0 = h * 1.35, n = 24;
