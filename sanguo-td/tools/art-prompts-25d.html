@@ -61,7 +61,7 @@ section { display: flex; flex-direction: column; gap: 14px; }
 <div class="wrap">
   <header>
     <h1>烽火守城 · <span>国风卡通</span> 出图</h1>
-    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 是所有图的标准：每次把它们一起发给 GPT。<b>新加了 18 名武将和 18 件兵器，还差 6 张图</b>：武将 5、6，头像 5、6，兵器 1、2（排在最前面）。没画之前，新武将在游戏里是代码画的简单小人，兵器是简单图标，不影响玩。其余 14 张已经画好并在游戏里；想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。</p>
+    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 是所有图的标准：每次把它们一起发给 GPT。<b>20 张全部画完，都已经在游戏里了</b>（50 名武将和 4 名神将的立绘与头像、18 件兵器、全部敌人、战场背景、技能特效）。想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。</p>
   </header>
 
   <ol class="steps">
@@ -246,7 +246,7 @@ const groups = [
 ];
 
 /* 已经画好并换进游戏的图（要重画也可以，照样复制提示词） */
-const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'enemy_1.png', 'enemy_2.png'];
+const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'weapon_1.png', 'weapon_2.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'enemy_1.png', 'enemy_2.png'];
 
 /* 页面上的排法：还没画的排最前面（按建议的出图顺序：武将和它的头像挨着），已画好的收在后面 */
 const all = [];
