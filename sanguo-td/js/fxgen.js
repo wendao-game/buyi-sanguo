@@ -276,6 +276,16 @@ const FXGen = (function () {
         });
       });
     }),
+    /* 一朵花（小乔的花雨）：五片粉色的花瓣，花心发白 */
+    petal: () => mk(96, 96, (c, w) => {
+      const x = w / 2;
+      for (let i = 0; i < 5; i++) {
+        c.save(); c.translate(x, x); c.rotate(i / 5 * TAU);
+        const g = c.createRadialGradient(0, -w * 0.2, 0, 0, -w * 0.22, w * 0.24); g.addColorStop(0, 'rgba(255,225,238,.95)'); g.addColorStop(0.6, 'rgba(255,140,185,.8)'); g.addColorStop(1, 'rgba(255,90,150,0)');
+        c.fillStyle = g; c.beginPath(); c.ellipse(0, -w * 0.22, w * 0.13, w * 0.22, 0, 0, TAU); c.fill(); c.restore();
+      }
+      radial(c, x, x, w * 0.12, [[0, 'rgba(255,255,235,1)'], [1, 'rgba(255,220,150,0)']]);
+    }),
     /* 月牙形的风痕：几笔粗细不同的弧叠在一起 */
     wind_arc: () => mk(256, 112, (c, w, h) => {
       const cx = w / 2, cy = h * 1.55, R0 = h * 1.35, n = 24;

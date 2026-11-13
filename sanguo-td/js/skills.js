@@ -412,8 +412,12 @@ const SKILLS = (function () {
     xiaoqiao: {
       passive: { name: '天香', desc: '周瑜在阵时全军火系伤害 +15%，否则自身攻击 +10%',
         aura(ctx) { if (ctx.has('zhouyu')) ctx.S.buffs.el.fire = (ctx.S.buffs.el.fire || 1) * 1.15; else ctx.self.atk *= 1.1; } },
-      ult: { desc: '天香舞风：一阵香风把敌人吹退 3 秒，城防回复 8%（觉醒 4.5 秒、回复 12%）',
-        cast(B, h, a, k) { B.zone({ k: 'wind', h, life: 3 * k, dmg: a * 1.3, push: 10 }); B.heal(0.08 * k); B.flash('255,220,235', 0.2, 0.5); } },
+      ult: { desc: '天香舞风：三阵花雨从城下扫向敌阵，每阵伤害 ×1.1、把敌人推后一段并减速 2 秒，城防回复 8%（觉醒五阵、回复 12%）',
+        cast(B, h, a, k) {
+          for (let i = 0, n = R(3, k); i < n; i++) B.later(i * 0.5, () => { B.sweep(h, a * 1.1, { look: 'petal', el: 'wind', push: 26, slow: 2, vy: -340 }); Sfx.play('atk_wind'); });
+          B.heal(0.08 * k); B.flash('255,200,225', 0.22, 0.5);
+          for (let i = 0; i < 6; i++) B.tex('petal', h.x + (Math.random() - 0.5) * 70, h.y - 20 - Math.random() * 40, { w: 30, life: 0.9, grow: 1.6, vy: -60, spin: 3, a: 0.9 });
+        } },
     },
     zuoci: {
       passive: { name: '遁甲', desc: '闪电命中的敌人 15% 概率混乱 1.5 秒', onHit(B, h, e) { if (Math.random() < 0.15) B.confuse(e, 1.5, h); } },

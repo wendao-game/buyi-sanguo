@@ -412,7 +412,8 @@ const Battle = (function () {
       area: inRadius, explode, pool, chain, tornado,
       arrow: shotArrow, blade: shotBlade, lob: shotLob,
       rain(h, tx, ty, dmg, slowT) { shotLob(h, 'arrow', tx - 50, ty - 320, tx, ty, { dur: 0.26, r: 26, dmg, slow: slowT }); },
-      sweep(h, dmg, o) { S.shots.push({ k: 'sweep', h, y: WY - 20, vy: -420, dmg, hit: new Set(), slow: (o && o.slow) || 0 }); },
+      /* 一道横贯战场、从城下推向远处的波。o: slow 减速秒数, push 击退距离, el 伤害类型, look 样子（'' 刀浪 / 'petal' 花雨）, vy 速度 */
+      sweep(h, dmg, o) { o = o || {}; S.shots.push({ k: 'sweep', h, y: WY - 20, vy: o.vy || -420, dmg, hit: new Set(), slow: o.slow || 0, push: o.push || 0, el: o.el || 'blade', look: o.look || '' }); },
       ship(h, x, a) { S.shots.push({ k: 'ship', h, x, y: WY - 34, vy: -250, a, hit: new Set(), trail: 0.25 }); },   // 火船从城下出发，冲向敌阵深处
       zone(o) { o.max = o.life; o.tick = o.tick || 0; o.t = 0; if (o.k === 'icewall') o.hit = new Set(); S.zones.push(o); },
       slash(x, y) { S.slashes.push({ x, y, a: rand() * TAU, life: 0.22, max: 0.22 }); burst(x, y, 6, '#ffffff', 160, 3, 0.25); },
@@ -663,9 +664,10 @@ const Battle = (function () {
         s.y += s.vy * dt;
         for (const e of S.enemies) {
           if (e.dead || s.hit.has(e) || e.y < RANGE_Y - 20) continue;
-          if (Math.abs(e.y - s.y) < 16 + e.def.r) { s.hit.add(e); hit(e, s.dmg, 'blade', s.h); if (s.slow && !e.dead) slow(e, s.slow); }
+          if (Math.abs(e.y - s.y) < 16 + e.def.r) { s.hit.add(e); hit(e, s.dmg, s.el, s.h); if (s.slow && !e.dead) slow(e, s.slow); if (s.push && !e.dead) pushBack(e, s.push); }
         }
-        if (rand() < 0.9) part(rand() * W, s.y, 0, 30, 0.35, '#e6dcff', 3);
+        if (s.look === 'petal') { for (let k = 0; k < 2; k++) part(rand() * W, s.y + rand() * 20, (rand() - 0.5) * 60, 14 + rand() * 30, 0.7 + rand() * 0.4, rand() < 0.3 ? '#fff0f6' : '#ffb0cc', 3 + rand() * 1.5); }
+        else if (rand() < 0.9) part(rand() * W, s.y, 0, 30, 0.35, '#e6dcff', 3);
         done = s.y < RANGE_Y - 40;
       } else if (s.k === 'ship') {
         s.y += s.vy * dt;
@@ -868,6 +870,13 @@ const Battle = (function () {
         c.fillStyle = 'rgba(0,0,0,.25)'; Art.ell(c, s.tx, s.ty + 4, 14 * (s.t / s.dur), 5 * (s.t / s.dur));
         c.fillStyle = '#6a5440'; Art.circ(c, s.x, s.y, 11); c.fillStyle = '#8f7658'; Art.circ(c, s.x - 3, s.y - 3, 6);
       }
+    } else if (s.k === 'sweep' && s.look === 'petal') {       // 花雨：粉色的风带 + 月牙风痕 + 旋转的花
+      const g = c.createLinearGradient(0, s.y - 10, 0, s.y + 60); g.addColorStop(0, 'rgba(255,190,215,.55)'); g.addColorStop(1, 'rgba(255,150,190,0)');
+      c.fillStyle = g; c.fillRect(0, s.y - 6, W, 66);
+      c.globalCompositeOperation = 'lighter';
+      for (let x = 44; x < W; x += 90) img('wind_arc', x, s.y + 2, 120, 44, 0, 0.75, '255,150,195');
+      for (let i = 0; i < 9; i++) { const x = (i * 67 + s.y * 0.7) % W; img('petal', x, s.y + 14 + Math.sin(S.t * 5 + i) * 12, 26, 26, S.t * 3 + i, 0.95); }
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     } else if (s.k === 'sweep') {
       const g = c.createLinearGradient(0, s.y - 10, 0, s.y + 50); g.addColorStop(0, 'rgba(230,220,255,.85)'); g.addColorStop(1, 'rgba(160,110,255,0)');
       c.fillStyle = g; c.fillRect(0, s.y - 6, W, 56);

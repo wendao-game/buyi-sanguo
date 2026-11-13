@@ -267,6 +267,11 @@ const GLView = (function () {
       else if (s.el === 'poison') img(Lf, 'el_orb_wind', s.x, s.y, 26, 0, t * 9, 1, '120,235,60');
       else if (s.el === 'ice') { const a = Math.atan2(s.ty - s.y0, s.tx - s.x0); img(Lf, 'el_arrow_ice', s.x - Math.cos(a) * 18, s.y - Math.sin(a) * 18, 64, 0, a, 1); }
       else if (s.el === 'rock') { const p = s.t / s.dur; ell(La, s.tx, s.ty + 4, 16 * p, 6 * p, 0x000000, 0.3); sp(La, TX.rock, s.x, s.y, 24, 24, { rot: t * 6 }); }
+    } else if (s.k === 'sweep' && s.look === 'petal') {       // 花雨：粉色的风带 + 月牙风痕 + 旋转的花
+      sp(Lf, TX.gradV, 0, s.y - 6, W, 70, { ax: 0, ay: 0, tint: 0xffa8cc, a: 0.5 });
+      for (let x = 44; x < W; x += 90) img(Lf, 'wind_arc', x, s.y + 2, 120, 44, 0, 0.75, '255,150,195');
+      for (let i = 0; i < 9; i++) { const x = (i * 67 + s.y * 0.7) % W; img(Lf, 'petal', x, s.y + 14 + Math.sin(t * 5 + i) * 12, 26, 26, t * 3 + i, 0.95); }
+      light(W / 2, s.y, 300, 0xffc0dc, 0.45);
     } else if (s.k === 'sweep') {
       sp(Lf, TX.gradV, 0, s.y - 6, W, 56, { ax: 0, ay: 0, tint: 0xc8b4ff, a: 0.7 });
       rect(Lf, 0, s.y - 7, W, 3, 0xffffff, 1);
