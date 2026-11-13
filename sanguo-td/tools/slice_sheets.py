@@ -1,9 +1,9 @@
 """把 GPT 画的九宫格拼图切开，处理成游戏用的规格（新的 2.5D 画风，提示词见 tools/art-prompts-25d.html）。
 
 拼图放在 sanguo-td/assets/_sheets/：
-  hero_1.png … hero_7.png    武将（每张 3×3，顺序见下面的 SHEETS）
+  hero_1.png … hero_8.png    武将（每张 3×3，顺序见下面的 SHEETS）
   enemy_1.png … enemy_3.png 敌人和各章敌将（enemy_3 是 v1.3 的新敌兵）
-  head_1.png … head_7.png    武将正面头像（顺序同 hero_1 … hero_7）
+  head_1.png … head_8.png    武将正面头像（顺序同 hero_1 … hero_8）
   weapon_1.png、weapon_2.png 兵器图标（透明底）
   fx_1.png … fx_3.png        技能特效（黑底）
   battle.png                 战场背景（竖版，会裁成 9:16 缩到 1080×1920）
@@ -25,6 +25,7 @@ SHEETS_ORDER = {
     'hero_5': ('heroes', ['liubei', 'sunce', 'machao', 'sunshangxiang', 'diaochan', 'guojia', 'dianwei', 'pangtong', 'xiaoqiao']),
     'hero_6': ('heroes', ['zuoci', 'daqiao', 'xuchu', 'huanggai', 'fazheng', 'yujin', 'lingtong', 'xingdaorong', 'jiangqin']),
     'hero_7': ('heroes', ['zhanghe', 'zhoutai', 'chengong', 'madai', 'gongsunzan', 'yuejin', 'lidian', 'handang', 'wangping']),
+    'hero_8': ('heroes', ['dongzhuo', 'xiahoudun', 'yanliang', 'wenchou', 'menghuo', 'gaoshun', 'caochun', 'chengyuanzhi', None]),   # 收服来的敌将
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
     'enemy_3': ('enemies', ['sapper', 'ram', 'drummer', 'heavy', 'catapult', 'rattan', 'shaman', None, None]),
@@ -160,6 +161,8 @@ def main():
         w, h = sheet.size
         os.makedirs(os.path.join(DST, 'heroes'), exist_ok=True)
         for i, cid in enumerate(ids):
+            if not cid:
+                continue
             col, row = i % 3, i // 3
             cell = keep_main(sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3)))
             box = cell.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()

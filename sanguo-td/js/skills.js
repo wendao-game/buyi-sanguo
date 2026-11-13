@@ -705,5 +705,105 @@ const SKILLS = (function () {
           }));
         } },
     },
+
+    /* ======================= v1.4 收服来的敌将：大招就是他们当敌将时用的那一招 ======================= */
+    chengyuanzhi: {
+      passive: { name: '黄巾渠帅', desc: '攻击 +8%；每有一名黄巾旧部（张角、张宝、管亥、裴元绍）在阵再 +4%',
+        aura(ctx) { let n = 0; ['zhangjiao', 'zhangbao', 'guanhai', 'peiyuan'].forEach(id => { if (ctx.has(id)) n++; }); ctx.self.atk *= 1.08 + 0.04 * n; } },
+      ult: { desc: '黄巾聚义：一排黄巾兵从城门杀出去，一路冲到阵后，撞上的敌人受到 ×1.8 伤害并被顶退（觉醒 ×2.7）',
+        cast(B, h, a, k) {
+          B.flash('255,210,90', 0.18, 0.35);
+          for (let i = 0; i < 6; i++) B.later(i * 0.05, () => B.blade(h, 68 + i * 81 + (Math.random() - 0.5) * 14, B.WY - 24, -Math.PI / 2, { w: 78, spd: 380 + Math.random() * 60, dmg: a * 1.8 * k, push: 16, life: 1.9, big: true, tex: 'soldier', texW: 96 }));
+        } },
+    },
+    gaoshun: {
+      passive: { name: '攻无不克', desc: '对刀盾兵、重甲兵、冲车伤害 +50%', dmg(B, h, e) { return e.def.id === 'shield' || e.def.id === 'heavy' || e.def.id === 'ram' ? 1.5 : 1; } },
+      ult: { desc: '陷阵营：城头架起盾阵 6 秒，城墙受到的伤害减半；靠近城墙的敌人被盾撞开，受到 ×3.5 伤害并眩晕 1 秒（觉醒 9 秒）',
+        cast(B, h, a, k) {
+          const life = 6 * k; B.guard(life, 0.5);
+          B.tex('circle', B.W / 2, B.WY - 6, { w: 560, h: 110, life: life, fadeIn: 0.2, rgb: '130,200,255', a: 0.55, spin: 0.4 });
+          for (let i = 0; i < 7; i++) B.later(i * 0.04, () => B.tex('pillar', 54 + i * 72, B.WY + 4, { w: 60, h: 150, ay: 1, life: 0.7, fadeIn: 0.08, rgb: '150,210,255', a: 0.8 }));
+          B.ring(B.W / 2, B.WY - 10, 40, 300, 0.45, '#9fd6ff', 5); B.shake(0.15);
+          for (const e of B.lives()) if (e.y > B.WY - 260) { B.hit(e, a * 3.5, 'ice', h); B.stun(e, 1); B.push(e, 30); }
+        } },
+    },
+    caochun: {
+      passive: { name: '虎豹骑', desc: '旋风推进速度 +40%，出手速度 +8%', mod: { tspd: 0.4, spd: 0.08 } },
+      ult: { desc: '虎豹骑：5 骑从战场一侧横冲到另一侧，专挑有敌人的地方踏过去，每骑 ×1.9 并把敌人撞退（觉醒 8 骑）',
+        cast(B, h, a, k) {
+          const n = R(5, k);
+          for (let i = 0; i < n; i++) B.later(i * 0.16, () => {
+            const L = B.lives(); if (!L.length) return;
+            const t = L[(i * 4 + 1) % L.length], left = i % 2 === 0;                                      // 每一骑对着一个敌人所在的那一排冲
+            B.blade(h, left ? -30 : B.W + 30, t.y, left ? 0 : Math.PI, { w: 74, spd: 760, dmg: a * 1.9, push: 22, life: 0.85, big: true, el: 'wind', tex: 'horse', texW: 150, rgb: '190,255,235' });
+          });
+        } },
+    },
+    yanliang: {
+      passive: { name: '勇冠三军', desc: '对生命高于 70% 的敌人伤害 +35%', dmg(B, h, e) { return e.hp > e.max * 0.7 ? 1.35 : 1; } },
+      ult: { desc: '突阵：策马从敌人最密的地方直冲到阵后，沿途 ×5 并把敌人撞开；冲到头拨马杀回来再砍一遍 ×2.5（觉醒 ×7.5）',
+        cast(B, h, a, k) {
+          const p = B.at(120) || B.front(); if (!p) return; const x = Math.max(70, Math.min(B.W - 70, p.x));
+          const o = { w: 130, spd: 620, big: true, tex: 'horse', texW: 210, rgb: '255,205,160' };
+          B.shake(0.25); B.ring(x, B.WY - 30, 10, 90, 0.35, '#ffcf9a', 5);
+          B.blade(h, x, B.WY - 20, -Math.PI / 2, Object.assign({ dmg: a * 5 * k, push: 34, life: 0.95 }, o));
+          B.later(1.0, () => B.blade(h, x + (x < B.W / 2 ? 90 : -90), B.TOP + 10, Math.PI / 2, Object.assign({ dmg: a * 2.5 * k, life: 0.9 }, o)));
+        } },
+    },
+    wenchou: {
+      passive: { name: '河北上将', desc: '每第 3 次出手多射一箭，射向离城最近的敌人',
+        onAttack(B, h, tg, d) { if (h.n % 3 === 0) { const t = B.front(); if (t) B.arrow(h, t, d); } } },
+      ult: { desc: '回马连珠：连发 10 支贯穿重箭，每支都瞄着当时离城最近的敌人，×2.8 并把他钉退（觉醒 15 支）',
+        cast(B, h, a, k) {
+          const n = R(10, k);
+          for (let i = 0; i < n; i++) B.later(i * 0.11, () => {
+            const t = B.front(); if (!t) return;
+            const sx = h.x + (i % 2 ? 16 : -16), sy = h.y - 24;
+            B.blade(h, sx, sy, Math.atan2(t.y - sy, t.x - sx), { look: 'arrow', el: 'arrow', w: 34, spd: 900, dmg: a * 2.8, push: 18, life: 1.0, big: true, rgb: '255,235,170' });
+            B.tex('burst', sx, sy, { w: 36, life: 0.1, rgb: '255,240,200' });
+          });
+        } },
+    },
+    menghuo: {
+      passive: { name: '南蛮王', desc: '毒潭范围 +20%，攻击 +10%', mod: { r: 0.2, atk: 0.1 } },
+      ult: { desc: '驱象踏阵：三头战象从城下冲出去，一路踩到阵后，被踩到的敌人受到 ×4 伤害、眩晕 1.2 秒（觉醒 ×6）',
+        cast(B, h, a, k) {
+          B.shake(0.4);
+          const d = B.dense(130), xs = d ? [d.x, d.x - 150, d.x + 150] : [270, 120, 420];
+          xs.forEach((x, i) => B.later(i * 0.22, () => {
+            const cx = Math.max(80, Math.min(B.W - 80, x < 60 ? x + 300 : x > B.W - 60 ? x - 300 : x));
+            const sh = { k: 'blade' };
+            B.blade(h, cx, B.WY - 10, -Math.PI / 2, { w: 120, spd: 330, dmg: a * 4 * k, life: 2.2, big: true, push: 10, tex: 'elephant', texW: 150 });
+            for (let j = 0; j < 7; j++) B.later(j * 0.3, () => { const y = B.WY - 40 - j * 99; if (y > B.TOP) { B.shock(cx, y, 90, 0.35); B.area(cx, y, 70, e => B.stun(e, 1.2)); B.burst(cx, y + 20, 5, '#c8a878', 150, 3, 0.4); } });
+          }));
+        } },
+    },
+    dongzhuo: {
+      passive: { name: '暴虐', desc: '对燃烧中的敌人伤害 +30%', dmg(B, h, e) { return e.burn > 0 ? 1.3 : 1; } },
+      ult: { desc: '火烧洛阳：全场燃起大火，所有敌人受到 ×1.8 伤害、灼烧 6 秒，并吓得后退 1.5 秒（敌将不退，觉醒 9 秒）',
+        cast(B, h, a, k) {
+          B.flash('255,90,40', 0.32, 0.6); B.shake(0.3); Sfx.play('boom');
+          for (let i = 0; i < 14; i++) B.later(i * 0.05, () => B.tex('flame', 40 + Math.random() * (B.W - 80), B.TOP + 60 + Math.random() * (B.WY - B.TOP - 120), { w: 90, h: 170, ay: 1, life: 1.3, fadeIn: 0.1, a: 0.8 }));
+          for (const e of B.lives()) { B.hit(e, a * 1.8, 'fire', h); B.burn(e, 6 * k, a * 0.4, h); if (e.def.id !== 'boss') B.fear(e, 1.5); }
+        } },
+    },
+    xiahoudun: {
+      passive: { name: '独眼', desc: '暴击伤害 +50%；城防低于一半时自身伤害 +15%', mod: { critDmg: 0.5 }, dmg(B) { return B.S.wall < B.S.wallMax * 0.5 ? 1.15 : 1; } },
+      ult: { desc: '拔矢啖睛：一声怒吼，朝敌人最密的三处各劈一刀，每刀 ×3.5 起、城防每损失 10% 再 +0.4，波及一大片并吓退 1.5 秒；之后 6 秒自身必定暴击（觉醒 9 秒）',
+        cast(B, h, a, k) {
+          const lost = 1 - Math.max(0, B.S.wall) / B.S.wallMax, m = 3.5 + lost * 4;
+          B.flash('255,60,40', 0.25, 0.4); B.tex('burst', h.x + 6, h.y - 44, { w: 90, life: 0.5, grow: 1.6, rgb: '255,70,50' });     // 眼里冒出的红光
+          h.critT = 6 * k;
+          const done = [];
+          for (let i = 0; i < 3; i++) B.later(0.15 + i * 0.2, () => {
+            const L = B.lives().filter(e => done.every(p => Math.hypot(p.x - e.x, p.y - e.y) > 140)); const pool = L.length ? L : B.lives(); if (!pool.length) return;
+            let t = pool[0], best = -1; for (const e of pool) { let n = 0; for (const o of pool) if (Math.hypot(o.x - e.x, o.y - e.y) < 110) n++; if (n > best) { best = n; t = e; } }
+            const x = t.x, y = t.y; done.push({ x, y });
+            B.tex('slash', x, y - 6, { w: 300, h: 120, rot: -0.5 + i * 0.5, life: 0.26, grow: 1.2, rgb: '255,90,70', a: 1 }); B.tex('slash', x, y - 6, { w: 220, h: 70, rot: -0.5 + i * 0.5, life: 0.2, grow: 1.2, rgb: '255,240,230', a: 0.9 });
+            B.ring(x, y, 10, 130, 0.35, '#ff7a5a', 5); B.shake(0.2);
+            B.area(x, y, 130, e => { B.hit(e, a * m, 'blade', h); if (e.def.id !== 'boss') B.fear(e, 1.5); });
+          });
+        } },
+    },
   };
 })();

@@ -22,6 +22,7 @@ function once(id) {
     h.t = 99; h.rage = 0; B.tick(0.05);
     if (f === 12) cc = S.live.filter(e => e.frozen > 0 || e.fear > 0 || e.conf > 0 || e.slow > 0).length;
     if (h.hasteT > 0 || S.haste.t > 0) haste = true;
+    if (S.guard && S.guard.t > 0) healed = true;                // 城墙减伤（高顺）和回复一样算守城的效果
     if (f < 30 && S.wall > wall0 + 1) healed = true;
     if (S.over) break;
   }

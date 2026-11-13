@@ -88,7 +88,8 @@ const UI = (function () {
   function intel(st) {
     const ch = chapterOf(st), sk = bossSkill(st);
     const sp = Object.keys(ENEMIES).map(k => ENEMIES[k]).filter(d => d.from && d.from <= st);
-    return `<b>敌将 ${ch.boss}</b>「${sk.name}」${sk.desc}` + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
+    const cap = ch.hero && !(Save.data.captured || {})[ch.hero] ? `<br><b>降服心魔</b> 打通本章第 10 关，${ch.who}本人就归你` : '';
+    return `<b>敌将 ${ch.boss}</b>「${sk.name}」${sk.desc}` + cap + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
   }
 
   /* ---------------- 武将 ---------------- */
@@ -393,6 +394,7 @@ const UI = (function () {
         <li>获得金币（含掉落 ${r.dropped}）<b>+${r.coins}</b></li>
         ${r.iron ? `<li>精铁（强化兵器用）<b>+${r.iron}</b></li>` : ''}
         ${r.tickets ? `<li>首通奖励 · 招募令<b>+${r.tickets}</b></li>` : ''}
+        ${r.captured ? `<li class="cap"><img src="${P(r.captured)}">降服心魔<b>${HERO_MAP[r.captured].name} 归心 · 加入麾下</b></li>` : ''}
       </ul>
       <div class="dmgs">${(() => { const top = Math.max(1, ...r.dmg.map(x => x.dmg)), sum = Math.max(1, r.dmg.reduce((s, x) => s + x.dmg, 0));
         return r.dmg.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join(''); })()}</div>

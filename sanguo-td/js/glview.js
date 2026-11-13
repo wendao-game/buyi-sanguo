@@ -185,10 +185,11 @@ const GLView = (function () {
     ell(La, e.x, e.y + d.r * 0.95 * ds, d.r * 1.05 * ds, d.r * 0.4 * ds, 0x000000, 0.35);
     const lunge = e.atkT > 0 ? Math.sin((1 - e.atkT / 0.24) * Math.PI) * 8 * ds : 0;   // 攻城：往城墙扑一下
     const k = s * q.k, fx = e.x, fy = e.y + bob + lunge + 12.4 * s, w = q.w * k, h = q.h * k, ax = -q.x / q.w, ay = (12.4 - q.y) / q.h;
+    if (e.demon) img(La, 'el_hit_dark', e.x, e.y - d.r * 0.9, d.r * 4.6 * (1 + Math.sin(t * 2.4) * 0.06), 0, t * 0.7, 0.75);   // 心魔：身后一团翻涌的黑紫气焰
     const sh = sp(La, tex, fx, fy, w, h * 0.9014, { ax, ay, tint: 0x000000, a: 0.24, flip: e.flip });   // 斜投影：压扁、倒向右下
     sh.scale.y = -sh.scale.y; sh.skew.x = 1.2315; sh._sk = true;
     const rot = moving ? Math.sin(e.walk) * 0.05 : lunge * 0.018 * (e.flip ? -1 : 1);
-    sp(La, tex, fx, fy, w, h, { ax, ay, rot, flip: e.flip, tint: e.frozen > 0 ? 0x8fd0ff : e.psn > 0 ? 0xb4f08c : e.slow > 0 ? 0xcfe4ff : 0xffffff });
+    sp(La, tex, fx, fy, w, h, { ax, ay, rot, flip: e.flip, tint: e.frozen > 0 ? 0x8fd0ff : e.psn > 0 ? 0xb4f08c : e.demon ? 0x8a66d6 : e.slow > 0 ? 0xcfe4ff : 0xffffff });   // 心魔整个人染成黑紫
     if (e.flash > 0) sp(La, tex, fx, fy, w, h, { ax, ay, rot, flip: e.flip, a: Math.min(1, e.flash * 6) * 0.6, blend: ADD });
     if (e.burn > 0) img(La, 'flame', e.x, e.y - d.r * 0.8, d.r * 1.1, d.r * 1.9, 0, 0.35 + Math.sin(t * 18 + e.ph) * 0.1);
     // 状态

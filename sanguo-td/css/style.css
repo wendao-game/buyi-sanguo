@@ -298,6 +298,9 @@ button, input, textarea { font-family: var(--fs); }
 .reward { font-size: 13px; }
 .reward { margin-bottom: 8px; }
 .intel { margin: 0 14px 14px; padding: 8px 12px; font-size: 12px; line-height: 1.7; color: #c8b89c; text-align: left; background: rgba(0,0,0,.28); border: 1px solid rgba(216,176,74,.25); border-radius: 8px; }
+.res li.cap { color: #ffe08a; display: flex; align-items: center; gap: 8px; }
+.res li.cap img { width: 34px; height: 34px; border-radius: 6px; border: 1px solid #d8b04a; object-fit: cover; }
+.res li.cap b { margin-left: auto; }
 .intel b { color: #ff9a6a; font-weight: normal; margin-right: 4px; }
 .intel i { font-style: normal; display: inline-block; margin: 0 4px 0 0; padding: 0 6px; border-radius: 9px; background: rgba(255,255,255,.08); }
 .intel i.new { color: #1a120c; background: #ffd24a; }

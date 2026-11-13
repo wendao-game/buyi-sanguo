@@ -404,6 +404,7 @@ const Art = (function () {
     castShadow(c, sp.im, sp.x, sp.y, sp.w, sp.h, 12.4, 0.26);
     if (e.flip) c.scale(-1, 1);
     c.drawImage(sp.im, sp.x, sp.y, sp.w, sp.h);
+    if (e.demon) { c.globalAlpha = 0.5 + Math.sin(t * 3 + e.ph) * 0.08; c.drawImage(spriteTint(sp.im, '58,22,96'), sp.x, sp.y, sp.w, sp.h); c.globalAlpha = 1; }   // 心魔：整个人罩一层黑紫
     if (e.flash > 0) {                                        // 受击：同一张图叠加一层发白
       c.globalCompositeOperation = 'lighter'; c.globalAlpha = Math.min(1, e.flash * 6) * 0.6;
       c.drawImage(sp.im, sp.x, sp.y, sp.w, sp.h);

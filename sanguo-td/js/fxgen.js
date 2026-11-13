@@ -429,6 +429,40 @@ const FXGen = (function () {
       c.fillStyle = 'rgba(255,245,215,1)'; c.beginPath(); c.arc(w * 0.22, h * 0.04, 6, 0, TAU); c.fill();
       radial(c, w * 0.22, h * 0.95, w * 0.4, [[0, 'rgba(255,200,120,.5)'], [1, 'rgba(255,160,80,0)']]);
     }),
+    /* 黄巾兵的虚影（程远志）：俯视的一个兵，头朝右，长矛朝前 */
+    soldier: () => mk(192, 128, (c, w, h) => {
+      const y = h / 2;
+      radial(c, w * 0.42, y, h * 0.5, [[0, 'rgba(255,215,90,.45)'], [1, 'rgba(255,190,60,0)']]);
+      c.fillStyle = 'rgba(255,220,120,.9)'; c.beginPath(); c.ellipse(w * 0.4, y, h * 0.17, h * 0.3, 0, 0, TAU); c.fill();           // 肩膀
+      c.fillStyle = 'rgba(255,245,200,1)'; c.beginPath(); c.arc(w * 0.46, y, h * 0.15, 0, TAU); c.fill();                           // 头
+      c.fillStyle = 'rgba(255,190,40,1)'; c.fillRect(w * 0.4, y - h * 0.16, w * 0.05, h * 0.32);                                    // 黄巾
+      c.strokeStyle = 'rgba(255,250,225,1)'; c.lineWidth = 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(w * 0.3, y + h * 0.26); c.lineTo(w * 0.86, y + h * 0.2); c.stroke();
+      c.fillStyle = 'rgba(255,255,255,1)'; c.beginPath(); c.moveTo(w * 0.96, y + h * 0.19); c.lineTo(w * 0.84, y + h * 0.12); c.lineTo(w * 0.84, y + h * 0.27); c.closePath(); c.fill();
+      for (let i = 0; i < 3; i++) { c.strokeStyle = 'rgba(255,220,130,' + (0.5 - i * 0.14) + ')'; c.lineWidth = 3; c.beginPath(); c.moveTo(w * 0.26, y - h * 0.2 + i * h * 0.2); c.lineTo(w * 0.04, y - h * 0.2 + i * h * 0.2); c.stroke(); }
+    }),
+    /* 冲锋的骑兵（颜良、曹纯）：俯视的一人一马，马头朝右，长枪朝前，身后拖着几道残影 */
+    horse: () => mk(256, 128, (c, w, h) => {
+      const y = h / 2;
+      radial(c, w * 0.5, y, h * 0.55, [[0, 'rgba(255,255,255,.35)'], [1, 'rgba(255,255,255,0)']]);
+      for (let i = 0; i < 4; i++) { c.strokeStyle = 'rgba(255,255,255,' + (0.5 - i * 0.1) + ')'; c.lineWidth = 4 - i * 0.6; c.lineCap = 'round'; c.beginPath(); c.moveTo(w * 0.3, y - h * 0.24 + i * h * 0.16); c.lineTo(w * (0.04 + i % 2 * 0.06), y - h * 0.24 + i * h * 0.16); c.stroke(); }
+      c.fillStyle = 'rgba(255,255,255,.92)'; c.beginPath(); c.ellipse(w * 0.5, y, w * 0.2, h * 0.19, 0, 0, TAU); c.fill();           // 马身
+      c.beginPath(); c.ellipse(w * 0.73, y, w * 0.09, h * 0.1, 0, 0, TAU); c.fill();                                                 // 马头
+      c.beginPath(); c.moveTo(w * 0.3, y); c.lineTo(w * 0.2, y - h * 0.1); c.lineTo(w * 0.22, y + h * 0.1); c.closePath(); c.fill();  // 马尾
+      c.fillStyle = '#000'; c.globalCompositeOperation = 'source-over'; c.beginPath(); c.arc(w * 0.5, y, h * 0.13, 0, TAU); c.fill(); c.globalCompositeOperation = 'lighter';
+      c.fillStyle = 'rgba(255,255,255,1)'; c.beginPath(); c.arc(w * 0.5, y, h * 0.1, 0, TAU); c.fill();                              // 骑手
+      c.strokeStyle = 'rgba(255,255,255,1)'; c.lineWidth = 3.5; c.beginPath(); c.moveTo(w * 0.44, y + h * 0.17); c.lineTo(w * 0.94, y + h * 0.1); c.stroke();
+    }),
+    /* 战象（孟获）：俯视的一头大象，头朝右，两只大耳朵、一对长牙 */
+    elephant: () => mk(256, 176, (c, w, h) => {
+      const y = h / 2;
+      radial(c, w * 0.48, y, h * 0.6, [[0, 'rgba(255,200,120,.4)'], [1, 'rgba(255,170,80,0)']]);
+      c.fillStyle = 'rgba(235,200,160,.95)'; c.beginPath(); c.ellipse(w * 0.4, y, w * 0.24, h * 0.3, 0, 0, TAU); c.fill();           // 身子
+      c.fillStyle = 'rgba(210,170,130,.95)'; c.beginPath(); c.ellipse(w * 0.6, y - h * 0.25, w * 0.09, h * 0.17, -0.5, 0, TAU); c.fill(); c.beginPath(); c.ellipse(w * 0.6, y + h * 0.25, w * 0.09, h * 0.17, 0.5, 0, TAU); c.fill();   // 耳朵
+      c.fillStyle = 'rgba(245,215,180,1)'; c.beginPath(); c.arc(w * 0.66, y, h * 0.19, 0, TAU); c.fill();                            // 头
+      c.strokeStyle = 'rgba(245,215,180,1)'; c.lineWidth = 12; c.lineCap = 'round'; c.beginPath(); c.moveTo(w * 0.74, y); c.quadraticCurveTo(w * 0.88, y - h * 0.04, w * 0.92, y + h * 0.06); c.stroke();   // 鼻子
+      c.strokeStyle = 'rgba(255,255,255,1)'; c.lineWidth = 5; [-1, 1].forEach(s => { c.beginPath(); c.moveTo(w * 0.72, y + s * h * 0.1); c.quadraticCurveTo(w * 0.86, y + s * h * 0.2, w * 0.97, y + s * h * 0.12); c.stroke(); });      // 象牙
+      c.fillStyle = 'rgba(200,60,40,.95)'; c.beginPath(); c.ellipse(w * 0.4, y, w * 0.1, h * 0.15, 0, 0, TAU); c.fill();            // 背上的红毯
+    }),
     /* 月牙形的风痕：几笔粗细不同的弧叠在一起 */
     wind_arc: () => mk(256, 112, (c, w, h) => {
       const cx = w / 2, cy = h * 1.55, R0 = h * 1.35, n = 24;

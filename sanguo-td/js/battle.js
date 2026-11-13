@@ -30,7 +30,7 @@ const Battle = (function () {
       queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
       cut: null, lastCut: -99, shock: null, dim: null,
       t: 0, coins: 0, kills: 0,
-      buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 },
+      buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 }, guard: { t: 0, k: 1 },
       picks: [], dmgLog: {}, teamVer: 0,                     // 已选的军令（换将后要重新算一遍）、下场武将的伤害记录、阵容版本号（界面据此重建大招按钮）
       rock: { n: CFG.ROCK_MAX, max: CFG.ROCK_MAX, t: 0, dmg: 1 }, aim: null, aimT: 0,
       over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, wallHitX: W / 2, wallLag: 0, wallAcc: 0, wallAccX: 0, wallAccT: 0, wallFxT: 0, hurt: 0, alarm: false, healK: 1, banner: null, flash: null,
@@ -96,6 +96,7 @@ const Battle = (function () {
     if (q.y == null) S.spawned++;
     S.enemies.push({
       def: d, name: d.id === 'boss' ? S.ch.boss : d.name, x: q.x, y: q.y == null ? -d.r - rand() * 16 : q.y,
+      demon: d.id === 'boss' && !!S.ch.hero,                 // 心魔：能收服的敌将，画成黑紫色的影子
       hasteT: q.haste || 0, auraT: 0, shieldT: 0, ccImm: 0, chargeT: 0, supT: 1 + rand(), skT: d.id === 'boss' ? S.bossSk.cd * 0.6 : 0, enraged: false, revived: false,
       hp, max: hp, atk: d.atk * stageAtkMul(S.stage), spd: d.spd * (0.9 + rand() * 0.2),
       stopY: WY - 15 - d.r - rand() * 12 - (d.range ? d.range * (0.6 + rand() * 0.4) : 0),
@@ -221,7 +222,7 @@ const Battle = (function () {
     if (e.shieldT > 0) m *= 0.5;                                   // 陷阵统领的盾阵
     if (src && src.sk && src.sk.passive.dmg) m *= src.sk.passive.dmg(B, src, e);
     const canCrit = !o.dot || (src && src.m.dotCrit);
-    const crit = canCrit && rand() < 0.08 + S.buffs.crit + (src ? src.crit : 0) + (o.crit || 0);
+    const crit = canCrit && rand() < 0.08 + S.buffs.crit + (src ? src.crit + (src.critT > 0 ? 1 : 0) : 0) + (o.crit || 0);   // critT：夏侯惇放完大招后的几秒必定暴击
     dmg = Math.max(1, Math.round(dmg * m * (0.9 + rand() * 0.2) * (crit ? 2 + (src ? src.critDmg : 0) : 1)));
     if (src) src.dmg += Math.min(dmg, Math.max(0, e.hp));
     e.hp -= dmg; e.flash = 0.1;
@@ -244,6 +245,7 @@ const Battle = (function () {
     if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.38, max: 0.38 });
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (e.def.id === 'boss') Sfx.play('bossdie');
+    if (e.demon) { for (let i = 0; i < 3; i++) tex('el_hit_dark', e.x + (rand() - 0.5) * 50, e.y - 20 - i * 26, { w: 150, life: 0.9 + i * 0.2, grow: 1.6, vy: -40, force: true }); text(e.x, e.y - 90, '心魔已散', '#d8b4ff', 22, 1.6, true); }
     if (isBig(e) || rand() < CFG.COIN_DROP_RATE) dropCoin(e);
     if (rand() < CFG.BUN_DROP_RATE) S.drops.push({ k: 'bun', x: e.x, y: e.y, sx: e.x, sy: e.y, t: 0, dur: 0.8, wait: 0.5, val: 0.04 });
     if (src && src.sk && src.sk.passive.onKill) src.sk.passive.onKill(B, src, e, el);
@@ -281,7 +283,7 @@ const Battle = (function () {
   /* ---------------- 城防挨打的反馈 ---------------- */
   /* 扣血立刻生效；命中的画面（碎石、白光、震动、音效）等 delay 秒：近战是兵器落下，弓手是箭飞到 */
   function wallHurt(e, x, delay, dmgK) {
-    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite' || !!e.def.siege || !!e.def.boom, dmg = e.atk * (dmgK || 1), ref = S;
+    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite' || !!e.def.siege || !!e.def.boom, dmg = e.atk * (dmgK || 1) * (S.guard.t > 0 ? S.guard.k : 1), ref = S;   // S.guard：高顺的陷阵营，城墙少挨打
     S.wall -= dmg;
     S.wallAcc += dmg; S.wallAccX += x * dmg;
     const fx = () => {
@@ -478,6 +480,7 @@ const Battle = (function () {
       teamRage(n, except) { for (const h of S.heroes) if (h !== except) h.rage = Math.min(100, h.rage + n); },
       haste(h, t, mul) { h.hasteT = t; h.hasteMul = mul; },
       teamHaste(t, mul) { S.haste.t = t; S.haste.mul = mul; },
+      guard(t, k) { S.guard.t = t; S.guard.k = k; },             // t 秒内城墙受到的伤害 × k
       /* 技能回复城防：同一局里每回复一次，之后的回复量 × CFG.HEAL_DECAY（最低 CFG.HEAL_MIN），几个会回血的武将轮着放也不至于城墙永远打不破 */
       heal(frac) { const v = Math.round(S.wallMax * frac * S.healK); S.healK = Math.max(CFG.HEAL_MIN, S.healK * CFG.HEAL_DECAY); S.wall = Math.min(S.wallMax, S.wall + v); text(W / 2, WY - 10, '城防 +' + v, '#8dff8a', 18, 1.2, true); },
       ring, burst, bolt, later,
@@ -596,6 +599,7 @@ const Battle = (function () {
     }
     for (let i = S.timers.length - 1; i >= 0; i--) { const tm = S.timers[i]; if ((tm.t -= dt) <= 0) { S.timers.splice(i, 1); tm.fn(); if (!S || S.over) return; } }
     if (S.haste.t > 0) S.haste.t -= dt;
+    if (S.guard.t > 0) S.guard.t -= dt;
     if (S.windT > 0) S.windT -= dt;
     if (S.rock.n < S.rock.max && (S.rock.t += dt) >= CFG.ROCK_CD) { S.rock.n++; S.rock.t = 0; }
 
@@ -603,6 +607,7 @@ const Battle = (function () {
     for (const h of S.heroes) {
       h.anim = Math.max(0, h.anim - dt * 4);
       if (h.hasteT > 0) h.hasteT -= dt;
+      if (h.critT > 0) h.critT -= dt;
       if (h.bigT > 0) h.bigT -= dt;
       const rg = S.buffs.rage * h.rageMul;
       h.rage = Math.min(100, h.rage + dt * 2.5 * rg);            // 怒气：随时间 + 每次出手（按出手间隔折算，快慢武将充能速度一致）
@@ -1109,6 +1114,11 @@ const Battle = (function () {
     if (e.fear > 0) outlined('!', e.x, top, 15, '#ffe08a', 'center', 3);
     else if (e.conf > 0) {
       for (let i = 0; i < 3; i++) { const a = S.t * 6 + i * TAU / 3; c.fillStyle = '#e8b0ff'; Art.circ(c, e.x + Math.cos(a) * 9, top + Math.sin(a) * 3, 2.2); }
+    }
+    if (e.demon && Assets.get('fx:el_hit_dark')) {             // 心魔：脚下一团翻涌的黑紫气焰
+      c.globalCompositeOperation = 'lighter';
+      img('el_hit_dark', e.x, e.y - e.def.r * 0.9, e.def.r * 4.2 * (1 + Math.sin(S.t * 2.4) * 0.06), 0, S.t * 0.7, 0.55);
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     }
     if (e.shieldT > 0 || e.hasteT > 0 || e.auraT > 0 || e.ccImm > 0) {       // 盾阵蓝圈；狂奔、鼓舞、暴怒红圈
       c.strokeStyle = e.shieldT > 0 ? 'rgba(130,200,255,.95)' : 'rgba(255,110,70,.9)'; c.lineWidth = 2;

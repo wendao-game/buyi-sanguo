@@ -155,6 +155,7 @@ const HEROES = [
   H('lidian',        '李典',      1, 'wei', 'ice',     '冰锥牢笼', '儒雅之将'),
   H('handang',       '韩当',      1, 'wu',  'fire',    '火矢连珠', '江表虎臣'),
   H('wangping',      '王平',      1, 'shu', 'arrow',   '飞军弩阵', '无当飞军'),
+  H('chengyuanzhi',  '程远志',     1, 'qun', 'blade',   '黄巾聚义', '黄巾渠帅'),
   // —— 蓝 ——
   H('fazheng',       '法正',      2, 'shu', 'poison',  '睚眦毒计', '蜀汉谋主'),
   H('caiwenji',      '蔡文姬',     2, 'qun', 'ice',     '悲歌凝霜', '胡笳才女'),
@@ -168,6 +169,8 @@ const HEROES = [
   H('chengong',      '陈宫',      2, 'qun', 'poison',  '明策困兽', '吕布谋主'),
   H('madai',         '马岱',      2, 'shu', 'thunder', '背后一刀', '西凉骁将'),
   H('gongsunzan',    '公孙瓒',     2, 'qun', 'arrow',   '白马合围', '白马将军'),
+  H('gaoshun',       '高顺',      2, 'qun', 'ice',     '陷阵营', '陷阵统领'),
+  H('caochun',       '曹纯',      2, 'wei', 'wind',    '虎豹骑', '虎豹骑统领'),
   // —— 紫 ——
   H('ganning',       '甘宁',      3, 'wu',  'arrow',   '锦帆夜袭', '锦帆贼'),
   H('xuhuang',       '徐晃',      3, 'wei', 'blade',   '断粮斩', '周亚夫之风'),
@@ -182,6 +185,9 @@ const HEROES = [
   H('xushu',         '徐庶',      3, 'shu', 'wind',    '巽风阵', '单福先生'),
   H('huaxiong',      '华雄',      3, 'qun', 'wind',    '骁骑风', '西凉都督'),
   H('zhanghe',       '张郃',      3, 'wei', 'wind',    '巧变移阵', '五子良将'),
+  H('yanliang',      '颜良',      3, 'qun', 'blade',   '突阵', '河北上将'),
+  H('wenchou',       '文丑',      3, 'qun', 'arrow',   '回马连珠', '河北上将'),
+  H('menghuo',       '孟获',      3, 'qun', 'poison',  '驱象踏阵', '南蛮王'),
   // —— 金 ——
   H('machao',        '马超',      4, 'shu', 'thunder', '铁骑雷奔', '锦马超'),
   H('huangzhong',    '黄忠',      4, 'shu', 'arrow',   '百步穿杨', '老当益壮'),
@@ -195,6 +201,8 @@ const HEROES = [
   H('guojia',        '郭嘉',      4, 'wei', 'ice',     '遗计寒策', '鬼才'),
   H('taishici',      '太史慈',     4, 'wu',  'blade',   '天义斩', '信义笃烈'),
   H('sunshangxiang', '孙尚香',     4, 'wu',  'arrow',   '弓腰连珠', '弓腰姬'),
+  H('dongzhuo',      '董卓',      4, 'qun', 'fire',    '火烧洛阳', '魔王'),
+  H('xiahoudun',     '夏侯惇',     4, 'wei', 'blade',   '拔矢啖睛', '独眼将军'),
   // —— 橙 ——
   H('zhugeliang',    '诸葛亮',     5, 'shu', 'wind',    '借东风', '卧龙'),
   H('guanyu',        '关羽',      5, 'shu', 'blade',   '青龙偃月', '武圣'),
@@ -286,21 +294,25 @@ function bossSkill(stage) { return BOSS_SKILLS[Math.min(BOSS_SKILLS.length, Math
 /* 这一关第一次登场的新敌人（没有就是 null） */
 function newEnemyAt(stage) { for (const k in ENEMIES) if (ENEMIES[k].from === stage) return ENEMIES[k]; return null; }
 
-/* 各章敌将；立绘是 assets/enemies/boss_<章>.png（第 9 章起用 boss_9） */
+/* 各章敌将；立绘是 assets/enemies/boss_<章>.png（第 9 章起用 boss_9）。
+ * hero：站在对面的是这名武将的「心魔」（一身黑紫气焰的影子）；第一次打通这一章的最后一关 = 降服心魔，武将本人归心加入（之后也进卡池，抽到重复的用来升星） */
 const CHAPTERS = [
-  { name: '黄巾之乱', boss: '程远志' },
-  { name: '讨伐董卓', boss: '董卓' },
-  { name: '群雄割据', boss: '颜良' },
-  { name: '官渡之战', boss: '文丑' },
-  { name: '火烧赤壁', boss: '夏侯惇' },
-  { name: '三分天下', boss: '陷阵统领' },
-  { name: '七擒孟获', boss: '南蛮王' },
-  { name: '北伐中原', boss: '虎豹骑统领' },
+  { name: '黄巾之乱', boss: '程远志', hero: 'chengyuanzhi' },
+  { name: '讨伐董卓', boss: '董卓',   hero: 'dongzhuo' },
+  { name: '群雄割据', boss: '颜良',   hero: 'yanliang' },
+  { name: '官渡之战', boss: '文丑',   hero: 'wenchou' },
+  { name: '火烧赤壁', boss: '夏侯惇', hero: 'xiahoudun' },
+  { name: '三分天下', boss: '高顺',   hero: 'gaoshun' },
+  { name: '七擒孟获', boss: '孟获',   hero: 'menghuo' },
+  { name: '北伐中原', boss: '曹纯',   hero: 'caochun' },
 ];
+/* 打通第 stage 关能收服谁（只有每章最后一关有；没有就是 null） */
+function captureAt(stage) { const c = stage % 10 === 0 ? CHAPTERS[stage / 10 - 1] : null; return c && c.hero ? c.hero : null; }
 function chapterOf(stage) {
   const idx = Math.floor((stage - 1) / 10);
   const c = CHAPTERS[idx] || { name: '乱世无尽', boss: '幽冥鬼将' };
-  return { index: idx + 1, name: c.name, boss: c.boss, sub: ((stage - 1) % 10) + 1 };
+  // 能收服的敌将，站在对面的是他的「心魔」：打败心魔，本人归心
+  return { index: idx + 1, name: c.name, boss: c.hero ? '心魔·' + c.boss : c.boss, who: c.boss, hero: c.hero || null, sub: ((stage - 1) % 10) + 1 };
 }
 
 /* ============================================================
@@ -387,7 +399,7 @@ const ELEMENT_BOND = [0, 0, 0, 0.20, 0.30, 0.40];
 /* ---------------- 缘分：指定武将同时上阵（need = 至少几人；must = 其中这一个必须在阵） ---------------- */
 const COMBOS = [
   { name: '蜀汉旧将', ids: ['liaohua', 'zhoucang', 'guanping'], need: 2, desc: '全军攻击 +8%', eff: { atk: 0.08 } },
-  { name: '黄巾起义', ids: ['zhangjiao', 'zhangbao', 'guanhai', 'peiyuan'], need: 3, desc: '全军攻击 +18%', eff: { atk: 0.18 } },
+  { name: '黄巾起义', ids: ['zhangjiao', 'zhangbao', 'guanhai', 'peiyuan', 'chengyuanzhi'], need: 3, desc: '全军攻击 +18%', eff: { atk: 0.18 } },
   { name: '关氏父子', ids: ['guanyu', 'guanping', 'zhoucang'], need: 2, desc: '刃系伤害 +25%', eff: { el: { blade: 0.25 } } },
   { name: '五虎上将', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong', 'machao'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
   { name: '长沙旧部', ids: ['huangzhong', 'weiyan'], need: 2, desc: '弓、火系伤害 +25%', eff: { el: { arrow: 0.25, fire: 0.25 } } },
@@ -396,10 +408,10 @@ const COMBOS = [
   { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +35%', eff: { el: { fire: 0.35 } } },
   { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu', 'huanggai', 'lingtong', 'jiangqin', 'zhoutai', 'handang'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
   { name: '魏之谋主', ids: ['caocao', 'simayi', 'jiaxu', 'guojia'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
-  { name: '曹氏宗亲', ids: ['caocao', 'caohong'], need: 2, desc: '城防上限 +25%', eff: { wall: 0.25 } },
+  { name: '曹氏宗亲', ids: ['caocao', 'caohong', 'xiahoudun', 'caochun'], need: 2, desc: '城防上限 +25%', eff: { wall: 0.25 } },
   { name: '五子良将', ids: ['zhangliao', 'xuhuang', 'yujin', 'yuejin', 'zhanghe'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
-  { name: '并州旧部', ids: ['lvbu', 'zhangliao'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
-  { name: '西凉董营', ids: ['huaxiong', 'liru', 'lvbu', 'jiaxu'], need: 2, desc: '毒、风系伤害 +30%', eff: { el: { poison: 0.30, wind: 0.30 } } },
+  { name: '并州旧部', ids: ['lvbu', 'zhangliao', 'gaoshun'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
+  { name: '西凉董营', ids: ['huaxiong', 'liru', 'lvbu', 'jiaxu', 'dongzhuo'], need: 2, desc: '毒、风系伤害 +30%', eff: { el: { poison: 0.30, wind: 0.30 } } },
   { name: '乱世才女', ids: ['caiwenji', 'zhenji'], need: 2, desc: '冰系伤害 +30%、怒气获取 +15%', eff: { el: { ice: 0.30 }, rage: 0.15 } },
   { name: '天公地公', ids: ['zhangjiao', 'zhangbao', 'panfeng'], need: 2, desc: '雷系伤害 +30%', eff: { el: { thunder: 0.30 } } },
   // —— v1.0 新增 ——
@@ -438,7 +450,7 @@ const COMBOS = [
   { name: '合肥守将', ids: ['zhangliao', 'yuejin', 'lidian'], need: 2, desc: '城防上限 +12%、全军攻击 +6%', eff: { wall: 0.12, atk: 0.06 } },
   { name: '白马义从', ids: ['gongsunzan', 'zhaoyun'], need: 2, desc: '弓、冰系伤害 +25%', eff: { el: { arrow: 0.25, ice: 0.25 } } },
   { name: '卢植门生', ids: ['gongsunzan', 'liubei'], need: 2, desc: '全军攻击 +8%', eff: { atk: 0.08 } },
-  { name: '白门楼',   ids: ['chengong', 'lvbu'], need: 2, desc: '毒、刃系伤害 +25%', eff: { el: { poison: 0.25, blade: 0.25 } } },
+  { name: '白门楼',   ids: ['chengong', 'lvbu', 'gaoshun'], need: 2, desc: '毒、刃系伤害 +25%', eff: { el: { poison: 0.25, blade: 0.25 } } },
   { name: '捉放曹',   ids: ['chengong', 'caocao'], need: 2, desc: '毒、弓系伤害 +20%', eff: { el: { poison: 0.20, arrow: 0.20 } } },
   { name: '西凉马氏', ids: ['madai', 'machao'], need: 2, desc: '雷系伤害 +30%', eff: { el: { thunder: 0.30 } } },
   { name: '谁敢杀我', ids: ['madai', 'weiyan'], need: 2, desc: '雷、火系伤害 +20%', eff: { el: { thunder: 0.20, fire: 0.20 } } },
@@ -447,6 +459,12 @@ const COMBOS = [
   { name: '三朝老臣', ids: ['handang', 'chengpu', 'huanggai'], need: 2, desc: '火系伤害 +25%', eff: { el: { fire: 0.25 } } },
   { name: '瓦口关',   ids: ['zhanghe', 'zhangfei'], need: 2, desc: '风、雷系伤害 +20%', eff: { el: { wind: 0.20, thunder: 0.20 } } },
   { name: '街亭',     ids: ['zhanghe', 'simayi', 'wangping'], need: 2, desc: '风、毒、弓系伤害 +20%', eff: { el: { wind: 0.20, poison: 0.20, arrow: 0.20 } } },
+  // —— v1.4 新增：收服来的敌将 ——
+  { name: '河北双雄', ids: ['yanliang', 'wenchou'], need: 2, desc: '刃、弓系伤害 +25%', eff: { el: { blade: 0.25, arrow: 0.25 } } },
+  { name: '连环计',   ids: ['dongzhuo', 'diaochan', 'lvbu'], need: 2, must: 'dongzhuo', desc: '火、毒系伤害 +20%、全军暴击率 +6%', eff: { el: { fire: 0.20, poison: 0.20 }, crit: 0.06 } },
+  { name: '七擒七纵', ids: ['menghuo', 'zhugeliang'], need: 2, desc: '毒、风系伤害 +25%', eff: { el: { poison: 0.25, wind: 0.25 } } },
+  { name: '斩将夺旗', ids: ['guanyu', 'yanliang', 'wenchou'], need: 2, must: 'guanyu', desc: '刃系伤害 +20%、全军暴击率 +6%', eff: { el: { blade: 0.20 }, crit: 0.06 } },
+  { name: '虎豹骑',   ids: ['caochun', 'xiahoudun', 'caocao'], need: 2, must: 'caochun', desc: '风、刃系伤害 +20%', eff: { el: { wind: 0.20, blade: 0.20 } } },
 ];
 
 /* 局内三选一军令 */
