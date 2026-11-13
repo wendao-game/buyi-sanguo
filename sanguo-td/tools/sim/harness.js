@@ -8,7 +8,7 @@ function load(patch) {
     btoa: s => Buffer.from(s, 'binary').toString('base64'), atob: s => Buffer.from(s, 'base64').toString('binary'), escape, unescape, encodeURIComponent, decodeURIComponent,
     localStorage: { getItem: k => (k in store ? store[k] : null), setItem(k, v) { store[k] = String(v); }, removeItem(k) { delete store[k]; } },
     location: { protocol: 'http:', hostname: 'sim', search: '' }, document: { getElementById: () => null },
-    Art: { depth: () => 1 }, Assets: { get: () => null, tinted: () => null }, Sfx: { play() {} },
+    Art: { depth: () => 1 }, Assets: { get: () => null, tinted: () => null }, Sfx: { play() {}, music() {} },
     UI: { showBuffs(opts, cb) { cb(ctx.__pickBuff ? ctx.__pickBuff(opts) : 0); }, showResult() {}, hud() {}, render() {}, toast() {}, cloudNote() {} },
   };
   ctx.window = ctx; ctx.globalThis = ctx;

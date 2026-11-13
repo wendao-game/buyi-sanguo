@@ -37,6 +37,8 @@ const UI = (function () {
   /* ---------------- 页面切换 ---------------- */
   function show(tab) {
     screen = tab; $('#app').dataset.screen = tab;
+    hideTip();                                              // 上一个页面的提示不带过来
+    Sfx.music(tab === 'battle' ? 'battle' : 'home');
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     render();
   }
@@ -77,6 +79,7 @@ const UI = (function () {
 
   /* ---------------- 武将 ---------------- */
   function renderHeroes() {
+    if (Object.keys(Save.data.heroes).some(id => Save.data.heroes[id].lv >= 5 && teamIndex(id) < 0)) tip('reset1', '不上阵的武将可以在详情里<b>重置等级</b>，升级花的金币<b>全额返还</b>，拿去练新武将', 9000);
     if (Object.keys(Save.data.heroes).length > 3) tip('heroes1', '点两个位置可以<b>交换站位</b>。位置名变<b>绿</b> = 这名武将适合这个位置；中间是<b>主帅</b>，品质越高全军加成越多', 10000);
     const S = Save.data;
     const team = S.team.map((id, i) => {
@@ -161,7 +164,7 @@ const UI = (function () {
       <p class="mtext" style="font-size:13px">${Platform.isTap() ? '在 TapTap 里进度会自动保存到云存档和本机备份。' : '网页版进度只存在这个浏览器里。'}换设备或清理数据前，可以复制存档码留底，之后在这里读入。</p>
       <div class="mrow"><button class="btn gold" data-act="codeOut">复制存档码</button><button class="btn" data-act="codeIn">读入存档码</button></div>
       <div class="mrow"><button class="btn" data-act="gfx">战斗画面：${GLView.active() ? '高清（WebGL）' : '兼容（2D）'}<small>${GLView.ok ? '点击切换 · 手机发热或卡顿时可以换成兼容' : '这台设备开不了高清画面' + (GLView.error ? '：' + GLView.error : '')}</small></button></div>
-      <div class="mrow"><button class="btn" data-act="sound">音效：${Save.data.sound === false ? '关' : '开'}</button></div>
+      <div class="mrow"><button class="btn" data-act="sound">音效：${Save.data.sound === false ? '关' : '开'}</button><button class="btn" data-act="musicsw">音乐：${Save.data.music === false ? '关' : '开'}</button></div>
       <div class="mrow"><input class="gift" id="giftCode" placeholder="礼包码" autocomplete="off" autocapitalize="characters"><button class="btn red" data-act="gift">兑换</button></div>
       <div class="mrow"><button class="btn gray" data-act="resetAsk">重置存档</button></div></div>`);
   }
@@ -271,6 +274,7 @@ const UI = (function () {
     }
     if (S.t > 4 && S.live.length >= 4 && !tipShown()) tip('rock1', '<b>点战场</b>任意位置可以投下礌石，砸晕扎堆的敌人（左边「石」是剩余块数）', 8000);
     if (S.t > 16 && !tipShown() && S.heroes.some(h => h.rage >= 60)) tip('ult1', '怒气满了会<b>自动放大招</b>。关掉左边的「自动」，可以自己点右边头像选时机，带「可瞄准」的还能选落点', 9000);
+    if (S.wave >= 3 && S.t > 40 && !tipShown() && Object.keys(Save.data.heroes).length > 5) tip('swap1', '打不动的时候点左边<b>「阵」</b>：战斗中可以随时<b>换武将、换站位</b>，留在场上的人怒气不变', 8000);
     const btns = $('#ultbar').children;
     S.heroes.forEach((h, i) => {
       const p = Math.floor(h.rage);
@@ -463,6 +467,7 @@ const UI = (function () {
     },
     rock: () => toast('点击战场任意位置投下礌石：伤害并眩晕敌人'),
     tipClose: () => hideTip(),
+    musicsw: () => { Save.data.music = Save.data.music === false; Save.save(); settings(); },
     sound: () => { Save.data.sound = Save.data.sound === false; Save.save(); settings(); if (Save.data.sound) Sfx.play('up'); },
     buff: d => { Sfx.play('buff'); const cb = buffCb; buffCb = null; closeModal(); if (cb) cb(Number(d.i)); },
     resHome: () => { Battle.stop(); closeModal(); show('home'); },

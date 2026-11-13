@@ -4,12 +4,13 @@
  * 音色偏柔和：拨弦、小铃、气声、软鼓，不用低沉的轰隆声和刺耳的方波；带一点混响
  * Sfx.play(名字)；同一个音效有最短间隔，同时发声的数量有上限，不会糊成一片
  * 浏览器规定要玩家点过一次屏幕才能出声，所以第一次点击时才创建音频环境
- * 开关：Save.data.sound（主城「设置 · 存档」里切换）
+ * 开关：Save.data.sound 音效、Save.data.music 背景音乐（主城「设置 · 存档」里切换）
  * 以后想换成录好的音效：在 play() 里按名字播放音频文件即可，调用的地方不用改
  * ============================================================ */
 
 const Sfx = (function () {
-  let ac = null, master = null, noiseBuf = null, voices = 0;
+  let ac = null, master = null, mbus = null, noiseBuf = null, voices = 0;
+  const MUSIC_VOL = 0.6;                                    // 背景音乐相对音效的音量
   const last = {};
   const MAX_VOICES = 18;
 
@@ -34,6 +35,7 @@ const Sfx = (function () {
     try {
       ac = new AC();
       master = wire(ac);
+      mbus = ac.createGain(); mbus.gain.value = MUSIC_VOL; mbus.connect(master);
       noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     } catch (e) { ac = null; return false; }
@@ -110,6 +112,82 @@ const Sfx = (function () {
     deny:     [0.15, () => { tone('sine', 294, 262, 0.09, 0.12, 0, 0.008); tone('sine', 247, 220, 0.12, 0.1, 0.09, 0.008); }],
   };
 
+  /* ============================================================
+   * 背景音乐：也是现场合成。一个小的音序器，每 0.12 秒把接下来 0.4 秒要响的音排进去。
+   * 三段：home 主城（慢，C 宫五声，拨弦旋律 + 长音垫底）
+   *       battle 战斗（快一些，A 羽五声，鼓点 + 低音 + 拨弦旋律，每四句歇两小节只留鼓）
+   *       boss 敌将登场（同一段，更快，鼓更密，旋律加高八度）
+   * Sfx.music(名字 / null) 切换；开关是 Save.data.music
+   * ============================================================ */
+  const mf = m => 440 * Math.pow(2, (m - 69) / 12);         // MIDI 音高 → 频率
+  function mnote(type, f0, t, dur, vol, atk, f1) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); if (f1) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    env(g, t, vol, atk || 0.006, dur); o.connect(g); g.connect(mbus); o.start(t); o.stop(t + dur + 0.05);
+    o.onended = () => { try { g.disconnect(); } catch (e) { /* 已断开 */ } };
+  }
+  const M = {
+    pluck(m, t, dur, vol) { const f = mf(m); mnote('sine', f, t, dur, vol); mnote('triangle', f * 2, t, dur * 0.4, vol * 0.2); mnote('sine', f * 3, t, dur * 0.2, vol * 0.06); },
+    pad(m, t, dur, vol) { mnote('sine', mf(m), t, dur, vol, dur * 0.35); },
+    bass(m, t, dur, vol) { const f = mf(m); mnote('sine', f, t, dur, vol, 0.01); mnote('triangle', f * 2, t, dur * 0.5, vol * 0.15, 0.01); },
+    tom(f, t, vol, dur) { mnote('sine', f * 1.5, t, dur, vol, 0.008, f); },
+    tick(t, vol) { mnote('triangle', 1319, t, 0.04, vol, 0.003); },                         // 木鱼似的一下轻敲
+  };
+  // 主城旋律：四句，每句两小节、十六个八分音符（0 = 空拍）
+  const HOME_MEL = [
+    [76, 0, 79, 81, 79, 0, 76, 0, 74, 0, 76, 79, 76, 0, 0, 0],
+    [81, 0, 79, 76, 74, 0, 72, 0, 74, 76, 79, 0, 72, 0, 0, 0],
+    [84, 0, 81, 79, 81, 0, 79, 76, 79, 0, 76, 74, 76, 0, 0, 0],
+    [74, 76, 79, 81, 84, 0, 81, 0, 79, 76, 74, 0, 72, 0, 0, 0]];
+  const HOME_ROOT = [48, 45, 48, 43];                        // 每句的根音：C A C G
+  // 战斗旋律：四句，每句两小节、三十二个十六分音符
+  const BAT_MEL = [
+    [69, 0, 0, 72, 0, 0, 74, 0, 76, 0, 0, 0, 74, 0, 72, 0, 69, 0, 0, 67, 0, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [76, 0, 0, 79, 0, 0, 76, 0, 74, 0, 0, 72, 0, 0, 74, 0, 76, 0, 0, 0, 0, 0, 0, 0, 69, 0, 72, 0, 74, 0, 76, 0],
+    [81, 0, 0, 79, 0, 0, 76, 0, 74, 0, 0, 76, 0, 0, 79, 0, 81, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [79, 0, 76, 0, 74, 0, 72, 0, 74, 0, 0, 76, 0, 0, 72, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]];
+  const BAT_ROOT = [45, 45, 48, 43, 45, 45, 43, 40];         // 每小节的根音：A A C G A A G E
+  function playHome(i, t, sd) {
+    const ph = Math.floor(i / 16) % 8, k = i % 16, root = HOME_ROOT[ph % 4], low = ph >= 4, mel = HOME_MEL[ph % 4][k];   // 后四句低八度再来一遍，随机省掉几个音
+    if (mel && !(low && k % 2 === 1 && Math.random() < 0.5)) M.pluck(mel - (low ? 12 : 0), t, sd * 3.2, low ? 0.11 : 0.13);
+    if (k === 0) { [0, 7, 12].forEach(d => M.pad(root + 12 + d, t, sd * 16, 0.03)); M.bass(root, t, sd * 6, 0.1); }
+    if (k === 8) M.bass(root + 7, t, sd * 5, 0.07);
+    if (k % 4 === 2) M.pluck(root + 24 + (k === 2 || k === 10 ? 7 : 12), t, sd * 2, 0.035);     // 轻轻的分解和弦
+  }
+  function playBattle(i, t, sd, boss) {
+    const bar = Math.floor(i / 16), k = i % 16, root = BAT_ROOT[bar % 8], sect = Math.floor(bar / 2) % 5;
+    if (k % 8 === 0) M.tom(k ? 123 : 98, t, 0.16, 0.22);
+    if (k === 4 || k === 12 || (boss && k % 4 === 2)) M.tom(165, t, 0.09, 0.14);
+    if (k === 14) M.tom(147, t, 0.07, 0.12);
+    if (k % 4 === 2) M.tick(t, 0.03);
+    if (k === 0 || k === 3 || k === 6 || k === 8 || k === 11 || k === 14) M.bass(root + (k === 6 || k === 14 ? 7 : 0), t, sd * 2.6, 0.1);
+    if (sect < 4) { const m = BAT_MEL[sect][(bar % 2) * 16 + k]; if (m) { M.pluck(m, t, sd * 4, 0.12); if (boss) M.pluck(m + 12, t, sd * 3, 0.05); } }
+    if (k === 0) { M.pad(root + 12, t, sd * 16, 0.035); M.pad(root + 19, t, sd * 16, 0.025); }
+  }
+  const SONGS = {
+    home:   { bpm: 76,  div: 2, play: playHome },
+    battle: { bpm: 108, div: 4, play: (i, t, sd) => playBattle(i, t, sd, false) },
+    boss:   { bpm: 118, div: 4, play: (i, t, sd) => playBattle(i, t, sd, true) },
+  };
+  let theme = null, mStep = 0, mNext = 0;
+  const musicOn = () => !(typeof Save !== 'undefined' && Save.data && Save.data.music === false);
+  function mTick() {
+    if (!theme || !ac || ac.state !== 'running' || !musicOn()) return;
+    const now = ac.currentTime, s = SONGS[theme], sd = 60 / s.bpm / s.div;
+    if (mNext < now) mNext = now + 0.06;                    // 刚开始，或者切到后台回来：从现在接着排
+    while (mNext < now + 0.4) { try { s.play(mStep, mNext, sd); } catch (e) { /* 忽略 */ } mStep++; mNext += sd; }
+  }
+  setInterval(mTick, 120);
+  function music(name) {
+    name = SONGS[name] ? name : null;
+    if (name === theme) return;
+    theme = name; mStep = 0;
+    if (!ac || !mbus) return;
+    const now = ac.currentTime;                             // 换曲：先收一下音量，半秒后新的一段从头起
+    try { mbus.gain.cancelScheduledValues(now); mbus.gain.setValueAtTime(mbus.gain.value, now); mbus.gain.linearRampToValueAtTime(0.0001, now + 0.3); mbus.gain.setValueAtTime(MUSIC_VOL, now + 0.5); } catch (e) { /* 忽略 */ }
+    mNext = now + 0.5;
+  }
+
   function play(name) {
     if (typeof Save !== 'undefined' && Save.data && Save.data.sound === false) return;
     const b = BANK[name];
@@ -121,15 +199,18 @@ const Sfx = (function () {
   }
   /* 检查用：离线渲染一个音效，返回峰值、平均响度、时长；量的是进压缩器之前的音量，实际播放时小声的大约是它的 1.5 倍。游戏里不调用，见 README「音效」 */
   async function probe(name, sec) {
-    const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext, keep = [ac, master, voices];
+    const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext, keep = [ac, master, voices, mbus];
     const oc = new OC(1, Math.floor(44100 * (sec || 2)), 44100);
     if (!noiseBuf) { noiseBuf = oc.createBuffer(1, 44100, 44100); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
-    ac = oc; master = wire(oc, true);
-    try { BANK[name][1](); } finally { ac = keep[0]; master = keep[1]; }
+    ac = oc; master = wire(oc, true); mbus = oc.createGain(); mbus.gain.value = MUSIC_VOL; mbus.connect(master);
+    try {
+      if (BANK[name]) BANK[name][1]();
+      else { const s = SONGS[name], sd = 60 / s.bpm / s.div; for (let i = 0, t = 0.05; t < (sec || 2) - 1; i++, t += sd) s.play(i, t, sd); }   // 传曲名就渲染一段音乐
+    } finally { ac = keep[0]; master = keep[1]; mbus = keep[3]; }
     const d = (await oc.startRendering()).getChannelData(0); voices = keep[2];
     let peak = 0, sq = 0, n = 0;
     for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; if (v > 0.002) { sq += v * v; n++; } }
     return { peak: +peak.toFixed(3), rms: +Math.sqrt(sq / Math.max(1, n)).toFixed(3), len: +(n / 44100).toFixed(2) };
   }
-  return { play, unlock, probe, get ready() { return !!ac && ac.state === 'running'; }, names: () => Object.keys(BANK) };
+  return { play, music, unlock, probe, songs: () => Object.keys(SONGS), get ready() { return !!ac && ac.state === 'running'; }, names: () => Object.keys(BANK) };
 })();

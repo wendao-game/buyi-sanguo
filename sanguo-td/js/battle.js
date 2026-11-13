@@ -87,6 +87,7 @@ const Battle = (function () {
     S.queue = w.list; S.waveDur = w.dur; S.waveT = 0; S.spawned = 0; S.waveSize = w.list.length;
     S.banner = { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', t: 1.8, max: 1.8 };
     Sfx.play(S.wave === CFG.WAVES ? 'horn' : 'wave');
+    if (S.wave === CFG.WAVES) Sfx.music('boss');             // 最后一波：音乐换成更急的一段
   }
   function spawn(q) {
     const d = ENEMIES[q.type], hp = Math.round(d.hp * stageHpMul(S.stage, S.wave));
@@ -118,7 +119,7 @@ const Battle = (function () {
   function finish(win) {
     if (S.over) return;
     S.over = true; S.win = win; S.aim = null;
-    Sfx.play(win ? 'win' : 'lose');
+    Sfx.music(null); Sfx.play(win ? 'win' : 'lose');
     S.banner = { text: win ? '大获全胜' : '城池失守', t: 99, max: 99 };
     const res = settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins));
     res.win = win; res.kills = S.kills; res.stage = S.stage; res.wave = S.wave;
