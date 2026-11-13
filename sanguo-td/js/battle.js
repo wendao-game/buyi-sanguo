@@ -33,7 +33,7 @@ const Battle = (function () {
       buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 },
       picks: [], dmgLog: {}, teamVer: 0,                     // 已选的军令（换将后要重新算一遍）、下场武将的伤害记录、阵容版本号（界面据此重建大招按钮）
       rock: { n: CFG.ROCK_MAX, max: CFG.ROCK_MAX, t: 0, dmg: 1 }, aim: null, aimT: 0,
-      over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, wallHitX: W / 2, wallLag: 0, wallAcc: 0, wallAccX: 0, wallAccT: 0, wallFxT: 0, hurt: 0, alarm: false, banner: null, flash: null,
+      over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, wallHitX: W / 2, wallLag: 0, wallAcc: 0, wallAccX: 0, wallAccT: 0, wallFxT: 0, hurt: 0, alarm: false, healK: 1, banner: null, flash: null,
     };
     setupTeam(true);
     nextWave();
@@ -426,7 +426,8 @@ const Battle = (function () {
       teamRage(n, except) { for (const h of S.heroes) if (h !== except) h.rage = Math.min(100, h.rage + n); },
       haste(h, t, mul) { h.hasteT = t; h.hasteMul = mul; },
       teamHaste(t, mul) { S.haste.t = t; S.haste.mul = mul; },
-      heal(frac) { const v = Math.round(S.wallMax * frac); S.wall = Math.min(S.wallMax, S.wall + v); text(W / 2, WY - 10, '城防 +' + v, '#8dff8a', 18, 1.2, true); },
+      /* 技能回复城防：同一局里每回复一次，之后的回复量 × CFG.HEAL_DECAY（最低 CFG.HEAL_MIN），几个会回血的武将轮着放也不至于城墙永远打不破 */
+      heal(frac) { const v = Math.round(S.wallMax * frac * S.healK); S.healK = Math.max(CFG.HEAL_MIN, S.healK * CFG.HEAL_DECAY); S.wall = Math.min(S.wallMax, S.wall + v); text(W / 2, WY - 10, '城防 +' + v, '#8dff8a', 18, 1.2, true); },
       ring, burst, bolt, later,
       tex: (name, x, y, o) => tex(name, x, y, Object.assign({ force: true }, o)),
       text: (x, y, s, col, size, life) => text(x, y, s, col, size, life, true),

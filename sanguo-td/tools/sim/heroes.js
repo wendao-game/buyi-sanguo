@@ -6,7 +6,9 @@ const { load, fight } = require('./harness.js');
 const stage = Number(process.argv[2] || 20), star = Number(process.argv[3] || 2), REP = Number(process.argv[4] || 10), only = process.argv[5] ? process.argv[5].split(',') : null;
 const BASE = ['liaohua', 'zhoucang', 'panfeng', 'guanhai'], SPARE = 'guanping', BASE_LV = 25;
 let K = 0.005, PW = 1000;
-const G = load((G, ctx) => { ctx.stageHpMul = (s, wave) => K * PW * (1 + 0.07 * (wave - 1)); });
+// 敌人血量 = k × 这支队伍的战力；敌人攻击也按这支队伍的战力算（和正式关卡同一个公式），
+// 这样城墙能挨的下数和正式关卡里战力达标时一样，不会因为被测队伍战力低于关卡而「一碰就破」
+const G = load((G, ctx) => { ctx.stageHpMul = (s, wave) => K * PW * (1 + 0.07 * (wave - 1)); ctx.stageAtkMul = () => (400 + 0.62 * PW) / (400 + 0.62 * G.stagePower(1)); });
 const D = G.Save.data;
 function setup(id) {
   const base = BASE.map(b => b === id ? SPARE : b), heroes = {};

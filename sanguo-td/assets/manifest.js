@@ -166,4 +166,4 @@ window.ASSET_LIST = [
   'weapons/zhangba.png',
   'weapons/zhemugong.png',
 ];
-window.ASSET_VER = '2fd6b567d7';
+window.ASSET_VER = '7ceb785396';

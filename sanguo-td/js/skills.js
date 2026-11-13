@@ -67,20 +67,20 @@ const SKILLS = (function () {
     panfeng: {
       passive: { name: '无双上将', desc: '每次出手 20% 概率追加一道 3 倍伤害的落雷',
         onAttack(B, h, tg, d) { if (Math.random() < 0.2 && !tg.dead) { B.bolt(tg.x, -10, tg.x, tg.y - 6, 1.5); B.hit(tg, d * 3, 'thunder', h); } } },
-      ult: { desc: '巨斧落雷劈中最前方的敌人，伤害 ×18 并眩晕周围敌人（觉醒 ×27）',
+      ult: { desc: '巨斧落雷劈进敌人最密的地方，正中的敌人受到 ×18 伤害并眩晕，周围一大片敌人受到 ×8 伤害、眩晕 1 秒（觉醒 ×27）',
         cast(B, h, a, k) {
-          const t = B.front(); if (!t) return;
+          const t = B.dense(110) || B.front(); if (!t) return;
           B.bolt(t.x, -10, t.x, t.y - 6, 4); B.flash('220,200,255', 0.35, 0.3); B.shake(0.35);
           B.hit(t, a * 18 * k, 'thunder', h); B.stun(t, 2);
-          B.area(t.x, t.y, 90, e => { if (e !== t) { B.hit(e, a * 5, 'thunder', h); B.stun(e, 1); } });
-          B.ring(t.x, t.y, 10, 80, 0.4, '#c4b0ff', 5);
+          B.area(t.x, t.y, 130, e => { if (e !== t) { B.hit(e, a * 8, 'thunder', h); B.stun(e, 1); } });
+          B.ring(t.x, t.y, 10, 125, 0.4, '#c4b0ff', 5);
         } },
     },
     mifang: {
       passive: { name: '南郡守将', desc: '普攻命中的敌人 2 秒内受到的伤害 +12%',
         onHit(B, h, e) { B.vuln(e, 2, 0.12); } },
       ult: { desc: '在城墙前竖起一排冰刺 5 秒，踩上去的敌人被冻住 1.5 秒（觉醒 7.5 秒）',
-        cast(B, h, a, k) { B.zone({ k: 'icewall', h, y: B.WY - 80, life: 5 * k, dmg: a * 4, stun: 1.5 }); } },
+        cast(B, h, a, k) { B.zone({ k: 'icewall', h, y: B.WY - 80, life: 5 * k, dmg: a * 8, stun: 1.5 }); } },
     },
 
     /* ======================= 绿 ======================= */
@@ -219,13 +219,16 @@ const SKILLS = (function () {
     },
     taishici: {
       passive: { name: '信义笃烈', desc: '对校尉、敌将伤害 +40%', dmg(B, h, e) { return big(e) ? 1.4 : 1; } },
-      ult: { desc: '天义斩：对最前方的敌人连斩 5 刀，每刀 ×3 并波及周围（觉醒 8 刀）',
+      ult: { desc: '天义斩：冲进敌阵，双戟交叉斩向最靠近城墙的 5 个敌人，每记 ×5 并波及周围一大片（觉醒 8 个）',
         cast(B, h, a, k) {
           const n = R(5, k);
-          for (let i = 0; i < n; i++) B.later(i * 0.12, () => {
-            const t = B.front(); if (!t) return;
-            B.slash(t.x, t.y); B.hit(t, a * 3, 'blade', h);
-            B.area(t.x, t.y, 55, e => { if (e !== t) B.hit(e, a * 1.2, 'blade', h); });
+          for (let i = 0; i < n; i++) B.later(i * 0.13, () => {
+            const L = B.lives().slice().sort((x, y) => y.y - x.y); if (!L.length) return;
+            const t = L[Math.min(i, L.length - 1)], x = t.x, y = t.y;                                        // 第 i 记斩第 i 靠前的人；人不够就都砍最前面的
+            [-0.75, 0.75].forEach(r => B.tex('slash', x, y - 6, { w: 170, h: 78, rot: r, life: 0.24, grow: 1.25, rgb: '255,205,185', a: 0.95 }));   // 两道交叉的戟光
+            B.tex('burst', x, y - 6, { w: 70, life: 0.14, grow: 1.4, rgb: '255,230,210' });
+            B.hit(t, a * 5, 'blade', h); B.shake(0.12);
+            B.area(x, y, 95, e => { if (e !== t) B.hit(e, a * 2.5, 'blade', h); });
           });
         } },
     },
@@ -335,15 +338,15 @@ const SKILLS = (function () {
     /* —— 白 —— */
     xingdaorong: {
       passive: { name: '零陵上将', desc: '暴击率 +8%', mod: { crit: 0.08 } },
-      ult: { desc: '零陵开山：一把巨斧从天而降砸中最前面的敌人，伤害 ×7 并眩晕 1.5 秒，震伤周围敌人（觉醒 ×10.5）',
+      ult: { desc: '零陵开山：一把巨斧从天而降砸进敌人最密的地方，正中的敌人受到 ×10 伤害并眩晕 1.5 秒，震伤周围一大片敌人（×5，觉醒 ×15）',
         cast(B, h, a, k) {
-          const t = B.front(); if (!t) return; const x = t.x, y = t.y;
+          const t = B.dense(130) || B.front(); if (!t) return; const x = t.x, y = t.y;
           B.tex('axe', x + 26, y - 300, { w: 104, h: 130, life: 0.33, vy: 860, rot: Math.PI, a: 1 });             // 斧头朝下落
           B.later(0.31, () => {
-            B.shake(0.35); B.shock(x, y, 150, 0.6); B.ring(x, y, 12, 120, 0.4, '#ffd9a0', 6); B.burst(x, y, 18, '#c8a878', 240, 4, 0.5, 400);
+            B.shake(0.35); B.shock(x, y, 170, 0.6); B.ring(x, y, 12, 150, 0.4, '#ffd9a0', 6); B.burst(x, y, 18, '#c8a878', 240, 4, 0.5, 400);
             B.tex('burst', x, y, { w: 150, life: 0.22, grow: 1.4, rgb: '255,220,170' }); B.tex('axe', x + 20, y - 34, { w: 84, h: 105, life: 0.5, rot: Math.PI + 0.25, a: 0.9 });
-            if (!t.dead) { B.hit(t, a * 7 * k, 'blade', h); B.stun(t, 1.5); }
-            B.area(x, y, 110, e => { if (e !== t) { B.hit(e, a * 2.6 * k, 'blade', h); B.stun(e, 0.8); } });
+            if (!t.dead) { B.hit(t, a * 10 * k, 'blade', h); B.stun(t, 1.5); }
+            B.area(x, y, 150, e => { if (e !== t) { B.hit(e, a * 5 * k, 'blade', h); B.stun(e, 0.8); } });
           });
         } },
     },
@@ -403,11 +406,11 @@ const SKILLS = (function () {
     huanggai: {
       passive: { name: '苦肉', desc: '每次出手 30% 概率让火球多爆一次（伤害 ×0.6）',
         onAttack(B, h, tg, d) { if (Math.random() < 0.3) { const x = tg.x, y = tg.y; B.later(0.75, () => B.explode('fire', x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 20, 46, d * 0.6, false, h)); } } },
-      ult: { desc: '苦肉火墙：自损 5% 城防，一道火墙从城下一路烧到阵后，伤害 ×2.8 并点燃沿途的敌人 4 秒（觉醒 ×4.2）',
+      ult: { desc: '苦肉火墙：自损 5% 城防，一道火墙从城下一路烧到阵后，伤害 ×2 并点燃沿途的敌人 3 秒（觉醒 ×3）',
         cast(B, h, a, k) {
           B.S.wall = Math.max(1, B.S.wall - Math.round(B.S.wallMax * 0.05));
           B.tex('flame', h.x, h.y - 4, { w: 70, h: 130, life: 0.7, a: 0.9 });                               // 先把自己点着
-          B.sweep(h, a * 2.8 * k, { look: 'fire', el: 'fire', burn: [4, a * 0.7], vy: -300 });
+          B.sweep(h, a * 2 * k, { look: 'fire', el: 'fire', burn: [3, a * 0.4], vy: -300 });
           B.flash('255,140,60', 0.22, 0.4); Sfx.play('boom');
         } },
     },
@@ -534,12 +537,12 @@ const SKILLS = (function () {
     /* —— 橙 —— */
     liubei: {
       passive: { name: '仁德', desc: '全军攻击 +8%，城防上限 +15%', aura(ctx) { ctx.S.buffs.atk *= 1.08; ctx.S.wallBonus += 0.15; } },
-      ult: { desc: '仁德载世：金光照在每名武将身上，城防回复 20%，其他武将怒气 +20，8 秒内全军出手速度 +25%；雌雄双剑在最前面的敌人身上交叉斩过（觉醒回复 30%、12 秒）',
+      ult: { desc: '仁德载世：金光照在每名武将身上，城防回复 15%，其他武将怒气 +15，8 秒内全军出手速度 +25%；雌雄双剑在最前面的敌人身上交叉斩过，每剑 ×3.5（觉醒回复 22%、12 秒）',
         cast(B, h, a, k) {
-          B.heal(0.2 * k); B.teamRage(20, h); B.teamHaste(8 * k, 1.25); B.flash('255,235,170', 0.25, 0.6);
+          B.heal(0.15 * k); B.teamRage(15, h); B.teamHaste(8 * k, 1.25); B.flash('255,235,170', 0.25, 0.6);
           B.heroes().forEach((x, i) => B.later(i * 0.05, () => { B.tex('pillar', x.x, x.y + 34, { w: 76, h: 250, ay: 1, life: 1.0, fadeIn: 0.1, a: 0.8, rgb: '255,215,110' }); B.ring(x.x, x.y + 26, 8, 56, 0.5, '#ffe08a', 3); }));
           const t = B.front();
-          if (t) [-1, 1].forEach(s => B.blade(h, t.x + s * 150, t.y + 150, Math.atan2(-150, -s * 150), { w: 110, spd: 640, dmg: a * 2.4, big: true, life: 0.9, rgb: s < 0 ? '255,225,140' : '170,255,190' }));
+          if (t) [-1, 1].forEach(s => B.blade(h, t.x + s * 150, t.y + 150, Math.atan2(-150, -s * 150), { w: 110, spd: 640, dmg: a * 3.5, big: true, life: 0.9, rgb: s < 0 ? '255,225,140' : '170,255,190' }));
         } },
     },
     sunce: {

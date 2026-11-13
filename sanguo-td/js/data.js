@@ -57,6 +57,9 @@ const CFG = {
   AIM_SLOW: 0.25,          // 手动瞄准大招时的慢动作倍率
   SWAP_DELAY: 1.5,         // 局中换上场的武将过多少秒才第一次出手（怒气从 0 开始）
 
+  HEAL_DECAY: 0.7,         // 技能回复城防的递减：每回复一次，之后的回复量 × 此值
+  HEAL_MIN: 0.2,           // 回复量最低打到几折
+
   // —— 控制抗性（见 battle.js 的 ccTime / pushBack）——
   CC_DECAY: 0.8,           // 敌人每被硬控一次，之后的控制时长 × 此值
   CC_MIN: 0.3,             // 控制时长最低打到几折
@@ -118,7 +121,7 @@ const ELEMENTS = {
   fire:    { name: '火', color: '#ff8a4a', atk: 26, cd: 1.60,
              desc: '投出火球，范围爆炸并灼烧',
              ult: '天火流星连续轰击敌群' },
-  ice:     { name: '冰', color: '#8fdcff', atk: 20, cd: 1.20,
+  ice:     { name: '冰', color: '#8fdcff', atk: 21, cd: 1.20,
              desc: '冰枪范围伤害并减速',
              ult: '冰封全场敌人并造成伤害' },
   thunder: { name: '雷', color: '#c4b0ff', atk: 24, cd: 1.40,
@@ -270,7 +273,7 @@ function chapterOf(stage) {
  *       再用不带画面的模拟器（tools/sim/）校准，让「战力 = 推荐战力」时挂机胜率约六成。
  * ============================================================ */
 /* 每章最后一关的战力预算（第 0 项 = 开局）。章内按等比插值；第 8 章之后每关 +3% */
-const STAGE_POWER = [250, 2700, 7800, 15400, 25700, 39100, 52500, 69900, 94500];   // 前两章比模拟算出来的（3000、8200）放宽一些：新手期不卡人
+const STAGE_POWER = [250, 2700, 8000, 16000, 27300, 40300, 57300, 75700, 103600];   // 前两章比模拟算出来的（3000、8400）放宽一些：新手期不卡人
 function stagePower(stage) {
   const n = STAGE_POWER.length - 1, s = Math.max(1, stage);
   if (s >= n * 10) return STAGE_POWER[n] * Math.pow(1.03, s - n * 10);
@@ -279,7 +282,7 @@ function stagePower(stage) {
 }
 /* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
  * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
-const HP_PER_POWER = [[1, 0.0060], [10, 0.0057], [20, 0.0054], [40, 0.0051], [50, 0.0054], [60, 0.0055], [70, 0.0047], [80, 0.0050]];   // 各关校准值在 0.0050–0.0065 之间，取平滑后的；第 40 关和最后两章放宽一些
+const HP_PER_POWER = [[1, 0.0060], [10, 0.0057], [20, 0.0054], [40, 0.0051], [50, 0.0052], [60, 0.0051], [70, 0.0052], [80, 0.0054]];   // 各关校准值在 0.0050–0.0065 之间，取平滑后的
 function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];
@@ -335,7 +338,7 @@ const FACTION_BONDS = {
 /* ---------------- 属性共鸣：同一种攻击类型上阵 3 / 4 / 5 人，该系伤害提高（下标 = 人数） ---------------- */
 const ELEMENT_BOND = [0, 0, 0, 0.20, 0.30, 0.40];
 
-/* ---------------- 缘分：指定武将同时上阵（need = 至少几人） ---------------- */
+/* ---------------- 缘分：指定武将同时上阵（need = 至少几人；must = 其中这一个必须在阵） ---------------- */
 const COMBOS = [
   { name: '蜀汉旧将', ids: ['liaohua', 'zhoucang', 'guanping'], need: 2, desc: '全军攻击 +8%', eff: { atk: 0.08 } },
   { name: '黄巾起义', ids: ['zhangjiao', 'zhangbao', 'guanhai', 'peiyuan'], need: 3, desc: '全军攻击 +18%', eff: { atk: 0.18 } },
@@ -367,6 +370,24 @@ const COMBOS = [
   { name: '凤仪亭',   ids: ['diaochan', 'lvbu'], need: 2, desc: '全军暴击率 +12%', eff: { crit: 0.12 } },
   { name: '奇门遁甲', ids: ['zuoci', 'zhangjiao'], need: 2, desc: '雷系伤害 +25%、怒气获取 +10%', eff: { el: { thunder: 0.25 }, rage: 0.10 } },
   { name: '两员上将', ids: ['xingdaorong', 'panfeng'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
+  // —— v1.1 新增：让紫、金、橙武将之间多一些搭配（must = 这名武将必须在阵）——
+  { name: '虎牢关',   ids: ['lvbu', 'liubei', 'guanyu', 'zhangfei'], need: 3, must: 'lvbu', desc: '全军暴击率 +10%、攻击 +6%', eff: { crit: 0.10, atk: 0.06 } },
+  { name: '神亭酣战', ids: ['taishici', 'sunce'], need: 2, desc: '刃、雷系伤害 +20%', eff: { el: { blade: 0.20, thunder: 0.20 } } },
+  { name: '宛城护主', ids: ['dianwei', 'caocao'], need: 2, desc: '刃系伤害 +15%、城防上限 +15%', eff: { el: { blade: 0.15 }, wall: 0.15 } },
+  { name: '裸衣斗马超', ids: ['xuchu', 'machao'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
+  { name: '鬼才毒士', ids: ['guojia', 'jiaxu'], need: 2, desc: '冰、毒系伤害 +25%', eff: { el: { ice: 0.25, poison: 0.25 } } },
+  { name: '空城对弈', ids: ['zhugeliang', 'simayi'], need: 2, desc: '风、毒系伤害 +20%、大招伤害 +10%', eff: { el: { wind: 0.20, poison: 0.20 }, ult: 0.10 } },
+  { name: '琴瑟和鸣', ids: ['zhouyu', 'xiaoqiao'], need: 2, desc: '火、风系伤害 +20%', eff: { el: { fire: 0.20, wind: 0.20 } } },
+  { name: '江东伉俪', ids: ['sunce', 'daqiao'], need: 2, desc: '雷、冰系伤害 +20%', eff: { el: { thunder: 0.20, ice: 0.20 } } },
+  { name: '铜雀台',   ids: ['caocao', 'daqiao', 'xiaoqiao', 'zhenji'], need: 2, must: 'caocao', desc: '怒气获取 +15%', eff: { rage: 0.15 } },
+  { name: '白马解围', ids: ['guanyu', 'zhangliao'], need: 2, desc: '刃、风系伤害 +20%', eff: { el: { blade: 0.20, wind: 0.20 } } },
+  { name: '战长沙',   ids: ['guanyu', 'huangzhong'], need: 2, desc: '刃、弓系伤害 +20%', eff: { el: { blade: 0.20, arrow: 0.20 } } },
+  { name: '入主西川', ids: ['liubei', 'pangtong', 'fazheng'], need: 2, desc: '火、毒系伤害 +20%、怒气获取 +10%', eff: { el: { fire: 0.20, poison: 0.20 }, rage: 0.10 } },
+  { name: '掷杯戏曹', ids: ['zuoci', 'caocao'], need: 2, desc: '雷、弓系伤害 +20%', eff: { el: { thunder: 0.20, arrow: 0.20 } } },
+  { name: '逍遥津',   ids: ['zhangliao', 'ganning', 'lingtong'], need: 2, desc: '风、弓系伤害 +20%', eff: { el: { wind: 0.20, arrow: 0.20 } } },
+  { name: '孙陆联姻', ids: ['luxun', 'sunce'], need: 2, desc: '全军暴击率 +8%、怒气获取 +8%', eff: { crit: 0.08, rage: 0.08 } },
+  { name: '国舅',     ids: ['mifang', 'liubei'], need: 2, desc: '城防上限 +12%', eff: { wall: 0.12 } },
+  { name: '倾国倾城', ids: ['diaochan', 'zhenji', 'daqiao', 'xiaoqiao', 'caiwenji', 'sunshangxiang'], need: 3, desc: '怒气获取 +15%、全军出手速度 +8%', eff: { rage: 0.15, spd: 0.08 } },
 ];
 
 /* 局内三选一军令 */

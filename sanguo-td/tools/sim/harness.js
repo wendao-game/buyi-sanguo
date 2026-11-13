@@ -14,7 +14,7 @@ function load(patch) {
   ctx.window = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);
   let src = ['data', 'skills', 'save', 'battle'].map(f => fs.readFileSync(ROOT + f + '.js', 'utf8')).join('\n');
-  src += '\n;globalThis.G = { STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, WEAPONS, WEAPON_MAP, weaponOwn, heroWeapon, weaponStats, weaponUpCost, weaponUp, weaponEquip, weaponMelt, weaponMeltBack, weaponSpent, stageIron, starSoulCost, starNeed, heroRefine, refineBatch, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn };';
+  src += '\n;globalThis.G = { COMBOS, STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, WEAPONS, WEAPON_MAP, weaponOwn, heroWeapon, weaponStats, weaponUpCost, weaponUp, weaponEquip, weaponMelt, weaponMeltBack, weaponSpent, stageIron, starSoulCost, starNeed, heroRefine, refineBatch, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn };';
   vm.runInContext(src, ctx);
   ctx.G.ctx = ctx;
   if (patch) patch(ctx.G, ctx);

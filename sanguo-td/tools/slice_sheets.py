@@ -90,17 +90,42 @@ def keep_main(im):
     return im
 
 
+# 收腰：这些角色的裙摆、飘带往两边撑得太开，背身俯视看着发胖。头部不动，从肩往下逐渐收窄，脚底收到这个比例。
+SLIM = {'diaochan': 0.74, 'xiaoqiao': 0.74, 'daqiao': 0.80, 'zhenji': 0.80, 'caiwenji': 0.86, 'sunshangxiang': 0.88}
+
+
+def slim(im, k, keep=0.36):
+    """im 是已经裁到人物外框的图。上面 keep 这一段（头）保持原样，往下按行逐渐往头的中轴线收窄，最底下宽度 × k。"""
+    w, h = im.size
+    a = im.getchannel('A').crop((0, 0, w, max(1, int(h * keep))))
+    box = a.point(lambda v: 255 if v > 24 else 0).getbbox()
+    cx = (box[0] + box[2]) / 2 if box else w / 2                 # 头的中轴线
+    n, mesh = 24, []
+    f = lambda y: 1 if y <= h * keep else 1 - (1 - k) * ((y - h * keep) / (h * (1 - keep))) ** 0.8
+    for i in range(n):
+        y0, y1 = h * i / n, h * (i + 1) / n
+        f0, f1 = f(y0), f(y1)
+        # 目标这一条（整行）对应原图里更宽的一条：x_src = cx + (x_dst - cx) / f
+        quad = (cx + (0 - cx) / f0, y0, cx + (0 - cx) / f1, y1, cx + (w - cx) / f1, y1, cx + (w - cx) / f0, y0)
+        mesh.append(((0, int(round(y0)), w, int(round(y1))), quad))
+    return im.transform((w, h), Image.MESH, mesh, Image.BICUBIC)
+
+
 def save_png(im, dst):
     """存成 256 色调色板 PNG（带透明）：卡通画风颜色少，肉眼几乎看不出差别，体积只有原来的五分之一，手机上加载快很多"""
     im.quantize(256, method=2, dither=0).save(dst, optimize=True)
 
 
-def standardize(im, dst, size=320, foot=275, height=256):
+def standardize(im, dst, size=320, foot=275, height=256, slim_k=None):
     im = keep_main(im)
     box = im.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
     if not box:
         return False
     im = im.crop(box)
+    if slim_k:
+        im = slim(im, slim_k)
+        box = im.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
+        im = im.crop(box)
     k = min(height / im.height, size / im.width)
     im = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
     out = Image.new('RGBA', (size, size), (0, 0, 0, 0))
@@ -123,7 +148,7 @@ def main():
                 continue
             col, row = i % 3, i // 3
             cell = sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3))
-            if standardize(cell, os.path.join(DST, folder, cid + '.png')):
+            if standardize(cell, os.path.join(DST, folder, cid + '.png'), height=244 if cid in SLIM else 256, slim_k=SLIM.get(cid)):   # 收腰的几位女角色个头也略小一点
                 done += 1
     for name, ids in HEAD_SHEETS.items():
         path = os.path.join(SHEETS, name + '.png')

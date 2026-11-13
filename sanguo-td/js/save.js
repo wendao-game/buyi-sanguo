@@ -118,7 +118,7 @@ function teamBonus(team) {
   });
   COMBOS.forEach(c => {
     const n = c.ids.filter(id => ids.includes(id)).length;
-    if (n < c.need) return;
+    if (n < c.need || (c.must && !ids.includes(c.must))) return;
     ['atk', 'spd', 'crit', 'rage', 'ult', 'wall'].forEach(k => add(c.eff, k));
     if (c.eff.el) for (const e in c.eff.el) out.el[e] = (out.el[e] || 0) + c.eff.el[e];
     out.active.push({ type: 'combo', name: c.name, desc: c.desc });
