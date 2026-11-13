@@ -45,11 +45,8 @@ const CFG = {
   WEAPON_MAX_LV: 20,
   WEAPON_LV_STEP: 0.05,    // 每强化一级，加成多 5%（20 级是 1 级的 1.95 倍）
   WEAPON_OWNER_MUL: 1.3,   // 专属武将装上：加成 ×1.3
-  WEAPON_DRAW: 15,         // 铸造一次要多少精铁
-  WEAPON_RATES: [38, 28, 19, 10, 4, 1],         // 铸造出各品质的概率（白 … 橙）
-  WEAPON_PITY: 40,         // 多少次铸造必出橙
-  WEAPON_TEN_Q: 3,         // 十连保底品质（3 = 紫）
-  WEAPON_MELT_VAL: [1, 2, 4, 10, 25, 60],       // 一件兵器熔成多少精铁（铸到已有的自动熔掉；手动熔掉另外全额返还强化花的）
+  WEAPON_SHARE: 0.3,       // 招募时每一抽出兵器的概率（其余出武将；品质概率、保底和武将共用）
+  WEAPON_MELT_VAL: [1, 2, 4, 10, 25, 60],       // 一件兵器熔成多少精铁（抽到已有的自动熔掉；手动熔掉另外全额返还强化花的）
   WEAPON_UP: [1, 1.5, 2, 3, 4.5, 6],            // 强化到下一级 = 此值 × 当前等级
 
   // —— 局内操作 ——
@@ -201,8 +198,8 @@ const HEROES = [
   H('god_caocao',  '神·曹操',   7, 'wei', 'poison',  '归心',     '神将', { locked: true }),
 ];
 /* ============================================================
- * 兵器：每名武将可以装一件。用「精铁」铸造（抽）和强化（精铁通关就给），和金币是两条线。
- *   铸到已经有的兵器自动熔回精铁：低品、重复的兵器就是高品兵器的强化材料。
+ * 兵器：每名武将可以装一件。和武将在同一个卡池里用招募令抽；用「精铁」强化（精铁通关给，抽到已有的兵器也会熔成精铁）。
+ *   低品、重复的兵器熔成精铁，就是高品兵器的强化材料。
  *   q 品质（同武将品质）；type 样子（剑 刀 枪 弓 扇 戟 斧，只影响图标）
  *   eff 1 级时的加成：atk 攻击、spd 出手速度、crit 暴击率、rage 怒气获取、ult 大招伤害；每强化一级 +CFG.WEAPON_LV_STEP
  *   owner 专属武将：装在他身上时全部加成 × CFG.WEAPON_OWNER_MUL
@@ -272,7 +269,7 @@ function chapterOf(stage) {
  *       再用不带画面的模拟器（tools/sim/）校准，让「战力 = 推荐战力」时挂机胜率约六成。
  * ============================================================ */
 /* 每章最后一关的战力预算（第 0 项 = 开局）。章内按等比插值；第 8 章之后每关 +3% */
-const STAGE_POWER = [250, 2900, 8400, 16900, 28000, 39400, 54000, 74100, 103900];   // 前两章比模拟算出来的（3300、8900）放宽一些：新手期不卡人
+const STAGE_POWER = [250, 2700, 7800, 15400, 25700, 39100, 52500, 69900, 94500];   // 前两章比模拟算出来的（3000、8200）放宽一些：新手期不卡人
 function stagePower(stage) {
   const n = STAGE_POWER.length - 1, s = Math.max(1, stage);
   if (s >= n * 10) return STAGE_POWER[n] * Math.pow(1.03, s - n * 10);
@@ -281,7 +278,7 @@ function stagePower(stage) {
 }
 /* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
  * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
-const HP_PER_POWER = [[1, 0.0060], [10, 0.0057], [20, 0.0054], [50, 0.0054], [60, 0.0055], [70, 0.0047], [80, 0.0050]];   // 各关校准值在 0.0050–0.0065 之间，取平滑后的；最后两章玩家快到等级上限，放宽一些
+const HP_PER_POWER = [[1, 0.0060], [10, 0.0057], [20, 0.0054], [40, 0.0051], [50, 0.0054], [60, 0.0055], [70, 0.0047], [80, 0.0050]];   // 各关校准值在 0.0050–0.0065 之间，取平滑后的；第 40 关和最后两章放宽一些
 function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];
@@ -293,7 +290,7 @@ function stageHpMul(stage, wave) { return CFG.ENEMY_HP_SCALE * hpPerPower(stage)
 function stageAtkMul(stage)      { return (400 + 0.62 * stagePower(stage)) / (400 + 0.62 * stagePower(1)); }   // 跟着城防（400 + 武将战力）涨：各关城墙能挨的下数差不多
 function stageRecommend(stage)   { return Math.round(stagePower(stage) / 10) * 10; }
 function stageWinCoins(stage)    { return 100 + 25 * stage; }
-function stageIron(stage)        { return 4 + Math.floor(stage / 2.5); }   // 通关给的精铁（重复通关同样打折；战败按打过的波数给三成）
+function stageIron(stage)        { return 2 + Math.floor(stage / 5); }   // 通关给的精铁，强化兵器用（重复通关同样打折；战败按打过的波数给三成）
 
 /* 生成一波敌人：返回按出场时间排序的 [{t, type, x}] */
 function genWave(stage, wave) {

@@ -464,9 +464,8 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 .ahead .cur { min-width: 112px; }
 .ahead p { flex: 1; font-size: 12.5px; line-height: 1.5; color: #c8b08a; }
 .ahead p b { color: var(--gold2); font-weight: normal; }
-.grid.agrid { top: 178px; }
-.wdraw { margin-top: 10px; } .wdraw .btn { height: 60px; font-size: 20px; }
-.wfoot { display: flex; justify-content: space-between; align-items: center; padding: 6px 20px 0; font-size: 12.5px; color: #a8947a; margin-top: 0; }
+.grid.agrid { top: 64px; }
+.pull em { position: absolute; right: -3px; top: -6px; font-style: normal; font-family: var(--fr); font-size: 11px; background: #5a6a7a; color: #fff; padding: 0 5px; border-radius: 8px; }
 .soulrow { margin-top: 10px; font-size: 13px; color: #c8b08a; display: flex; align-items: center; gap: 8px; }
 .soulrow b { color: #c9a8ff; font-family: var(--fr); font-weight: normal; font-size: 17px; }
 .soulrow span { color: #8a7660; font-size: 12px; }

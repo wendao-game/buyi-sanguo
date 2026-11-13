@@ -60,7 +60,7 @@ const UI = (function () {
     const D0 = Save.data, fresh = D0.draws === 0 && D0.tickets >= 10;
     const nb = document.querySelector('#nav button[data-tab=gacha]'); if (nb) nb.classList.toggle('hint', fresh);
     if (fresh) tip('home1', '你有 <b>10 张招募令</b>：先去<b>「招募」</b>十连，凑满 5 名武将再出征', 10000);
-    else if (D0.stage > 2 && D0.iron >= CFG.WEAPON_DRAW && !Object.keys(D0.weapons).length) tip('arms1', '通关会得<b>精铁</b>：去<b>「兵器」</b>页铸造兵器，装给武将能加攻击和出手速度', 9000);
+    else if (Object.keys(D0.weapons).length && !Object.keys(D0.weapons).some(id => D0.weapons[id].hero)) tip('arms1', '你抽到了<b>兵器</b>：去<b>「兵器」</b>页装给武将，能加攻击和出手速度；通关给的<b>精铁</b>可以强化它', 9000);
     else if (D0.stage > 1) tip('home2', '打过的关卡可以<b>扫荡</b>直接领金币；金币能升级武将，也能换招募令', 9000);
     const S = Save.data, st = S.pick, ch = chapterOf(st), cleared = st < S.stage, pw = teamPower(), rec = stageRecommend(st);
     $('#home').innerHTML = `
@@ -175,7 +175,7 @@ const UI = (function () {
   }
   /* ---------------- 兵器 ---------------- */
   function renderArms() {
-    const S = Save.data, W = S.weapons, C = CFG.WEAPON_DRAW;
+    const S = Save.data, W = S.weapons;
     const cards = WEAPONS.slice().sort((a, b) => (W[b.id] ? 1 : 0) - (W[a.id] ? 1 : 0) || b.q - a.q).map(w => {
       const own = W[w.id], q = QUALITIES[w.q];
       const dot = own && own.lv < CFG.WEAPON_MAX_LV && S.iron >= weaponUpCost(w.id) && own.hero;
@@ -186,29 +186,8 @@ const UI = (function () {
     }).join('');
     $('#arms').innerHTML = `
       <div class="ahead"><div class="cur"><i class="ico iron"></i><b>${fmt(S.iron)}</b></div>
-        <p>通关得<b>精铁</b>，用来铸造、强化兵器。铸到已有的自动熔回精铁。再 <b>${CFG.WEAPON_PITY - S.wpity}</b> 次必出橙色兵器。</p></div>
-      <div class="grow wdraw">
-        <button class="btn ${S.iron >= C ? '' : 'gray'}" data-act="wdraw" data-n="1">铸造 1 次<small>精铁 ${C}</small></button>
-        <button class="btn red ${S.iron >= C * 10 ? '' : 'gray'}" data-act="wdraw" data-n="10">铸造 10 次<small>精铁 ${C * 10} · 必出紫以上</small></button>
-      </div>
-      <div class="gfoot wfoot"><span>已有 ${Object.keys(W).length}/${WEAPONS.length} 件</span><button class="link" data-act="wrates">概率公示</button></div>
+        <p>兵器在<b>「招募」</b>里和武将一起抽（已有 ${Object.keys(W).length}/${WEAPONS.length} 件）。<b>精铁</b>用来强化：通关会给，抽到已有的兵器也会熔成精铁。</p></div>
       <div class="grid agrid">${cards}</div>`;
-  }
-  function showWPulls(res) {
-    const n = res.length;
-    const cards = res.map((r, i) => {
-      const w = WEAPON_MAP[r.id], q = QUALITIES[w.q];
-      return `<div class="pull wp ${w.q >= 3 ? 'hi' : ''}" style="--qc:${q.color};animation-delay:${i * 0.11}s">${r.isNew ? '<i>新</i>' : ''}
-        <img src="${WI(r.id, n === 1 ? 128 : 64)}"><b>${w.name}</b><small>${r.isNew ? q.name + '品 · 新兵器' : '已有 · 精铁+' + r.iron}</small></div>`;
-    }).join('');
-    modal(`<div class="mbox"><h2>铸造结果</h2><div class="pulls ${n === 1 ? 'one' : ''}">${cards}</div>
-      <div class="mrow"><button class="btn" data-act="close">确定</button><button class="btn red" data-act="wdraw" data-n="${n}">再铸 ${n} 次</button></div></div>`);
-  }
-  function showWRates() {
-    const R = CFG.WEAPON_RATES, total = R.reduce((a, b) => a + b, 0);
-    const rows = R.map((r, q) => `<tr style="--qc:${QUALITIES[q].color}"><td>${QUALITIES[q].name}</td><td>${(r / total * 100).toFixed(1)}%</td><td>${WEAPONS.filter(w => w.q === q).map(w => w.name).join('、')}</td></tr>`).reverse().join('');
-    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>铸造概率</h2><table class="rates wrap3">${rows}</table>
-      <p class="mtext" style="font-size:13px;margin-top:10px">同品质里每件概率相同。${CFG.WEAPON_PITY} 次内必出橙；铸造 10 次必出紫以上。<br>铸到已有的兵器自动熔成精铁：白 ${CFG.WEAPON_MELT_VAL[0]}、绿 ${CFG.WEAPON_MELT_VAL[1]}、蓝 ${CFG.WEAPON_MELT_VAL[2]}、紫 ${CFG.WEAPON_MELT_VAL[3]}、金 ${CFG.WEAPON_MELT_VAL[4]}、橙 ${CFG.WEAPON_MELT_VAL[5]}。</p></div>`);
   }
   /* 兵器详情：强化 / 装给上阵的武将 / 熔掉 */
   function weaponDetail(wid) {
@@ -223,7 +202,7 @@ const UI = (function () {
       <div class="wstat">${Object.keys(cur).map(k => `<div><b>${pct(cur[k])}</b>${WSTATS[k]}${nxt ? `<br><small>下一级 ${pct(nxt[k])}</small>` : ''}</div>`).join('')}</div>
       ${w.owner ? `<p class="mtext" style="font-size:13px;margin-top:10px">装在<b style="color:var(--gold2)">${HERO_MAP[w.owner].name}</b>身上时，全部加成 ×${CFG.WEAPON_OWNER_MUL}${own && own.hero === w.owner ? '（已生效）' : ''}</p>` : ''}`;
     if (!own) {
-      h += `<p class="mtext" style="margin-top:14px">还没有这件兵器 · 铸造有机会获得</p>`;
+      h += `<p class="mtext" style="margin-top:14px">还没有这件兵器 · 招募有机会获得</p><div class="mrow"><button class="btn red" data-act="nav" data-tab="gacha">去招募</button></div>`;
     } else {
       h += `<div class="mrow"><button class="btn gold" data-act="wup" data-id="${wid}">${maxed ? '已强化到顶' : '强化<small>精铁 ' + weaponUpCost(wid) + '（现有 ' + fmt(S.iron) + '）</small>'}</button>
           <button class="btn gray" data-act="wmelt" data-id="${wid}">熔掉<small>返还精铁 ${weaponMeltBack(wid)}</small></button></div>
@@ -239,8 +218,8 @@ const UI = (function () {
     const rows = ids.map(wid => { const w = WEAPON_MAP[wid], own = S.weapons[wid];
       return `<div class="wrow ${wid === curW ? 'on' : ''}" style="--wq:${QUALITIES[w.q].color}" data-act="wpick" data-id="${wid}" data-h="${hid}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${own.lv}${w.owner === hid ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, hid))}</div>${own.hero && own.hero !== hid ? `<img class="who" src="${P(own.hero)}">` : `<span class="go">${wid === curW ? '已装备' : '装上'}</span>`}</div>`; }).join('');
     modal(`<div class="mbox"><button class="x" data-act="hero" data-id="${hid}">×</button><h2>${HERO_MAP[hid].name} · 兵器</h2>
-      ${ids.length ? `<div class="wlist">${rows}</div><p class="mtext" style="font-size:12.5px;margin-top:8px">带头像的兵器正装在别人身上，点了会换过来</p>` : '<p class="mtext">还没有兵器。通关会得精铁，去「兵器」页铸造。</p>'}
-      <div class="mrow">${curW ? `<button class="btn gray" data-act="wpick" data-id="${curW}" data-h="">卸下</button>` : ''}<button class="btn" data-act="nav" data-tab="arms">去兵器页</button></div></div>`);
+      ${ids.length ? `<div class="wlist">${rows}</div><p class="mtext" style="font-size:12.5px;margin-top:8px">带头像的兵器正装在别人身上，点了会换过来</p>` : '<p class="mtext">还没有兵器。兵器在「招募」里和武将一起抽。</p>'}
+      <div class="mrow">${curW ? `<button class="btn gray" data-act="wpick" data-id="${curW}" data-h="">卸下</button>` : ''}<button class="btn" data-act="nav" data-tab="arms">去兵器页强化</button></div></div>`);
   }
   function settings() {
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>设置 · 存档</h2>
@@ -273,13 +252,13 @@ const UI = (function () {
     $('#gacha').innerHTML = `
       <div class="gbanner">
         <div class="gsoon">黑·彩神将 敬请期待</div>
-        <h2>群英招募</h2><p>白 · 绿 · 蓝 · 紫 · 金 · 橙　六品武将</p>
+        <h2>群英招募</h2><p>白 · 绿 · 蓝 · 紫 · 金 · 橙　武将与兵器同池</p>
         <div class="gshow">${showIds.map(id => `<img src="${P(id)}">`).join('')}</div>
       </div>
-      <div class="gstat">招募令 <b>${fmt(S.tickets)}</b>　·　再 <b>${CFG.PITY - S.pity}</b> 抽必得橙将</div>
+      <div class="gstat">招募令 <b>${fmt(S.tickets)}</b>　·　再 <b>${CFG.PITY - S.pity}</b> 抽必得橙品</div>
       <div class="grow">
         <button class="btn" data-act="draw" data-n="1">招募 1 次<small>招募令 ×1</small></button>
-        <button class="btn red" data-act="draw" data-n="10">招募 10 次<small>招募令 ×10 · 必出紫将以上</small></button>
+        <button class="btn red" data-act="draw" data-n="10">招募 10 次<small>招募令 ×10 · 必出紫品以上</small></button>
       </div>
       <div class="gbox">
         <h3>金币兑换<span>${CFG.TICKET_PRICE} 金币 = 1 招募令 · 现有金币可换 ${can} 张</span></h3>
@@ -298,6 +277,11 @@ const UI = (function () {
   function showPulls(res) {
     const n = res.length;
     const cards = res.map((r, i) => {
+      if (r.wid) {                                            // 这一抽是兵器
+        const w = WEAPON_MAP[r.wid], wq = QUALITIES[w.q];
+        return `<div class="pull wp ${w.q >= 3 ? 'hi' : ''}" style="--qc:${wq.color};animation-delay:${i * 0.11}s">${r.isNew ? '<i>新</i>' : ''}<em>兵器</em>
+          <img src="${WI(r.wid, n === 1 ? 128 : 64)}"><b>${w.name}</b><small>${r.isNew ? wq.name + '品 · 新兵器' : '已有 · 精铁+' + r.iron}</small></div>`;
+      }
       const d = HERO_MAP[r.id], q = QUALITIES[d.q];
       const note = r.isNew ? '新武将' : (r.soul ? '满星 · 将魂+' + r.soul : '碎片 +1');
       return `<div class="pull ${d.q >= 3 ? 'hi' : ''}" style="--qc:${q.color};animation-delay:${i * 0.11}s">${r.isNew ? '<i>新</i>' : ''}
@@ -307,13 +291,13 @@ const UI = (function () {
       <div class="mrow"><button class="btn" data-act="close">确定</button><button class="btn red" data-act="draw" data-n="${n}">再招 ${n} 次</button></div></div>`);
   }
   function showRates() {
-    const total = QUALITIES.reduce((s, q) => s + q.rate, 0);
+    const total = QUALITIES.reduce((s, q) => s + q.rate, 0), ws = Math.round(CFG.WEAPON_SHARE * 100);
     const rows = QUALITIES.map(q => {
-      const names = HEROES.filter(h => h.q === q.id).map(h => h.name).join('、');
-      return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '未开放'}</td><td>${names}</td></tr>`;
+      const names = HEROES.filter(h => h.q === q.id).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id).map(w => w.name).join('、');
+      return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '未开放'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>
-      <p class="mtext" style="font-size:13px;margin-top:10px">十连必出紫品以上 · 累计 ${CFG.PITY} 抽未出橙品时必得橙品<br>以上为单抽基础概率，计入保底后紫、橙的实际概率更高<br>重复武将转为碎片用于升星</p></div>`);
+      <p class="mtext" style="font-size:13px;margin-top:10px">每一抽先定品质，再有 ${ws}% 的概率是这个品质的兵器、${100 - ws}% 是武将；同品质里每个概率相同<br>十连必出紫品以上 · 累计 ${CFG.PITY} 抽未出橙品时必得橙品<br>以上为单抽基础概率，计入保底后紫、橙的实际概率更高<br>重复武将转为碎片用于升星；重复兵器熔成精铁用于强化</p></div>`);
   }
   /* 网页版模拟广告：看完 resolve(true)，中途放弃 resolve(false) */
   function fakeAd(sec) {
@@ -399,7 +383,7 @@ const UI = (function () {
         ${r.win ? '' : `<li>坚守至<b>第 ${r.wave} / ${CFG.WAVES} 波</b></li>`}
         <li>击败敌军<b>${r.kills}</b></li>
         <li>获得金币（含掉落 ${r.dropped}）<b>+${r.coins}</b></li>
-        ${r.iron ? `<li>精铁（铸造兵器用）<b>+${r.iron}</b></li>` : ''}
+        ${r.iron ? `<li>精铁（强化兵器用）<b>+${r.iron}</b></li>` : ''}
         ${r.tickets ? `<li>首通奖励 · 招募令<b>+${r.tickets}</b></li>` : ''}
       </ul>
       <div class="dmgs">${(() => { const top = Math.max(1, ...r.dmg.map(x => x.dmg)), sum = Math.max(1, r.dmg.reduce((s, x) => s + x.dmg, 0));
@@ -448,20 +432,12 @@ const UI = (function () {
     bondHelp: () => bondHelp(),
     weapon: d => weaponDetail(d.id),
     heroWeapon: d => { lastPickHero = d.id; weaponPick(d.id); },
-    wdraw: d => {
-      const n = Number(d.n), res = weaponDraw(n);
-      if (!res) { closeModal(); render(); Sfx.play('deny'); return toast('精铁不足：通关、扫荡都会给精铁'); }
-      render(); showWPulls(res);
-      Sfx.play(res.some(r => WEAPON_MAP[r.id].q >= 4) ? 'rare' : 'pull');
-      tip('arms2', '点兵器可以<b>强化</b>、装给武将。铸到已有的会自动熔成精铁，正好拿去强化好兵器', 9000);
-    },
-    wrates: () => showWRates(),
     wup: d => { const e = weaponUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('up'); render(); weaponDetail(d.id); },
     wequip: d => { const e = weaponEquip(d.id, d.h || null); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('click'); render(); weaponDetail(d.id); },
     wpick: d => { const e = weaponEquip(d.id, d.h || null); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('click'); render(); const hid = d.h || lastPickHero; if (hid) detail(hid); else closeModal(); },
     wmelt: d => {
       const w = WEAPON_MAP[d.id];
-      modal(`<div class="mbox"><h3>熔掉兵器</h3><p class="mtext">${w.name} 会消失，返还 <b>${weaponMeltBack(d.id)}</b> 精铁<br>（强化花的全额返还，兵器本身折 ${CFG.WEAPON_MELT_VAL[w.q]}）<br>以后想要得重新铸造</p>
+      modal(`<div class="mbox"><h3>熔掉兵器</h3><p class="mtext">${w.name} 会消失，返还 <b>${weaponMeltBack(d.id)}</b> 精铁<br>（强化花的全额返还，兵器本身折 ${CFG.WEAPON_MELT_VAL[w.q]}）<br>以后想要得重新抽</p>
         <div class="mrow"><button class="btn gray" data-act="weapon" data-id="${d.id}">再想想</button><button class="btn gold" data-act="wmeltok" data-id="${d.id}">确定熔掉</button></div></div>`);
     },
     wmeltok: d => { const r = weaponMelt(d.id); if (typeof r === 'string') { Sfx.play('deny'); return toast(r); } Sfx.play('coin'); closeModal(); render(); toast('返还精铁 ' + r); },
@@ -507,7 +483,8 @@ const UI = (function () {
       const n = Number(d.n), res = gachaDraw(n);
       if (!res) { closeModal(); render(); return toast('招募令不足，可用金币兑换或观看广告'); }
       render(); showPulls(res);
-      Sfx.play(res.some(r => HERO_MAP[r.id].q >= 4) ? 'rare' : 'pull');
+      Sfx.play(res.some(r => (r.wid ? WEAPON_MAP[r.wid] : HERO_MAP[r.id]).q >= 4) ? 'rare' : 'pull');
+      if (res.some(r => r.wid)) tip('arms2', '抽到了<b>兵器</b>：去<b>「兵器」</b>页装给武将。重复的兵器会自动熔成精铁，拿去强化好兵器', 9000);
       tip('gacha1', '抽到的武将在<b>「武将」</b>页上阵。同阵营、有缘分的武将一起上阵有加成，点<b>羁绊一览</b>可以看全部组合', 9000);
     },
     buy: d => {

@@ -26,9 +26,7 @@ const Save = {
       gfx: 'gl',           // 战斗画面：'gl' 高清（WebGL），'2d' 兼容
       sound: true,         // 音效开关
       music: true,         // 背景音乐开关
-      iron: 0,             // 精铁（铸造、强化兵器用）
-      wpity: 0,            // 兵器保底计数
-      wdraws: 0,           // 累计铸造次数
+      iron: 0,             // 精铁（强化兵器用）
       soul: 0,             // 将魂（碎片炼化得来，升星时顶碎片用）
       weapons: {},         // 已有的兵器：id → { lv, hero: 装在谁身上 / null }
       tips: {},            // 已经看过的新手提示
@@ -49,7 +47,7 @@ const Save = {
     // 兵器：清掉已不存在的；装在不存在的武将身上、或者两件装在同一个人身上的，卸下来
     const W = this.data.weapons = (this.data.weapons && typeof this.data.weapons === 'object') ? this.data.weapons : {}, used = {};
     Object.keys(W).forEach(id => { const w = W[id]; if (!WEAPON_MAP[id] || !w) return delete W[id]; w.lv = Math.max(1, Math.min(CFG.WEAPON_MAX_LV, w.lv | 0)); if (w.hero && (!this.data.heroes[w.hero] || used[w.hero])) w.hero = null; if (w.hero) used[w.hero] = 1; });
-    this.data.iron = Math.max(0, this.data.iron | 0); this.data.soul = Math.max(0, this.data.soul | 0); this.data.wpity = this.data.wpity | 0; this.data.wdraws = this.data.wdraws | 0;
+    this.data.iron = Math.max(0, this.data.iron | 0); this.data.soul = Math.max(0, this.data.soul | 0);
   },
   save() {
     this.data.at = Date.now();
@@ -237,31 +235,14 @@ function weaponStats(wid, hid, lv) {
 }
 function weaponUpCost(wid, lv) { const own = weaponOwn(wid); return Math.ceil(CFG.WEAPON_UP[WEAPON_MAP[wid].q] * (lv || own.lv)); }
 function weaponSpent(wid) { const own = weaponOwn(wid); let s = 0; for (let l = 1; l < own.lv; l++) s += weaponUpCost(wid, l); return s; }
-/* 铸造 n 次（1 或 10）。返回结果数组 [{ id, isNew } 或 { id, iron: 熔回的精铁 }]；精铁不足返回 null */
+/* 抽到一件兵器：没有就收下；已经有了自动熔成精铁。返回 { wid, isNew } 或 { wid, iron } */
 const WEAPON_POOL = {};
 WEAPONS.forEach(w => { (WEAPON_POOL[w.q] = WEAPON_POOL[w.q] || []).push(w.id); });
-function weaponDraw(n) {
-  const S = Save.data, cost = n * CFG.WEAPON_DRAW;
-  if (n <= 0 || S.iron < cost) return null;
-  S.iron -= cost;
-  const R = CFG.WEAPON_RATES, total = R.reduce((a, b) => a + b, 0), qs = [];
-  for (let i = 0; i < n; i++) {
-    S.wpity++; S.wdraws++;
-    let r = Math.random() * total, q = 0;
-    for (let k = 0; k < R.length; k++) { if ((r -= R[k]) < 0) { q = k; break; } }
-    if (S.wpity >= CFG.WEAPON_PITY) q = 5;
-    if (q >= 5) S.wpity = 0;
-    qs.push(q);
-  }
-  if (n >= 10 && !qs.some(q => q >= CFG.WEAPON_TEN_Q)) qs[n - 1] = CFG.WEAPON_TEN_Q;
-  const res = qs.map(q => {
-    const pool = WEAPON_POOL[q], id = pool[Math.floor(Math.random() * pool.length)];
-    if (S.weapons[id]) { const iron = CFG.WEAPON_MELT_VAL[q]; S.iron += iron; return { id, iron }; }   // 已经有了：自动熔回精铁
-    S.weapons[id] = { lv: 1, hero: null };
-    return { id, isNew: true };
-  });
-  Save.save();
-  return res;
+function grantWeapon(wid) {
+  const S = Save.data, q = WEAPON_MAP[wid].q;
+  if (S.weapons[wid]) { const iron = CFG.WEAPON_MELT_VAL[q]; S.iron = (S.iron || 0) + iron; return { wid, iron }; }
+  S.weapons[wid] = { lv: 1, hero: null };
+  return { wid, isNew: true };
 }
 function weaponUp(wid) {
   const own = weaponOwn(wid);
@@ -375,7 +356,7 @@ function grantHero(id) {
   own.shards++;
   return { id, isNew: false, shard: 1 };
 }
-/* 抽 n 次（1 或 10）。返回结果数组；招募令不足返回 null */
+/* 抽 n 次（1 或 10）。返回结果数组（武将 { id, … } 或兵器 { wid, … }）；招募令不足返回 null */
 function gachaDraw(n) {
   const S = Save.data;
   if (S.tickets < n) return null;
@@ -390,6 +371,8 @@ function gachaDraw(n) {
   }
   if (n >= 10 && !qs.some(q => q >= CFG.TEN_GUARANTEE_Q)) qs[n - 1] = CFG.TEN_GUARANTEE_Q;
   const res = qs.map(q => {
+    const wp = WEAPON_POOL[q];                              // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将
+    if (wp && Math.random() < CFG.WEAPON_SHARE) return grantWeapon(wp[Math.floor(Math.random() * wp.length)]);
     const pool = GACHA_POOL[q];
     return grantHero(pool[Math.floor(Math.random() * pool.length)]);
   });
