@@ -276,6 +276,101 @@ const FXGen = (function () {
         });
       });
     }),
+    /* —— v1.0 新武将的专属贴图 —— */
+    /* 开山斧（邢道荣）：斧头在上、斧柄在下 */
+    axe: () => mk(128, 160, (c, w, h) => {
+      stroke(c, [[w / 2, h * 0.1], [w / 2, h * 0.96]], 7, 6, 'rgba(210,160,100,.9)');
+      c.beginPath(); c.moveTo(w / 2 + 3, h * 0.1); c.quadraticCurveTo(w * 0.98, h * 0.04, w * 0.95, h * 0.32); c.quadraticCurveTo(w * 0.9, h * 0.52, w / 2 + 3, h * 0.46); c.closePath();
+      const g = c.createLinearGradient(w / 2, 0, w, 0); g.addColorStop(0, 'rgba(150,165,190,.9)'); g.addColorStop(1, 'rgba(255,255,255,1)'); c.fillStyle = g; c.fill();
+      c.beginPath(); c.moveTo(w / 2 - 3, h * 0.16); c.lineTo(w * 0.22, h * 0.2); c.lineTo(w * 0.22, h * 0.36); c.lineTo(w / 2 - 3, h * 0.4); c.closePath(); c.fillStyle = 'rgba(190,200,215,.85)'; c.fill();
+      radial(c, w * 0.8, h * 0.28, w * 0.5, [[0, 'rgba(255,220,150,.35)'], [1, 'rgba(255,180,80,0)']]);
+    }),
+    /* 双刃铁戟（典韦掷出去的）：长柄两头各有一对朝外的月牙刃，转起来像个轮子 */
+    halberd: () => mk(160, 160, (c, w) => {
+      const x = w / 2;
+      radial(c, x, x, w * 0.5, [[0, 'rgba(255,200,170,.22)'], [1, 'rgba(255,90,60,0)']]);
+      [0.27, 0.73].forEach(py => {
+        [-1, 1].forEach(sd => { c.globalCompositeOperation = 'lighter'; c.fillStyle = 'rgba(238,242,250,1)'; c.beginPath(); c.arc(x + sd * w * 0.2, w * py, w * 0.2, 0, TAU); c.fill(); });
+        c.globalCompositeOperation = 'source-over'; c.fillStyle = '#000';                       // 两个圆盘各挖掉靠里的一块，剩下朝外鼓的月牙
+        c.beginPath(); c.ellipse(x, w * py, w * 0.26, w * 0.17, 0, 0, TAU); c.fill();
+      });
+      c.globalCompositeOperation = 'lighter';
+      stroke(c, [[x, w * 0.04], [x, w * 0.96]], 7, 7, 'rgba(215,190,170,1)');
+      [[0.04, -1], [0.96, 1]].forEach(e => { c.fillStyle = 'rgba(245,248,255,1)'; c.beginPath(); c.moveTo(x, w * e[0] + e[1] * -2); c.lineTo(x - 7, w * e[0] - e[1] * 16); c.lineTo(x + 7, w * e[0] - e[1] * 16); c.closePath(); c.fill(); });
+    }),
+    /* 虎爪（许褚）：三道并排的爪痕 */
+    claw: () => mk(192, 192, (c, w) => {
+      for (let i = -1; i <= 1; i++) {
+        const pts = []; for (let k = 0; k <= 20; k++) { const t = k / 20; pts.push([w * (0.2 + t * 0.6) + i * w * 0.14, w * (0.14 + t * 0.72) - i * w * 0.1 + Math.sin(t * Math.PI) * w * 0.08]); }
+        [[3, 0.25, '255,140,60'], [1, 1, '255,240,220']].forEach(ps => { for (let k = 1; k < pts.length; k++) { c.strokeStyle = 'rgba(' + ps[2] + ',' + ps[1] + ')'; c.lineWidth = 11 * ps[0] * Math.sin(k / 20 * Math.PI) + 0.5; c.lineCap = 'round'; c.beginPath(); c.moveTo(pts[k - 1][0], pts[k - 1][1]); c.lineTo(pts[k][0], pts[k][1]); c.stroke(); } });
+      }
+    }),
+    /* 冰莲（大乔）：两层尖瓣的莲花，淡蓝发白 */
+    lotus: () => mk(160, 160, (c, w) => {
+      const x = w / 2;
+      [[8, 0.44, 0.13, '170,220,255', 0.75], [6, 0.3, 0.11, '225,245,255', 0.9]].forEach((L, li) => {
+        for (let i = 0; i < L[0]; i++) {
+          c.save(); c.translate(x, x); c.rotate(i / L[0] * TAU + li * 0.4);
+          c.beginPath(); c.moveTo(0, -w * 0.04); c.quadraticCurveTo(w * L[2], -w * L[1] * 0.55, 0, -w * L[1]); c.quadraticCurveTo(-w * L[2], -w * L[1] * 0.55, 0, -w * 0.04); c.closePath();
+          c.fillStyle = 'rgba(' + L[3] + ',' + L[4] + ')'; c.fill(); c.restore();
+        }
+      });
+      radial(c, x, x, w * 0.1, [[0, 'rgba(255,250,210,1)'], [1, 'rgba(255,230,150,0)']]);
+      radial(c, x, x, w * 0.5, [[0, 'rgba(180,225,255,.2)'], [1, 'rgba(150,210,255,0)']]);
+    }),
+    /* 毒泡（法正的毒壕）：几个大小不一的泡泡 */
+    bubble: () => mk(96, 96, (c, w) => {
+      [[0.38, 0.6, 0.26], [0.7, 0.36, 0.16], [0.68, 0.76, 0.1]].forEach(b => {
+        c.strokeStyle = 'rgba(170,255,110,.9)'; c.lineWidth = 3; c.beginPath(); c.arc(w * b[0], w * b[1], w * b[2], 0, TAU); c.stroke();
+        radial(c, w * b[0], w * b[1], w * b[2], [[0, 'rgba(120,230,70,.1)'], [1, 'rgba(120,230,70,.35)']]);
+        radial(c, w * (b[0] - b[2] * 0.35), w * (b[1] - b[2] * 0.4), w * b[2] * 0.3, [[0, 'rgba(255,255,255,.9)'], [1, 'rgba(255,255,255,0)']]);
+      });
+    }),
+    /* 铁索（庞统）：一串烧红的铁环，横着摆 */
+    chain: () => mk(256, 48, (c, w, h) => {
+      for (let i = 0; i < 9; i++) {
+        const x = 16 + i * 28, flat = i % 2;
+        [[7, 'rgba(255,120,40,.25)'], [3.2, 'rgba(255,225,190,.95)']].forEach(ps => { c.strokeStyle = ps[1]; c.lineWidth = ps[0]; c.beginPath(); c.ellipse(x, h / 2, 17, flat ? 4 : 10, 0, 0, TAU); c.stroke(); });
+      }
+    }),
+    /* 符咒（左慈）：一张黄纸，上面朱砂画的符 */
+    talisman: () => mk(64, 128, (c, w, h) => {
+      c.fillStyle = 'rgba(255,220,110,.95)'; c.fillRect(w * 0.18, h * 0.06, w * 0.64, h * 0.88);
+      c.strokeStyle = 'rgba(200,40,30,1)'; c.lineWidth = 4; c.lineCap = 'round'; c.lineJoin = 'round';
+      c.beginPath(); c.moveTo(w * 0.34, h * 0.16); c.lineTo(w * 0.66, h * 0.16); c.moveTo(w * 0.5, h * 0.16); c.lineTo(w * 0.5, h * 0.36); c.moveTo(w * 0.32, h * 0.36); c.lineTo(w * 0.68, h * 0.36);
+      for (let k = 0; k < 5; k++) c.lineTo(w * (k % 2 ? 0.34 : 0.66), h * (0.46 + k * 0.09));
+      c.stroke();
+      c.beginPath(); c.arc(w * 0.5, h * 0.86, w * 0.09, 0, TAU); c.stroke();
+      radial(c, w / 2, h / 2, h * 0.5, [[0, 'rgba(255,230,120,.25)'], [1, 'rgba(255,200,60,0)']]);
+    }),
+    /* 心（貂蝉）：粉色的心形 */
+    heart: () => mk(96, 96, (c, w) => {
+      c.beginPath(); c.moveTo(w * 0.5, w * 0.84); c.bezierCurveTo(w * 0.02, w * 0.5, w * 0.16, w * 0.1, w * 0.5, w * 0.32); c.bezierCurveTo(w * 0.84, w * 0.1, w * 0.98, w * 0.5, w * 0.5, w * 0.84); c.closePath();
+      const g = c.createRadialGradient(w * 0.4, w * 0.36, 2, w * 0.5, w * 0.5, w * 0.45); g.addColorStop(0, 'rgba(255,235,245,1)'); g.addColorStop(0.5, 'rgba(255,120,175,.95)'); g.addColorStop(1, 'rgba(230,60,130,.85)');
+      c.fillStyle = g; c.fill();
+      radial(c, w / 2, w / 2, w * 0.5, [[0, 'rgba(255,150,200,.25)'], [1, 'rgba(255,120,180,0)']]);
+    }),
+    /* 弯月（貂蝉）：一弯淡黄的月牙，周围一圈月晕 */
+    moon: () => mk(192, 192, (c, w) => {
+      radial(c, w * 0.5, w * 0.5, w * 0.5, [[0, 'rgba(255,215,235,.3)'], [1, 'rgba(255,170,215,0)']]);
+      c.fillStyle = 'rgba(255,245,215,1)'; c.beginPath(); c.arc(w * 0.5, w * 0.5, w * 0.3, 0, TAU); c.fill();
+      c.globalCompositeOperation = 'source-over'; c.fillStyle = '#000'; c.beginPath(); c.arc(w * 0.62, w * 0.42, w * 0.27, 0, TAU); c.fill();
+      c.globalCompositeOperation = 'lighter'; radial(c, w * 0.62, w * 0.42, w * 0.27, [[0, 'rgba(255,170,215,.12)'], [1, 'rgba(255,170,215,.05)']]);
+    }),
+    /* 雪花（郭嘉）：六条带分叉的枝 */
+    snowflake: () => mk(128, 128, (c, w) => {
+      const x = w / 2;
+      for (let i = 0; i < 6; i++) {
+        c.save(); c.translate(x, x); c.rotate(i / 6 * TAU);
+        [[5, 'rgba(150,210,255,.3)'], [2, 'rgba(240,250,255,1)']].forEach(ps => {
+          c.strokeStyle = ps[1]; c.lineWidth = ps[0]; c.lineCap = 'round'; c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -w * 0.44);
+          [0.18, 0.3].forEach(d => { c.moveTo(0, -w * d); c.lineTo(w * 0.09, -w * (d + 0.09)); c.moveTo(0, -w * d); c.lineTo(-w * 0.09, -w * (d + 0.09)); });
+          c.stroke();
+        });
+        c.restore();
+      }
+      radial(c, x, x, w * 0.12, [[0, 'rgba(255,255,255,.9)'], [1, 'rgba(190,230,255,0)']]);
+    }),
     /* 一朵花（小乔的花雨）：五片粉色的花瓣，花心发白 */
     petal: () => mk(96, 96, (c, w) => {
       const x = w / 2;

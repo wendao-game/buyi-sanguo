@@ -504,6 +504,19 @@ const Art = (function () {
     g.fillStyle = gr; g.beginPath(); g.ellipse(64, 26, 26, 14, 0, 0, TAU); g.fill();
     return (crackCv = cv);
   }
+  /* 盾牌（于禁的盾墙）：蓝钢盾面、金边、中间一个铜钉 */
+  let shieldCv = null;
+  function shield() {
+    if (shieldCv) return shieldCv;
+    const cv = document.createElement('canvas'); cv.width = 76; cv.height = 96;
+    const g = cv.getContext('2d');
+    const path = () => { g.beginPath(); g.moveTo(8, 10); g.lineTo(68, 10); g.lineTo(68, 52); g.quadraticCurveTo(66, 78, 38, 92); g.quadraticCurveTo(10, 78, 8, 52); g.closePath(); };
+    const gr = g.createLinearGradient(0, 0, 76, 96); gr.addColorStop(0, '#6f9be0'); gr.addColorStop(1, '#2b4a8c');
+    path(); g.fillStyle = gr; g.fill(); g.lineWidth = 7; g.strokeStyle = '#1a120e'; g.stroke(); g.lineWidth = 3.5; g.strokeStyle = '#f0c66a'; g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.22)'; g.beginPath(); g.moveTo(14, 16); g.lineTo(36, 16); g.lineTo(18, 60); g.lineTo(14, 50); g.closePath(); g.fill();
+    g.fillStyle = '#f0c66a'; g.strokeStyle = '#1a120e'; g.lineWidth = 2.5; g.beginPath(); g.arc(38, 44, 9, 0, TAU); g.fill(); g.stroke();
+    return (shieldCv = cv);
+  }
   /* 兵器图标：assets/weapons/<id>.png 有图就用图；没有就按样子（剑 刀 枪 弓 扇 戟 斧）画一个，斜着摆在品质色的底上 */
   const wCache = {};
   function weaponIcon(id, px) {
@@ -556,5 +569,5 @@ const Art = (function () {
     }
     try { return (wCache[key] = cv.toDataURL()); } catch (e) { return (wCache[key] = im ? im.src : ''); }
   }
-  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU, crack, weaponIcon };
+  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU, crack, weaponIcon, shield };
 })();

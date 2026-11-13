@@ -249,11 +249,11 @@ const GLView = (function () {
       ell(La, s.x, s.y, s.big ? 3.2 : 2.2, s.big ? 3.2 : 2.2, 0xffffff, 1);
     } else if (s.k === 'blade') {
       const ang = Math.atan2(s.vy, s.vx);
-      if (s.tex && img(Lf, s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang, 1)) { light(s.x, s.y, (s.texW || s.w * 2) * 0.5, 0xe8fff0, 0.7); return; }
-      if (s.look === 'arrow') img(Lf, 'thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1);
+      if (s.tex && img(Lf, s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang + s.spin * t, 1, s.rgb || undefined)) { light(s.x, s.y, (s.texW || s.w * 2) * 0.5, 0xe8fff0, 0.7); return; }
+      if (s.look === 'arrow') img(Lf, 'thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1, s.rgb || undefined);
       else if (s.look === 'ice') img(Lf, 'el_arrow_ice', s.x - Math.cos(ang) * s.w * 0.6, s.y - Math.sin(ang) * s.w * 0.6, Math.max(70, s.w * 2.6), 0, ang, 1);
       else {
-        const rgb = s.color === 'green' ? '110,255,170' : s.color === 'red' ? '255,120,90' : s.big ? '205,175,255' : '225,210,255';
+        const rgb = s.rgb || (s.color === 'green' ? '110,255,170' : s.color === 'red' ? '255,120,90' : s.big ? '205,175,255' : '225,210,255');
         for (let i = 2; i >= 1; i--) img(Lf, 'slash', s.x - s.vx * 0.035 * i, s.y - s.vy * 0.035 * i, s.w * 1.7 * (1 - i * 0.08), s.w * 0.85, ang + Math.PI / 2, 0.3 / i, rgb);   // 残影
         img(Lf, 'slash', s.x, s.y, s.w * 1.7, s.w * 0.85, ang + Math.PI / 2, s.big ? 1 : 0.9, rgb);
         if (s.big) { glow(Lf, s.x, s.y, s.w * 0.7, rgb, 0.35); light(s.x, s.y, s.w, col(rgb), 0.6); }
@@ -267,6 +267,10 @@ const GLView = (function () {
       else if (s.el === 'poison') img(Lf, 'el_orb_wind', s.x, s.y, 26, 0, t * 9, 1, '120,235,60');
       else if (s.el === 'ice') { const a = Math.atan2(s.ty - s.y0, s.tx - s.x0); img(Lf, 'el_arrow_ice', s.x - Math.cos(a) * 18, s.y - Math.sin(a) * 18, 64, 0, a, 1); }
       else if (s.el === 'rock') { const p = s.t / s.dur; ell(La, s.tx, s.ty + 4, 16 * p, 6 * p, 0x000000, 0.3); sp(La, TX.rock, s.x, s.y, 24, 24, { rot: t * 6 }); }
+    } else if (s.k === 'sweep' && s.look === 'fire') {        // 火墙：一排窜动的火苗
+      sp(Lf, TX.glow, W / 2, s.y, W * 1.4, 110, { tint: 0xff8c32, a: 0.35 });
+      for (let x = 20; x < W; x += 44) { const fl = 0.8 + Math.sin(t * 16 + x) * 0.2; img(Lf, 'flame', x, s.y - 26 * fl, 56, 96 * fl, 0, 0.85); }
+      light(W / 2, s.y, 320, 0xffa050, 0.7);
     } else if (s.k === 'sweep' && s.look === 'petal') {       // 花雨：粉色的风带 + 月牙风痕 + 旋转的花
       sp(Lf, TX.gradV, 0, s.y - 6, W, 70, { ax: 0, ay: 0, tint: 0xffa8cc, a: 0.5 });
       for (let x = 44; x < W; x += 90) img(Lf, 'wind_arc', x, s.y + 2, 120, 44, 0, 0.75, '255,150,195');
@@ -298,6 +302,9 @@ const GLView = (function () {
       } else if (z.k === 'mine') {
         const p = 0.6 + Math.sin(t * 8 + z.x) * 0.3;
         ringE(Lg, z.x, z.y, 14, 6, 0xc4b0ff, p); ell(Lg, z.x, z.y, 6, 2.6, 0xc4b0ff, p * 0.5);
+      } else if (z.k === 'icewall' && z.look === 'shield') {      // 盾墙（于禁）
+        const f = Math.min(1, z.life / 0.5), up = Math.min(1, (z.max - z.life) / 0.25 + 0.1);
+        for (let x = 24; x < W; x += 41) sp(Lg, T(Art.shield()), x, z.y + 10, 38, 48 * up, { ay: 1, a: f });
       } else if (z.k === 'icewall') {
         const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.25 + 0.1);
         for (let x = 30; x < W; x += 26) { const hgt = 18 + ((x * 7) % 11); sp(Lg, TX.spike, x, z.y + 8, 18, hgt, { ay: 1, a: f }); }
