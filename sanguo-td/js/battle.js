@@ -7,6 +7,8 @@
 const Battle = (function () {
   const W = CFG.W, H = CFG.H, WY = CFG.WALL_Y, TAU = Math.PI * 2;
   const SLOTS = CFG.SLOTS;
+  const WALL_CRACKS = [[176, WY + 8], [364, WY + 6], [268, WY + 12], [318, WY + 5]];   // 城墙破损的位置（城防 75% / 50% / 30% / 15% 以下依次出现）
+  const WIND = '70,230,185';      // 风系特效的颜色：青白
   const RANGE_Y = 120;            // 敌人越过这条线后武将才会攻击（到城墙线约 550，和换背景前一样）
   const FONT = 'SGNum,SGRound,"Microsoft YaHei","PingFang SC",sans-serif';   // 本地打包的字体（css 里声明）：SGNum 数字和字母，SGRound 站酷快乐体
   const rand = Math.random;
@@ -31,7 +33,7 @@ const Battle = (function () {
       buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 },
       picks: [], dmgLog: {}, teamVer: 0,                     // 已选的军令（换将后要重新算一遍）、下场武将的伤害记录、阵容版本号（界面据此重建大招按钮）
       rock: { n: CFG.ROCK_MAX, max: CFG.ROCK_MAX, t: 0, dmg: 1 }, aim: null, aimT: 0,
-      over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, banner: null, flash: null,
+      over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, wallHitX: W / 2, wallLag: 0, wallAcc: 0, wallAccX: 0, wallAccT: 0, wallFxT: 0, hurt: 0, alarm: false, banner: null, flash: null,
     };
     setupTeam(true);
     nextWave();
@@ -66,6 +68,7 @@ const Battle = (function () {
     const oldMax = S.wallMax;
     S.wallMax = Math.round((400 + basePower()) * (1 + S.wallBonus));
     S.wall = first || !oldMax ? S.wallMax : Math.max(1, Math.round(S.wallMax * S.wall / oldMax));   // 换将后城防按原来的比例折算
+    S.wallLag = S.wall;
     S.aim = null; S.teamVer++;
   }
   /* 局中换将：team 是 5 个位置的武将 id（空位 null）。成功返回 true */
@@ -94,7 +97,7 @@ const Battle = (function () {
       stopY: WY - 15 - d.r - rand() * 12 - (d.range ? d.range * (0.6 + rand() * 0.4) : 0),
       acd: 0.3 + rand() * 0.7, flash: 0, frozen: 0, slow: 0, burn: 0, burnT: 0, burnDps: 0, burnSrc: null,
       psn: 0, psnT: 0, psnDps: 0, psnSrc: null, psnMark: 0, vuln: 0, vulnT: 0, fear: 0, conf: 0, confT: 0, confSrc: null, mark: 0,
-      walk: rand() * 6, ph: rand() * 6, dead: false, ccK: 1, pushK: 1,
+      walk: rand() * 6, ph: rand() * 6, dead: false, ccK: 1, pushK: 1, atkT: 0,
       spr: enemySprite(d.id), flip: d.id !== 'boss' && rand() < 0.5,
     });
   }
@@ -264,6 +267,49 @@ const Battle = (function () {
   /* 控制抗性：同一个敌人每被硬控（眩晕 / 冻结、惊吓、混乱）一次，之后的控制时长打八折（最低三成）；
    * 每被击退一次，之后的击退距离打九三折（最低一成五）。否则高星武将能把小兵永久控住，后期胜负就和战力无关了 */
   function ccTime(e, t) { const k = e.ccK; if (t > 0.3) e.ccK = Math.max(CFG.CC_MIN, k * CFG.CC_DECAY); return t * k; }
+  /* ---------------- 城防挨打的反馈 ---------------- */
+  /* 扣血立刻生效；命中的画面（碎石、白光、震动、音效）等 delay 秒：近战是兵器落下，弓手是箭飞到 */
+  function wallHurt(e, x, delay) {
+    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite', dmg = e.atk, ref = S;
+    S.wall -= dmg;
+    S.wallAcc += dmg; S.wallAccX += x * dmg;
+    const fx = () => {
+      if (S !== ref || S.over) return;
+      const y = WY - 8;
+      Sfx.play('wall');
+      S.wallFlash = boss ? 0.3 : 0.18; S.wallHitX = x;
+      S.hurt = Math.min(1, S.hurt + (boss ? 0.55 : big ? 0.25 : 0.1) + dmg / S.wallMax * 5);
+      S.shake = Math.max(S.shake, boss ? 0.32 : big ? 0.16 : 0.07);
+      burst(x, y, big ? 9 : 4, '#b9a892', big ? 190 : 120, big ? 4.2 : 3, 0.5, 420);            // 崩出来的碎石，会往下掉
+      part(x + (rand() - 0.5) * 14, y - 2, (rand() - 0.5) * 24, -26 - rand() * 18, 0.6, '#6f6257', big ? 9 : 6);   // 一团灰
+      if (S.wallFxT <= 0 || big) {                           // 一大群人同时砍的时候，白光限一下数量
+        S.wallFxT = 0.05;
+        tex('burst', x, y, { w: big ? 96 : 44, life: 0.16, grow: 1.5, a: 0.9, rgb: '255,226,196', rot: rand() * TAU });
+        if (!e.def.range) tex('slash', x, y - 6, { w: big ? 76 : 40, life: 0.14, grow: 1.15, a: 0.75, rgb: '255,240,225', rot: Math.PI + (rand() - 0.5) * 0.9 });
+      }
+      if (boss) { ring(x, y, 14, 150, 0.4, '#ffb090', 5); shockwave(x, y, 150, 0.5); burst(x, y, 10, '#ffd8b0', 240, 2, 0.4, 300); }
+    };
+    if (delay > 0) S.timers.push({ t: delay, fn: fx }); else fx();
+  }
+  /* 每帧：血条的残影、飘字、告急、破损的烟 */
+  function updateWall(dt) {
+    if (S.wallFxT > 0) S.wallFxT -= dt;
+    if (S.hurt > 0) S.hurt = Math.max(0, S.hurt - dt * 1.6);
+    if (S.wallLag < S.wall) S.wallLag = S.wall;                                   // 回血：直接跟上
+    else if (S.wallFlash <= 0) S.wallLag += (S.wall - S.wallLag) * Math.min(1, dt * 4);   // 掉血：白色残影停一下再缩
+    if (S.wallAcc > 0 && (S.wallAccT -= dt) <= 0) {          // 掉血飘字：攒 0.4 秒合成一个数，不然满屏都是
+      const v = Math.round(S.wallAcc), x = Math.max(70, Math.min(W - 70, S.wallAccX / S.wallAcc)), f = S.wallAcc / S.wallMax;
+      if (v > 0) text(x + (rand() - 0.5) * 20, WY - 14, '-' + v, '#ff5a48', f > 0.06 ? 20 : f > 0.02 ? 16 : 13, 0.9, true);
+      S.wallAcc = 0; S.wallAccX = 0; S.wallAccT = 0.4;
+    }
+    const hp = S.wall / S.wallMax;
+    if (!S.alarm && hp < 0.3 && hp > 0) { S.alarm = true; text(W / 2, WY - 70, '城防告急', '#ff5a48', 30, 1.8, true); Sfx.play('horn'); S.shake = Math.max(S.shake, 0.2); }
+    else if (S.alarm && hp > 0.5) S.alarm = false;
+    if (hp < 0.5 && rand() < dt * (hp < 0.25 ? 9 : 4)) {     // 城墙破损处冒烟，越残越多
+      const p = WALL_CRACKS[Math.floor(rand() * (hp < 0.25 ? 4 : 2))];
+      part(p[0] + (rand() - 0.5) * 12, p[1] - 4, (rand() - 0.5) * 14, -34 - rand() * 20, 1 + rand() * 0.5, hp < 0.25 && rand() < 0.3 ? '#ff9a4a' : '#3a322c', hp < 0.25 ? 8 : 6);
+    }
+  }
   function pushBack(e, d, minY) { if (e.dead) return; const k = e.pushK * (e.def.id === 'boss' ? 0.25 : 1); e.pushK = Math.max(CFG.PUSH_MIN, e.pushK * CFG.PUSH_DECAY); e.y = Math.max(minY || RANGE_Y + 8, e.y - d * k); }
   const stun = (e, t) => { if (!e.dead) e.frozen = Math.max(e.frozen, ccTime(e, t)); };
   const slow = (e, t) => { if (!e.dead) e.slow = Math.max(e.slow, t); };
@@ -516,6 +562,7 @@ const Battle = (function () {
     for (const e of S.enemies) {
       if (e.dead) continue;
       if (e.flash > 0) e.flash -= dt;
+      if (e.atkT > 0) e.atkT -= dt;
       if (e.mark > 0) e.mark -= dt;
       if (e.psnMark > 0) e.psnMark -= dt;
       if (e.vulnT > 0 && (e.vulnT -= dt) <= 0) e.vuln = 0;
@@ -541,10 +588,12 @@ const Battle = (function () {
         if (e.y > WY - 230) { const tx = Math.max(118, Math.min(422, e.x)); e.x += (tx - e.x) * Math.min(1, dt * 1.6); }   // 快到城下时往城楼正面那段墙收拢
       } else if ((e.acd -= dt) <= 0) {
         e.acd = e.def.id === 'boss' ? 1.4 : 1;
-        Sfx.play('wall');
-        S.wall -= e.atk; S.wallFlash = 0.15; S.shake = Math.max(S.shake, e.def.id === 'boss' ? 0.25 : 0.06);
-        if (e.def.range) S.shots.push({ k: 'earrow', x: e.x, y: e.y - 6, x0: e.x, y0: e.y - 6, tx: e.x + (rand() - 0.5) * 30, ty: WY - 4, t: 0, dur: 0.22 });
-        else burst(e.x, WY - 12, 3, '#b9bcc6', 70, 3, 0.3);
+        e.atkT = 0.24;                                          // 出手动作：往城墙方向扑一下
+        if (e.def.range) {
+          const tx = e.x + (rand() - 0.5) * 30;
+          S.shots.push({ k: 'earrow', x: e.x, y: e.y - 6, x0: e.x, y0: e.y - 6, tx, ty: WY - 4, t: 0, dur: 0.22 });
+          wallHurt(e, tx, 0.2);
+        } else wallHurt(e, e.x, 0.1);
       }
     }
 
@@ -721,6 +770,7 @@ const Battle = (function () {
     for (let i = S.decals.length - 1; i >= 0; i--) if ((S.decals[i].life -= dt) <= 0) S.decals.splice(i, 1);
     if (S.shake > 0) S.shake -= dt;
     if (S.wallFlash > 0) S.wallFlash -= dt;
+    updateWall(dt);
     if (S.flash && (S.flash.t -= dt) <= 0) S.flash = null;
     if (S.banner && (S.banner.t -= dt) <= 0) S.banner = null;
   }
@@ -851,18 +901,36 @@ const Battle = (function () {
       } else img('whirl', z.x, z.y, z.r * 2, z.r * 1.2, S.t * 0.8, 0.3 * f, '110,230,50');
       return;
     }
-    if (z.k === 'tornado' && layer === 2) {
-      const f = Math.min(1, z.life / 0.4) * Math.min(1, (z.max - z.life) / 0.3 + 0.1);
-      let ok = true;
-      for (let i = 0; i < 4 && ok; i++) { const p = i / 3, rx = z.r * (0.45 + 0.85 * p); ok = img('el_orb_wind', z.x + Math.sin(S.t * 5 + i) * z.r * 0.12, z.y - p * z.r * 2.1, rx * 2, rx * 0.75, S.t * (9 - i * 1.5), 0.8 * f); }
-      if (ok) z.texOK = true;
+    if (z.k === 'tornado' && layer === 2) {                // 龙卷风：漏斗风柱 + 绕着转的月牙风痕 + 脚下的尘环（和 glview.js 同一套画法）
+      const f = Math.min(1, z.life / 0.4) * Math.min(1, (z.max - z.life) / 0.3 + 0.1), t = S.t;
+      const grow = Math.min(1, (z.max - z.life) / 0.25 + 0.3), Ht = z.r * (z.big ? 2.5 : 3) * grow, top = z.r * (z.big ? 1.15 : 1.25), sway = Math.sin(t * 3.2 + z.x * 0.07) * 0.09;
+      if (!img('wind_funnel', z.x + Math.sin(sway) * Ht * 0.46, z.y + z.r * 0.1 - Ht * 0.46, top * 2.2, Ht, sway, 0.6 * f, WIND)) return;
+      for (let i = 0, n = z.big ? 6 : 4; i < n; i++) {
+        const p = (i + 0.6) / n, rx = top * (0.16 + 0.88 * Math.pow(p, 0.8)), cy = z.y - p * Ht * 0.86, cx = z.x + Math.sin(sway) * p * Ht * 0.86;
+        const th = t * (10 - 4 * p) + i * 2.1, sn = Math.sin(th), front = sn > 0;
+        img('wind_arc', cx + Math.cos(th) * rx * 0.5, cy + sn * rx * 0.2, rx * 1.5, rx * 0.5, front ? Math.PI : 0, (front ? 0.8 : 0.2) * (0.3 + 0.7 * Math.abs(sn)) * f, WIND);
+      }
+      const k = (t * 1.5 + z.x * 0.013) % 1;
+      c.globalAlpha = 0.5 * (1 - k) * f; c.strokeStyle = '#d8fff0'; c.lineWidth = 1.6; c.beginPath(); c.ellipse(z.x, z.y + 2, z.r * (0.45 + 0.75 * k), z.r * (0.16 + 0.25 * k), 0, 0, TAU); c.stroke(); c.globalAlpha = 1;
+      z.texOK = true;
       return;
     }
     if (z.k === 'storm' && layer === 2) { img('circle', z.x, z.y, z.r * 1.6, z.r * 0.95, S.t * 0.6, 0.1 * Math.min(1, z.life / 0.5), '190,160,255'); return; }
     if (z.k === 'mine' && layer === 2) { img('circle', z.x, z.y, 44, 26, S.t * 2, 0.7 + Math.sin(S.t * 8 + z.x) * 0.25, '190,160,255'); return; }
-    if (z.k === 'wind' && layer === 2) { const f = Math.min(1, z.life / 0.6, (z.max - z.life) / 0.4 + 0.1); img('circle', W / 2, WY - 120, 300, 170, S.t * 0.5, 0.07 * f, '200,255,235'); return; }
+    if (z.k === 'wind' && layer === 2) {                    // 借东风：一道道风从城下斜着往敌阵吹
+      const f = Math.min(1, z.life / 0.6, (z.max - z.life) / 0.4 + 0.1), dx = -0.29, dy = -0.957, rot = Math.atan2(dy, dx), L = WY - RANGE_Y + 200, t = S.t;
+      img('circle', W / 2, WY - 120, 300, 170, t * 0.5, 0.1 * f, WIND);
+      for (let i = 0; i < 7; i++) { const k = ((t * (300 + i * 71 % 160) + i * 197) % L) / L; img(i % 4 === 3 ? 'wind_gust' : 'wind_line', 110 + i * 80 + dx * k * L, WY - 10 + dy * k * L, 170 + i * 37 % 80, 0, rot, 0.5 * Math.sin(k * Math.PI) * f, WIND); }
+      return;
+    }
     if (z.k === 'frost' && layer === 2) { img('circle', z.x, z.y, z.r * 2.1, z.r * 1.3, -S.t * 0.4, 0.25 * Math.min(1, z.life / 0.4), '170,225,255'); return; }
-    if (z.k === 'barrier' && layer === 2) { const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.3 + 0.1); for (let x = 40; x < W; x += 92) img('el_orb_wind', x, z.y, 110, 60, S.t * 6 + x, 0.55 * f); return; }
+    if (z.k === 'barrier' && layer === 2) {                 // 巽风阵：横着刮的风带 + 往上顶的月牙
+      const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.3 + 0.1), t = S.t;
+      c.save(); c.translate(W / 2, z.y); c.scale(1, 0.2); glow(0, 0, W * 0.75, '159,243,214', 0.26 * f); c.restore();
+      for (let i = 0; i < 6; i++) { const x = ((t * (190 + i * 53 % 120) + i * 137) % (W + 260)) - 130, e = Math.max(0, Math.min(1, (x + 130) / 90, (W + 130 - x) / 90)); img('wind_gust', x, z.y - 30 + i * 23 % 60, 150 + i * 31 % 70, 0, 0, (0.45 + (i % 3) * 0.15) * e * f, WIND); }
+      for (let i = 0; i < 6; i++) { const k = (t * 0.9 + i * 0.37) % 1; img('wind_arc', 50 + i * 88, z.y + 28 - k * 70, 96, 36, 0, 0.55 * Math.sin(k * Math.PI) * f, WIND); }
+      return;
+    }
     if (layer === 2) return;
     if (z.k === 'pool' && layer === 0) {
       const fire = z.el === 'fire', f = Math.min(1, z.life / 0.6) * Math.min(1, (z.max - z.life) / 0.25 + 0.15) * (fire ? 0.4 : 1);   // 火的地面色块淡一些，火焰贴图另画
@@ -896,10 +964,7 @@ const Battle = (function () {
       c.fillStyle = 'rgba(196,176,255,' + (p * 0.5) + ')'; Art.ell(c, z.x, z.y, 6, 2.6);
     } else if (z.k === 'barrier' && layer === 1) {
       const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.3 + 0.1);
-      c.globalAlpha = 0.22 * f; c.fillStyle = '#9ff3d6'; c.fillRect(0, z.y - 36, W, 72); c.globalAlpha = 0.8 * f;
-      c.strokeStyle = '#e8fff6'; c.lineWidth = 2;
-      for (let i = 0; i < 6; i++) { const yy = z.y - 30 + i * 12, off = (S.t * 300 + i * 90) % W; c.beginPath(); c.moveTo(off - 120, yy); c.lineTo(off, yy - 4); c.stroke(); }
-      c.globalAlpha = 1;
+      if (!Assets.get('fx:wind_gust')) { c.globalAlpha = 0.16 * f; c.fillStyle = '#9ff3d6'; c.fillRect(0, z.y - 36, W, 72); c.globalAlpha = 1; }
     } else if (z.k === 'icewall' && layer === 0) {
       const f = Math.min(1, z.life / 0.5, (z.max - z.life) / 0.25 + 0.1);
       c.globalAlpha = f;
@@ -949,9 +1014,13 @@ const Battle = (function () {
     if (S.shake > 0) c.translate((rand() - 0.5) * 9 * Math.min(1, S.shake * 4), (rand() - 0.5) * 9 * Math.min(1, S.shake * 4));
     c.drawImage(Art.background(), 0, 0, W, H);
     ambientGround(S.t);
-    if (S.wallFlash > 0) {                                  // 城墙挨打：垛口一带泛红
-      c.globalCompositeOperation = 'lighter'; c.save(); c.translate(W / 2, WY + 4); c.scale(1, 0.2);
-      glow(0, 0, 210, '255,70,40', Math.min(1, S.wallFlash * 5)); c.restore();
+    const hpw = S.wall / S.wallMax, nc = hpw < 0.15 ? 4 : hpw < 0.3 ? 3 : hpw < 0.5 ? 2 : hpw < 0.75 ? 1 : 0;   // 城墙越残裂缝越多
+    for (let i = 0; i < nc; i++) { const p = WALL_CRACKS[i]; c.drawImage(Art.crack(), p[0] - 40, p[1] - 15, 80, 60); }
+    if (S.wallFlash > 0) {                                  // 城墙挨打：整段垛口泛红，被打的那一段亮一下
+      const a = Math.min(1, S.wallFlash * 5);
+      c.globalCompositeOperation = 'lighter';
+      c.save(); c.translate(W / 2, WY + 4); c.scale(1, 0.2); glow(0, 0, 220, '255,70,40', a * 0.55); c.restore();
+      c.save(); c.translate(S.wallHitX, WY + 2); c.scale(1, 0.55); glow(0, 0, 90, '255,200,160', a); c.restore();
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     }
     for (const d of S.decals) {
@@ -965,7 +1034,7 @@ const Battle = (function () {
       else { c.fillStyle = 'rgba(0,0,0,.3)'; Art.ell(c, d.x, d.y + 6, 8, 3); c.fillStyle = '#fbf3e2'; c.beginPath(); c.arc(d.x, d.y + 3, 8.5, Math.PI, 0); c.closePath(); c.fill(); c.fillStyle = '#e8c9a0'; Art.circ(c, d.x, d.y - 3, 1.6); }
     }
     const es = S.enemies.slice().sort((a, b) => a.y - b.y);
-    for (const e of es) { Art.enemy(c, e, S.t); drawStatus(e); }
+    for (const e of es) { const ly = e.atkT > 0 ? Math.sin((1 - e.atkT / 0.24) * Math.PI) * 8 : 0; e.y += ly; Art.enemy(c, e, S.t); e.y -= ly; drawStatus(e); }   // 攻城时往城墙扑一下
     for (const g of S.ghosts) Art.enemyGhost(c, g, 1 - g.life / g.max);
     c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
     c.drawImage(haze(), 0, 0, W, Assets.get('bg') ? 200 : 300);                       // 远处的敌人罩一层烟尘：2.5D 纵深
@@ -1024,15 +1093,20 @@ const Battle = (function () {
     const title = '第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关';
     c.strokeText(title, W / 2, 40); c.fillStyle = '#ffd76a'; c.fillText(title, W / 2, 40);
     const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
-    c.fillStyle = 'rgba(0,0,0,.65)'; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.fill(); Art.rr(c, bx + 17, 81, bw - 34, 16, 8); c.fill();
+    const hp = Math.max(0, S.wall / S.wallMax), lag = Math.min(1, Math.max(hp, S.wallLag / S.wallMax)), hf = Math.min(1, Math.max(0, S.wallFlash) * 6), low = hp < 0.3 && !S.over;
+    const hx = hf > 0 ? Math.sin(S.t * 95) * 2.6 * hf : 0, hurt = Math.max(S.hurt * 0.85, low ? 0.32 + 0.18 * Math.sin(S.t * 5.5) : 0);
+    if (hurt > 0.01) { const g3 = c.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 600); g3.addColorStop(0, 'rgba(255,40,20,0)'); g3.addColorStop(1, 'rgba(255,30,10,' + (0.95 * hurt).toFixed(3) + ')'); c.fillStyle = g3; c.fillRect(0, 0, W, H); }   // 屏幕四周泛红
+    c.fillStyle = 'rgba(0,0,0,.65)'; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.fill(); Art.rr(c, bx + 17 + hx, 81, bw - 34, 16, 8); c.fill();
     const wp = S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);
     if (wp > 0.03) { const g2 = c.createLinearGradient(0, 54, 0, 74); g2.addColorStop(0, '#8fe86a'); g2.addColorStop(1, '#3fae3e'); c.fillStyle = g2; Art.rr(c, bx, 54, bw * wp, 20, 10); c.fill(); }
-    const hp = Math.max(0, S.wall / S.wallMax);
-    if (hp > 0.03) { c.fillStyle = hp > 0.5 ? '#e0483a' : hp > 0.25 ? '#e8802a' : '#ff2a2a'; Art.rr(c, bx + 20, 83, (bw - 40) * hp, 12, 6); c.fill(); }
+    if (lag > hp + 0.004) { c.fillStyle = 'rgba(255,240,200,.95)'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * lag, 12, 6); c.fill(); }
+    if (hp > 0.03) { c.fillStyle = hp > 0.5 ? '#e0483a' : hp > 0.25 ? '#e8802a' : '#ff2a2a'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * hp, 12, 6); c.fill(); }
+    if (hf > 0) { c.fillStyle = 'rgba(255,255,255,' + (0.6 * hf).toFixed(3) + ')'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * Math.max(hp, 0.03), 12, 6); c.fill(); }
     c.strokeStyle = 'rgba(240,210,122,.85)'; c.lineWidth = 1.6; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.stroke();
-    c.strokeStyle = 'rgba(232,193,90,.6)'; c.lineWidth = 1.2; Art.rr(c, bx + 17, 81, bw - 34, 16, 8); c.stroke();
+    if (low || hf > 0) { c.strokeStyle = 'rgba(255,90,64,' + (low ? 0.6 + 0.4 * Math.sin(S.t * 9) : hf).toFixed(3) + ')'; c.lineWidth = 2.2; Art.rr(c, bx + 16 + hx, 80, bw - 32, 18, 9); c.stroke(); }
+    else { c.strokeStyle = 'rgba(232,193,90,.6)'; c.lineWidth = 1.2; Art.rr(c, bx + 17, 81, bw - 34, 16, 8); c.stroke(); }
     outlined(S.wave + '/' + CFG.WAVES + ' 波', W / 2, 70, 16, '#ffffff', 'center', 3);
-    outlined('城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2, 93, 11, '#ffffff', 'center', 2.4);
+    outlined('城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2 + hx, 93, 11, hf > 0.3 || low ? '#ffe0d8' : '#ffffff', 'center', 2.4);
     drawCoin(W - 82, 30, 9); outlined(String(Math.round(S.coins)), W - 68, 36, 17, '#ffe9a8', 'left');
 
     if (S.aim !== null) {
@@ -1162,5 +1236,5 @@ const Battle = (function () {
   /* 只跑逻辑不画（自动化测试 / 数值模拟用） */
   function tick(dt) { if (S && !S.paused && !S.choosing) step(Math.min(dt, 0.05)); }
 
-  return { init, start, stop, frame, tick, tapAt, ult, cancelAim, lineup, damageList, get state() { return S; }, SLOTS };
+  return { init, start, stop, frame, tick, tapAt, ult, cancelAim, lineup, damageList, get state() { return S; }, SLOTS, CRACKS: WALL_CRACKS };
 })();

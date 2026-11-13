@@ -221,6 +221,76 @@ const FXGen = (function () {
       for (let i = 0; i < 6; i++) { const a = i / 6 * TAU - Math.PI / 2; c.strokeStyle = col(0.8); c.lineWidth = 1.5; c.beginPath(); c.arc(x + Math.cos(a) * w * 0.36, x + Math.sin(a) * w * 0.36, w * 0.03, 0, TAU); c.stroke(); }
       radial(c, x, x, w * 0.5, [[0, 'rgba(255,230,180,.12)'], [1, 'rgba(255,230,180,0)']]);
     }),
+    /* —— 风系（白色，用的时候染成青白）——
+     * 龙卷风的身子：下窄上宽、略带 S 弯的漏斗，由一圈圈风痕叠成：正面（下半圈）的弧粗而亮，背面的细而淡 */
+    wind_funnel: () => mk(256, 352, (c, w, h) => {
+      const cx = p => w / 2 + Math.sin(p * 3.1 + 0.4) * w * 0.07 * (1 - p * 0.3), rad = p => w * (0.05 + 0.4 * Math.pow(p, 0.8)), yy = p => h * (0.96 - p * 0.9);
+      for (let i = 0; i <= 44; i++) {                          // 半透明的风柱
+        const p = i / 44, r = rad(p), a = 0.045 * (1 - p * 0.5);
+        c.save(); c.translate(cx(p), yy(p)); c.scale(1, 0.42);
+        const g = c.createRadialGradient(0, 0, 0, 0, 0, r);
+        g.addColorStop(0, 'rgba(255,255,255,' + a + ')'); g.addColorStop(0.78, 'rgba(255,255,255,' + a * 1.5 + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+        c.fillStyle = g; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); c.restore();
+      }
+      for (let i = 0; i < 46; i++) {                           // 风痕
+        const p = (i + R()) / 46, r = rad(p) * (0.88 + R() * 0.16), front = i % 3 !== 0;
+        const a0 = front ? 0.15 + R() * 1.5 : Math.PI + 0.3 + R() * 1.3, len = 0.9 + R() * 1.2, n = 16;
+        const al = (front ? 0.55 : 0.16) * (1 - p * 0.4), wd = front ? 2.4 + p * 5.5 : 1.2 + p * 2;
+        let px = 0, py = 0;
+        for (let k = 0; k <= n; k++) {
+          const a = a0 + len * k / n, x = cx(p) + Math.cos(a) * r, y = yy(p) + Math.sin(a) * r * 0.3;
+          if (k) { c.strokeStyle = 'rgba(255,255,255,' + al + ')'; c.lineWidth = wd * Math.sin(k / n * Math.PI) + 0.4; c.lineCap = 'round'; c.beginPath(); c.moveTo(px, py); c.lineTo(x, y); c.stroke(); }
+          px = x; py = y;
+        }
+      }
+      c.globalCompositeOperation = 'source-over';              // 顶上散开：往上渐渐压暗
+      const g = c.createLinearGradient(0, 0, 0, h * 0.34); g.addColorStop(0, 'rgba(0,0,0,.92)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g; c.fillRect(0, 0, w, h * 0.34);
+    }),
+    /* 一道风：一条略弯的长线，线尾往上卷一个小圈，下面跟一道短的（卡通画里画风的那种线） */
+    wind_gust: () => mk(320, 128, (c, w, h) => {
+      const one = (x0, y0, len, curl, wd, al) => {
+        const pts = [];
+        for (let k = 0; k <= 26; k++) { const t = k / 26; pts.push([x0 + t * len, y0 - Math.sin(t * 1.9) * 10]); }
+        const ex = x0 + len, ey = y0 - Math.sin(1.9) * 10;
+        if (curl) for (let k = 1; k <= 30; k++) { const t = k / 30, a = Math.PI / 2 - t * TAU * 1.2, r = curl * (1 - t * 0.7); pts.push([ex + Math.cos(a) * r, ey - curl + Math.sin(a) * r]); }
+        [[2.8, 0.2], [1, 1]].forEach(ps => {                   // 先一层宽的柔光，再一层实线
+          for (let k = 1; k < pts.length; k++) {
+            const m = Math.sin(Math.pow(k / pts.length, 0.8) * Math.PI);
+            c.strokeStyle = 'rgba(255,255,255,' + al * ps[1] + ')'; c.lineWidth = wd * ps[0] * m + 0.5; c.lineCap = 'round';
+            c.beginPath(); c.moveTo(pts[k - 1][0], pts[k - 1][1]); c.lineTo(pts[k][0], pts[k][1]); c.stroke();
+          }
+        });
+      };
+      one(14, 74, 200, 25, 7, 0.95); one(70, 106, 130, 0, 4.5, 0.7); one(40, 30, 90, 0, 3, 0.45);
+    }),
+    /* 一道直的风线：略弯、两头尖，旁边跟两道细的 */
+    wind_line: () => mk(320, 64, (c, w, h) => {
+      [[10, 30, 300, 6, 0.95], [70, 46, 190, 3, 0.55], [40, 15, 140, 2.4, 0.4]].forEach(l => {
+        [[2.8, 0.2], [1, 1]].forEach(ps => {
+          for (let k = 1; k <= 30; k++) {
+            const t0 = (k - 1) / 30, t1 = k / 30, y = t => l[1] - Math.sin(t * Math.PI) * 5;
+            c.strokeStyle = 'rgba(255,255,255,' + l[4] * ps[1] + ')'; c.lineWidth = l[3] * ps[0] * Math.sin(Math.pow(t1, 0.7) * Math.PI) + 0.4; c.lineCap = 'round';
+            c.beginPath(); c.moveTo(l[0] + t0 * l[2], y(t0)); c.lineTo(l[0] + t1 * l[2], y(t1)); c.stroke();
+          }
+        });
+      });
+    }),
+    /* 月牙形的风痕：几笔粗细不同的弧叠在一起 */
+    wind_arc: () => mk(256, 112, (c, w, h) => {
+      const cx = w / 2, cy = h * 1.55, R0 = h * 1.35, n = 24;
+      for (let i = 0; i < 5; i++) {
+        const rr = R0 - i * 7 - R() * 3, a0 = Math.PI * (1.2 + i * 0.014 + R() * 0.02), a1 = Math.PI * (1.8 - i * 0.03 - R() * 0.03);
+        [[2.6, 0.2], [1, 1]].forEach(ps => {
+          let px = 0, py = 0;
+          for (let k = 0; k <= n; k++) {
+            const a = a0 + (a1 - a0) * k / n, x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
+            if (k) { c.strokeStyle = 'rgba(255,255,255,' + (i ? 0.5 - i * 0.07 : 0.95) * ps[1] + ')'; c.lineWidth = (i ? 3.6 - i * 0.4 : 8) * ps[0] * Math.sin(k / n * Math.PI) + 0.4; c.lineCap = 'round'; c.beginPath(); c.moveTo(px, py); c.lineTo(x, y); c.stroke(); }
+            px = x; py = y;
+          }
+        });
+      }
+    }),
   };
 
   /* 没有对应图片的特效名，用生成的贴图补上 */

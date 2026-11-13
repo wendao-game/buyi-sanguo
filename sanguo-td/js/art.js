@@ -485,5 +485,24 @@ const Art = (function () {
     }
   }
 
-  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU };
+  /* 城墙裂缝（城防低了画在垛口上）：几道带分叉的深色折线，旁边一道浅色的崩口 */
+  let crackCv = null;
+  function crack() {
+    if (crackCv) return crackCv;
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 96;
+    const g = cv.getContext('2d'); let sd = 11; const rnd = () => { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; };
+    const branch = (x, y, a, len, w) => {
+      const pts = [[x, y]];
+      for (let d = 0; d < len; d += 7) { a += (rnd() - 0.5) * 1.1; x += Math.cos(a) * 7; y += Math.sin(a) * 7; pts.push([x, y]); if (w > 1.6 && rnd() < 0.3) branch(x, y, a + (rnd() < 0.5 ? 0.9 : -0.9), len * 0.4, w * 0.55); }
+      [['rgba(255,230,200,.35)', w + 1.4, 1.2], ['rgba(20,12,8,.92)', w, 0]].forEach(s => {
+        g.strokeStyle = s[0]; g.lineJoin = 'round'; g.lineCap = 'round';
+        for (let k = 1; k < pts.length; k++) { g.lineWidth = Math.max(0.6, s[1] * (1 - k / pts.length * 0.75)); g.beginPath(); g.moveTo(pts[k - 1][0] + s[2], pts[k - 1][1] + s[2]); g.lineTo(pts[k][0] + s[2], pts[k][1] + s[2]); g.stroke(); }
+      });
+    };
+    for (let i = 0; i < 5; i++) branch(64 + (rnd() - 0.5) * 8, 20 + rnd() * 6, Math.PI * (0.2 + i * 0.15), 34 + rnd() * 22, 3.4);
+    const gr = g.createRadialGradient(64, 26, 0, 64, 26, 26); gr.addColorStop(0, 'rgba(16,10,6,.75)'); gr.addColorStop(1, 'rgba(16,10,6,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(64, 26, 26, 14, 0, 0, TAU); g.fill();
+    return (crackCv = cv);
+  }
+  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU, crack };
 })();
