@@ -7,7 +7,7 @@
 const UI = (function () {
   const $ = s => document.querySelector(s);
   let screen = 'home', heroTab = 'mine', closable = true, toastTimer = 0, pickSlot = -1;
-  let hudS = null, hudRage = [], hudRock = '', hudSec = -1, buffCb = null, lastRes = null, adTimer = 0, adResolve = null;
+  let hudS = null, hudRage = [], hudRock = '', hudSec = -1, hudVer = -1, lpDraft = null, lpSel = null, buffCb = null, lastRes = null, adTimer = 0, adResolve = null;
 
   const fmt = n => (n >= 100000 ? (n / 10000).toFixed(1) + '万' : String(Math.floor(n)));
   const P = (id, px) => Art.portrait(id, px || 64);
@@ -65,7 +65,7 @@ const UI = (function () {
           <button data-act="stage" data-d="1" ${st >= S.stage ? 'disabled' : ''}>▶</button>
         </div>
         <div class="powers"><span>推荐战力 ${rec}</span><span class="${pw >= rec ? 'ok' : 'bad'}">我方战力 ${pw}</span></div>
-        <div class="reward">通关奖励：金币 ×${stageWinCoins(st)} + 战场掉落${cleared ? '' : '<br>首通再得：招募令 ×' + (st % 10 === 0 ? 5 : 1)}</div>
+        <div class="reward">通关奖励：金币 ×${Math.round(stageWinCoins(st) * (cleared ? CFG.REPLAY_COIN : 1))} + 战场掉落${cleared ? '（已通关，奖励减半）' : '<br>首通再得：招募令 ×' + (st % 10 === 0 ? 5 : 1)}</div>
         <div class="fightrow">
           ${cleared ? `<button class="btn sweep ${sweepLeft() ? '' : 'gray'}" data-act="sweep">扫荡<small>金币 ×${sweepReward(st)} · 今日 ${sweepLeft()}/${CFG.SWEEP_DAILY}</small></button>` : ''}
           <button class="btn-big ${cleared ? 'small' : ''}" data-act="fight">出征</button>
@@ -131,7 +131,8 @@ const UI = (function () {
           <button class="btn gold" data-act="lvup" data-id="${id}">${maxLv ? '已满级' : '升级<small>金币 ' + fmt(levelCost(id)) + '</small>'}</button>
           <button class="btn" data-act="starup" data-id="${id}">${maxStar ? '已满星' : '升星<small>碎片 ' + own.shards + '/' + starNeed(id) + '</small>'}</button>
         </div>
-        <div class="mrow"><button class="btn ${ti >= 0 ? 'gray' : 'red'}" data-act="${ti >= 0 ? 'undeploy' : 'deploy'}" data-id="${id}">${ti >= 0 ? '下阵' : '上阵'}</button></div>`;
+        <div class="mrow"><button class="btn ${ti >= 0 ? 'gray' : 'red'}" data-act="${ti >= 0 ? 'undeploy' : 'deploy'}" data-id="${id}">${ti >= 0 ? '下阵' : '上阵'}</button>
+          ${own.lv > 1 ? `<button class="btn gray" data-act="lvreset" data-id="${id}">重置等级<small>返还 ${fmt(Math.floor(levelSpent(id) * CFG.LEVEL_REFUND))}</small></button>` : ''}</div>`;
     }
     modal(h + '</div>');
   }
@@ -254,8 +255,8 @@ const UI = (function () {
     Battle.start(stage);
   }
   function hud(S) {
-    if (hudS !== S) {
-      hudS = S; hudRage = [];
+    if (hudS !== S || hudVer !== S.teamVer) {
+      hudS = S; hudVer = S.teamVer; hudRage = [];
       $('#ultbar').innerHTML = S.heroes.map(h =>
         `<button class="ult" data-act="ult" data-i="${h.slot}" style="--qc:${QUALITIES[h.def.q].color}"><img src="${P(h.def.id)}"><span>${h.def.ult}</span></button>`).join('');
       hudRock = ''; hudSec = -1;
@@ -277,6 +278,27 @@ const UI = (function () {
       hudRage[i] = p; btns[i].style.setProperty('--p', p + '%'); btns[i].classList.toggle('ready', p >= 100);
     });
     S.heroes.forEach((h, i) => btns[i].classList.toggle('aiming', S.aim === h.slot));
+  }
+  /* 局中换将面板：先改草稿（lpDraft），点「确定」才真的换 */
+  function renderLineup() {
+    const own = Save.data.heroes;
+    const slots = lpDraft.map((id, i) => {
+      const role = SLOT_ROLES[i], fit = id && (role.leader || role.els.includes(HERO_MAP[id].el)), sel = lpSel && lpSel.t === 's' && lpSel.i === i;
+      return id ? `<div class="tslot has ${sel ? 'pick' : ''}" style="--qc:${qc(id)}" data-act="lpSlot" data-i="${i}"><em class="${fit ? 'fit' : ''}">${role.name}</em><img src="${P(id)}"><span>${HERO_MAP[id].name}</span></div>`
+        : `<div class="tslot ${sel ? 'pick' : ''}" data-act="lpSlot" data-i="${i}"><em>${role.name}</em>空位</div>`;
+    }).join('');
+    const bench = Object.keys(own).filter(id => !lpDraft.includes(id)).sort((a, b) => heroStats(b).power - heroStats(a).power);
+    const cards = bench.map(id => { const d = HERO_MAP[id], q = QUALITIES[d.q], sel = lpSel && lpSel.t === 'h' && lpSel.id === id;
+      return `<div class="card ${sel ? 'pick' : ''}" style="--qc:${q.color}" data-act="lpHero" data-id="${id}"><i class="qtag">${ELEMENTS[d.el].name}</i><img src="${P(id)}"><div class="cname">${d.name}</div><div class="cmeta">Lv.${own[id].lv} · ${heroStats(id).power}</div></div>`; }).join('');
+    const b = teamBonus(lpDraft), bonds = b.active.filter(a => a.type !== 'slot').map(a => a.name).join('、');
+    const hint = lpSel ? (lpSel.t === 's' ? '再点下面的武将换上来，或点另一个位置交换站位' : '再点上面的一个位置，把他换上去') : '点一个位置，再点下面的武将换上；点两个位置交换站位';
+    modal(`<div class="mbox lp"><h2>更换武将</h2>
+      <div class="team">${slots}</div>
+      <div class="lpinfo"><span>战力 <b>${teamPower(lpDraft)}</b></span><span>${bonds ? '羁绊：' + bonds : '没有激活的羁绊'}</span></div>
+      <p class="mtext lphint">${hint}</p>
+      <div class="lpgrid">${cards || '<p class="mtext" style="grid-column:1/-1;padding:18px 0">没有其他武将了，去招募吧</p>'}</div>
+      <p class="mtext" style="font-size:12.5px;margin-top:8px">留在场上的武将保留怒气；新上场的怒气从 0 开始，${CFG.SWAP_DELAY} 秒后出手</p>
+      <div class="mrow"><button class="btn gray" data-act="lpOff">下阵</button><button class="btn" data-act="lpCancel">取消</button><button class="btn red" data-act="lpOk">确定</button></div></div>`, false);
   }
   function showBuffs(opts, cb) {
     buffCb = cb;
@@ -349,6 +371,12 @@ const UI = (function () {
       teamSwap(pickSlot, i); pickSlot = -1; render(); toast('已交换站位');
     },
     lvup: d => { const e = levelUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('up'); render(); detail(d.id); },
+    lvreset: d => {
+      const n = HERO_MAP[d.id].name, back = Math.floor(levelSpent(d.id) * CFG.LEVEL_REFUND);
+      modal(`<div class="mbox"><h3>重置等级</h3><p class="mtext">${n} 回到 1 级，返还 <b>${fmt(back)}</b> 金币（星级不变）。<br>换阵容时用：把金币挪给新武将。</p>
+        <div class="mrow"><button class="btn gray" data-act="hero" data-id="${d.id}">再想想</button><button class="btn gold" data-act="lvresetok" data-id="${d.id}">确定重置</button></div></div>`);
+    },
+    lvresetok: d => { const r = levelReset(d.id); if (typeof r === 'string') { Sfx.play('deny'); return toast(r); } Sfx.play('coin'); render(); detail(d.id); toast('返还金币 ' + fmt(r)); },
     starup: d => { const e = starUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('rare'); render(); detail(d.id); toast('升星成功'); },
     deploy: d => { const i = Save.data.team.indexOf(null); if (i < 0) return detail(d.id, true); teamSet(i, d.id); render(); detail(d.id); },
     undeploy: d => { const e = teamRemove(d.id); if (e) return toast(e); render(); detail(d.id); },
@@ -381,9 +409,44 @@ const UI = (function () {
     pause: () => {
       const S = Battle.state; if (!S || S.over || S.choosing) return;
       S.paused = true; Battle.cancelAim();
-      modal(`<div class="mbox"><h2>暂停</h2><p class="mtext">中途退出不会获得任何奖励</p>
-        <div class="mrow"><button class="btn gray" data-act="quit">退出战斗</button><button class="btn red" data-act="resume">继续</button></div></div>`, false);
+      modal(`<div class="mbox"><h2>暂停</h2>
+        <div class="mcol">
+          <button class="btn red" data-act="resume">继续战斗</button>
+          <button class="btn gold" data-act="lineup">更换武将</button>
+          <button class="btn" data-act="retry">重新开始</button>
+          <button class="btn gray" data-act="quit">返回主城</button>
+        </div>
+        <p class="mtext" style="font-size:13px;margin-top:12px">重新开始或返回主城，这一局不会获得奖励</p></div>`, false);
     },
+    retry: () => { const S = Battle.state; if (!S) return; const st = S.stage; Battle.stop(); closeModal(); startBattle(st); },
+    lineup: () => {
+      const S = Battle.state; if (!S || S.over || S.choosing) return;
+      S.paused = true; Battle.cancelAim(); hideTip();
+      lpDraft = Save.data.team.slice(); lpSel = null; renderLineup();
+    },
+    lpSlot: d => {
+      const i = Number(d.i);
+      if (lpSel && lpSel.t === 'h') { lpDraft[i] = lpSel.id; lpSel = null; }
+      else if (lpSel && lpSel.t === 's') { if (lpSel.i !== i) { const x = lpDraft[i]; lpDraft[i] = lpDraft[lpSel.i]; lpDraft[lpSel.i] = x; } lpSel = null; }
+      else lpSel = { t: 's', i };
+      renderLineup();
+    },
+    lpHero: d => {
+      if (lpSel && lpSel.t === 's') { lpDraft[lpSel.i] = d.id; lpSel = null; }
+      else lpSel = lpSel && lpSel.t === 'h' && lpSel.id === d.id ? null : { t: 'h', id: d.id };
+      renderLineup();
+    },
+    lpOff: () => {
+      if (!lpSel || lpSel.t !== 's' || !lpDraft[lpSel.i]) return toast('先点一个有武将的位置');
+      if (lpDraft.filter(Boolean).length <= 1) return toast('至少要留一名武将守城');
+      lpDraft[lpSel.i] = null; lpSel = null; renderLineup();
+    },
+    lpOk: () => {
+      const S = Battle.state, changed = lpDraft.some((id, i) => id !== Save.data.team[i]);
+      if (changed && Battle.lineup(lpDraft)) toast('阵容已更换');
+      lpDraft = null; if (S) S.paused = false; closeModal();
+    },
+    lpCancel: () => { const S = Battle.state; lpDraft = null; if (S) S.paused = false; closeModal(); },
     resume: () => { const S = Battle.state; if (S) S.paused = false; closeModal(); },
     quit: () => { Battle.stop(); closeModal(); show('home'); },
     speed: () => { const S = Save.data; S.speed = S.speed % 3 + 1; Save.save(); $('#bSpeed').textContent = '×' + S.speed; },
@@ -392,7 +455,7 @@ const UI = (function () {
     stats: () => {
       const S = Battle.state; if (!S || S.over || S.choosing) return;
       S.paused = true; Battle.cancelAim();
-      const list = S.heroes.map(h => ({ id: h.def.id, dmg: Math.round(h.dmg) })).sort((a, b) => b.dmg - a.dmg);
+      const list = Battle.damageList();
       const top = Math.max(1, ...list.map(x => x.dmg)), sum = Math.max(1, list.reduce((s, x) => s + x.dmg, 0));
       modal(`<div class="mbox"><h2>战斗统计</h2><p class="mtext" style="font-size:13px">第 ${S.wave} / ${CFG.WAVES} 波 · 击败 ${S.kills} · 铜钱 ${Math.round(S.coins)}</p>
         <div class="dmgs statlist">${list.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join('')}</div>

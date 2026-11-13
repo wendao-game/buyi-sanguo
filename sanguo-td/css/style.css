@@ -436,3 +436,22 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 #app[data-screen="battle"] #tipbar { top: 110px; bottom: auto; width: 318px; font-size: 13.5px; }
 #nav button.hint i { animation: navHint 1s ease-in-out infinite alternate; }
 @keyframes navHint { to { box-shadow: 0 0 0 1px #4a0f10, 0 0 0 2.5px #fff0b4, 0 0 18px 4px #ffe08acc, inset 0 1.5px 0 #ffffff59; transform: translateY(-3px); } }
+
+/* —— 暂停菜单、局中换将 —— */
+.mcol { display: flex; flex-direction: column; gap: 16px; margin-top: 6px; }
+.mcol .btn { width: 100%; height: 54px; font-size: 21px; }
+#bTeam { top: 458px; font-family: var(--fb); font-size: 24px; }
+.mbox.lp { width: 500px; padding: 20px 16px 20px; }
+.mbox.lp .team { padding: 0; gap: 7px; }
+.mbox.lp .tslot { height: 112px; cursor: pointer; }
+.mbox.lp .tslot img { width: 64px; height: 64px; }
+.lpinfo { display: flex; justify-content: space-between; gap: 10px; margin: 10px 2px 0; font-family: var(--fr); font-size: 14px; color: #c8b08a; }
+.lpinfo b { color: var(--gold2); font-size: 18px; font-weight: normal; }
+.lpinfo span:last-child { text-align: right; font-size: 12.5px; }
+.lphint { font-size: 13px; color: #ffb36a; margin: 6px 0 8px; line-height: 1.5; }
+.lpgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px 9px; max-height: 318px; overflow-y: auto; padding: 8px 6px 6px; border-radius: 10px; background: #00000066; box-shadow: inset 0 0 0 1.5px #5a3e22; }
+.lpgrid::-webkit-scrollbar { width: 0; }
+.lpgrid .card .cname { font-size: 14px; }
+.lpgrid .card .cmeta { font-size: 10.5px; white-space: nowrap; }
+.card.pick { box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 3.5px #fff0b4, 0 0 16px #ffe08acc; transform: translateY(-3px); }
+.mbox.lp .mrow { gap: 12px; margin-top: 12px; }

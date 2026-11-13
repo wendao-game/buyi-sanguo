@@ -127,8 +127,8 @@ const SKILLS = (function () {
     /* ======================= 蓝 ======================= */
     xuhuang: {
       passive: { name: '断粮', desc: '刀气命中的敌人减速 1.5 秒', onHit(B, h, e) { B.slow(e, 1.5); } },
-      ult: { desc: '横扫整条战线的刀浪，由城下推到远方，伤害 ×3.5 并减速（觉醒 ×5.25）',
-        cast(B, h, a, k) { B.sweep(h, a * 3.5 * k, { slow: 3 }); B.shake(0.2); } },
+      ult: { desc: '横扫整条战线的刀浪，由城下推到远方，伤害 ×2.5 并减速（觉醒 ×3.75）',
+        cast(B, h, a, k) { B.sweep(h, a * 2.5 * k, { slow: 3 }); B.shake(0.2); } },
     },
     ganning: {
       passive: { name: '锦帆贼', desc: '暴击率 +10%；每次出手 40% 概率再射一箭',
@@ -232,10 +232,10 @@ const SKILLS = (function () {
     /* ======================= 金 ======================= */
     guanyu: {
       passive: { name: '武圣', desc: '攻击 +20%；亲手击杀敌人恢复 5 怒气', mod: { atk: 0.2 }, onKill(B, h) { B.rage(h, 5); } },
-      ult: { aim: true, desc: '青龙偃月：月牙巨刃贯穿全场 ×6，之后 4 秒普攻刀气变大（觉醒 ×9、6 秒）',
+      ult: { aim: true, desc: '青龙偃月：月牙巨刃贯穿全场 ×4，之后 4 秒普攻刀气变大（觉醒 ×6、6 秒）',
         cast(B, h, a, k) {
           const p = B.at(110); if (!p) return;
-          B.blade(h, h.x, h.y - 22, Math.atan2(p.y - h.y, p.x - h.x), { w: 260, spd: 480, dmg: a * 6 * k, big: true, life: 2.6, color: 'green', tex: 'dragon_azure', texW: 380 });
+          B.blade(h, h.x, h.y - 22, Math.atan2(p.y - h.y, p.x - h.x), { w: 260, spd: 480, dmg: a * 4 * k, big: true, life: 2.6, color: 'green', tex: 'dragon_azure', texW: 380 });
           h.bigT = 4 * k; B.shake(0.35);
         } },
     },
@@ -260,34 +260,34 @@ const SKILLS = (function () {
     zhaoyun: {
       passive: { name: '龙胆', desc: '每第 3 次出手改为贯穿冰枪，伤害 ×1.5',
         onAttack(B, h, tg, d) { if (h.n % 3 === 0 && !tg.dead) B.blade(h, h.x, h.y - 22, Math.atan2(tg.y - h.y, tg.x - h.x), { look: 'ice', el: 'ice', w: 34, spd: 760, dmg: d * 1.5, slow: 1.5, life: 1.5 }); } },
-      ult: { desc: '七进七出：7 道冰枪在敌阵中左右穿梭，伤害 ×3 并减速（觉醒 10 道）',
+      ult: { desc: '七进七出：7 道冰枪在敌阵中左右穿梭，伤害 ×4.5 并减速（觉醒 10 道）',
         cast(B, h, a, k) {
           const n = R(7, k);
           for (let i = 0; i < n; i++) B.later(i * 0.14, () => {
             const fromL = i % 2 === 0, y0 = B.TOP + 40 + Math.random() * (B.WY - B.TOP - 120), y1 = B.TOP + 40 + Math.random() * (B.WY - B.TOP - 120);
             const x0 = fromL ? -20 : B.W + 20, x1 = fromL ? B.W + 20 : -20;
-            B.blade(h, x0, y0, Math.atan2(y1 - y0, x1 - x0), { look: 'ice', el: 'ice', w: 60, spd: 900, dmg: a * 3, slow: 2, life: 1.2, big: true, tex: 'dragon_white', texW: 190 });
+            B.blade(h, x0, y0, Math.atan2(y1 - y0, x1 - x0), { look: 'ice', el: 'ice', w: 60, spd: 900, dmg: a * 4.5, slow: 2, life: 1.2, big: true, tex: 'dragon_white', texW: 190 });
           });
         } },
     },
     simayi: {
       passive: { name: '冢虎', desc: '被毒死的敌人原地留下一小片毒潭',
         onKill(B, h, e, el) { if (el === 'poison') B.pool(h, e.x, e.y, 40, 2, h.atk * 0.5, 'poison'); } },
-      ult: { desc: '鬼谋：全场敌人 6 秒内受到的伤害 +35% 并持续中毒（觉醒 9 秒）',
+      ult: { desc: '鬼谋：全场敌人 6 秒内受到的伤害 +45% 并持续剧毒（觉醒 9 秒）',
         cast(B, h, a, k) {
           B.flash('80,40,120', 0.3, 0.6);
-          for (const e of B.lives()) { B.vuln(e, 6 * k, 0.35); B.poison(e, 6 * k, a * 0.5, h); B.mark(e, 6 * k); B.tex('el_hit_dark', e.x, e.y - 10, { w: 70, life: 0.5, grow: 1.3 }); }
+          for (const e of B.lives()) { B.vuln(e, 6 * k, 0.45); B.poison(e, 6 * k, a * 1.0, h); B.mark(e, 6 * k); B.tex('el_hit_dark', e.x, e.y - 10, { w: 70, life: 0.5, grow: 1.3 }); }
         } },
     },
 
     /* ======================= 橙 ======================= */
     zhugeliang: {
       passive: { name: '卧龙', desc: '全军大招伤害 +15%', aura(ctx) { ctx.S.buffs.ult *= 1.15; } },
-      ult: { desc: '借东风：6 秒东风把敌人持续吹回，全军出手速度 +50%、火系伤害 +50%，其他武将怒气 +20（觉醒 9 秒）',
+      ult: { desc: '借东风：6 秒东风把敌人持续吹回，全军出手速度 +25%、火系伤害 +30%，其他武将怒气 +10（觉醒 9 秒）',
         cast(B, h, a, k) {
           const t = 6 * k;
-          B.zone({ k: 'wind', h, life: t, dmg: a * 0.9, push: 12 });
-          B.teamHaste(t, 1.5); B.teamRage(20, h); B.S.windT = t;
+          B.zone({ k: 'wind', h, life: t, dmg: a * 0.9, push: 9 });
+          B.teamHaste(t, 1.25); B.teamRage(10, h); B.S.windT = t;
           B.flash('200,255,235', 0.25, 0.6);
         } },
     },
@@ -298,7 +298,7 @@ const SKILLS = (function () {
       ult: { desc: '无双乱舞：6 秒内不停向四面八方挥出大型刀气（觉醒 9 秒）',
         cast(B, h, a, k) {
           const n = R(24, k);
-          for (let i = 0; i < n; i++) B.later(i * 0.25, () => B.blade(h, h.x, h.y - 22, -Math.PI / 2 + (Math.random() - 0.5) * 2.2, { w: 120, spd: 520, dmg: a * 1.8, big: true, life: 2.2, color: 'red' }));
+          for (let i = 0; i < n; i++) B.later(i * 0.25, () => B.blade(h, h.x, h.y - 22, -Math.PI / 2 + (Math.random() - 0.5) * 2.2, { w: 120, spd: 520, dmg: a * 1.2, big: true, life: 2.2, color: 'red' }));
           B.shake(0.3);
         } },
     },
@@ -306,12 +306,12 @@ const SKILLS = (function () {
       passive: { name: '乱世奸雄', desc: '全军攻击 +10%；任何人击杀校尉或敌将时，全军怒气 +15',
         aura(ctx) { ctx.S.buffs.atk *= 1.10; },
         onAnyKill(B, h, e) { if (big(e)) B.teamRage(15); } },
-      ult: { desc: '万箭齐发：三轮箭雨覆盖全场，每轮 35 支并减速（觉醒四轮半）',
+      ult: { desc: '万箭齐发：三轮箭雨覆盖全场，每轮 20 支并减速（觉醒四轮半）',
         cast(B, h, a, k) {
           const rounds = 3 * k;
-          for (let i = 0; i < Math.round(35 * rounds); i++) B.later(i * 0.03 + Math.floor(i / 35) * 0.35, () => {
+          for (let i = 0; i < Math.round(20 * rounds); i++) B.later(i * 0.05 + Math.floor(i / 20) * 0.35, () => {
             const t = B.rnd(); if (!t) return;
-            B.rain(h, t.x + (Math.random() - 0.5) * 24, t.y, a * 1.2, 0.8);
+            B.rain(h, t.x + (Math.random() - 0.5) * 24, t.y, a * 0.8, 0.8);
           });
         } },
     },

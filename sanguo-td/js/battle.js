@@ -23,34 +23,58 @@ const Battle = (function () {
 
   /* ---------------- 开局 ---------------- */
   function start(stage) {
-    const bonus = teamBonus(Save.data.team);
     S = {
       stage, ch: chapterOf(stage), wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
       queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
       cut: null, lastCut: -99, shock: null, dim: null,
       t: 0, coins: 0, kills: 0,
-      buffs: { atk: 1 + bonus.atk, spd: 1 + bonus.spd, crit: bonus.crit, rage: 1 + bonus.rage, ult: 1 + bonus.ult, coin: 1, boss: 1, el: {} },
-      bonus, wallBonus: bonus.wall, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 },
+      buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 },
+      picks: [], dmgLog: {}, teamVer: 0,                     // 已选的军令（换将后要重新算一遍）、下场武将的伤害记录、阵容版本号（界面据此重建大招按钮）
       rock: { n: CFG.ROCK_MAX, max: CFG.ROCK_MAX, t: 0, dmg: 1 }, aim: null, aimT: 0,
       over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, banner: null, flash: null,
     };
+    setupTeam(true);
+    nextWave();
+  }
+  /* 按存档里的阵容建队：开局调一次；局中换将时再调，留在场上的武将保留怒气、出手计时和伤害，新上场的从 0 怒气开始 */
+  function setupTeam(first) {
+    const prev = {};
+    for (const h of S.heroes) { prev[h.def.id] = h; S.dmgLog[h.def.id] = h.dmg; }
+    const bonus = teamBonus(Save.data.team);
+    S.bonus = bonus; S.wallBonus = bonus.wall; S.psnVuln = 0;
+    S.buffs = { atk: 1 + bonus.atk, spd: 1 + bonus.spd, crit: bonus.crit, rage: 1 + bonus.rage, ult: 1 + bonus.ult, coin: 1, boss: 1, el: {} };
     for (const k in bonus.el) S.buffs.el[k] = 1 + bonus.el[k];
+    S.heroes = [];
     Save.data.team.forEach((id, i) => {
       if (!id) return;
-      const st = heroStats(id), d = HERO_MAP[id], sk = heroSkill(id), p = bonus.per[i];
+      const st = heroStats(id), d = HERO_MAP[id], sk = heroSkill(id), p = bonus.per[i], old = prev[id];
       const m = Object.assign({ atk: 0, spd: 0, crit: 0, critDmg: 0, rage: 0, w: 0, r: 0, chain: 0, life: 0, push: 0, tspd: 0, burn: 0, dotCrit: 0 }, sk && sk.passive.mod);
-      S.heroes.push({
+      const h = {
         slot: i, def: d, sk, awake: heroAwake(id),
         atk: st.atk * (1 + m.atk) * (1 + p.atk), cd: st.cd / ((1 + m.spd) * (1 + p.spd)),
         crit: m.crit, critDmg: m.critDmg, rageMul: 1 + m.rage + p.rage,
         m: { w: 1 + m.w, r: 1 + m.r, chain: m.chain, life: 1 + m.life, push: 1 + m.push, tspd: 1 + m.tspd, burn: 1 + m.burn, dotCrit: !!m.dotCrit },
-        x: SLOTS[i][0], y: SLOTS[i][1], t: 0.4 + rand() * 0.6, rage: 0, anim: 0, n: 0, dmg: 0, hasteT: 0, hasteMul: 1, bigT: 0,
-      });
+        x: SLOTS[i][0], y: SLOTS[i][1], t: first ? 0.4 + rand() * 0.6 : CFG.SWAP_DELAY, rage: 0, anim: 0, n: 0, dmg: S.dmgLog[id] || 0, hasteT: 0, hasteMul: 1, bigT: 0,
+      };
+      if (old) { h.rage = old.rage; h.n = old.n; h.t = old.t; h.hasteT = old.hasteT; h.hasteMul = old.hasteMul; h.bigT = old.bigT; h.anim = old.anim; }
+      else if (!first) { tex('pillar', h.x, h.y + 34, { w: 70, h: 240, ay: 1, life: 0.7, fadeIn: 0.1, a: 0.7, force: true }); ring(h.x, h.y + 26, 10, 60, 0.4, QUALITIES[d.q].color, 3); }
+      S.heroes.push(h);
     });
     const has = id => S.heroes.some(h => h.def.id === id);
     S.heroes.forEach(h => { if (h.sk && h.sk.passive.aura) h.sk.passive.aura({ S, self: h, heroes: S.heroes, has }); });
-    S.wallMax = S.wall = Math.round((400 + basePower()) * (1 + S.wallBonus));
-    nextWave();
+    for (const b of S.picks) b.apply(S.buffs, S);           // 已选的军令（加成类）重新生效
+    const oldMax = S.wallMax;
+    S.wallMax = Math.round((400 + basePower()) * (1 + S.wallBonus));
+    S.wall = first || !oldMax ? S.wallMax : Math.max(1, Math.round(S.wallMax * S.wall / oldMax));   // 换将后城防按原来的比例折算
+    S.aim = null; S.teamVer++;
+  }
+  /* 局中换将：team 是 5 个位置的武将 id（空位 null）。成功返回 true */
+  function lineup(team) {
+    if (!S || S.over || !Array.isArray(team) || !team.some(Boolean)) return false;
+    Save.data.team = team.slice(0, 5); Save.save();
+    setupTeam(false);
+    Sfx.play('up');
+    return true;
   }
   function stop() { S = null; }
 
@@ -70,7 +94,7 @@ const Battle = (function () {
       stopY: WY - 15 - d.r - rand() * 12 - (d.range ? d.range * (0.6 + rand() * 0.4) : 0),
       acd: 0.3 + rand() * 0.7, flash: 0, frozen: 0, slow: 0, burn: 0, burnT: 0, burnDps: 0, burnSrc: null,
       psn: 0, psnT: 0, psnDps: 0, psnSrc: null, psnMark: 0, vuln: 0, vulnT: 0, fear: 0, conf: 0, confT: 0, confSrc: null, mark: 0,
-      walk: rand() * 6, ph: rand() * 6, dead: false,
+      walk: rand() * 6, ph: rand() * 6, dead: false, ccK: 1, pushK: 1,
       spr: enemySprite(d.id), flip: d.id !== 'boss' && rand() < 0.5,
     });
   }
@@ -85,7 +109,7 @@ const Battle = (function () {
       S.choosing = true; S.aim = null;
       const pool = BUFFS.filter(b => !b.el || S.heroes.some(h => h.def.el === b.el)), opts = [];
       while (opts.length < 3 && pool.length) opts.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
-      UI.showBuffs(opts, i => { opts[i].apply(S.buffs, S); S.choosing = false; nextWave(); });
+      UI.showBuffs(opts, i => { opts[i].apply(S.buffs, S); if (!opts[i].once) S.picks.push(opts[i]); S.choosing = false; nextWave(); });
     } else nextWave();
   }
   function finish(win) {
@@ -95,9 +119,16 @@ const Battle = (function () {
     S.banner = { text: win ? '大获全胜' : '城池失守', t: 99, max: 99 };
     const res = settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins));
     res.win = win; res.kills = S.kills; res.stage = S.stage; res.wave = S.wave;
-    res.dmg = S.heroes.map(h => ({ id: h.def.id, dmg: Math.round(h.dmg) })).sort((a, b) => b.dmg - a.dmg);
+    res.dmg = damageList();
     const ref = S;
     setTimeout(() => { if (S === ref) UI.showResult(res); }, 1100);
+  }
+
+  /* 每名武将本局的伤害（含中途换下场的），从高到低 */
+  function damageList() {
+    const log = Object.assign({}, S.dmgLog);
+    for (const h of S.heroes) log[h.def.id] = h.dmg;
+    return Object.keys(log).filter(id => log[id] > 0 || S.heroes.some(h => h.def.id === id)).map(id => ({ id, dmg: Math.round(log[id]) })).sort((a, b) => b.dmg - a.dmg);
   }
 
   /* ---------------- 特效小工具 ---------------- */
@@ -177,7 +208,7 @@ const Battle = (function () {
     o = o || {};
     let m = 1 + (e.vuln || 0) + ((e.psn > 0 || e.psnMark > 0) ? S.psnVuln : 0);
     m *= S.buffs.el[el] || 1;
-    if (el === 'fire' && S.windT > 0) m *= 1.5;
+    if (el === 'fire' && S.windT > 0) m *= 1.3;
     if (isBig(e)) m *= S.buffs.boss;
     if (src && src.sk && src.sk.passive.dmg) m *= src.sk.passive.dmg(B, src, e);
     const canCrit = !o.dot || (src && src.m.dotCrit);
@@ -230,13 +261,17 @@ const Battle = (function () {
   function strongest(n) { return lives().sort((a, b) => b.hp - a.hp).slice(0, n); }
 
   /* 状态 */
-  const stun = (e, t) => { if (!e.dead) e.frozen = Math.max(e.frozen, t); };
+  /* 控制抗性：同一个敌人每被硬控（眩晕 / 冻结、惊吓、混乱）一次，之后的控制时长打八折（最低三成）；
+   * 每被击退一次，之后的击退距离打九三折（最低一成五）。否则高星武将能把小兵永久控住，后期胜负就和战力无关了 */
+  function ccTime(e, t) { const k = e.ccK; if (t > 0.3) e.ccK = Math.max(CFG.CC_MIN, k * CFG.CC_DECAY); return t * k; }
+  function pushBack(e, d, minY) { if (e.dead) return; const k = e.pushK * (e.def.id === 'boss' ? 0.25 : 1); e.pushK = Math.max(CFG.PUSH_MIN, e.pushK * CFG.PUSH_DECAY); e.y = Math.max(minY || RANGE_Y + 8, e.y - d * k); }
+  const stun = (e, t) => { if (!e.dead) e.frozen = Math.max(e.frozen, ccTime(e, t)); };
   const slow = (e, t) => { if (!e.dead) e.slow = Math.max(e.slow, t); };
   function burn(e, t, tick, h) { if (e.dead) return; e.burn = Math.max(e.burn, t); if (tick >= e.burnDps || !e.burnSrc) { e.burnDps = tick; e.burnSrc = h; } }
   function poison(e, t, dps, h) { if (e.dead) return; e.psn = Math.max(e.psn, t); if (dps >= e.psnDps || !e.psnSrc) { e.psnDps = dps; e.psnSrc = h; } }
   function vuln(e, t, v) { if (e.dead) return; e.vuln = Math.max(e.vuln, v); e.vulnT = Math.max(e.vulnT, t); }
-  function fear(e, t) { if (!e.dead) e.fear = Math.max(e.fear, t); }
-  function confuse(e, t, h) { if (e.dead) return; e.conf = Math.max(e.conf, t); e.confSrc = h; e.confT = 0.3; }
+  function fear(e, t) { if (!e.dead) e.fear = Math.max(e.fear, ccTime(e, t)); }
+  function confuse(e, t, h) { if (e.dead) return; e.conf = Math.max(e.conf, ccTime(e, t)); e.confSrc = h; e.confT = 0.3; }
 
   /* 落点爆炸 */
   function explode(el, x, y, r, dmg, big, h, basic) {
@@ -555,7 +590,7 @@ const Battle = (function () {
           if (dx * dx + dy * dy < rr * rr) {
             s.hit.add(e); hit(e, s.dmg, s.el, s.h, { basic: s.basic });
             if (!e.dead) {
-              if (s.push) e.y = Math.max(RANGE_Y + 8, e.y - (e.def.id === 'boss' ? s.push * 0.25 : s.push));
+              if (s.push) pushBack(e, s.push);
               if (s.slow) slow(e, s.slow);
             }
             burst(e.x, e.y, 2, s.look === 'ice' ? '#d9f4ff' : '#e6dcff', 80, 3, 0.25);
@@ -619,7 +654,7 @@ const Battle = (function () {
         z.y += z.vy * dt;
         if (z.tick <= 0) {
           z.tick = 0.25;
-          inRadius(z.x, z.y, z.r, e => { hit(e, z.dmg, 'wind', z.h, { basic: z.basic }); if (!e.dead && e.y > RANGE_Y + 12) e.y = Math.max(RANGE_Y + 10, e.y - (e.def.id === 'boss' ? z.push * 0.25 : z.push)); });
+          inRadius(z.x, z.y, z.r, e => { hit(e, z.dmg, 'wind', z.h, { basic: z.basic }); if (!e.dead && e.y > RANGE_Y + 12) pushBack(e, z.push, RANGE_Y + 10); });
         }
         if (rand() < 0.7) { const a = rand() * TAU; part(z.x + Math.cos(a) * z.r * 0.8, z.y + Math.sin(a) * z.r * 0.3, -Math.sin(a) * 90, -50, 0.4, '#d6fff1', 2.5); }
         if (z.y < -z.r * 2) z.life = 0;
@@ -645,7 +680,7 @@ const Battle = (function () {
           z.tick = 0.3;
           for (const e of S.enemies) {
             if (e.dead || Math.abs(e.y - z.y) > 42) continue;
-            e.y = Math.max(RANGE_Y + 8, e.y - (e.def.id === 'boss' ? z.push * 0.25 : z.push));
+            pushBack(e, z.push);
             hit(e, z.dmg, 'wind', z.h, { dot: true });
           }
         }
@@ -661,7 +696,7 @@ const Battle = (function () {
           const dmgNow = z.t >= 1; if (dmgNow) z.t = 0;
           for (const e of S.live) {
             if (e.dead) continue;
-            e.y = Math.max(RANGE_Y + 8, e.y - (e.def.id === 'boss' ? z.push * 0.25 : z.push));
+            pushBack(e, z.push);
             if (dmgNow) hit(e, z.dmg, 'wind', z.h, { dot: true });
           }
         }
@@ -1127,5 +1162,5 @@ const Battle = (function () {
   /* 只跑逻辑不画（自动化测试 / 数值模拟用） */
   function tick(dt) { if (S && !S.paused && !S.choosing) step(Math.min(dt, 0.05)); }
 
-  return { init, start, stop, frame, tick, tapAt, ult, cancelAim, get state() { return S; }, SLOTS };
+  return { init, start, stop, frame, tick, tapAt, ult, cancelAim, lineup, damageList, get state() { return S; }, SLOTS };
 })();

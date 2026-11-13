@@ -10,15 +10,16 @@ const CFG = {
   SLOTS: [[96, 770], [183, 800], [270, 758], [357, 800], [444, 770]],   // 5 个武将站位（身体中心；脚底在其下方 29）
   WAVES: 10,               // 每关波数
   BUFF_EVERY: 3,           // 每几波出一次三选一军令
-  ENEMY_HP_SCALE: 1.8,     // 敌人血量总倍率（整体难度旋钮）
+  ENEMY_HP_SCALE: 1,       // 敌人血量总倍率（整体难度旋钮：1 = 按数值规划；调大整体变难）
 
   // —— 经济 ——
-  TICKET_PRICE: 100,       // 多少金币换 1 张招募令
+  TICKET_PRICE: 200,       // 多少金币换 1 张招募令
   AD_DAILY_LIMIT: 5,       // 每日可看广告次数
   AD_REWARD: 1,            // 每次广告给几张招募令
   AD_SECONDS: 5,           // 网页版模拟广告时长（秒）
   AD_UNIT_ID: '',          // 平台激励视频广告位 ID（TapTap / 抖音后台申请后填这里；留空 = 平台里不显示广告入口）
   AD_WAIT: 20,             // 点了广告多少秒还没播出来，就当这次没有广告
+  REPLAY_COIN: 0.5,        // 重复通关时通关金币的比例（首通拿全额；想多拿用每日扫荡）
   START_COINS: 200,
   START_TICKETS: 10,
   COIN_DROP_RATE: 0.35,    // 普通敌人掉铜钱概率
@@ -34,6 +35,10 @@ const CFG = {
   STAR_NEED: [1, 2, 3, 4, 5], // 升到下一星需要的碎片
   SHARD_TO_COIN: 30,       // 满星后多余碎片折算金币（× 品质倍率）
   AWAKEN_STAR: 3,          // 几星觉醒：专属大招效果 ×1.5
+  AWAKEN_POWER: 1.2,       // 觉醒后战力数字 × 此值（模拟器量出来觉醒大约值这么多）
+  LEVEL_COST: 6,           // 升级花费 = 此值 × 等级^LEVEL_COST_POW ×（1 + 0.25 × 品质）
+  LEVEL_COST_POW: 1.1,
+  LEVEL_REFUND: 1,         // 重置等级返还已花金币的比例（1 = 全额：换阵容不亏）
 
   // —— 局内操作 ——
   ROCK_MAX: 3,             // 滚木礌石最多存几块
@@ -41,6 +46,13 @@ const CFG = {
   ROCK_R: 60,              // 落点半径
   ROCK_DMG: 1.0,           // 每块伤害 = 当前关卡黄巾兵血量 × 此倍率（并眩晕 1 秒）
   AIM_SLOW: 0.25,          // 手动瞄准大招时的慢动作倍率
+  SWAP_DELAY: 1.5,         // 局中换上场的武将过多少秒才第一次出手（怒气从 0 开始）
+
+  // —— 控制抗性（见 battle.js 的 ccTime / pushBack）——
+  CC_DECAY: 0.8,           // 敌人每被硬控一次，之后的控制时长 × 此值
+  CC_MIN: 0.3,             // 控制时长最低打到几折
+  PUSH_DECAY: 0.93,        // 每被击退一次，之后的击退距离 × 此值
+  PUSH_MIN: 0.15,
 
   // —— 扫荡（已通关的关卡直接领奖励）——
   SWEEP_DAILY: 5,
@@ -66,15 +78,16 @@ const DEV = (function () {
 })();
 
 /* 品质：白 绿 蓝 紫 金 橙 黑 彩（黑、彩为神将，暂未开放） */
+/* mult = 攻击倍率；pw = 战力数字再乘的「技能含金量」（高品质武将的技能本身更强，模拟器量出来的，见 tools/sim/heroes.js）*/
 const QUALITIES = [
-  { id: 0, name: '白', color: '#d9dde0', dark: '#6b7278', mult: 1.00, rate: 38 },
-  { id: 1, name: '绿', color: '#62d267', dark: '#1f6b2a', mult: 1.25, rate: 28 },
-  { id: 2, name: '蓝', color: '#4ea8ff', dark: '#1b4a8c', mult: 1.60, rate: 19 },
-  { id: 3, name: '紫', color: '#b968ff', dark: '#52208c', mult: 2.10, rate: 10 },
-  { id: 4, name: '金', color: '#ffd84a', dark: '#8c6410', mult: 2.80, rate: 4 },
-  { id: 5, name: '橙', color: '#ff8a2a', dark: '#8c3a08', mult: 3.80, rate: 1 },
-  { id: 6, name: '黑', color: '#3a3340', dark: '#0d0a12', mult: 5.20, rate: 0, god: true },
-  { id: 7, name: '彩', color: '#ff7ad9', dark: '#3a2a7a', mult: 7.00, rate: 0, god: true },
+  { id: 0, name: '白', color: '#d9dde0', dark: '#6b7278', mult: 1.00, pw: 1.00, rate: 38 },
+  { id: 1, name: '绿', color: '#62d267', dark: '#1f6b2a', mult: 1.25, pw: 1.00, rate: 28 },
+  { id: 2, name: '蓝', color: '#4ea8ff', dark: '#1b4a8c', mult: 1.60, pw: 1.00, rate: 19 },
+  { id: 3, name: '紫', color: '#b968ff', dark: '#52208c', mult: 2.10, pw: 1.15, rate: 10 },
+  { id: 4, name: '金', color: '#ffd84a', dark: '#8c6410', mult: 2.80, pw: 1.50, rate: 4 },
+  { id: 5, name: '橙', color: '#ff8a2a', dark: '#8c3a08', mult: 3.80, pw: 1.80, rate: 1 },
+  { id: 6, name: '黑', color: '#3a3340', dark: '#0d0a12', mult: 5.20, pw: 2.00, rate: 0, god: true },
+  { id: 7, name: '彩', color: '#ff7ad9', dark: '#3a2a7a', mult: 7.00, pw: 2.20, rate: 0, god: true },
 ];
 
 const FACTIONS = {
@@ -189,15 +202,37 @@ function chapterOf(stage) {
   return { index: idx + 1, name: c.name, boss: c.boss, sub: ((stage - 1) % 10) + 1 };
 }
 
+/* ============================================================
+ * 数值规划（详见《数值规划.md》）
+ * 做法：先定每章打完时玩家该有多强（战力预算），敌人强度、推荐战力都从这张表算出来；
+ *       再用不带画面的模拟器（tools/sim/）校准，让「战力 = 推荐战力」时挂机胜率约六成。
+ * ============================================================ */
+/* 每章最后一关的战力预算（第 0 项 = 开局）。章内按等比插值；第 8 章之后每关 +3% */
+const STAGE_POWER = [250, 3000, 7900, 13900, 21100, 28500, 37700, 49800, 65900];
+function stagePower(stage) {
+  const n = STAGE_POWER.length - 1, s = Math.max(1, stage);
+  if (s >= n * 10) return STAGE_POWER[n] * Math.pow(1.03, s - n * 10);
+  const c = Math.floor((s - 1) / 10), f = (s - c * 10) / 10;
+  return STAGE_POWER[c] * Math.pow(STAGE_POWER[c + 1] / STAGE_POWER[c], f);
+}
+/* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
+ * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
+const HP_PER_POWER = [[1, 0.0060], [15, 0.0058], [25, 0.0052], [40, 0.0056], [80, 0.0059]];   // 各关校准值在 0.0049–0.0065 之间，取平滑后的
+function hpPerPower(stage) {
+  const T = HP_PER_POWER, s = Math.max(1, stage);
+  if (s <= T[0][0]) return T[0][1];
+  for (let i = 1; i < T.length; i++) if (s <= T[i][0]) { const f = (s - T[i - 1][0]) / (T[i][0] - T[i - 1][0]); return T[i - 1][1] * Math.pow(T[i][1] / T[i - 1][1], f); }
+  return T[T.length - 1][1];
+}
 /* 关卡强度 */
-function stageHpMul(stage, wave) { return CFG.ENEMY_HP_SCALE * Math.pow(1.12, stage - 1) * (1 + 0.07 * (wave - 1)); }
-function stageAtkMul(stage)      { return Math.pow(1.09, stage - 1); }
-function stageRecommend(stage)   { return Math.round(380 * Math.pow(1.10, stage - 1) * (stage % 10 === 0 ? 1.15 : 1)); }   // 按自动战斗模拟校准（含羁绊、专属技能）：达到推荐战力约五成以上胜率，章末决战另加 15%
+function stageHpMul(stage, wave) { return CFG.ENEMY_HP_SCALE * hpPerPower(stage) * stagePower(stage) * (1 + 0.07 * (wave - 1)); }
+function stageAtkMul(stage)      { return (400 + 0.62 * stagePower(stage)) / (400 + 0.62 * stagePower(1)); }   // 跟着城防（400 + 武将战力）涨：各关城墙能挨的下数差不多
+function stageRecommend(stage)   { return Math.round(stagePower(stage) / 10) * 10; }
 function stageWinCoins(stage)    { return 100 + 25 * stage; }
 
 /* 生成一波敌人：返回按出场时间排序的 [{t, type, x}] */
 function genWave(stage, wave) {
-  const n = Math.min(80, Math.round(10 + wave * 2.2 + stage * 0.6));
+  const n = Math.round(10 + wave * 2.2 + Math.min(stage, 40) * 0.6);   // 每波人数：第 40 关以后不再加人（最多 56），后面靠血量变强
   const pool = [['grunt', 10]];
   if (stage >= 2 || wave >= 4) pool.push(['shield', 3]);
   if (stage >= 3 || wave >= 6) pool.push(['rider', 3]);
@@ -242,7 +277,7 @@ const COMBOS = [
   { name: '五虎上将', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
   { name: '长沙旧部', ids: ['huangzhong', 'weiyan'], need: 2, desc: '弓、火系伤害 +25%', eff: { el: { arrow: 0.25, fire: 0.25 } } },
   { name: '荆襄名士', ids: ['zhugeliang', 'xushu'], need: 2, desc: '风系伤害 +35%', eff: { el: { wind: 0.35 } } },
-  { name: '赤壁之盟', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +25%、怒气获取 +15%', eff: { ult: 0.25, rage: 0.15 } },
+  { name: '赤壁之盟', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +20%、怒气获取 +10%', eff: { ult: 0.20, rage: 0.10 } },
   { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +35%', eff: { el: { fire: 0.35 } } },
   { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
   { name: '魏之谋主', ids: ['caocao', 'simayi', 'jiaxu'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
@@ -261,9 +296,9 @@ const BUFFS = [
   { id: 'crit', name: '破绽洞察', desc: '暴击率 +10%',         apply: b => { b.crit += 0.10; } },
   { id: 'rage', name: '士气高昂', desc: '怒气获取 +35%',       apply: b => { b.rage *= 1.35; } },
   { id: 'ult',  name: '奇谋妙计', desc: '大招伤害 +30%',       apply: b => { b.ult *= 1.3; } },
-  { id: 'heal', name: '修缮城墙', desc: '立即回复 35% 城防',   apply: (b, S) => { S.wall = Math.min(S.wallMax, S.wall + S.wallMax * 0.35); } },
+  { id: 'heal', once: true, name: '修缮城墙', desc: '立即回复 35% 城防',   apply: (b, S) => { S.wall = Math.min(S.wallMax, S.wall + S.wallMax * 0.35); } },
   { id: 'coin', name: '搜刮战利', desc: '本局铜钱掉落 +50%',   apply: b => { b.coin *= 1.5; } },
-  { id: 'rock', name: '多备礌石', desc: '投石上限 +2，伤害 +50%', apply: (b, S) => { S.rock.max += 2; S.rock.n += 2; S.rock.dmg *= 1.5; } },
+  { id: 'rock', once: true, name: '多备礌石', desc: '投石上限 +2，伤害 +50%', apply: (b, S) => { S.rock.max += 2; S.rock.n += 2; S.rock.dmg *= 1.5; } },
   { id: 'boss', name: '擒贼擒王', desc: '对校尉、敌将伤害 +35%', apply: b => { b.boss *= 1.35; } },
   // 带 el 的只在阵上有该系武将时出现
   { id: 'e_fire',   el: 'fire',    name: '火上浇油', desc: '火系伤害 +40%',   apply: b => { b.el.fire = (b.el.fire || 1) * 1.4; } },

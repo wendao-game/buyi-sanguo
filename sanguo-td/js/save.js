@@ -83,7 +83,7 @@ function heroStats(id, own) {
   const d = HERO_MAP[id], el = ELEMENTS[d.el], q = QUALITIES[d.q];
   own = own || heroOwn(id) || { lv: 1, star: 0 };
   const mul = q.mult * (1 + 0.08 * (own.lv - 1)) * (1 + 0.2 * own.star);
-  return { atk: Math.round(el.atk * mul), cd: el.cd, power: Math.round(100 * mul) };
+  return { atk: Math.round(el.atk * mul), cd: el.cd, power: Math.round(100 * mul * q.pw * (own.star >= CFG.AWAKEN_STAR ? CFG.AWAKEN_POWER : 1)) };
 }
 function heroSkill(id) { return SKILLS[id] || null; }
 function heroAwake(id, own) { own = own || heroOwn(id); return !!own && own.star >= CFG.AWAKEN_STAR; }
@@ -134,9 +134,26 @@ function teamPower(team) {
   return Math.round(sum);
 }
 function basePower(team) { return (team || Save.data.team).reduce((s, id) => s + (id ? heroStats(id).power : 0), 0); }
-function levelCost(id) {
-  const own = heroOwn(id), d = HERO_MAP[id];
-  return Math.floor(30 * Math.pow(own.lv, 1.3) * (1 + d.q * 0.25));
+/* 升级花费：从 lv 升到 lv+1（不传 lv = 当前等级）。公式和各章预期等级见《数值规划.md》 */
+function levelCost(id, lv) {
+  const d = HERO_MAP[id];
+  if (lv == null) lv = heroOwn(id).lv;
+  return Math.floor(CFG.LEVEL_COST * Math.pow(lv, CFG.LEVEL_COST_POW) * (1 + d.q * 0.25));
+}
+/* 这名武将升到现在一共花了多少金币 */
+function levelSpent(id) {
+  const own = heroOwn(id); let s = 0;
+  for (let l = 1; l < own.lv; l++) s += levelCost(id, l);
+  return s;
+}
+/* 重置等级：回到 1 级，返还升级花掉的金币（星级不动）。换阵容时把旧武将的金币挪给新武将用 */
+function levelReset(id) {
+  const own = heroOwn(id);
+  if (!own) return '未拥有该武将';
+  if (own.lv <= 1) return '已经是 1 级';
+  const back = Math.floor(levelSpent(id) * CFG.LEVEL_REFUND);
+  own.lv = 1; Save.data.coins += back; Save.save();      // 是退款不是收入：不计入累计获得（云存档比新旧用）
+  return back;
 }
 function levelUp(id) {
   const own = heroOwn(id);
@@ -271,7 +288,7 @@ function gachaDraw(n) {
 /* ---------------- 关卡结算 ---------------- */
 function settleBattle(stage, win, wavesCleared, dropped) {
   const S = Save.data;
-  const base = stageWinCoins(stage);
+  const base = Math.round(stageWinCoins(stage) * (stage < S.stage ? CFG.REPLAY_COIN : 1));   // 重复打已通关的关：通关金币打折（掉落照常）
   const coins = dropped + (win ? base : Math.floor(base * 0.3 * wavesCleared / CFG.WAVES));
   let tickets = 0, first = false;
   if (win && stage >= S.stage) {
