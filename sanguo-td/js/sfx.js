@@ -1,6 +1,7 @@
 'use strict';
 /* ============================================================
  * 音效：全部用 Web Audio 现场合成，不需要音频文件（不占包体，也不用加载）
+ * 音色偏柔和：拨弦、小铃、气声、软鼓，不用低沉的轰隆声和刺耳的方波；带一点混响
  * Sfx.play(名字)；同一个音效有最短间隔，同时发声的数量有上限，不会糊成一片
  * 浏览器规定要玩家点过一次屏幕才能出声，所以第一次点击时才创建音频环境
  * 开关：Save.data.sound（主城「设置 · 存档」里切换）
@@ -12,15 +13,27 @@ const Sfx = (function () {
   const last = {};
   const MAX_VOICES = 18;
 
+  /* 接线：所有声音 → master → 压缩器 → 输出；另外分一路进混响，听起来有点空间感、不发干 */
+  function wire(ctx, dry) {
+    const m = ctx.createGain(); m.gain.value = 0.5;
+    const comp = dry ? ctx.createGain() : ctx.createDynamicsCompressor();   // 很多声音叠在一起时压一下，不爆音（probe 量音量时不过压缩器：它刚启动的头半秒会把声音压小，量不准）
+    m.connect(comp); comp.connect(ctx.destination);
+    try {
+      const len = Math.floor(ctx.sampleRate * 0.9), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+      for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let k = 0; k < len; k++) d[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / len, 3); }
+      const cv = ctx.createConvolver(), wet = ctx.createGain(), hp = ctx.createBiquadFilter();
+      cv.buffer = ir; wet.gain.value = 0.2; hp.type = 'highpass'; hp.frequency.value = 400;   // 混响只留中高频，低频不拖尾
+      m.connect(hp); hp.connect(cv); cv.connect(wet); wet.connect(comp);
+    } catch (e) { /* 不支持混响就干声 */ }
+    return m;
+  }
   function ensure() {
     if (ac) return true;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return false;
     try {
       ac = new AC();
-      master = ac.createGain(); master.gain.value = 0.42;
-      const comp = ac.createDynamicsCompressor();          // 很多声音叠在一起时压一下，不爆音
-      master.connect(comp); comp.connect(ac.destination);
+      master = wire(ac);
       noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     } catch (e) { ac = null; return false; }
@@ -53,40 +66,48 @@ const Sfx = (function () {
     voices++; s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.03);
     s.onended = () => { voices--; try { g.disconnect(); } catch (e) { /* 已断开 */ } };
   }
-  const drum = (f, vol, delay) => { tone('sine', f * 1.9, f * 0.75, 0.32, vol, delay); noise('lowpass', 900, 200, 0.12, vol * 0.5, delay); };
+  /* —— 几种柔和的音色 ——
+   * pluck 拨弦 / 木琴：正弦基音 + 一点泛音，起音软、衰减快
+   * bell  小铃：基音 + 不成整数倍的泛音，清亮但不刺
+   * air   气声：带通噪声慢起慢收（挥刀、风、火都用它，不用低沉的轰隆声）
+   * tom   软鼓：只到一百多赫兹，手机喇叭放得出来，不发闷 */
+  const pluck = (f, dur, vol, delay) => { tone('sine', f, f, dur, vol, delay, 0.006); tone('triangle', f * 2, f * 2, dur * 0.45, vol * 0.22, delay, 0.006); };
+  const bell = (f, dur, vol, delay) => { tone('sine', f, f, dur, vol, delay, 0.004); tone('sine', f * 2.76, f * 2.76, dur * 0.5, vol * 0.28, delay, 0.004); };
+  const air = (f0, f1, dur, vol, delay, atk) => noise('bandpass', f0, f1, dur, vol, delay, 0.8, atk || dur * 0.3);
+  const tom = (f, vol, delay, dur) => { tone('sine', f * 1.5, f, dur || 0.26, vol, delay, 0.008); air(f * 5, f * 3, 0.08, vol * 0.25, delay, 0.01); };
 
-  /* 名字 → [最短间隔秒, 做法] */
+  /* 名字 → [最短间隔秒, 做法]。音高都落在五声音阶上（C D E G A），叠在一起也不难听 */
   const BANK = {
-    click:    [0.05, () => { tone('triangle', 620, 420, 0.07, 0.25); }],
+    click:    [0.05, () => { pluck(880, 0.1, 0.16); }],
     // —— 普攻（很频繁，声音都压得很轻）——
-    atk_arrow:   [0.09, () => { noise('highpass', 2600, 5200, 0.07, 0.10); tone('triangle', 900, 500, 0.05, 0.05); }],
-    atk_blade:   [0.12, () => { noise('bandpass', 900, 3400, 0.16, 0.14, 0, 1.4); }],
-    atk_fire:    [0.14, () => { noise('lowpass', 500, 1500, 0.22, 0.13); }],
-    atk_ice:     [0.12, () => { tone('sine', 1700, 2300, 0.11, 0.07); noise('highpass', 5000, 7000, 0.06, 0.05); }],
-    atk_thunder: [0.14, () => { tone('sawtooth', 1300, 150, 0.12, 0.07); noise('highpass', 3500, 1500, 0.09, 0.07); }],
-    atk_poison:  [0.16, () => { tone('sine', 420, 160, 0.16, 0.10); }],
-    atk_wind:    [0.18, () => { noise('bandpass', 400, 1500, 0.34, 0.11, 0, 0.8, 0.08); }],
-    crit:     [0.08, () => { tone('square', 1300, 1900, 0.06, 0.05); }],
+    atk_arrow:   [0.09, () => { air(3200, 5200, 0.07, 0.065, 0, 0.012); tone('sine', 1320, 990, 0.05, 0.04); }],
+    atk_blade:   [0.12, () => { air(1800, 4200, 0.13, 0.09, 0, 0.03); }],
+    atk_fire:    [0.14, () => { air(700, 1700, 0.2, 0.09, 0, 0.05); }],
+    atk_ice:     [0.12, () => { bell(1568, 0.16, 0.06); }],
+    atk_thunder: [0.14, () => { tone('sine', 988, 494, 0.1, 0.065); air(3000, 1800, 0.08, 0.045, 0, 0.01); }],
+    atk_poison:  [0.16, () => { tone('sine', 523, 330, 0.15, 0.08, 0, 0.01); }],
+    atk_wind:    [0.18, () => { air(600, 1500, 0.32, 0.08, 0, 0.12); }],
+    crit:     [0.08, () => { bell(1976, 0.12, 0.065); }],
     // —— 大招、爆炸 ——
-    ult:      [0.15, () => { tone('sine', 196, 185, 1.1, 0.5, 0, 0.004); tone('sine', 392, 380, 0.7, 0.2); tone('triangle', 588, 570, 0.5, 0.1); noise('bandpass', 500, 2600, 0.45, 0.16, 0, 0.9, 0.12); }],   // 一声锣 + 一阵风
-    boom:     [0.10, () => { noise('lowpass', 1600, 110, 0.55, 0.5); tone('sine', 130, 42, 0.45, 0.5); }],
-    thunder:  [0.12, () => { noise('highpass', 2400, 500, 0.3, 0.28); tone('sawtooth', 190, 45, 0.4, 0.22); }],
-    rock:     [0.10, () => { noise('lowpass', 800, 90, 0.4, 0.5); tone('sine', 100, 46, 0.3, 0.5); }],
-    freeze:   [0.20, () => { tone('sine', 2100, 1500, 0.35, 0.1); tone('sine', 3150, 2500, 0.3, 0.06, 0.04); noise('highpass', 6000, 4000, 0.25, 0.07); }],
+    ult:      [0.15, () => { [392, 440, 523, 587, 784].forEach((f, i) => pluck(f, 0.55, 0.13, i * 0.035)); air(600, 2600, 0.45, 0.07, 0, 0.15); }],   // 一串上行的拨弦 + 一阵风
+    boom:     [0.10, () => { tom(165, 0.3, 0, 0.3); air(1100, 450, 0.3, 0.13, 0, 0.012); }],
+    thunder:  [0.12, () => { air(2400, 900, 0.3, 0.13, 0, 0.01); tone('sine', 330, 165, 0.26, 0.14, 0, 0.008); }],
+    rock:     [0.10, () => { tom(147, 0.28, 0, 0.22); air(800, 380, 0.2, 0.12, 0, 0.01); }],
+    freeze:   [0.20, () => { [2093, 2637, 3136].forEach((f, i) => bell(f, 0.3, 0.055, i * 0.045)); air(5000, 7000, 0.22, 0.025); }],
     // —— 战场事件 ——
-    coin:     [0.07, () => { tone('square', 1320, 1320, 0.05, 0.06); tone('square', 1760, 1760, 0.09, 0.06, 0.05); }],
-    wall:     [0.22, () => { tone('sine', 115, 55, 0.2, 0.4); noise('lowpass', 500, 120, 0.14, 0.28); }],
-    wave:     [0.50, () => { drum(92, 0.5, 0); drum(92, 0.5, 0.22); drum(69, 0.6, 0.44); }],                        // 三声战鼓
-    horn:     [1.50, () => { tone('sawtooth', 110, 110, 1.5, 0.16, 0, 0.25); tone('sawtooth', 165, 165, 1.5, 0.10, 0, 0.25); noise('lowpass', 300, 300, 1.4, 0.08, 0, 1, 0.3); }],   // 敌将登场：号角
-    bossdie:  [0.50, () => { noise('lowpass', 2000, 80, 1.0, 0.6); tone('sine', 150, 34, 0.9, 0.6); tone('sine', 392, 392, 0.9, 0.16, 0.15); }],
-    win:      [1.00, () => { [523, 659, 784, 1047, 1319].forEach((f, i) => { tone('triangle', f, f, 0.36, 0.22, i * 0.12); tone('sine', f / 2, f / 2, 0.36, 0.12, i * 0.12); }); drum(92, 0.45, 0.6); }],
-    lose:     [1.00, () => { [392, 349, 294, 220].forEach((f, i) => tone('triangle', f, f * 0.97, 0.5, 0.2, i * 0.2)); drum(62, 0.5, 0.8); }],
+    coin:     [0.07, () => { bell(1568, 0.1, 0.06); bell(2093, 0.16, 0.06, 0.05); }],
+    wall:     [0.22, () => { tom(131, 0.2, 0, 0.15); tone('triangle', 392, 262, 0.05, 0.06); }],                     // 一声木头似的轻敲
+    wave:     [0.50, () => { tom(131, 0.3, 0); tom(131, 0.3, 0.22); tom(98, 0.36, 0.44, 0.4); }],                     // 三声战鼓
+    horn:     [1.50, () => { tone('triangle', 147, 147, 1.4, 0.15, 0, 0.3); tone('sine', 220, 220, 1.4, 0.09, 0, 0.35); tone('sine', 294, 294, 1.3, 0.05, 0.05, 0.4); }],   // 敌将登场 / 城防告急：远处的号角
+    bossdie:  [0.50, () => { tom(110, 0.32, 0, 0.6); air(1400, 350, 0.8, 0.16, 0, 0.02); pluck(587, 0.9, 0.12, 0.18); pluck(784, 1.0, 0.1, 0.3); }],
+    win:      [1.00, () => { [523, 587, 659, 784, 1047].forEach((f, i) => pluck(f, 0.5, 0.18, i * 0.12)); [523, 784, 1047].forEach(f => pluck(f, 1.1, 0.1, 0.66)); tom(131, 0.26, 0.66, 0.4); }],
+    lose:     [1.00, () => { [440, 392, 330, 262].forEach((f, i) => pluck(f, 0.6, 0.16, i * 0.22)); tom(98, 0.24, 0.9, 0.5); }],
     // —— 界面 ——
-    pull:     [0.05, () => { tone('triangle', 880, 1320, 0.14, 0.14); }],
-    rare:     [0.30, () => { [784, 988, 1175, 1568].forEach((f, i) => tone('sine', f, f, 0.5, 0.13, i * 0.07)); noise('highpass', 6000, 9000, 0.6, 0.05, 0, 1, 0.1); }],
-    up:       [0.08, () => { tone('triangle', 523, 784, 0.12, 0.18); tone('triangle', 784, 1047, 0.14, 0.14, 0.08); }],
-    buff:     [0.20, () => { drum(110, 0.4, 0); tone('triangle', 659, 880, 0.22, 0.14, 0.05); }],
-    deny:     [0.15, () => { tone('square', 200, 150, 0.12, 0.10); }],
+    pull:     [0.05, () => { bell(1175, 0.2, 0.09); }],
+    rare:     [0.30, () => { [784, 988, 1175, 1568].forEach((f, i) => bell(f, 0.55, 0.11, i * 0.07)); air(6000, 9000, 0.6, 0.03, 0, 0.1); }],
+    up:       [0.08, () => { pluck(659, 0.16, 0.15); pluck(988, 0.22, 0.13, 0.08); }],
+    buff:     [0.20, () => { tom(131, 0.2, 0); pluck(523, 0.35, 0.12, 0.04); pluck(784, 0.4, 0.11, 0.1); }],
+    deny:     [0.15, () => { tone('sine', 294, 262, 0.09, 0.12, 0, 0.008); tone('sine', 247, 220, 0.12, 0.1, 0.09, 0.008); }],
   };
 
   function play(name) {
@@ -98,5 +119,17 @@ const Sfx = (function () {
     last[name] = now;
     try { b[1](); } catch (e) { /* 个别浏览器不支持某种节点时忽略 */ }
   }
-  return { play, unlock, get ready() { return !!ac && ac.state === 'running'; }, names: () => Object.keys(BANK) };
+  /* 检查用：离线渲染一个音效，返回峰值、平均响度、时长；量的是进压缩器之前的音量，实际播放时小声的大约是它的 1.5 倍。游戏里不调用，见 README「音效」 */
+  async function probe(name, sec) {
+    const OC = window.OfflineAudioContext || window.webkitOfflineAudioContext, keep = [ac, master, voices];
+    const oc = new OC(1, Math.floor(44100 * (sec || 2)), 44100);
+    if (!noiseBuf) { noiseBuf = oc.createBuffer(1, 44100, 44100); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    ac = oc; master = wire(oc, true);
+    try { BANK[name][1](); } finally { ac = keep[0]; master = keep[1]; }
+    const d = (await oc.startRendering()).getChannelData(0); voices = keep[2];
+    let peak = 0, sq = 0, n = 0;
+    for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; if (v > 0.002) { sq += v * v; n++; } }
+    return { peak: +peak.toFixed(3), rms: +Math.sqrt(sq / Math.max(1, n)).toFixed(3), len: +(n / 44100).toFixed(2) };
+  }
+  return { play, unlock, probe, get ready() { return !!ac && ac.state === 'running'; }, names: () => Object.keys(BANK) };
 })();
