@@ -7,10 +7,14 @@
 const UI = (function () {
   const $ = s => document.querySelector(s);
   let screen = 'home', heroTab = 'mine', closable = true, toastTimer = 0, pickSlot = -1;
+  let lastPickHero = null;
   let hudS = null, hudRage = [], hudRock = '', hudSec = -1, hudVer = -1, lpDraft = null, lpSel = null, buffCb = null, lastRes = null, adTimer = 0, adResolve = null;
 
   const fmt = n => (n >= 100000 ? (n / 10000).toFixed(1) + '万' : String(Math.floor(n)));
   const P = (id, px) => Art.portrait(id, px || 64);
+  const WI = (id, px) => Art.weaponIcon(id, px || 64);
+  const pct = v => '+' + (Math.round(v * 1000) / 10) + '%';
+  const wtext = st => Object.keys(st).map(k => WSTATS[k] + ' ' + pct(st[k])).join('、');
   const stars = n => '<span class="stars">' + '★'.repeat(n) + '</span>' + '☆'.repeat(CFG.MAX_STAR - n);
   const qc = id => QUALITIES[HERO_MAP[id].q].color;
 
@@ -48,6 +52,7 @@ const UI = (function () {
     if (screen === 'home') renderHome();
     else if (screen === 'heroes') renderHeroes();
     else if (screen === 'gacha') renderGacha();
+    else if (screen === 'arms') renderArms();
   }
 
   /* ---------------- 主城 ---------------- */
@@ -55,6 +60,7 @@ const UI = (function () {
     const D0 = Save.data, fresh = D0.draws === 0 && D0.tickets >= 10;
     const nb = document.querySelector('#nav button[data-tab=gacha]'); if (nb) nb.classList.toggle('hint', fresh);
     if (fresh) tip('home1', '你有 <b>10 张招募令</b>：先去<b>「招募」</b>十连，凑满 5 名武将再出征', 10000);
+    else if (D0.stage > 2 && D0.iron >= 5 && !Object.keys(D0.weapons).length) tip('arms1', '通关会得<b>精铁</b>：去<b>「兵器」</b>页打造兵器，装给武将能加攻击和出手速度', 9000);
     else if (D0.stage > 1) tip('home2', '打过的关卡可以<b>扫荡</b>直接领金币；金币能升级武将，也能换招募令', 9000);
     const S = Save.data, st = S.pick, ch = chapterOf(st), cleared = st < S.stage, pw = teamPower(), rec = stageRecommend(st);
     $('#home').innerHTML = `
@@ -67,7 +73,7 @@ const UI = (function () {
           <button data-act="stage" data-d="1" ${st >= S.stage ? 'disabled' : ''}>▶</button>
         </div>
         <div class="powers"><span>推荐战力 ${rec}</span><span class="${pw >= rec ? 'ok' : 'bad'}">我方战力 ${pw}</span></div>
-        <div class="reward">通关奖励：金币 ×${Math.round(stageWinCoins(st) * (cleared ? CFG.REPLAY_COIN : 1))} + 战场掉落${cleared ? '（已通关，奖励减半）' : '<br>首通再得：招募令 ×' + (st % 10 === 0 ? 5 : 1)}</div>
+        <div class="reward">通关奖励：金币 ×${Math.round(stageWinCoins(st) * (cleared ? CFG.REPLAY_COIN : 1))}、精铁 ×${Math.max(1, Math.round(stageIron(st) * (cleared ? CFG.REPLAY_COIN : 1)))} + 战场掉落${cleared ? '（已通关，奖励减半）' : '<br>首通再得：招募令 ×' + (st % 10 === 0 ? 5 : 1)}</div>
         <div class="fightrow">
           ${cleared ? `<button class="btn sweep ${sweepLeft() ? '' : 'gray'}" data-act="sweep">扫荡<small>金币 ×${sweepReward(st)} · 今日 ${sweepLeft()}/${CFG.SWEEP_DAILY}</small></button>` : ''}
           <button class="btn-big ${cleared ? 'small' : ''}" data-act="fight">出征</button>
@@ -123,6 +129,11 @@ const UI = (function () {
       </div></div>
       <div class="dstat"><div><b>${st.atk}</b>攻击</div><div><b>${(1 / st.cd).toFixed(2)}</b>每秒出手</div><div><b>${st.power}</b>战力</div></div>
       ${skillHtml(id, own)}`;
+    if (own && !picking) {
+      const wid = heroWeapon(id), w = wid && WEAPON_MAP[wid];
+      h += w ? `<div class="wrow" style="--wq:${QUALITIES[w.q].color}" data-act="heroWeapon" data-id="${id}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${weaponOwn(wid).lv}${w.owner === id ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, id))}</div><span class="go">更换 ›</span></div>`
+        : `<div class="wrow" data-act="heroWeapon" data-id="${id}"><div class="wi"><b>兵器</b>还没有装备</div><span class="go">选择 ›</span></div>`;
+    }
     if (d.locked) h += `<p class="mtext" style="margin-top:14px">黑、彩品质神将尚未开放，敬请期待</p>`;
     else if (!own) h += `<p class="mtext" style="margin-top:14px">尚未获得 · 可通过招募获得</p>`;
     else if (picking) {
@@ -157,7 +168,57 @@ const UI = (function () {
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>羁绊一览</h2>
       <h4 class="sub">站位</h4><table class="rates wrap">${roles}</table>
       <h4 class="sub">阵营羁绊</h4><table class="rates wrap">${fac}</table>
+      <h4 class="sub">属性共鸣</h4><table class="rates wrap"><tr><td>同系上阵</td><td>同一种攻击类型（弓 刃 火 冰 雷 毒 风）上阵 3 / 4 / 5 人：该系伤害 +${Math.round(ELEMENT_BOND[3] * 100)}% / +${Math.round(ELEMENT_BOND[4] * 100)}% / +${Math.round(ELEMENT_BOND[5] * 100)}%</td></tr></table>
       <h4 class="sub">缘分（灰色 = 还没获得）</h4><table class="rates wrap">${combo}</table></div>`);
+  }
+  /* ---------------- 兵器 ---------------- */
+  function renderArms() {
+    const S = Save.data, W = S.weapons;
+    const cards = WEAPONS.slice().sort((a, b) => (W[b.id] ? 1 : 0) - (W[a.id] ? 1 : 0) || b.q - a.q).map(w => {
+      const own = W[w.id], q = QUALITIES[w.q], lock = !own && weaponLocked(w.id), cost = weaponCraftCost(w.id);
+      const dot = own ? own.lv < CFG.WEAPON_MAX_LV && S.iron >= weaponUpCost(w.id) && own.hero : !lock && S.iron >= cost;
+      return `<div class="card wcard ${own ? '' : lock ? 'lock' : 'off'}" style="--qc:${q.color}" data-act="weapon" data-id="${w.id}">
+        <i class="qtag">${q.name}</i>${own && own.hero ? `<img class="whead" src="${P(own.hero)}">` : ''}
+        <img src="${WI(w.id)}"><div class="cname">${w.name}</div>
+        <div class="cmeta">${own ? '强化 <b>+' + own.lv + '</b>' : lock ? '第 ' + (CFG.WEAPON_UNLOCK[w.q] - 1) + ' 关后解锁' : '精铁 ' + cost}</div>${dot ? '<span class="dot"></span>' : ''}</div>`;
+    }).join('');
+    $('#arms').innerHTML = `
+      <div class="ahead"><div class="cur"><i class="ico iron"></i><b>${fmt(S.iron)}</b></div>
+        <p>通关得<b>精铁</b>，用来打造、强化兵器。每名武将装一件；<b>专属武将</b>装上加成 ×${CFG.WEAPON_OWNER_MUL}。</p></div>
+      <div class="grid agrid">${cards}</div>`;
+  }
+  /* 兵器详情：打造 / 强化 / 装给上阵的武将 / 熔掉 */
+  function weaponDetail(wid) {
+    const w = WEAPON_MAP[wid], q = QUALITIES[w.q], own = weaponOwn(wid), S = Save.data, lock = !own && weaponLocked(wid);
+    const cur = weaponStats(wid, own && own.hero), maxed = own && own.lv >= CFG.WEAPON_MAX_LV, nxt = own && !maxed ? weaponStats(wid, own.hero, own.lv + 1) : null;
+    let h = `<div class="mbox" style="--qc:${q.color}"><button class="x" data-act="close">×</button>
+      <div class="dhead"><img src="${WI(wid, 128)}"><div>
+        <h3>${w.name}</h3><p>${w.desc}</p>
+        <span class="tag">${q.name}品</span><span class="tag dark">${WEAPON_TYPES[w.type]}</span>${w.owner ? `<span class="tag dark">专属 · ${HERO_MAP[w.owner].name}</span>` : ''}
+        ${own ? `<p style="margin-top:6px">强化 +${own.lv} / ${CFG.WEAPON_MAX_LV}${own.hero ? '　装备于 ' + HERO_MAP[own.hero].name : '　未装备'}</p>` : ''}
+      </div></div>
+      <div class="wstat">${Object.keys(cur).map(k => `<div><b>${pct(cur[k])}</b>${WSTATS[k]}${nxt ? `<br><small>下一级 ${pct(nxt[k])}</small>` : ''}</div>`).join('')}</div>
+      ${w.owner ? `<p class="mtext" style="font-size:13px;margin-top:10px">装在<b style="color:var(--gold2)">${HERO_MAP[w.owner].name}</b>身上时，全部加成 ×${CFG.WEAPON_OWNER_MUL}${own && own.hero === w.owner ? '（已生效）' : ''}</p>` : ''}`;
+    if (!own) {
+      h += lock ? `<p class="mtext" style="margin-top:14px">通关第 ${CFG.WEAPON_UNLOCK[w.q] - 1} 关后才能打造${q.name}品兵器</p>`
+        : `<div class="mrow"><button class="btn gold" data-act="wcraft" data-id="${wid}">打造<small>精铁 ${weaponCraftCost(wid)}（现有 ${fmt(S.iron)}）</small></button></div>`;
+    } else {
+      h += `<div class="mrow"><button class="btn gold" data-act="wup" data-id="${wid}">${maxed ? '已强化到顶' : '强化<small>精铁 ' + weaponUpCost(wid) + '（现有 ' + fmt(S.iron) + '）</small>'}</button>
+          <button class="btn gray" data-act="wmelt" data-id="${wid}">熔掉<small>返还精铁 ${weaponMeltBack(wid)}</small></button></div>
+        <p class="mtext" style="font-size:13px;margin-top:12px">装给上阵的武将（其他武将在武将详情里装）</p>
+        <div class="pick">${S.team.filter(Boolean).map(tid => `<button style="--qc:${own.hero === tid ? '#ffe08a' : qc(tid)}" data-act="wequip" data-id="${wid}" data-h="${tid}"><img src="${P(tid)}">${own.hero === tid ? '已装备' : HERO_MAP[tid].name}</button>`).join('')}</div>
+        ${own.hero ? `<div class="mrow"><button class="btn" data-act="wequip" data-id="${wid}" data-h="">卸下</button></div>` : ''}`;
+    }
+    modal(h + '</div>');
+  }
+  /* 给某个武将挑兵器：列出已有的全部兵器 */
+  function weaponPick(hid) {
+    const S = Save.data, ids = Object.keys(S.weapons).sort((a, b) => WEAPON_MAP[b].q - WEAPON_MAP[a].q || S.weapons[b].lv - S.weapons[a].lv), curW = heroWeapon(hid);
+    const rows = ids.map(wid => { const w = WEAPON_MAP[wid], own = S.weapons[wid];
+      return `<div class="wrow ${wid === curW ? 'on' : ''}" style="--wq:${QUALITIES[w.q].color}" data-act="wpick" data-id="${wid}" data-h="${hid}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${own.lv}${w.owner === hid ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, hid))}</div>${own.hero && own.hero !== hid ? `<img class="who" src="${P(own.hero)}">` : `<span class="go">${wid === curW ? '已装备' : '装上'}</span>`}</div>`; }).join('');
+    modal(`<div class="mbox"><button class="x" data-act="hero" data-id="${hid}">×</button><h2>${HERO_MAP[hid].name} · 兵器</h2>
+      ${ids.length ? `<div class="wlist">${rows}</div><p class="mtext" style="font-size:12.5px;margin-top:8px">带头像的兵器正装在别人身上，点了会换过来</p>` : '<p class="mtext">还没有兵器。通关会得精铁，去「兵器」页打造。</p>'}
+      <div class="mrow">${curW ? `<button class="btn gray" data-act="wpick" data-id="${curW}" data-h="">卸下</button>` : ''}<button class="btn" data-act="nav" data-tab="arms">去兵器页</button></div></div>`);
   }
   function settings() {
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>设置 · 存档</h2>
@@ -316,6 +377,7 @@ const UI = (function () {
         ${r.win ? '' : `<li>坚守至<b>第 ${r.wave} / ${CFG.WAVES} 波</b></li>`}
         <li>击败敌军<b>${r.kills}</b></li>
         <li>获得金币（含掉落 ${r.dropped}）<b>+${r.coins}</b></li>
+        ${r.iron ? `<li>精铁（打造兵器用）<b>+${r.iron}</b></li>` : ''}
         ${r.tickets ? `<li>首通奖励 · 招募令<b>+${r.tickets}</b></li>` : ''}
       </ul>
       <div class="dmgs">${(() => { const top = Math.max(1, ...r.dmg.map(x => x.dmg)), sum = Math.max(1, r.dmg.reduce((s, x) => s + x.dmg, 0));
@@ -359,9 +421,21 @@ const UI = (function () {
     sweep: () => {
       const r = sweep(Save.data.pick);
       if (typeof r === 'string') return toast(r);
-      render(); toast('扫荡完成：金币 +' + r);
+      render(); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(Save.data.pick));
     },
     bondHelp: () => bondHelp(),
+    weapon: d => weaponDetail(d.id),
+    heroWeapon: d => { lastPickHero = d.id; weaponPick(d.id); },
+    wcraft: d => { const e = weaponCraft(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('rare'); render(); weaponDetail(d.id); toast('打造成功：' + WEAPON_MAP[d.id].name); },
+    wup: d => { const e = weaponUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('up'); render(); weaponDetail(d.id); },
+    wequip: d => { const e = weaponEquip(d.id, d.h || null); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('click'); render(); weaponDetail(d.id); },
+    wpick: d => { const e = weaponEquip(d.id, d.h || null); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('click'); render(); const hid = d.h || lastPickHero; if (hid) detail(hid); else closeModal(); },
+    wmelt: d => {
+      const w = WEAPON_MAP[d.id];
+      modal(`<div class="mbox"><h3>熔掉兵器</h3><p class="mtext">${w.name} 会消失，返还 <b>${weaponMeltBack(d.id)}</b> 精铁<br>（强化花的全额返还，打造花的返还 ${Math.round(CFG.WEAPON_MELT * 100)}%）</p>
+        <div class="mrow"><button class="btn gray" data-act="weapon" data-id="${d.id}">再想想</button><button class="btn gold" data-act="wmeltok" data-id="${d.id}">确定熔掉</button></div></div>`);
+    },
+    wmeltok: d => { const r = weaponMelt(d.id); if (typeof r === 'string') { Sfx.play('deny'); return toast(r); } Sfx.play('coin'); closeModal(); render(); toast('返还精铁 ' + r); },
     resetAsk: () => modal(`<div class="mbox"><h2>重置存档</h2><p class="mtext">将清空所有武将、金币与关卡进度，确定吗？</p>
       <div class="mrow"><button class="btn" data-act="close">取消</button><button class="btn red" data-act="reset">确定重置</button></div></div>`),
     reset: () => { Save.reset(); closeModal(); show('home'); toast('存档已重置'); },

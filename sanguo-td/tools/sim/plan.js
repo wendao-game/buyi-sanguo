@@ -3,10 +3,10 @@
 // 用法：node tools/sim/plan.js [模拟多少份存档=120]
 const { account, PLAN } = require('./harness.js');
 const N = Number(process.argv[2] || 120), out = [];
-for (const [stage, draws, lv] of PLAN.slice(1)) {
+for (const [stage, draws, lv, iron] of PLAN.slice(1)) {
   const P = [], Q = [], S = [], AW = [];
   for (let n = 0; n < N; n++) {
-    const G = account(draws, lv), D = G.Save.data, ids = D.team.filter(Boolean), avg = f => ids.reduce((s, id) => s + f(id), 0) / ids.length;
+    const G = account(draws, lv, null, iron, stage), D = G.Save.data, ids = D.team.filter(Boolean), avg = f => ids.reduce((s, id) => s + f(id), 0) / ids.length;
     P.push(G.teamPower()); Q.push(avg(id => G.HERO_MAP[id].q)); S.push(avg(id => D.heroes[id].star)); AW.push(avg(id => D.heroes[id].star >= G.CFG.AWAKEN_STAR ? 1 : 0));
   }
   const mean = a => a.reduce((s, v) => s + v, 0) / a.length, sorted = P.slice().sort((a, b) => a - b), med = sorted[Math.floor(N / 2)];

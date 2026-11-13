@@ -26,6 +26,8 @@ const Save = {
       gfx: 'gl',           // 战斗画面：'gl' 高清（WebGL），'2d' 兼容
       sound: true,         // 音效开关
       music: true,         // 背景音乐开关
+      iron: 0,             // 精铁（打造、强化兵器用）
+      weapons: {},         // 已有的兵器：id → { lv, hero: 装在谁身上 / null }
       tips: {},            // 已经看过的新手提示
       earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
       at: 0,               // 最后保存时间
@@ -41,6 +43,10 @@ const Save = {
     this.data.team = (Array.isArray(this.data.team) ? this.data.team : []).slice(0, 5).map(id => (id && this.data.heroes[id] ? id : null));
     while (this.data.team.length < 5) this.data.team.push(null);
     if (!this.data.team.some(Boolean)) { const first = Object.keys(this.data.heroes)[0]; if (first) this.data.team[2] = first; }
+    // 兵器：清掉已不存在的；装在不存在的武将身上、或者两件装在同一个人身上的，卸下来
+    const W = this.data.weapons = (this.data.weapons && typeof this.data.weapons === 'object') ? this.data.weapons : {}, used = {};
+    Object.keys(W).forEach(id => { const w = W[id]; if (!WEAPON_MAP[id] || !w) return delete W[id]; w.lv = Math.max(1, Math.min(CFG.WEAPON_MAX_LV, w.lv | 0)); if (w.hero && (!this.data.heroes[w.hero] || used[w.hero])) w.hero = null; if (w.hero) used[w.hero] = 1; });
+    this.data.iron = Math.max(0, this.data.iron | 0);
   },
   save() {
     this.data.at = Date.now();
@@ -92,7 +98,7 @@ function heroAwake(id, own) { own = own || heroOwn(id); return !!own && own.star
 /* 阵容加成：阵营羁绊 + 缘分 + 站位。team 是 5 个位置的武将 id（空位 null） */
 function teamBonus(team) {
   team = team || Save.data.team;
-  const out = { atk: 0, spd: 0, crit: 0, rage: 0, ult: 0, wall: 0, el: {}, per: team.map(() => ({ atk: 0, spd: 0, rage: 0 })), active: [], fac: {} };
+  const out = { atk: 0, spd: 0, crit: 0, rage: 0, ult: 0, wall: 0, el: {}, per: team.map(() => ({ atk: 0, spd: 0, rage: 0, watk: 0, wspd: 0, wcrit: 0, wrage: 0, wult: 0 })), active: [], fac: {}, elc: {} };
   const ids = team.filter(Boolean), add = (eff, k) => { if (eff[k]) out[k] += eff[k]; };
   ids.forEach(id => { const f = HERO_MAP[id].fac; out.fac[f] = (out.fac[f] || 0) + 1; });
   Object.keys(FACTION_BONDS).forEach(f => {
@@ -101,6 +107,13 @@ function teamBonus(team) {
     const v = b.vals[Math.min(2, n - 2)];
     out[b.stat] += v;
     out.active.push({ type: 'fac', fac: f, name: FACTIONS[f].name + ' · ' + b.name + '（' + n + '）', desc: b.fmt(v) });
+  });
+  ids.forEach(id => { const e = HERO_MAP[id].el; out.elc[e] = (out.elc[e] || 0) + 1; });
+  Object.keys(out.elc).forEach(e => {                        // 属性共鸣：同系 3 人以上
+    const n = out.elc[e], v = ELEMENT_BOND[Math.min(n, ELEMENT_BOND.length - 1)];
+    if (!v) return;
+    out.el[e] = (out.el[e] || 0) + v;
+    out.active.push({ type: 'elem', name: ELEMENTS[e].name + '系共鸣（' + n + '）', desc: ELEMENTS[e].name + '系伤害 +' + Math.round(v * 100) + '%' });
   });
   COMBOS.forEach(c => {
     const n = c.ids.filter(id => ids.includes(id)).length;
@@ -111,7 +124,8 @@ function teamBonus(team) {
   });
   team.forEach((id, i) => {
     if (!id) return;
-    const r = SLOT_ROLES[i], d = HERO_MAP[id];
+    const r = SLOT_ROLES[i], d = HERO_MAP[id], ws = weaponStats(heroWeapon(id), id);
+    if (ws) { const p = out.per[i]; p.watk = ws.atk || 0; p.wspd = ws.spd || 0; p.wcrit = ws.crit || 0; p.wrage = ws.rage || 0; p.wult = ws.ult || 0; }
     if (r.leader) {
       const v = d.q * 0.03; out.atk += v; out.per[i].rage += 0.2;
       out.active.push({ type: 'slot', name: '主帅 · ' + d.name, desc: '全军攻击 +' + Math.round(v * 100) + '%，本人怒气获取 +20%' });
@@ -130,7 +144,8 @@ function teamPower(team) {
   team.forEach((id, i) => {
     if (!id) return;
     const d = HERO_MAP[id], sk = heroSkill(id), m = (sk && sk.passive.mod) || {}, p = b.per[i];
-    sum += heroStats(id).power * (1 + (m.atk || 0)) * (1 + (m.spd || 0)) * (1 + b.atk + p.atk) * (1 + b.spd + p.spd) * (1 + b.crit + (m.crit || 0)) * (1 + (b.el[d.el] || 0) * 0.6) * (1 + b.ult * 0.3 + b.rage * 0.2 + p.rage * 0.2);
+    sum += heroStats(id).power * (1 + (m.atk || 0)) * (1 + (m.spd || 0)) * (1 + b.atk + p.atk) * (1 + b.spd + p.spd) * (1 + b.crit + (m.crit || 0)) * (1 + (b.el[d.el] || 0) * 0.6) * (1 + b.ult * 0.3 + b.rage * 0.2 + p.rage * 0.2)
+      * (1 + p.watk) * (1 + p.wspd) * (1 + p.wcrit) * (1 + p.wult * 0.3 + p.wrage * 0.2);   // 兵器
   });
   return Math.round(sum);
 }
@@ -177,6 +192,57 @@ function starUp(id) {
   if (own.shards < need) return '碎片不足（重复抽到可获得碎片）';
   own.shards -= need; own.star++; Save.save();
   return null;
+}
+
+/* ---------------- 兵器 ---------------- */
+function weaponOwn(wid) { return (Save.data.weapons && Save.data.weapons[wid]) || null; }
+/* 这名武将身上装的兵器 id（没有返回 null） */
+function heroWeapon(hid) { const W = Save.data.weapons || {}; for (const id in W) if (W[id].hero === hid) return id; return null; }
+/* 兵器当前的加成 { atk, spd, … }。lv 不传 = 现在的等级；hid = 装在谁身上（专属武将有额外加成） */
+function weaponStats(wid, hid, lv) {
+  const w = WEAPON_MAP[wid]; if (!w) return null;
+  const own = weaponOwn(wid), k = (1 + CFG.WEAPON_LV_STEP * ((lv || (own ? own.lv : 1)) - 1)) * (w.owner && w.owner === hid ? CFG.WEAPON_OWNER_MUL : 1), out = {};
+  for (const s in w.eff) out[s] = w.eff[s] * k;
+  return out;
+}
+function weaponLocked(wid) { return Save.data.stage < CFG.WEAPON_UNLOCK[WEAPON_MAP[wid].q]; }
+function weaponCraftCost(wid) { return CFG.WEAPON_CRAFT[WEAPON_MAP[wid].q]; }
+function weaponUpCost(wid, lv) { const own = weaponOwn(wid); return Math.ceil(CFG.WEAPON_UP[WEAPON_MAP[wid].q] * (lv || own.lv)); }
+function weaponSpent(wid) { const own = weaponOwn(wid); let s = 0; for (let l = 1; l < own.lv; l++) s += weaponUpCost(wid, l); return s; }
+function weaponCraft(wid) {
+  if (!WEAPON_MAP[wid]) return '没有这件兵器';
+  if (weaponOwn(wid)) return '已经有了';
+  if (weaponLocked(wid)) return '通关第 ' + (CFG.WEAPON_UNLOCK[WEAPON_MAP[wid].q] - 1) + ' 关后才能打造';
+  const c = weaponCraftCost(wid);
+  if (Save.data.iron < c) return '精铁不足';
+  Save.data.iron -= c; Save.data.weapons[wid] = { lv: 1, hero: null }; Save.save();
+  return null;
+}
+function weaponUp(wid) {
+  const own = weaponOwn(wid);
+  if (!own) return '还没有这件兵器';
+  if (own.lv >= CFG.WEAPON_MAX_LV) return '已强化到顶';
+  const c = weaponUpCost(wid);
+  if (Save.data.iron < c) return '精铁不足';
+  Save.data.iron -= c; own.lv++; Save.save();
+  return null;
+}
+/* 装到武将身上（hid 传 null = 卸下）。他原来的兵器卸下；这件兵器原来在别人身上就换过来 */
+function weaponEquip(wid, hid) {
+  const own = weaponOwn(wid);
+  if (!own) return '还没有这件兵器';
+  if (hid && !heroOwn(hid)) return '未拥有该武将';
+  if (hid) { const old = heroWeapon(hid); if (old && old !== wid) Save.data.weapons[old].hero = null; }
+  own.hero = hid || null; Save.save();
+  return null;
+}
+/* 熔掉：返还强化花的全部精铁 + 一部分打造精铁 */
+function weaponMeltBack(wid) { return weaponSpent(wid) + Math.floor(weaponCraftCost(wid) * CFG.WEAPON_MELT); }
+function weaponMelt(wid) {
+  if (!weaponOwn(wid)) return '还没有这件兵器';
+  const back = weaponMeltBack(wid);
+  delete Save.data.weapons[wid]; Save.data.iron += back; Save.save();
+  return back;
 }
 
 /* ---------------- 布阵 ---------------- */
@@ -232,7 +298,7 @@ function sweep(stage) {
   if (sweepLeft() <= 0) return '今日扫荡次数已用完';
   Save.data.sweep.count++;
   const c = sweepReward(stage);
-  gain(c, 0); Save.save();
+  gain(c, 0); Save.data.iron += stageIron(stage); Save.save();
   return c;
 }
 
@@ -298,9 +364,11 @@ function settleBattle(stage, win, wavesCleared, dropped) {
     S.stage = stage + 1;
     S.pick = S.stage;
   }
-  gain(coins, tickets);
+  const ironBase = stageIron(stage) * (stage < S.stage && !first ? CFG.REPLAY_COIN : 1);              // 精铁：重复通关同样减半；战败按打过的波数给三成
+  const iron = win ? Math.max(1, Math.round(ironBase)) : Math.floor(ironBase * 0.3 * wavesCleared / CFG.WAVES);
+  gain(coins, tickets); S.iron = (S.iron || 0) + iron;
   Save.save();
-  return { coins, tickets, first, dropped };
+  return { coins, tickets, first, dropped, iron };
 }
 
 /* ---------------- 礼包码 ---------------- */

@@ -14,7 +14,7 @@ function load(patch) {
   ctx.window = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);
   let src = ['data', 'skills', 'save', 'battle'].map(f => fs.readFileSync(ROOT + f + '.js', 'utf8')).join('\n');
-  src += '\n;globalThis.G = { STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn };';
+  src += '\n;globalThis.G = { STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, WEAPONS, WEAPON_MAP, weaponOwn, heroWeapon, weaponStats, weaponLocked, weaponCraftCost, weaponUpCost, weaponCraft, weaponUp, weaponEquip, weaponMelt, weaponMeltBack, weaponSpent, stageIron, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn };';
   vm.runInContext(src, ctx);
   ctx.G.ctx = ctx;
   if (patch) patch(ctx.G, ctx);
@@ -47,18 +47,47 @@ function bestTeam(G) {
   for (let r = 0; r < 60; r++) { const t = best.slice(), i = Math.floor(Math.random() * 5), j = Math.floor(Math.random() * 5); [t[i], t[j]] = [t[j], t[i]]; const pw = G.teamPower(t); if (pw > bp) { bp = pw; best = t; } }
   D.team = best; return bp;
 }
-/* 《数值规划.md》的进度规划：章末关卡 → 累计抽卡数、阵容平均等级（中间的关卡线性插值） */
-const PLAN = [[1, 10, 1], [10, 30, 5], [20, 70, 14], [30, 120, 25], [40, 200, 37], [50, 320, 48], [60, 480, 60], [70, 700, 72], [80, 1000, 85]];
+/* 兵器：把现有的兵器分给上阵的武将（专属的优先给本人，其余好的给战力高的） */
+function equipBest(G) {
+  const D = G.Save.data, W = D.weapons;
+  Object.keys(W).forEach(id => { W[id].hero = null; });
+  const team = D.team.filter(Boolean).sort((a, b) => G.heroStats(b).power - G.heroStats(a).power), free = new Set(Object.keys(W));
+  const rest = [];
+  team.forEach(h => { const sig = [...free].find(id => G.WEAPON_MAP[id].owner === h); if (sig) { W[sig].hero = h; free.delete(sig); } else rest.push(h); });
+  const ws = [...free].sort((a, b) => G.WEAPON_MAP[b].q - G.WEAPON_MAP[a].q || W[b].lv - W[a].lv);
+  rest.forEach((h, i) => { if (ws[i]) W[ws[i]].hero = h; });
+}
+/* 兵器：把精铁花掉。先让上阵的每人都有一件（买得起的最好的）；能换更高品质的就把最差的熔了换；其余的强化最便宜的那件 */
+function spendIron(G) {
+  const D = G.Save.data, W = D.weapons, n = D.team.filter(Boolean).length;
+  for (let guard = 0; guard < 400; guard++) {
+    const avail = G.WEAPONS.filter(w => !W[w.id] && !G.weaponLocked(w.id)).sort((a, b) => b.q - a.q);
+    const owned = Object.keys(W).sort((a, b) => G.WEAPON_MAP[a].q - G.WEAPON_MAP[b].q || W[a].lv - W[b].lv);
+    if (owned.length < n) { const c = avail.find(w => G.weaponCraftCost(w.id) <= D.iron); if (c) { G.weaponCraft(c.id); continue; } }
+    else if (owned.length) {                                  // 换掉最差的一件
+      const worst = owned[0], better = avail.find(w => w.q > G.WEAPON_MAP[worst].q && G.weaponCraftCost(w.id) <= D.iron + G.weaponMeltBack(worst));
+      if (better) { G.weaponMelt(worst); G.weaponCraft(better.id); continue; }
+    }
+    const ups = owned.filter(id => W[id].lv < G.CFG.WEAPON_MAX_LV).sort((a, b) => G.weaponUpCost(a) - G.weaponUpCost(b));
+    if (ups.length && G.weaponUpCost(ups[0]) <= D.iron) { G.weaponUp(ups[0]); continue; }
+    break;
+  }
+  equipBest(G);
+}
+/* 《数值规划.md》的进度规划：章末关卡 → 累计抽卡数、阵容平均等级、累计精铁（中间的关卡线性插值） */
+const PLAN = [[1, 10, 1, 0], [10, 30, 5, 50], [20, 70, 14, 190], [30, 120, 25, 380], [40, 200, 37, 750], [50, 320, 48, 1150], [60, 480, 60, 1850], [70, 700, 72, 2900], [80, 1000, 85, 4300]];   // 关卡, 累计抽卡, 阵容平均等级, 累计精铁
 function planAt(stage) {
-  for (let i = 1; i < PLAN.length; i++) if (stage <= PLAN[i][0]) { const a = PLAN[i - 1], b = PLAN[i], f = (stage - a[0]) / (b[0] - a[0]); return { draws: Math.round(a[1] + (b[1] - a[1]) * f), lv: Math.round(a[2] + (b[2] - a[2]) * f) }; }
-  const z = PLAN[PLAN.length - 1]; return { draws: z[1], lv: z[2] };
+  for (let i = 1; i < PLAN.length; i++) if (stage <= PLAN[i][0]) { const a = PLAN[i - 1], b = PLAN[i], f = (stage - a[0]) / (b[0] - a[0]); return { draws: Math.round(a[1] + (b[1] - a[1]) * f), lv: Math.round(a[2] + (b[2] - a[2]) * f), iron: Math.round(a[3] + (b[3] - a[3]) * f) }; }
+  const z = PLAN[PLAN.length - 1]; return { draws: z[1], lv: z[2], iron: z[3] };
 }
 /* 造一份「抽了 draws 次卡」的存档：能升的星都升了，全员 lv 级，上阵最强的 5 人。patch 同 load */
-function account(draws, lv, patch) {
+function account(draws, lv, patch, iron, stage) {
   const G = load(patch), D = G.Save.data;
   D.tickets = draws; while (D.tickets >= 10) G.gachaDraw(10); while (D.tickets >= 1) G.gachaDraw(1);
   Object.keys(D.heroes).forEach(id => { while (!G.starUp(id)); D.heroes[id].lv = lv; });
-  bestTeam(G); return G;
+  bestTeam(G);
+  if (iron) { const st = D.stage; D.stage = stage || 1; D.iron = iron; spendIron(G); D.stage = st; }   // 按规划的精铁数配好兵器（stage 决定能打造到什么品质）
+  return G;
 }
 /* 把上阵武将的等级统一调到战力最接近 target，返回等级 */
 function levelTo(G, target) {
@@ -66,4 +95,4 @@ function levelTo(G, target) {
   for (let lv = 1; lv <= 100; lv++) { ids.forEach(id => { D.heroes[id].lv = lv; }); const d = Math.abs(Math.log(G.teamPower() / target)); if (d < bd) { bd = d; bl = lv; } }
   ids.forEach(id => { D.heroes[id].lv = bl; }); return bl;
 }
-module.exports = { load, fight, bestTeam, account, levelTo, PLAN, planAt };
+module.exports = { load, fight, bestTeam, equipBest, spendIron, account, levelTo, PLAN, planAt };

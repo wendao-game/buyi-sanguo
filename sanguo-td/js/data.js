@@ -40,6 +40,15 @@ const CFG = {
   LEVEL_COST_POW: 1.1,
   LEVEL_REFUND: 1,         // 重置等级返还已花金币的比例（1 = 全额：换阵容不亏）
 
+  // —— 兵器（精铁）——
+  WEAPON_MAX_LV: 20,
+  WEAPON_LV_STEP: 0.05,    // 每强化一级，加成多 5%（20 级是 1 级的 1.95 倍）
+  WEAPON_OWNER_MUL: 1.3,   // 专属武将装上：加成 ×1.3
+  WEAPON_CRAFT: [5, 12, 30, 80, 200, 500],      // 打造要多少精铁（按品质）
+  WEAPON_UP: [1, 1.5, 2, 3, 4.5, 6],            // 强化到下一级 = 此值 × 当前等级
+  WEAPON_UNLOCK: [1, 1, 6, 21, 41, 61],         // 打到第几关才能打造这个品质（蓝 6、紫 21、金 41、橙 61）
+  WEAPON_MELT: 0.5,        // 熔掉返还打造精铁的比例（强化花的精铁全额返还）
+
   // —— 局内操作 ——
   ROCK_MAX: 3,             // 滚木礌石最多存几块
   ROCK_CD: 6,              // 每块恢复秒数
@@ -133,12 +142,16 @@ const HEROES = [
   H('guanhai',   '管亥',   0, 'qun', 'poison',  '瘴气',     '黄巾余部'),
   H('panfeng',   '潘凤',   0, 'qun', 'thunder', '惊雷斧',   '无双上将'),
   H('mifang',    '糜芳',   0, 'shu', 'ice',     '寒刺',     '南郡守将'),
+  H('xingdaorong','邢道荣', 0, 'qun', 'blade',  '零陵三斧', '零陵上将'),
+  H('jiangqin',  '蒋钦',   0, 'wu',  'arrow',   '水寨连射', '江表虎臣'),
   // —— 绿 ——
   H('guanping',  '关平',   1, 'shu', 'blade',   '承父志',   '少年将军'),
   H('caohong',   '曹洪',   1, 'wei', 'arrow',   '疾射',     '宗族悍将'),
   H('chengpu',   '程普',   1, 'wu',  'fire',    '烈焰',     '江东宿将'),
   H('zhangbao',  '张宝',   1, 'qun', 'thunder', '地公雷',   '地公将军'),
   H('huaxiong',  '华雄',   1, 'qun', 'wind',    '骁骑风',   '西凉都督'),
+  H('yujin',     '于禁',   1, 'wei', 'ice',     '毅重冰阵', '五子良将'),
+  H('lingtong',  '凌统',   1, 'wu',  'wind',    '旋风突',   '国士之风'),
   // —— 蓝 ——
   H('xuhuang',   '徐晃',   2, 'wei', 'blade',   '断粮斩',   '周亚夫之风'),
   H('ganning',   '甘宁',   2, 'wu',  'arrow',   '锦帆夜袭', '锦帆贼'),
@@ -146,6 +159,10 @@ const HEROES = [
   H('caiwenji',  '蔡文姬', 2, 'qun', 'ice',     '悲歌凝霜', '胡笳才女'),
   H('liru',      '李儒',   2, 'qun', 'poison',  '鸩毒',     '魔王之智'),
   H('xushu',     '徐庶',   2, 'shu', 'wind',    '巽风阵',   '单福先生'),
+  H('daqiao',    '大乔',   2, 'wu',  'ice',     '国色凝霜', '江东大乔'),
+  H('xuchu',     '许褚',   2, 'wei', 'blade',   '裸衣狂斩', '虎痴'),
+  H('huanggai',  '黄盖',   2, 'wu',  'fire',    '苦肉火船', '江东老将'),
+  H('fazheng',   '法正',   2, 'shu', 'poison',  '睚眦毒计', '蜀汉谋主'),
   // —— 紫 ——
   H('huangzhong','黄忠',   3, 'shu', 'arrow',   '百步穿杨', '老当益壮'),
   H('zhangliao', '张辽',   3, 'wei', 'wind',    '威震逍遥', '止啼之将'),
@@ -153,23 +170,66 @@ const HEROES = [
   H('jiaxu',     '贾诩',   3, 'qun', 'poison',  '乱武毒策', '毒士'),
   H('zhenji',    '甄姬',   3, 'wei', 'ice',     '洛神冰魄', '洛水之神'),
   H('taishici',  '太史慈', 3, 'wu',  'blade',   '天义斩',   '信义笃烈'),
+  H('dianwei',   '典韦',   3, 'wei', 'blade',   '恶来双戟', '古之恶来'),
+  H('pangtong',  '庞统',   3, 'shu', 'fire',    '铁索连环', '凤雏'),
+  H('xiaoqiao',  '小乔',   3, 'wu',  'wind',    '天香舞风', '江东小乔'),
+  H('zuoci',     '左慈',   3, 'qun', 'thunder', '遁甲天雷', '乌角先生'),
   // —— 金 ——
   H('guanyu',    '关羽',   4, 'shu', 'blade',   '青龙偃月', '武圣'),
   H('zhangfei',  '张飞',   4, 'shu', 'thunder', '当阳怒吼', '万人敌'),
   H('zhouyu',    '周瑜',   4, 'wu',  'fire',    '火烧赤壁', '美周郎'),
   H('zhaoyun',   '赵云',   4, 'shu', 'ice',     '龙胆寒枪', '常山赵子龙'),
   H('simayi',    '司马懿', 4, 'wei', 'poison',  '鬼谋',     '冢虎'),
+  H('machao',    '马超',   4, 'shu', 'thunder', '铁骑雷奔', '锦马超'),
+  H('sunshangxiang','孙尚香', 4, 'wu', 'arrow', '弓腰连珠', '弓腰姬'),
+  H('diaochan',  '貂蝉',   4, 'qun', 'poison',  '闭月离间', '闭月'),
+  H('guojia',    '郭嘉',   4, 'wei', 'ice',     '遗计寒策', '鬼才'),
   // —— 橙 ——
   H('zhugeliang','诸葛亮', 5, 'shu', 'wind',    '借东风',   '卧龙'),
   H('lvbu',      '吕布',   5, 'qun', 'blade',   '无双乱舞', '飞将'),
   H('caocao',    '曹操',   5, 'wei', 'arrow',   '万箭齐发', '乱世奸雄'),
   H('luxun',     '陆逊',   5, 'wu',  'fire',    '火烧连营', '江东儒帅'),
+  H('liubei',    '刘备',   5, 'shu', 'blade',   '仁德载世', '昭烈帝'),
+  H('sunce',     '孙策',   5, 'wu',  'thunder', '霸王激昂', '小霸王'),
   // —— 黑 / 彩（神将，暂未开放，rate 为 0 不会被抽到）——
   H('god_guanyu',  '神·关羽',   6, 'shu', 'blade',   '武神降世', '神将', { locked: true }),
   H('god_lvbu',    '神·吕布',   6, 'qun', 'thunder', '神鬼无前', '神将', { locked: true }),
   H('god_zhuge',   '神·诸葛亮', 7, 'shu', 'wind',    '七星坛',   '神将', { locked: true }),
   H('god_caocao',  '神·曹操',   7, 'wei', 'poison',  '归心',     '神将', { locked: true }),
 ];
+/* ============================================================
+ * 兵器：每名武将可以装一件。用「精铁」打造和强化（精铁通关就给），和金币是两条线。
+ *   q 品质（同武将品质）；type 样子（剑 刀 枪 弓 扇 戟 斧，只影响图标）
+ *   eff 1 级时的加成：atk 攻击、spd 出手速度、crit 暴击率、rage 怒气获取、ult 大招伤害；每强化一级 +CFG.WEAPON_LV_STEP
+ *   owner 专属武将：装在他身上时全部加成 × CFG.WEAPON_OWNER_MUL
+ * 数值规划见《数值规划.md》第 6 节
+ * ============================================================ */
+const WEAPON_TYPES = { sword: '剑', blade: '刀', spear: '枪', bow: '弓', fan: '扇', halberd: '戟', axe: '斧' };
+const WSTATS = { atk: '攻击', spd: '出手速度', crit: '暴击率', rage: '怒气获取', ult: '大招伤害' };
+function Wp(id, name, q, type, eff, owner, desc) { return { id, name, q, type, eff, owner: owner || null, desc: desc || '' }; }
+const WEAPONS = [
+  Wp('tiejian',    '铁剑',       0, 'sword',   { atk: 0.04 }, null, '军中最常见的佩剑'),
+  Wp('liegong',    '猎弓',       0, 'bow',     { spd: 0.04 }, null, '猎户用的短弓，胜在轻快'),
+  Wp('podao',      '朴刀',       0, 'blade',   { atk: 0.03, crit: 0.02 }, null, '刀身厚重，砍得狠'),
+  Wp('huanshou',   '环首刀',     1, 'blade',   { atk: 0.06 }, null, '汉军制式战刀'),
+  Wp('zhemugong',  '柘木弓',     1, 'bow',     { spd: 0.06 }, null, '柘木做的良弓'),
+  Wp('changmao',   '长矛',       1, 'spear',   { atk: 0.04, spd: 0.03 }, null, '一寸长一寸强'),
+  Wp('bailian',    '百炼刀',     2, 'blade',   { atk: 0.09, crit: 0.03 }, null, '百炼钢打成，吹毛断发'),
+  Wp('liannu',     '连弩',       2, 'bow',     { spd: 0.09, crit: 0.03 }, null, '一次上弦可以连发'),
+  Wp('heyushan',   '鹤羽扇',     2, 'fan',     { atk: 0.07, rage: 0.12 }, null, '谋士手里的羽扇，运筹帷幄'),
+  Wp('guding',     '古锭刀',     3, 'blade',   { atk: 0.13, crit: 0.05 }, 'sunce', '孙家世代相传的宝刀'),
+  Wp('qilingong',  '麒麟弓',     3, 'bow',     { spd: 0.12, crit: 0.06 }, 'huangzhong', '百步穿杨的硬弓'),
+  Wp('guanshifu',  '贯石斧',     3, 'axe',     { atk: 0.13, ult: 0.10 }, 'xuhuang', '大斧开山裂石'),
+  Wp('qinglong',   '青龙偃月刀', 4, 'blade',   { atk: 0.18, ult: 0.15 }, 'guanyu', '重八十二斤，又名冷艳锯'),
+  Wp('zhangba',    '丈八蛇矛',   4, 'spear',   { atk: 0.18, crit: 0.08 }, 'zhangfei', '矛头弯曲如蛇'),
+  Wp('cixiong',    '雌雄双股剑', 4, 'sword',   { atk: 0.15, rage: 0.22 }, 'liubei', '一雌一雄，合为一鞘'),
+  Wp('fangtian',   '方天画戟',   5, 'halberd', { atk: 0.24, spd: 0.10 }, 'lvbu', '人中吕布，戟中方天'),
+  Wp('yitian',     '倚天剑',     5, 'sword',   { atk: 0.24, crit: 0.10 }, 'caocao', '倚天而立，削铁如泥'),
+  Wp('baiyushan',  '白羽扇',     5, 'fan',     { atk: 0.20, ult: 0.25 }, 'zhugeliang', '羽扇纶巾，谈笑间樯橹灰飞烟灭'),
+];
+const WEAPON_MAP = {};
+WEAPONS.forEach(w => { WEAPON_MAP[w.id] = w; });
+
 const HERO_MAP = {};
 HEROES.forEach((h, i) => { h.seed = i * 1.7; HERO_MAP[h.id] = h; });
 
@@ -208,7 +268,7 @@ function chapterOf(stage) {
  *       再用不带画面的模拟器（tools/sim/）校准，让「战力 = 推荐战力」时挂机胜率约六成。
  * ============================================================ */
 /* 每章最后一关的战力预算（第 0 项 = 开局）。章内按等比插值；第 8 章之后每关 +3% */
-const STAGE_POWER = [250, 3000, 7900, 13900, 21100, 28500, 37700, 49800, 65900];
+const STAGE_POWER = [250, 2900, 8300, 16100, 26500, 37400, 50200, 69100, 94200];   // 前两章比模拟算出来的（3300、8700）放宽一些：新手期不卡人
 function stagePower(stage) {
   const n = STAGE_POWER.length - 1, s = Math.max(1, stage);
   if (s >= n * 10) return STAGE_POWER[n] * Math.pow(1.03, s - n * 10);
@@ -217,7 +277,7 @@ function stagePower(stage) {
 }
 /* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
  * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
-const HP_PER_POWER = [[1, 0.0060], [15, 0.0058], [25, 0.0052], [40, 0.0056], [80, 0.0059]];   // 各关校准值在 0.0049–0.0065 之间，取平滑后的
+const HP_PER_POWER = [[1, 0.0060], [10, 0.0057], [20, 0.0054], [50, 0.0054], [60, 0.0055], [70, 0.0047], [80, 0.0050]];   // 各关校准值在 0.0050–0.0065 之间，取平滑后的；最后两章玩家快到等级上限，放宽一些
 function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];
@@ -229,6 +289,7 @@ function stageHpMul(stage, wave) { return CFG.ENEMY_HP_SCALE * hpPerPower(stage)
 function stageAtkMul(stage)      { return (400 + 0.62 * stagePower(stage)) / (400 + 0.62 * stagePower(1)); }   // 跟着城防（400 + 武将战力）涨：各关城墙能挨的下数差不多
 function stageRecommend(stage)   { return Math.round(stagePower(stage) / 10) * 10; }
 function stageWinCoins(stage)    { return 100 + 25 * stage; }
+function stageIron(stage)        { return 4 + Math.floor(stage / 2.5); }   // 通关给的精铁（重复通关同样打折；战败按打过的波数给三成）
 
 /* 生成一波敌人：返回按出场时间排序的 [{t, type, x}] */
 function genWave(stage, wave) {
@@ -269,24 +330,41 @@ const FACTION_BONDS = {
   qun: { name: '乱世',   stat: 'crit', vals: [0.05, 0.10, 0.15], fmt: v => '全军暴击率 +' + Math.round(v * 100) + '%' },
 };
 
+/* ---------------- 属性共鸣：同一种攻击类型上阵 3 / 4 / 5 人，该系伤害提高（下标 = 人数） ---------------- */
+const ELEMENT_BOND = [0, 0, 0, 0.20, 0.30, 0.40];
+
 /* ---------------- 缘分：指定武将同时上阵（need = 至少几人） ---------------- */
 const COMBOS = [
   { name: '蜀汉旧将', ids: ['liaohua', 'zhoucang', 'guanping'], need: 2, desc: '全军攻击 +8%', eff: { atk: 0.08 } },
   { name: '黄巾起义', ids: ['zhangjiao', 'zhangbao', 'guanhai', 'peiyuan'], need: 3, desc: '全军攻击 +18%', eff: { atk: 0.18 } },
   { name: '关氏父子', ids: ['guanyu', 'guanping', 'zhoucang'], need: 2, desc: '刃系伤害 +25%', eff: { el: { blade: 0.25 } } },
-  { name: '五虎上将', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
+  { name: '五虎上将', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong', 'machao'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
   { name: '长沙旧部', ids: ['huangzhong', 'weiyan'], need: 2, desc: '弓、火系伤害 +25%', eff: { el: { arrow: 0.25, fire: 0.25 } } },
   { name: '荆襄名士', ids: ['zhugeliang', 'xushu'], need: 2, desc: '风系伤害 +35%', eff: { el: { wind: 0.35 } } },
   { name: '赤壁之盟', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +20%、怒气获取 +10%', eff: { ult: 0.20, rage: 0.10 } },
   { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +35%', eff: { el: { fire: 0.35 } } },
-  { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
-  { name: '魏之谋主', ids: ['caocao', 'simayi', 'jiaxu'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
+  { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu', 'huanggai', 'lingtong', 'jiangqin'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
+  { name: '魏之谋主', ids: ['caocao', 'simayi', 'jiaxu', 'guojia'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
   { name: '曹氏宗亲', ids: ['caocao', 'caohong'], need: 2, desc: '城防上限 +25%', eff: { wall: 0.25 } },
-  { name: '五子良将', ids: ['zhangliao', 'xuhuang'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
+  { name: '五子良将', ids: ['zhangliao', 'xuhuang', 'yujin'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
   { name: '并州旧部', ids: ['lvbu', 'zhangliao'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
   { name: '西凉董营', ids: ['huaxiong', 'liru', 'lvbu', 'jiaxu'], need: 2, desc: '毒、风系伤害 +30%', eff: { el: { poison: 0.30, wind: 0.30 } } },
   { name: '乱世才女', ids: ['caiwenji', 'zhenji'], need: 2, desc: '冰系伤害 +30%、怒气获取 +15%', eff: { el: { ice: 0.30 }, rage: 0.15 } },
   { name: '天公地公', ids: ['zhangjiao', 'zhangbao', 'panfeng'], need: 2, desc: '雷系伤害 +30%', eff: { el: { thunder: 0.30 } } },
+  // —— v1.0 新增 ——
+  { name: '桃园结义', ids: ['liubei', 'guanyu', 'zhangfei'], need: 3, desc: '全军攻击 +15%、怒气获取 +15%', eff: { atk: 0.15, rage: 0.15 } },
+  { name: '卧龙凤雏', ids: ['zhugeliang', 'pangtong'], need: 2, desc: '大招伤害 +20%', eff: { ult: 0.20 } },
+  { name: '长坂救主', ids: ['liubei', 'zhaoyun'], need: 2, desc: '冰系伤害 +25%、城防上限 +10%', eff: { el: { ice: 0.25 }, wall: 0.10 } },
+  { name: '定军山',   ids: ['fazheng', 'huangzhong'], need: 2, desc: '弓、毒系伤害 +25%', eff: { el: { arrow: 0.25, poison: 0.25 } } },
+  { name: '孙刘联姻', ids: ['liubei', 'sunshangxiang'], need: 2, desc: '城防上限 +20%、全军攻击 +6%', eff: { wall: 0.20, atk: 0.06 } },
+  { name: '江东二乔', ids: ['daqiao', 'xiaoqiao'], need: 2, desc: '冰、风系伤害 +30%', eff: { el: { ice: 0.30, wind: 0.30 } } },
+  { name: '总角之交', ids: ['sunce', 'zhouyu'], need: 2, desc: '火、雷系伤害 +20%', eff: { el: { fire: 0.20, thunder: 0.20 } } },
+  { name: '孙氏兄妹', ids: ['sunce', 'sunshangxiang'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
+  { name: '苦肉计',   ids: ['huanggai', 'zhouyu'], need: 2, desc: '火系伤害 +20%', eff: { el: { fire: 0.20 } } },
+  { name: '虎卫双雄', ids: ['dianwei', 'xuchu'], need: 2, desc: '刃系伤害 +25%、城防上限 +10%', eff: { el: { blade: 0.25 }, wall: 0.10 } },
+  { name: '凤仪亭',   ids: ['diaochan', 'lvbu'], need: 2, desc: '全军暴击率 +12%', eff: { crit: 0.12 } },
+  { name: '奇门遁甲', ids: ['zuoci', 'zhangjiao'], need: 2, desc: '雷系伤害 +25%、怒气获取 +10%', eff: { el: { thunder: 0.25 }, rage: 0.10 } },
+  { name: '两员上将', ids: ['xingdaorong', 'panfeng'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
 ];
 
 /* 局内三选一军令 */

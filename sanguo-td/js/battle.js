@@ -53,8 +53,8 @@ const Battle = (function () {
       const m = Object.assign({ atk: 0, spd: 0, crit: 0, critDmg: 0, rage: 0, w: 0, r: 0, chain: 0, life: 0, push: 0, tspd: 0, burn: 0, dotCrit: 0 }, sk && sk.passive.mod);
       const h = {
         slot: i, def: d, sk, awake: heroAwake(id),
-        atk: st.atk * (1 + m.atk) * (1 + p.atk), cd: st.cd / ((1 + m.spd) * (1 + p.spd)),
-        crit: m.crit, critDmg: m.critDmg, rageMul: 1 + m.rage + p.rage,
+        atk: st.atk * (1 + m.atk) * (1 + p.atk) * (1 + p.watk), cd: st.cd / ((1 + m.spd) * (1 + p.spd) * (1 + p.wspd)),      // p.w* = 兵器的加成
+        crit: m.crit + p.wcrit, critDmg: m.critDmg, rageMul: 1 + m.rage + p.rage + p.wrage, ultMul: 1 + p.wult,
         m: { w: 1 + m.w, r: 1 + m.r, chain: m.chain, life: 1 + m.life, push: 1 + m.push, tspd: 1 + m.tspd, burn: 1 + m.burn, dotCrit: !!m.dotCrit },
         x: SLOTS[i][0], y: SLOTS[i][1], t: first ? 0.4 + rand() * 0.6 : CFG.SWAP_DELAY, rage: 0, anim: 0, n: 0, dmg: S.dmgLog[id] || 0, hasteT: 0, hasteMul: 1, bigT: 0,
       };
@@ -464,7 +464,7 @@ const Battle = (function () {
     h.rage = 0; h.anim = 1.6;
     Sfx.play('ult');
     if (S.aim === h.slot) S.aim = null;
-    const a = h.atk * S.buffs.atk * S.buffs.ult, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
+    const a = h.atk * S.buffs.atk * S.buffs.ult * h.ultMul, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
     text(h.x, h.y - 58, '【' + h.def.ult + '】' + (h.awake ? '·觉醒' : ''), q.color, 21, 1.5, true);
     ring(h.x, h.y + 26, 12, 70, 0.5, q.color, 4);
     tex('pillar', h.x, h.y + 34, { w: 60, h: 260, ay: 1, life: 0.7, fadeIn: 0.12, a: 0.5, rgb: hexRgb(q.color), force: true });

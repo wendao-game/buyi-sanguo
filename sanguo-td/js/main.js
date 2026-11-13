@@ -7,6 +7,7 @@
   const qs = new URLSearchParams(DEV ? location.search : '');
   if (qs.has('coins')) Save.data.coins = Number(qs.get('coins')) || 0;
   if (qs.has('tickets')) Save.data.tickets = Number(qs.get('tickets')) || 0;
+  if (qs.has('iron')) Save.data.iron = Number(qs.get('iron')) || 0;
   if (qs.has('stage')) { Save.data.stage = Math.max(1, Number(qs.get('stage')) || 1); Save.data.pick = Save.data.stage; }
   if (qs.has('all')) HEROES.forEach(h => { if (!h.locked && !Save.data.heroes[h.id]) Save.data.heroes[h.id] = { lv: 1, star: 0, shards: 0 }; });
 

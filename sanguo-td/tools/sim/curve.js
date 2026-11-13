@@ -5,7 +5,7 @@ const { fight, account, levelTo, planAt } = require('./harness.js');
 const STAGES = (process.argv[2] || '10,20,30,40,50,60,70,80').split(',').map(Number), N = Number(process.argv[3] || 14), rocks = process.argv[4] === 'rock';
 const RATIOS = [0.6, 0.8, 1, 1.2, 1.5];
 for (const s of STAGES) {
-  const accs = []; for (let i = 0; i < N; i++) accs.push(account(planAt(s).draws, 1));
+  const accs = []; for (let i = 0; i < N; i++) accs.push(account(planAt(s).draws, 1, null, planAt(s).iron, s));
   const P = accs[0].stagePower(s), cells = [];
   for (const r of RATIOS) {
     let w = 0, n = 0, lvs = 0;

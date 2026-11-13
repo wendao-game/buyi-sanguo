@@ -504,5 +504,57 @@ const Art = (function () {
     g.fillStyle = gr; g.beginPath(); g.ellipse(64, 26, 26, 14, 0, 0, TAU); g.fill();
     return (crackCv = cv);
   }
-  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU, crack };
+  /* 兵器图标：assets/weapons/<id>.png 有图就用图；没有就按样子（剑 刀 枪 弓 扇 戟 斧）画一个，斜着摆在品质色的底上 */
+  const wCache = {};
+  function weaponIcon(id, px) {
+    px = px || 64; const key = id + '@' + px;
+    if (wCache[key]) return wCache[key];
+    const w = WEAPON_MAP[id], q = QUALITIES[w.q], im = Assets.get('weapons/' + id);
+    const cv = document.createElement('canvas'); cv.width = cv.height = px * 2;
+    const c = cv.getContext('2d'); c.scale(px * 2 / 64, px * 2 / 64);
+    const g = c.createRadialGradient(32, 26, 4, 32, 32, 46); g.addColorStop(0, q.color); g.addColorStop(1, q.dark);
+    c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+    c.fillStyle = 'rgba(20,12,8,.45)'; c.beginPath(); c.arc(32, 32, 25, 0, TAU); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1.5; c.beginPath(); c.arc(32, 32, 25, 0, TAU); c.stroke();
+    if (im) c.drawImage(im, 4, 4, 56, 56);
+    else {
+      c.save(); c.translate(32, 32); c.rotate(0.7); c.lineJoin = 'round'; c.lineCap = 'round';
+      const OUT = '#1a120e', METAL = '#eef2f6', SHADE = '#aeb8c4', WOOD = '#8a5428', GOLD = '#ffd24a', RED = '#d8423a';
+      const shape = (pts, fill, close) => { c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); if (close !== false) c.closePath(); c.fillStyle = fill; c.fill(); c.strokeStyle = OUT; c.lineWidth = 2.2; c.stroke(); };
+      const shaft = (y0, y1, wd) => { c.strokeStyle = OUT; c.lineWidth = wd + 2.6; c.beginPath(); c.moveTo(0, y0); c.lineTo(0, y1); c.stroke(); c.strokeStyle = WOOD; c.lineWidth = wd; c.beginPath(); c.moveTo(0, y0); c.lineTo(0, y1); c.stroke(); };
+      const t = w.type;
+      if (t === 'sword') {
+        shape([[0, -27], [4.5, -20], [3.6, 8], [-3.6, 8], [-4.5, -20]], METAL); c.strokeStyle = SHADE; c.lineWidth = 1.2; c.beginPath(); c.moveTo(0, -22); c.lineTo(0, 6); c.stroke();
+        shape([[-10, 8], [10, 8], [8, 12], [-8, 12]], GOLD); shaft(13, 23, 3.4); c.fillStyle = GOLD; c.strokeStyle = OUT; c.lineWidth = 2; c.beginPath(); c.arc(0, 25, 3, 0, TAU); c.fill(); c.stroke();
+      } else if (t === 'blade') {
+        shaft(-2, 26, 3.4);
+        c.beginPath(); c.moveTo(-3, 0); c.lineTo(-3.5, -16); c.quadraticCurveTo(-2, -27, 7, -28); c.quadraticCurveTo(10, -16, 4.5, 0); c.closePath(); c.fillStyle = METAL; c.fill(); c.strokeStyle = OUT; c.lineWidth = 2.2; c.stroke();
+        c.strokeStyle = SHADE; c.lineWidth = 1.2; c.beginPath(); c.moveTo(-0.5, -3); c.quadraticCurveTo(-1, -20, 5, -25); c.stroke();
+        shape([[-6, 0], [7, 0], [6, 3.5], [-5, 3.5]], GOLD); c.fillStyle = RED; c.beginPath(); c.arc(-4, 7, 2.6, 0, TAU); c.fill();
+      } else if (t === 'spear') {
+        shaft(-12, 27, 2.8); shape([[0, -29], [5, -19], [0, -11], [-5, -19]], METAL);
+        c.fillStyle = RED; c.strokeStyle = OUT; c.lineWidth = 1.6; c.beginPath(); c.moveTo(-1, -11); c.quadraticCurveTo(-9, -6, -5, 0); c.quadraticCurveTo(-2, -5, 1, -11); c.closePath(); c.fill(); c.stroke();
+      } else if (t === 'bow') {
+        c.strokeStyle = OUT; c.lineWidth = 6.4; c.beginPath(); c.moveTo(-6, -25); c.quadraticCurveTo(17, 0, -6, 25); c.stroke();
+        c.strokeStyle = WOOD; c.lineWidth = 3.6; c.beginPath(); c.moveTo(-6, -25); c.quadraticCurveTo(17, 0, -6, 25); c.stroke();
+        c.strokeStyle = GOLD; c.lineWidth = 3.8; c.beginPath(); c.moveTo(4.2, -5); c.quadraticCurveTo(6, 0, 4.2, 5); c.stroke();
+        c.strokeStyle = '#f4ead0'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(-6, -25); c.lineTo(-6, 25); c.stroke();
+      } else if (t === 'fan') {
+        for (let i = -3; i <= 3; i++) { c.save(); c.rotate(i * 0.3); c.beginPath(); c.ellipse(0, -15, 4.2, 13, 0, 0, TAU); c.fillStyle = i % 2 ? '#f6f2e6' : '#ffffff'; c.fill(); c.strokeStyle = OUT; c.lineWidth = 1.8; c.stroke(); c.strokeStyle = SHADE; c.lineWidth = 0.9; c.beginPath(); c.moveTo(0, -3); c.lineTo(0, -26); c.stroke(); c.restore(); }
+        shaft(2, 24, 3.2); c.fillStyle = GOLD; c.strokeStyle = OUT; c.lineWidth = 2; c.beginPath(); c.arc(0, 1, 4, 0, TAU); c.fill(); c.stroke();
+      } else if (t === 'halberd') {
+        shaft(-12, 27, 2.8); shape([[0, -30], [4.4, -20], [0, -13], [-4.4, -20]], METAL);
+        [-1, 1].forEach(s => { c.beginPath(); c.moveTo(s * 2.5, -15); c.quadraticCurveTo(s * 14, -22, s * 11, -7); c.quadraticCurveTo(s * 7, -12, s * 2.5, -8); c.closePath(); c.fillStyle = METAL; c.fill(); c.strokeStyle = OUT; c.lineWidth = 2; c.stroke(); });
+        c.fillStyle = RED; c.beginPath(); c.arc(0, -6, 2.6, 0, TAU); c.fill();
+      } else {                                                  // 斧
+        shaft(-22, 27, 3.2);
+        c.beginPath(); c.moveTo(1.5, -22); c.quadraticCurveTo(15, -27, 15, -11); c.quadraticCurveTo(15, 3, 1.5, -2); c.closePath(); c.fillStyle = METAL; c.fill(); c.strokeStyle = OUT; c.lineWidth = 2.2; c.stroke();
+        c.strokeStyle = SHADE; c.lineWidth = 1.2; c.beginPath(); c.moveTo(11, -20); c.quadraticCurveTo(13.5, -11, 11, -3); c.stroke();
+        shape([[-5, -17], [1.5, -19], [1.5, -5], [-5, -7]], SHADE);
+      }
+      c.restore();
+    }
+    try { return (wCache[key] = cv.toDataURL()); } catch (e) { return (wCache[key] = im ? im.src : ''); }
+  }
+  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU, crack, weaponIcon };
 })();

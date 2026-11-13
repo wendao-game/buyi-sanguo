@@ -1,9 +1,10 @@
 """把 GPT 画的九宫格拼图切开，处理成游戏用的规格（新的 2.5D 画风，提示词见 tools/art-prompts-25d.html）。
 
 拼图放在 sanguo-td/assets/_sheets/：
-  hero_1.png … hero_4.png    武将（每张 3×3，顺序见下面的 SHEETS）
+  hero_1.png … hero_6.png    武将（每张 3×3，顺序见下面的 SHEETS）
   enemy_1.png、enemy_2.png   敌人和各章敌将
-  head_1.png … head_4.png    武将正面头像（顺序同 hero_1 … hero_4）
+  head_1.png … head_6.png    武将正面头像（顺序同 hero_1 … hero_6）
+  weapon_1.png、weapon_2.png 兵器图标（透明底）
   fx_1.png … fx_3.png        技能特效（黑底）
   battle.png                 战场背景（竖版，会裁成 9:16 缩到 1080×1920）
 用法（在仓库根目录）：python3 sanguo-td/tools/slice_sheets.py
@@ -21,11 +22,18 @@ SHEETS_ORDER = {
     'hero_2': ('heroes', ['huangzhong', 'zhangliao', 'zhangjiao', 'jiaxu', 'zhenji', 'taishici', 'xuhuang', 'ganning', 'weiyan']),
     'hero_3': ('heroes', ['caiwenji', 'liru', 'xushu', 'guanping', 'caohong', 'chengpu', 'zhangbao', 'huaxiong', 'liaohua']),
     'hero_4': ('heroes', ['zhoucang', 'peiyuan', 'guanhai', 'panfeng', 'mifang', 'god_guanyu', 'god_lvbu', 'god_zhuge', 'god_caocao']),
+    'hero_5': ('heroes', ['liubei', 'sunce', 'machao', 'sunshangxiang', 'diaochan', 'guojia', 'dianwei', 'pangtong', 'xiaoqiao']),
+    'hero_6': ('heroes', ['zuoci', 'daqiao', 'xuchu', 'huanggai', 'fazheng', 'yujin', 'lingtong', 'xingdaorong', 'jiangqin']),
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
 }
 # 头像拼图：顺序和武将拼图一样，切出来存 heroes/<id>_head.png
 HEAD_SHEETS = {'head_' + k[5:]: v[1] for k, v in SHEETS_ORDER.items() if k.startswith('hero_')}
+# 兵器图标拼图（透明底）：切出来存 weapons/<id>.png（192×192）
+WEAPON_SHEETS = {
+    'weapon_1': ['fangtian', 'yitian', 'baiyushan', 'qinglong', 'zhangba', 'cixiong', 'guding', 'qilingong', 'guanshifu'],
+    'weapon_2': ['bailian', 'liannu', 'heyushan', 'huanshou', 'zhemugong', 'changmao', 'tiejian', 'liegong', 'podao'],
+}
 # 特效拼图（黑底）：名字 -> 最长边
 FX_SHEETS = {
     'fx_1': ['slash', 'burst', 'ring', 'flame', 'bolt', 'pillar', 'thrust', 'el_arrow_ice', 'el_arrow_fire'],
@@ -134,6 +142,25 @@ def main():
             s = max(cell.size)                                 # 补成正方形：横向居中、头顶对齐
             sq = Image.new('RGBA', (s, s), (0, 0, 0, 0)); sq.alpha_composite(cell, ((s - cell.width) // 2, 0))
             save_png(sq.resize((256, 256), Image.LANCZOS), os.path.join(DST, 'heroes', cid + '_head.png'))
+            done += 1
+    for name, ids in WEAPON_SHEETS.items():
+        path = os.path.join(SHEETS, name + '.png')
+        if not os.path.exists(path):
+            continue
+        sheet = clear_bg(Image.open(path))
+        w, h = sheet.size
+        os.makedirs(os.path.join(DST, 'weapons'), exist_ok=True)
+        for i, wid in enumerate(ids):
+            col, row = i % 3, i // 3
+            cell = keep_main(sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3)))
+            box = cell.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
+            if not box:
+                continue
+            cell = cell.crop(box)
+            k = 176 / max(cell.size)                           # 最长边 176，居中放进 192 的方图
+            cell = cell.resize((max(1, round(cell.width * k)), max(1, round(cell.height * k))), Image.LANCZOS)
+            out = Image.new('RGBA', (192, 192), (0, 0, 0, 0)); out.alpha_composite(cell, ((192 - cell.width) // 2, (192 - cell.height) // 2))
+            save_png(out, os.path.join(DST, 'weapons', wid + '.png'))
             done += 1
     for name, ids in FX_SHEETS.items():
         path = os.path.join(SHEETS, name + '.png')

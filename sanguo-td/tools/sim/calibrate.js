@@ -15,7 +15,7 @@ const out = [];
 for (const s of STAGES) {
   const accs = [], lvs = [];
   for (let i = 0; i < ACCOUNTS; i++) {
-    const G = s <= 2 ? load(patch) : account(planAt(s).draws, 1, patch);      // 第 1、2 关：还没抽卡，只有开局送的三个人
+    const G = s <= 2 ? load(patch) : account(planAt(s).draws, 1, patch, planAt(s).iron, s);      // 第 1、2 关：还没抽卡，只有开局送的三个人
     lvs.push(s <= 2 ? 1 : levelTo(G, G.stagePower(s))); accs.push(G);
   }
   const P = accs[0].stagePower(s), avgP = accs.reduce((a, G) => a + G.teamPower(), 0) / accs.length, avgL = lvs.reduce((a, v) => a + v, 0) / lvs.length;
