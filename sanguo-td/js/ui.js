@@ -417,7 +417,7 @@ const UI = (function () {
       const el = document.querySelector('#giftCode'), r = redeemGift(el && el.value);
       if (typeof r === 'string') return toast(r);
       closeModal(); render();
-      toast('兑换成功：' + [r.tickets ? '招募令 +' + r.tickets : '', r.coins ? '金币 +' + r.coins : ''].filter(Boolean).join('，'));
+      toast('兑换成功：' + [r.tickets ? '招募令 +' + r.tickets : '', r.coins ? '金币 +' + r.coins : ''].filter(Boolean).join('，') + (r.left > 0 ? '（还能用 ' + r.left + ' 次）' : ''));
     },
     codeLoad: () => {
       const ta = document.querySelector('#modal textarea'), d = parseSaveCode(ta && ta.value);

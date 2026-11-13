@@ -406,11 +406,12 @@ function redeemGift(code) {
   if (!g) return '礼包码不对';
   const S = Save.data;
   S.gifts = Array.isArray(S.gifts) ? S.gifts : [];
-  if (S.gifts.includes(key)) return '这个礼包码已经用过了';
-  S.gifts.push(key);
+  const tag = g.ver ? key + '@' + g.ver : key, times = g.times || 1, used = S.gifts.filter(k => k === tag).length;   // 带版本号记：改了 ver 以前用过的不算
+  if (used >= times) return times > 1 ? '这个礼包码已经用满 ' + times + ' 次了' : '这个礼包码已经用过了';
+  S.gifts.push(tag);
   gain(g.coins || 0, g.tickets || 0);
   Save.save();
-  return g;
+  return Object.assign({ left: times - used - 1 }, g);
 }
 
 /* ---------------- 存档码：换设备 / 清数据时手动备份 ---------------- */

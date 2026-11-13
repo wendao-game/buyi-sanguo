@@ -71,10 +71,11 @@ const CFG = {
   CLOUD_NAME: 'sanguo_td_save',
   CLOUD_EVERY: 65,         // 最快多少秒上传一次
 
-  // —— 礼包码（主城「设置 · 存档」里兑换，每个码每份存档只能用一次）——
+  // —— 礼包码（主城「设置 · 存档」里兑换）——
+  // times = 每份存档能用几次（不写 = 1 次）；ver 改个数，这个码的已用次数就清零重新算
   // 现在这个是试玩用的；正式上线前删掉或换成活动用的码
   GIFT_CODES: {
-    FENGHUO100: { tickets: 100, coins: 5000, note: '试玩礼包' },
+    FENGHUO100: { tickets: 100, coins: 5000, note: '试玩礼包', times: 5, ver: 2 },
   },
 };
 
