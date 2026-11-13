@@ -200,7 +200,7 @@ textarea.code { width: 100%; height: 150px; margin-top: 4px; padding: 8px; borde
 .rates.wrap td:nth-child(2) { white-space: normal; color: #d8c8a8; }
 
 /* 抽卡结果 */
-.pulls { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 6px 0 4px; }
+.pulls { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 6px 0 4px; }
 .pulls.one { grid-template-columns: 150px; justify-content: center; }
 .pull { position: relative; border-radius: 9px; border: 2px solid var(--qc); background: #1a120e; padding: 4px 4px 5px; text-align: center; opacity: 0; animation: flip .35s ease-out forwards; }
 .pull.hi { box-shadow: 0 0 14px 2px var(--qc); }
@@ -464,7 +464,17 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 .ahead .cur { min-width: 112px; }
 .ahead p { flex: 1; font-size: 12.5px; line-height: 1.5; color: #c8b08a; }
 .ahead p b { color: var(--gold2); font-weight: normal; }
-.grid.agrid { top: 64px; }
+.grid.agrid { top: 178px; }
+.wdraw { margin-top: 10px; } .wdraw .btn { height: 60px; font-size: 20px; }
+.wfoot { display: flex; justify-content: space-between; align-items: center; padding: 6px 20px 0; font-size: 12.5px; color: #a8947a; margin-top: 0; }
+.soulrow { margin-top: 10px; font-size: 13px; color: #c8b08a; display: flex; align-items: center; gap: 8px; }
+.soulrow b { color: #c9a8ff; font-family: var(--fr); font-weight: normal; font-size: 17px; }
+.soulrow span { color: #8a7660; font-size: 12px; }
+.soulrow .link { margin-left: auto; font-size: 12.5px; }
+.tabs .soulbtn { flex: none; width: 150px; font-size: 13.5px; letter-spacing: 0; color: #c9a8ff; }
+.rates.wrap3 td:nth-child(3) { white-space: normal; color: #d8c8a8; font-size: 12.5px; }
+.mcol .btn small { font-size: 12.5px; }
+.pull.wp b { font-size: 12px; letter-spacing: -0.5px; } .pulls.one .pull.wp b { font-size: 16px; letter-spacing: 0; }
 .wcard .whead { position: absolute; right: 3px; top: 3px; width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--gold); box-shadow: 0 1px 4px #000a; z-index: 1; }
 .wcard .cmeta b { color: var(--gold2); font-weight: normal; }
 .wcard.lock { filter: grayscale(1) brightness(.5); }

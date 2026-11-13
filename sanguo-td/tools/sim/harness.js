@@ -14,7 +14,7 @@ function load(patch) {
   ctx.window = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);
   let src = ['data', 'skills', 'save', 'battle'].map(f => fs.readFileSync(ROOT + f + '.js', 'utf8')).join('\n');
-  src += '\n;globalThis.G = { STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, WEAPONS, WEAPON_MAP, weaponOwn, heroWeapon, weaponStats, weaponLocked, weaponCraftCost, weaponUpCost, weaponCraft, weaponUp, weaponEquip, weaponMelt, weaponMeltBack, weaponSpent, stageIron, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn };';
+  src += '\n;globalThis.G = { STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, WEAPONS, WEAPON_MAP, weaponOwn, heroWeapon, weaponStats, weaponUpCost, weaponDraw, weaponUp, weaponEquip, weaponMelt, weaponMeltBack, weaponSpent, stageIron, starSoulCost, starNeed, heroRefine, refineBatch, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn };';
   vm.runInContext(src, ctx);
   ctx.G.ctx = ctx;
   if (patch) patch(ctx.G, ctx);
@@ -57,23 +57,35 @@ function equipBest(G) {
   const ws = [...free].sort((a, b) => G.WEAPON_MAP[b].q - G.WEAPON_MAP[a].q || W[b].lv - W[a].lv);
   rest.forEach((h, i) => { if (ws[i]) W[ws[i]].hero = h; });
 }
-/* 兵器：把精铁花掉。先让上阵的每人都有一件（买得起的最好的）；能换更高品质的就把最差的熔了换；其余的强化最便宜的那件 */
+/* 兵器：把精铁花掉。新到手的精铁一半攒着铸造（十连，兵器不够 5 件时全拿去铸），一半强化装在身上的兵器（便宜的先）；
+ * 换下来的强化过的旧兵器熔掉，把精铁拿回来。全部兵器都有了就只强化。 */
 function spendIron(G) {
-  const D = G.Save.data, W = D.weapons, n = D.team.filter(Boolean).length;
-  for (let guard = 0; guard < 400; guard++) {
-    const avail = G.WEAPONS.filter(w => !W[w.id] && !G.weaponLocked(w.id)).sort((a, b) => b.q - a.q);
-    const owned = Object.keys(W).sort((a, b) => G.WEAPON_MAP[a].q - G.WEAPON_MAP[b].q || W[a].lv - W[b].lv);
-    if (owned.length < n) { const c = avail.find(w => G.weaponCraftCost(w.id) <= D.iron); if (c) { G.weaponCraft(c.id); continue; } }
-    else if (owned.length) {                                  // 换掉最差的一件
-      const worst = owned[0], better = avail.find(w => w.q > G.WEAPON_MAP[worst].q && G.weaponCraftCost(w.id) <= D.iron + G.weaponMeltBack(worst));
-      if (better) { G.weaponMelt(worst); G.weaponCraft(better.id); continue; }
-    }
-    const ups = owned.filter(id => W[id].lv < G.CFG.WEAPON_MAX_LV).sort((a, b) => G.weaponUpCost(a) - G.weaponUpCost(b));
-    if (ups.length && G.weaponUpCost(ups[0]) <= D.iron) { G.weaponUp(ups[0]); continue; }
-    break;
-  }
+  const D = G.Save.data, W = D.weapons, C = G.CFG.WEAPON_DRAW, all = () => G.WEAPONS.every(w => W[w.id]);
+  G._fund = (G._fund || 0) + Math.max(0, D.iron - (G._ironSeen || 0)) * (Object.keys(W).length < 5 ? 1 : all() ? 0 : 0.5);
+  while (G._fund >= C * 10 && D.iron >= C * 10) { G.weaponDraw(10); G._fund -= C * 10; }
+  while (Object.keys(W).length < 5 && G._fund >= C && D.iron >= C) { G.weaponDraw(1); G._fund -= C; }
+  if (all()) G._fund = 0;
   equipBest(G);
+  Object.keys(W).forEach(id => { if (!W[id].hero && W[id].lv > 1) G.weaponMelt(id); });
+  for (let guard = 0; guard < 600; guard++) {
+    const ups = Object.keys(W).filter(id => W[id].hero && W[id].lv < G.CFG.WEAPON_MAX_LV).sort((a, b) => G.weaponUpCost(a) - G.weaponUpCost(b));
+    if (!ups.length || G.weaponUpCost(ups[0]) > D.iron - Math.min(G._fund, D.iron)) break;
+    G.weaponUp(ups[0]);
+  }
+  G._ironSeen = D.iron;
 }
+/* 将魂：没上阵的武将碎片全部炼化，给上阵的武将补星（差得少的先补） */
+function spendSoul(G) {
+  const D = G.Save.data;
+  G.refineBatch(9);
+  for (let guard = 0; guard < 60; guard++) {
+    const c = D.team.filter(id => id && D.heroes[id].star < G.CFG.MAX_STAR).sort((a, b) => G.starSoulCost(a) - G.starSoulCost(b))[0];
+    if (!c || G.starSoulCost(c) > D.soul) break;
+    G.starUp(c);
+  }
+}
+/* 只用自己的碎片能升的星先升了（不动将魂） */
+function starOwn(G) { const D = G.Save.data; Object.keys(D.heroes).forEach(id => { while (D.heroes[id].star < G.CFG.MAX_STAR && D.heroes[id].shards >= G.starNeed(id) && !G.starUp(id)); }); }
 /* 《数值规划.md》的进度规划：章末关卡 → 累计抽卡数、阵容平均等级、累计精铁（中间的关卡线性插值） */
 const PLAN = [[1, 10, 1, 0], [10, 30, 5, 50], [20, 70, 14, 190], [30, 120, 25, 380], [40, 200, 37, 750], [50, 320, 48, 1150], [60, 480, 60, 1850], [70, 700, 72, 2900], [80, 1000, 85, 4300]];   // 关卡, 累计抽卡, 阵容平均等级, 累计精铁
 function planAt(stage) {
@@ -84,8 +96,8 @@ function planAt(stage) {
 function account(draws, lv, patch, iron, stage) {
   const G = load(patch), D = G.Save.data;
   D.tickets = draws; while (D.tickets >= 10) G.gachaDraw(10); while (D.tickets >= 1) G.gachaDraw(1);
-  Object.keys(D.heroes).forEach(id => { while (!G.starUp(id)); D.heroes[id].lv = lv; });
-  bestTeam(G);
+  starOwn(G); Object.keys(D.heroes).forEach(id => { D.heroes[id].lv = lv; });
+  bestTeam(G); spendSoul(G); bestTeam(G);
   if (iron) { const st = D.stage; D.stage = stage || 1; D.iron = iron; spendIron(G); D.stage = st; }   // 按规划的精铁数配好兵器（stage 决定能打造到什么品质）
   return G;
 }
@@ -95,4 +107,4 @@ function levelTo(G, target) {
   for (let lv = 1; lv <= 100; lv++) { ids.forEach(id => { D.heroes[id].lv = lv; }); const d = Math.abs(Math.log(G.teamPower() / target)); if (d < bd) { bd = d; bl = lv; } }
   ids.forEach(id => { D.heroes[id].lv = bl; }); return bl;
 }
-module.exports = { load, fight, bestTeam, equipBest, spendIron, account, levelTo, PLAN, planAt };
+module.exports = { load, fight, bestTeam, equipBest, spendIron, spendSoul, starOwn, account, levelTo, PLAN, planAt };

@@ -26,7 +26,10 @@ const Save = {
       gfx: 'gl',           // 战斗画面：'gl' 高清（WebGL），'2d' 兼容
       sound: true,         // 音效开关
       music: true,         // 背景音乐开关
-      iron: 0,             // 精铁（打造、强化兵器用）
+      iron: 0,             // 精铁（铸造、强化兵器用）
+      wpity: 0,            // 兵器保底计数
+      wdraws: 0,           // 累计铸造次数
+      soul: 0,             // 将魂（碎片炼化得来，升星时顶碎片用）
       weapons: {},         // 已有的兵器：id → { lv, hero: 装在谁身上 / null }
       tips: {},            // 已经看过的新手提示
       earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
@@ -46,7 +49,7 @@ const Save = {
     // 兵器：清掉已不存在的；装在不存在的武将身上、或者两件装在同一个人身上的，卸下来
     const W = this.data.weapons = (this.data.weapons && typeof this.data.weapons === 'object') ? this.data.weapons : {}, used = {};
     Object.keys(W).forEach(id => { const w = W[id]; if (!WEAPON_MAP[id] || !w) return delete W[id]; w.lv = Math.max(1, Math.min(CFG.WEAPON_MAX_LV, w.lv | 0)); if (w.hero && (!this.data.heroes[w.hero] || used[w.hero])) w.hero = null; if (w.hero) used[w.hero] = 1; });
-    this.data.iron = Math.max(0, this.data.iron | 0);
+    this.data.iron = Math.max(0, this.data.iron | 0); this.data.soul = Math.max(0, this.data.soul | 0); this.data.wpity = this.data.wpity | 0; this.data.wdraws = this.data.wdraws | 0;
   },
   save() {
     this.data.at = Date.now();
@@ -184,14 +187,41 @@ function starNeed(id) {
   const own = heroOwn(id);
   return own.star >= CFG.MAX_STAR ? 0 : CFG.STAR_NEED[own.star];
 }
+/* 升星还差的碎片，用将魂顶要多少（不差返回 0） */
+function starSoulCost(id) {
+  const own = heroOwn(id), need = starNeed(id);
+  return Math.max(0, need - own.shards) * CFG.SOUL_COST[Math.min(HERO_MAP[id].q, CFG.SOUL_COST.length - 1)];
+}
+/* 升星：先用自己的碎片，不够的用将魂顶 */
 function starUp(id) {
   const own = heroOwn(id);
   if (!own) return '未拥有该武将';
   if (own.star >= CFG.MAX_STAR) return '已满星';
-  const need = starNeed(id);
-  if (own.shards < need) return '碎片不足（重复抽到可获得碎片）';
-  own.shards -= need; own.star++; Save.save();
+  const need = starNeed(id), soul = starSoulCost(id);
+  if (soul > (Save.data.soul || 0)) return '碎片不足，将魂也不够补（把用不上的武将碎片炼化成将魂）';
+  Save.data.soul -= soul; own.shards = Math.max(0, own.shards - need); own.star++; Save.save();
   return null;
+}
+/* 炼化：把这名武将的碎片全部变成将魂（低品武将的重复卡 → 高品武将的升星材料）。返回得到的将魂 */
+function heroRefineGain(id) { const own = heroOwn(id); return own ? own.shards * CFG.SOUL_VALUE[Math.min(HERO_MAP[id].q, CFG.SOUL_VALUE.length - 1)] : 0; }
+function heroRefine(id) {
+  const own = heroOwn(id);
+  if (!own || own.shards <= 0) return '没有可炼化的碎片';
+  const g = heroRefineGain(id);
+  own.shards = 0; Save.data.soul = (Save.data.soul || 0) + g; Save.save();
+  return g;
+}
+/* 一键炼化：没上阵、品质不高于 maxQ 的武将，碎片全部炼化。dry = 只算不做。返回 { soul, n 片 } */
+function refineBatch(maxQ, dry) {
+  let soul = 0, n = 0;
+  Object.keys(Save.data.heroes).forEach(id => {
+    const own = Save.data.heroes[id];
+    if (HERO_MAP[id].q > maxQ || own.shards <= 0 || Save.data.team.includes(id)) return;
+    soul += heroRefineGain(id); n += own.shards;
+    if (!dry) own.shards = 0;
+  });
+  if (!dry && soul) { Save.data.soul = (Save.data.soul || 0) + soul; Save.save(); }
+  return { soul, n };
 }
 
 /* ---------------- 兵器 ---------------- */
@@ -205,18 +235,33 @@ function weaponStats(wid, hid, lv) {
   for (const s in w.eff) out[s] = w.eff[s] * k;
   return out;
 }
-function weaponLocked(wid) { return Save.data.stage < CFG.WEAPON_UNLOCK[WEAPON_MAP[wid].q]; }
-function weaponCraftCost(wid) { return CFG.WEAPON_CRAFT[WEAPON_MAP[wid].q]; }
 function weaponUpCost(wid, lv) { const own = weaponOwn(wid); return Math.ceil(CFG.WEAPON_UP[WEAPON_MAP[wid].q] * (lv || own.lv)); }
 function weaponSpent(wid) { const own = weaponOwn(wid); let s = 0; for (let l = 1; l < own.lv; l++) s += weaponUpCost(wid, l); return s; }
-function weaponCraft(wid) {
-  if (!WEAPON_MAP[wid]) return '没有这件兵器';
-  if (weaponOwn(wid)) return '已经有了';
-  if (weaponLocked(wid)) return '通关第 ' + (CFG.WEAPON_UNLOCK[WEAPON_MAP[wid].q] - 1) + ' 关后才能打造';
-  const c = weaponCraftCost(wid);
-  if (Save.data.iron < c) return '精铁不足';
-  Save.data.iron -= c; Save.data.weapons[wid] = { lv: 1, hero: null }; Save.save();
-  return null;
+/* 铸造 n 次（1 或 10）。返回结果数组 [{ id, isNew } 或 { id, iron: 熔回的精铁 }]；精铁不足返回 null */
+const WEAPON_POOL = {};
+WEAPONS.forEach(w => { (WEAPON_POOL[w.q] = WEAPON_POOL[w.q] || []).push(w.id); });
+function weaponDraw(n) {
+  const S = Save.data, cost = n * CFG.WEAPON_DRAW;
+  if (n <= 0 || S.iron < cost) return null;
+  S.iron -= cost;
+  const R = CFG.WEAPON_RATES, total = R.reduce((a, b) => a + b, 0), qs = [];
+  for (let i = 0; i < n; i++) {
+    S.wpity++; S.wdraws++;
+    let r = Math.random() * total, q = 0;
+    for (let k = 0; k < R.length; k++) { if ((r -= R[k]) < 0) { q = k; break; } }
+    if (S.wpity >= CFG.WEAPON_PITY) q = 5;
+    if (q >= 5) S.wpity = 0;
+    qs.push(q);
+  }
+  if (n >= 10 && !qs.some(q => q >= CFG.WEAPON_TEN_Q)) qs[n - 1] = CFG.WEAPON_TEN_Q;
+  const res = qs.map(q => {
+    const pool = WEAPON_POOL[q], id = pool[Math.floor(Math.random() * pool.length)];
+    if (S.weapons[id]) { const iron = CFG.WEAPON_MELT_VAL[q]; S.iron += iron; return { id, iron }; }   // 已经有了：自动熔回精铁
+    S.weapons[id] = { lv: 1, hero: null };
+    return { id, isNew: true };
+  });
+  Save.save();
+  return res;
 }
 function weaponUp(wid) {
   const own = weaponOwn(wid);
@@ -236,8 +281,8 @@ function weaponEquip(wid, hid) {
   own.hero = hid || null; Save.save();
   return null;
 }
-/* 熔掉：返还强化花的全部精铁 + 一部分打造精铁 */
-function weaponMeltBack(wid) { return weaponSpent(wid) + Math.floor(weaponCraftCost(wid) * CFG.WEAPON_MELT); }
+/* 熔掉：返还强化花的全部精铁 + 这件兵器本身值的精铁 */
+function weaponMeltBack(wid) { return weaponSpent(wid) + CFG.WEAPON_MELT_VAL[WEAPON_MAP[wid].q]; }
 function weaponMelt(wid) {
   if (!weaponOwn(wid)) return '还没有这件兵器';
   const back = weaponMeltBack(wid);
@@ -322,10 +367,10 @@ function grantHero(id) {
     if (empty >= 0) Save.data.team[empty] = id;   // 有空位自动上阵
     return { id, isNew: true };
   }
-  if (own.star >= CFG.MAX_STAR) {
-    const coins = Math.round(CFG.SHARD_TO_COIN * QUALITIES[d.q].mult);
-    gain(coins, 0);
-    return { id, isNew: false, coins };
+  if (own.star >= CFG.MAX_STAR) {                         // 满星了：直接变成将魂
+    const soul = CFG.SOUL_VALUE[Math.min(d.q, CFG.SOUL_VALUE.length - 1)];
+    Save.data.soul = (Save.data.soul || 0) + soul;
+    return { id, isNew: false, soul };
   }
   own.shards++;
   return { id, isNew: false, shard: 1 };
