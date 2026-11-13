@@ -195,6 +195,7 @@ const GLView = (function () {
     const top = e.y - d.r * 2.5 * ds - (d.id === 'boss' ? 30 : 12);
     if (e.fear > 0) txt(Lt, numW, '!', e.x, top, 15, '#ffe08a', 'center', 3);
     else if (e.conf > 0) for (let i = 0; i < 3; i++) { const a = t * 6 + i * TAU / 3; ell(La, e.x + Math.cos(a) * 9, top + Math.sin(a) * 3, 2.2, 2.2, 0xe8b0ff, 1); }
+    if (e.shieldT > 0 || e.hasteT > 0 || e.auraT > 0 || e.ccImm > 0) ringE(La, e.x, e.y + d.r * 0.9, d.r * 1.25, d.r * 0.5, e.shieldT > 0 ? 0x82c8ff : 0xff6e46, 0.95);   // 盾阵蓝圈；狂奔、鼓舞、暴怒红圈
     if (e.mark > 0 || e.vuln > 0.2) ringE(La, e.x, e.y + d.r * 0.9, d.r * 1.1, d.r * 0.42, e.mark > 0 ? 0xc878ff : 0xffc878, 0.85);
     // 血条
     if (e.hp < e.max || d.id === 'boss') {
@@ -240,6 +241,7 @@ const GLView = (function () {
       let ax, ay;
       if (s.k === 'arrow') { ax = s.x - s.px; ay = s.y - s.py; } else { ax = s.tx - s.x0; ay = s.ty - s.y0; }
       const d = Math.hypot(ax, ay) || 1; ax /= d; ay /= d;
+      if (s.rock) { const p = s.t / s.dur; ell(La, s.tx, s.ty + 4, 14 * p, 5 * p, 0x000000, 0.3); sp(La, TX.rock, s.x, s.y, 20, 20, { rot: t * 6 }); return; }
       if (s.k === 'earrow') { line(La, s.x - ax * 10, s.y - ay * 10, s.x, s.y, 1.6, 0x2a1d14, 1); return; }
       if (s.big) img(Lf, s.burn ? 'el_arrow_fire' : 'thrust', s.x - ax * 20, s.y - ay * 20, s.burn ? 70 : 90, 0, Math.atan2(ay, ax), 1);
       else glow(Lf, s.x, s.y, 8, s.burn ? 0xff9646 : 0xffe6a0, 0.6);
@@ -525,8 +527,10 @@ const GLView = (function () {
     }
     if (S.banner) {
       const p = S.banner.t / S.banner.max, a = S.banner.max > 50 ? 1 : Math.min(1, p * 3, (1 - p) * 6);
-      rect(Lh, 0, 300, W, 64, 0x0a0604, 0.6 * a); rect(Lh, 0, 300, W, 2, 0xd8b04a, a); rect(Lh, 0, 362, W, 2, 0xd8b04a, a);
+      const bh = S.banner.sub ? 90 : 64;                       // 带一行小字说明的横幅高一些
+      rect(Lh, 0, 300, W, bh, 0x0a0604, 0.6 * a); rect(Lh, 0, 300, W, 2, 0xd8b04a, a); rect(Lh, 0, 298 + bh, W, 2, 0xd8b04a, a);
       txt(Lh, numH, S.banner.text, W / 2, 345, 36, S.over && !S.win ? '#ff6a5a' : '#ffe08a', 'center', 5, a, -1);
+      if (S.banner.sub) txt(Lh, numH, S.banner.sub, W / 2, 377, 13, '#f0e2c4', 'center', 3, a);
     }
   }
   /* 大招特写横幅（有特写图的武将才有） */

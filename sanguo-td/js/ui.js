@@ -74,6 +74,7 @@ const UI = (function () {
         </div>
         <div class="powers"><span>推荐战力 ${rec}</span><span class="${pw >= rec ? 'ok' : 'bad'}">我方战力 ${pw}</span></div>
         <div class="reward">通关奖励：金币 ×${Math.round(stageWinCoins(st) * (cleared ? CFG.REPLAY_COIN : 1))}、精铁 ×${Math.max(1, Math.round(stageIron(st) * (cleared ? CFG.REPLAY_COIN : 1)))} + 战场掉落${cleared ? '（已通关，奖励减半）' : '<br>首通再得：招募令 ×' + (st % 10 === 0 ? 5 : 1)}</div>
+        <div class="intel">${intel(st)}</div>
         <div class="fightrow">
           ${cleared ? `<button class="btn sweep ${sweepLeft() ? '' : 'gray'}" data-act="sweep">扫荡<small>金币 ×${sweepReward(st)} · 今日 ${sweepLeft()}/${CFG.SWEEP_DAILY}</small></button>` : ''}
           <button class="btn-big ${cleared ? 'small' : ''}" data-act="fight">出征</button>
@@ -81,6 +82,13 @@ const UI = (function () {
         ${pw < rec ? '<div class="tip">战力不足？去「武将」页凑羁绊、调站位；战斗中点战场可以投石</div>' : ''}
       </div>
       <div class="homefoot"><button class="link" data-act="settings">设置 · 存档</button><div id="cloudNote" class="cloudnote">${Cloud.note()}</div></div>`;
+  }
+
+  /* 敌情：这一关的敌将会什么招、有哪些特别的敌人（这一关新登场的标出来） */
+  function intel(st) {
+    const ch = chapterOf(st), sk = bossSkill(st);
+    const sp = Object.keys(ENEMIES).map(k => ENEMIES[k]).filter(d => d.from && d.from <= st);
+    return `<b>敌将 ${ch.boss}</b>「${sk.name}」${sk.desc}` + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
   }
 
   /* ---------------- 武将 ---------------- */

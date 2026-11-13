@@ -26,7 +26,7 @@ const Battle = (function () {
   /* ---------------- 开局 ---------------- */
   function start(stage) {
     S = {
-      stage, ch: chapterOf(stage), wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
+      stage, ch: chapterOf(stage), bossSk: bossSkill(stage), wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
       queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
       cut: null, lastCut: -99, shock: null, dim: null,
       t: 0, coins: 0, kills: 0,
@@ -85,15 +85,18 @@ const Battle = (function () {
     S.wave++;
     const w = genWave(S.stage, S.wave);
     S.queue = w.list; S.waveDur = w.dur; S.waveT = 0; S.spawned = 0; S.waveSize = w.list.length;
-    S.banner = { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', t: 1.8, max: 1.8 };
+    const ne = S.wave === 1 ? newEnemyAt(S.stage) : null;
+    S.banner = ne ? { text: '新敌人 · ' + ne.name, sub: ne.tip, t: 4, max: 4 } : { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', sub: S.wave === CFG.WAVES ? S.bossSk.name + '：' + S.bossSk.desc : '', t: S.wave === CFG.WAVES ? 3.2 : 1.8, max: S.wave === CFG.WAVES ? 3.2 : 1.8 };
     Sfx.play(S.wave === CFG.WAVES ? 'horn' : 'wave');
     if (S.wave === CFG.WAVES) Sfx.music('boss');             // 最后一波：音乐换成更急的一段
   }
+  /* q: { type, x }；召出来的援兵另外带 y（出现的位置）、hpK（血量打几折）、haste（狂奔几秒） */
   function spawn(q) {
-    const d = ENEMIES[q.type], hp = Math.round(d.hp * stageHpMul(S.stage, S.wave));
-    S.spawned++;
+    const d = ENEMIES[q.type], hp = Math.round(d.hp * stageHpMul(S.stage, S.wave) * (q.hpK || 1));
+    if (q.y == null) S.spawned++;
     S.enemies.push({
-      def: d, name: d.id === 'boss' ? S.ch.boss : d.name, x: q.x, y: -d.r - rand() * 16,
+      def: d, name: d.id === 'boss' ? S.ch.boss : d.name, x: q.x, y: q.y == null ? -d.r - rand() * 16 : q.y,
+      hasteT: q.haste || 0, auraT: 0, shieldT: 0, ccImm: 0, chargeT: 0, supT: 1 + rand(), skT: d.id === 'boss' ? S.bossSk.cd * 0.6 : 0, enraged: false, revived: false,
       hp, max: hp, atk: d.atk * stageAtkMul(S.stage), spd: d.spd * (0.9 + rand() * 0.2),
       stopY: WY - 15 - d.r - rand() * 12 - (d.range ? d.range * (0.6 + rand() * 0.4) : 0),
       acd: 0.3 + rand() * 0.7, flash: 0, frozen: 0, slow: 0, burn: 0, burnT: 0, burnDps: 0, burnSrc: null,
@@ -214,6 +217,8 @@ const Battle = (function () {
     m *= S.buffs.el[el] || 1;
     if (el === 'fire' && S.windT > 0) m *= 1.3;
     if (isBig(e)) m *= S.buffs.boss;
+    if (e.def.res && e.def.res[el]) m *= e.def.res[el];          // 藤甲、重甲：有的系打折，有的系加倍
+    if (e.shieldT > 0) m *= 0.5;                                   // 陷阵统领的盾阵
     if (src && src.sk && src.sk.passive.dmg) m *= src.sk.passive.dmg(B, src, e);
     const canCrit = !o.dot || (src && src.m.dotCrit);
     const crit = canCrit && rand() < 0.08 + S.buffs.crit + (src ? src.crit : 0) + (o.crit || 0);
@@ -228,6 +233,11 @@ const Battle = (function () {
     if (e.hp <= 0) kill(e, src, el);
   }
   function kill(e, src, el) {
+    if (e.def.id === 'boss' && S.bossSk.name === '不死' && !e.revived) {          // 幽冥鬼将：第一次倒下爬起来再战
+      e.revived = true; e.hp = Math.round(e.max * 0.4); e.frozen = 0; e.fear = 0; e.conf = 0; e.ccImm = 2.5;
+      bossShout(e); ring(e.x, e.y, 10, 170, 0.6, '#b48cff', 6); tex('pillar', e.x, e.y + 20, { w: 120, h: 420, ay: 1, life: 0.9, fadeIn: 0.1, rgb: '170,120,255', force: true }); S.shake = Math.max(S.shake, 0.3);
+      return;
+    }
     e.dead = true; S.kills++;
     burst(e.x, e.y, e.def.id === 'boss' ? 40 : 4, e.def.body, 120, 4, 0.5);
     if (S.parts.length < 400) burst(e.x, e.y - 4, 3, '#ffe2a0', 170, 2, 0.3, 320);
@@ -267,11 +277,11 @@ const Battle = (function () {
   /* 状态 */
   /* 控制抗性：同一个敌人每被硬控（眩晕 / 冻结、惊吓、混乱）一次，之后的控制时长打八折（最低三成）；
    * 每被击退一次，之后的击退距离打九三折（最低一成五）。否则高星武将能把小兵永久控住，后期胜负就和战力无关了 */
-  function ccTime(e, t) { const k = e.ccK; if (t > 0.3) e.ccK = Math.max(CFG.CC_MIN, k * CFG.CC_DECAY); return t * k; }
+  function ccTime(e, t) { if (e.ccImm > 0) return 0; const k = e.ccK; if (t > 0.3) e.ccK = Math.max(CFG.CC_MIN, k * CFG.CC_DECAY); return t * k * (e.def.cc || 1); }   // def.cc：冲车、重甲兵被控的时间更短
   /* ---------------- 城防挨打的反馈 ---------------- */
   /* 扣血立刻生效；命中的画面（碎石、白光、震动、音效）等 delay 秒：近战是兵器落下，弓手是箭飞到 */
-  function wallHurt(e, x, delay) {
-    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite', dmg = e.atk, ref = S;
+  function wallHurt(e, x, delay, dmgK) {
+    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite' || !!e.def.siege || !!e.def.boom, dmg = e.atk * (dmgK || 1), ref = S;
     S.wall -= dmg;
     S.wallAcc += dmg; S.wallAccX += x * dmg;
     const fx = () => {
@@ -286,11 +296,53 @@ const Battle = (function () {
       if (S.wallFxT <= 0 || big) {                           // 一大群人同时砍的时候，白光限一下数量
         S.wallFxT = 0.05;
         tex('burst', x, y, { w: big ? 96 : 44, life: 0.16, grow: 1.5, a: 0.9, rgb: '255,226,196', rot: rand() * TAU });
-        if (!e.def.range) tex('slash', x, y - 6, { w: big ? 76 : 40, life: 0.14, grow: 1.15, a: 0.75, rgb: '255,240,225', rot: Math.PI + (rand() - 0.5) * 0.9 });
+        if (!e.def.range && !e.def.boom) tex('slash', x, y - 6, { w: big ? 76 : 40, life: 0.14, grow: 1.15, a: 0.75, rgb: '255,240,225', rot: Math.PI + (rand() - 0.5) * 0.9 });
       }
       if (boss) { ring(x, y, 14, 150, 0.4, '#ffb090', 5); shockwave(x, y, 150, 0.5); burst(x, y, 10, '#ffd8b0', 240, 2, 0.4, 300); }
     };
     if (delay > 0) S.timers.push({ t: delay, fn: fx }); else fx();
+  }
+  /* ---------------- 敌将的招式（每章一个，名字和说明在 data.js 的 BOSS_SKILLS） ---------------- */
+  function bossShout(e) { text(e.x, e.y - e.def.r * 2.6 - 34, S.bossSk.name, '#ff6a4a', 24, 1.4, true); Sfx.play('horn'); }
+  function summon(e, type, n, o) {
+    if (S.enemies.length > 90) return;                          // 场上人太多就不再叫人
+    for (let i = 0; i < n; i++) {
+      const x = Math.max(60, Math.min(W - 60, e.x + (i - (n - 1) / 2) * 46 + (rand() - 0.5) * 16)), y = Math.max(RANGE_Y + 14, e.y - 26 - rand() * 26);
+      spawn(Object.assign({ type, x, y, hpK: 0.6 }, o));
+      ring(x, y, 6, 40, 0.35, '#ffd9a0', 3); burst(x, y, 5, '#d8c0a0', 110, 3, 0.4);
+    }
+  }
+  function explodeFx(x, y) {
+    tex('el_hit_fire', x, y, { w: 120, life: 0.4, grow: 1.4, force: true }); ring(x, y, 10, 90, 0.35, '#ffb060', 5); burst(x, y, 12, '#ffb050', 240, 4, 0.45, 300);
+    S.shake = Math.max(S.shake, 0.2); Sfx.play('boom');
+  }
+  function bossCast(e) {
+    bossShout(e);
+    switch (S.bossSk.name) {
+      case '黄巾聚义': summon(e, 'grunt', 4); break;
+      case '藤甲军':   summon(e, 'rattan', 3); break;
+      case '虎豹骑':   summon(e, 'rider', 3, { haste: 6 }); break;
+      case '暴虐':
+        for (const x of S.enemies) if (!x.dead) x.hasteT = 3.5;
+        ring(e.x, e.y, 20, 520, 0.7, '#ff7a50', 6); S.flash = { color: '255,90,60', a: 0.2, t: 0.4, max: 0.4 }; S.shake = Math.max(S.shake, 0.25);
+        break;
+      case '突阵': e.chargeT = 1.5; e.slow = 0; ring(e.x, e.y, 10, 90, 0.4, '#ffd9a0', 5); break;
+      case '连珠箭':
+        for (let i = 0; i < 3; i++) {
+          const ref = S;
+          S.timers.push({ t: i * 0.22, fn: () => {
+            if (S !== ref || S.over || e.dead) return;
+            const tx = Math.max(110, Math.min(430, e.x + (rand() - 0.5) * 120));
+            S.shots.push({ k: 'earrow', x: e.x, y: e.y - 20, x0: e.x, y0: e.y - 20, tx, ty: WY - 4, t: 0, dur: 0.3 });
+            wallHurt(e, tx, 0.28, 0.45);
+          } });
+        }
+        break;
+      case '陷阵':
+        for (const x of S.enemies) if (!x.dead && Math.hypot(x.x - e.x, x.y - e.y) < 210) x.shieldT = 4;
+        ring(e.x, e.y, 20, 210, 0.5, '#8fd0ff', 6);
+        break;
+    }
   }
   /* 每帧：血条的残影、飘字、告急、破损的烟 */
   function updateWall(dt) {
@@ -311,7 +363,7 @@ const Battle = (function () {
       part(p[0] + (rand() - 0.5) * 12, p[1] - 4, (rand() - 0.5) * 14, -34 - rand() * 20, 1 + rand() * 0.5, hp < 0.25 && rand() < 0.3 ? '#ff9a4a' : '#3a322c', hp < 0.25 ? 8 : 6);
     }
   }
-  function pushBack(e, d, minY) { if (e.dead) return; const k = e.pushK * (e.def.id === 'boss' ? 0.25 : 1); e.pushK = Math.max(CFG.PUSH_MIN, e.pushK * CFG.PUSH_DECAY); e.y = Math.max(minY || RANGE_Y + 8, e.y - d * k); }
+  function pushBack(e, d, minY) { if (e.dead || e.chargeT > 0) return; const k = e.pushK * (e.def.id === 'boss' ? 0.25 : e.def.push == null ? 1 : e.def.push); e.pushK = Math.max(CFG.PUSH_MIN, e.pushK * CFG.PUSH_DECAY); e.y = Math.max(minY || RANGE_Y + 8, e.y - d * k); }
   const stun = (e, t) => { if (!e.dead) e.frozen = Math.max(e.frozen, ccTime(e, t)); };
   const slow = (e, t) => { if (!e.dead) e.slow = Math.max(e.slow, t); };
   function burn(e, t, tick, h) { if (e.dead) return; e.burn = Math.max(e.burn, t); if (tick >= e.burnDps || !e.burnSrc) { e.burnDps = tick; e.burnSrc = h; } }
@@ -571,6 +623,14 @@ const Battle = (function () {
       if (e.mark > 0) e.mark -= dt;
       if (e.psnMark > 0) e.psnMark -= dt;
       if (e.vulnT > 0 && (e.vulnT -= dt) <= 0) e.vuln = 0;
+      if (e.hasteT > 0) e.hasteT -= dt;
+      if (e.auraT > 0) e.auraT -= dt;
+      if (e.shieldT > 0) e.shieldT -= dt;
+      if (e.ccImm > 0) e.ccImm -= dt;
+      if (e.def.id === 'boss' && S.bossSk.name === '拔矢啖睛' && !e.enraged && e.hp < e.max * 0.5) {     // 夏侯惇：半血暴怒
+        e.enraged = true; e.atk *= 1.5; e.spd *= 1.6; e.frozen = 0; e.fear = 0; e.conf = 0; e.slow = 0; e.ccImm = 4;
+        bossShout(e); ring(e.x, e.y, 10, 150, 0.5, '#ff5a3a', 6); S.shake = Math.max(S.shake, 0.3); S.flash = { color: '255,80,50', a: 0.25, t: 0.4, max: 0.4 };
+      }
       if (e.burn > 0) { e.burn -= dt; if ((e.burnT -= dt) <= 0) { e.burnT = 0.5; hit(e, e.burnDps, 'fire', e.burnSrc, { dot: true }); if (e.dead) continue; } }
       if (e.psn > 0) { e.psn -= dt; if ((e.psnT -= dt) <= 0) { e.psnT = 0.5; hit(e, e.psnDps * 0.5, 'poison', e.psnSrc, { dot: true }); if (e.dead) continue; } }
       if (e.slow > 0) e.slow -= dt;
@@ -586,21 +646,55 @@ const Battle = (function () {
         }
         continue;
       }
-      const sp = e.spd * (e.slow > 0 ? 0.5 : 1);
+      const d = e.def, fast = e.hasteT > 0 ? 1.45 : e.auraT > 0 ? 1.3 : 1;      // 董卓的怒喝、鼓手的鼓声：走得更快、砍得更勤（不叠加）
+      // 敌将的招式
+      if (d.id === 'boss' && S.bossSk.cd > 0 && (e.skT -= dt) <= 0 && e.y > RANGE_Y + 20) { e.skT = S.bossSk.cd; bossCast(e); }
+      // 后排：鼓手擂鼓、巫医治伤
+      if ((d.aura || d.heal) && (e.supT -= dt) <= 0 && e.y > RANGE_Y) {
+        if (d.aura) {
+          e.supT = 0.5;
+          for (const x of S.enemies) if (x !== e && !x.dead && !x.def.support && Math.hypot(x.x - e.x, x.y - e.y) < d.aura) x.auraT = 0.8;
+          if ((e.beat = (e.beat || 0) + 1) % 2 === 0) ring(e.x, e.y, 8, 54, 0.4, '#ffb070', 2);
+        } else {
+          e.supT = 2.5;
+          let any = false;
+          for (const x of S.enemies) {
+            if (x.dead || x.hp >= x.max || Math.hypot(x.x - e.x, x.y - e.y) > d.heal) continue;
+            const v = Math.round(x.max * (x.def.id === 'boss' ? 0.012 : 0.06)); x.hp = Math.min(x.max, x.hp + v); any = true;
+            if (S.texts.length < 60) text(x.x, x.y - x.def.r - 6, '+' + v, '#8dff8a', 12, 0.6);
+          }
+          if (any) { ring(e.x, e.y, 10, d.heal, 0.5, '#8dff8a', 2); burst(e.x, e.y - 10, 5, '#a8ffa0', 90, 2.4, 0.5); }
+        }
+      }
+      const charge = e.chargeT > 0;
+      if (charge) { e.chargeT -= dt; if (S.parts.length < 300) part(e.x + (rand() - 0.5) * 30, e.y - 10, (rand() - 0.5) * 40, -60, 0.35, '#c8b090', 6); }
+      const sp = e.spd * (charge ? 4 : (e.slow > 0 ? 0.5 : 1) * fast);
       if (e.y < e.stopY) {
         e.y += sp * dt; e.walk += dt * sp * 0.22;
         e.x = Math.max(48, Math.min(W - 48, e.x + Math.sin(S.t * 1.3 + e.ph) * 7 * dt));
-        if (e.y > WY - 230) { const tx = Math.max(118, Math.min(422, e.x)); e.x += (tx - e.x) * Math.min(1, dt * 1.6); }   // 快到城下时往城楼正面那段墙收拢
-      } else if ((e.acd -= dt) <= 0) {
-        e.acd = e.def.id === 'boss' ? 1.4 : 1;
+        if (e.y > WY - 230 && !d.range) { const tx = Math.max(118, Math.min(422, e.x)); e.x += (tx - e.x) * Math.min(1, dt * 1.6); }   // 快到城下时往城楼正面那段墙收拢
+      } else if (d.boom) {                                      // 死士：到城下就炸，自己也没了
+        wallHurt(e, e.x, 0);
+        explodeFx(e.x, WY - 14);
+        e.dead = true; if (S.ghosts.length < 40) S.ghosts.push({ def: d, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.3, max: 0.3 });
+      } else if (d.support) {
+        // 鼓手不攻城，站在后面擂鼓
+      } else if ((e.acd -= dt * fast) <= 0) {
+        e.acd = d.id === 'boss' ? 1.4 : d.acd || 1;
         e.atkT = 0.24;                                          // 出手动作：往城墙方向扑一下
-        if (e.def.range) {
+        if (d.lob) {                                            // 投石车：石头飞得慢，落地才扣血
+          const tx = 120 + rand() * 300;
+          S.shots.push({ k: 'earrow', rock: true, x: e.x, y: e.y - 14, x0: e.x, y0: e.y - 14, tx, ty: WY - 6, t: 0, dur: 0.9, arc: 110 });
+          const ref = S; S.timers.push({ t: 0.9, fn: () => { if (S === ref && !S.over) wallHurt(e, tx, 0); } });
+        } else if (d.range) {
           const tx = e.x + (rand() - 0.5) * 30;
           S.shots.push({ k: 'earrow', x: e.x, y: e.y - 6, x0: e.x, y0: e.y - 6, tx, ty: WY - 4, t: 0, dur: 0.22 });
           wallHurt(e, tx, 0.2);
         } else wallHurt(e, e.x, 0.1);
       }
     }
+    // 只剩不会攻城的鼓手：一哄而散（不然最后一波打不完）
+    if (!S.queue.length && S.enemies.length && S.enemies.every(e => e.dead || e.def.support)) for (const e of S.enemies) if (!e.dead && e.y > RANGE_Y) { text(e.x, e.y - 30, '溃逃', '#e8dcc0', 14, 0.8); kill(e, null, 'blade'); }
 
     updateShots(dt);
     updateZones(dt);
@@ -685,7 +779,7 @@ const Battle = (function () {
         if (s.y <= RANGE_Y + 70) { explode('fire', s.x, s.y, 100, s.a * 4, true, s.h); done = true; }   // 冲到敌阵深处爆炸
       } else if (s.k === 'earrow') {
         s.t += dt; const p = Math.min(1, s.t / s.dur);
-        s.x = s.x0 + (s.tx - s.x0) * p; s.y = s.y0 + (s.ty - s.y0) * p;
+        s.x = s.x0 + (s.tx - s.x0) * p; s.y = s.y0 + (s.ty - s.y0) * p - (s.arc ? Math.sin(p * Math.PI) * s.arc : 0);
         done = p >= 1;
       }
       if (done) S.shots.splice(i, 1);
@@ -802,7 +896,8 @@ const Battle = (function () {
       let ax, ay;
       if (s.k === 'arrow') { ax = s.x - s.px; ay = s.y - s.py; } else { ax = s.tx - s.x0; ay = s.ty - s.y0; }
       const d = Math.hypot(ax, ay) || 1; ax /= d; ay /= d;
-      if (s.k === 'earrow') drawArrow(s.x, s.y, ax, ay, 10, '#2a1d14', 1.6, 0);
+      if (s.rock) { c.fillStyle = 'rgba(0,0,0,.25)'; Art.ell(c, s.tx, s.ty + 4, 14 * (s.t / s.dur), 5 * (s.t / s.dur)); c.fillStyle = '#5a4a3c'; Art.circ(c, s.x, s.y, 9); c.fillStyle = '#84705a'; Art.circ(c, s.x - 2.5, s.y - 2.5, 5); }
+      else if (s.k === 'earrow') drawArrow(s.x, s.y, ax, ay, 10, '#2a1d14', 1.6, 0);
       else {
         c.globalCompositeOperation = 'lighter';
         if (!(s.big && img(s.burn ? 'el_arrow_fire' : 'thrust', s.x - ax * 20, s.y - ay * 20, s.burn ? 70 : 90, 0, Math.atan2(ay, ax), 1))) glow(s.x, s.y, s.big ? 14 : 8, s.burn ? '255,150,70' : '255,230,160', 0.6);
@@ -1015,6 +1110,10 @@ const Battle = (function () {
     else if (e.conf > 0) {
       for (let i = 0; i < 3; i++) { const a = S.t * 6 + i * TAU / 3; c.fillStyle = '#e8b0ff'; Art.circ(c, e.x + Math.cos(a) * 9, top + Math.sin(a) * 3, 2.2); }
     }
+    if (e.shieldT > 0 || e.hasteT > 0 || e.auraT > 0 || e.ccImm > 0) {       // 盾阵蓝圈；狂奔、鼓舞、暴怒红圈
+      c.strokeStyle = e.shieldT > 0 ? 'rgba(130,200,255,.95)' : 'rgba(255,110,70,.9)'; c.lineWidth = 2;
+      c.beginPath(); c.ellipse(e.x, e.y + e.def.r * 0.9, e.def.r * 1.25, e.def.r * 0.5, 0, 0, TAU); c.stroke();
+    }
     if (e.mark > 0 || e.vuln > 0.2) {
       c.strokeStyle = e.mark > 0 ? 'rgba(200,120,255,.9)' : 'rgba(255,200,120,.8)'; c.lineWidth = 1.6;
       c.beginPath(); c.ellipse(e.x, e.y + e.def.r * 0.9, e.def.r * 1.1, e.def.r * 0.42, 0, 0, TAU); c.stroke();
@@ -1146,9 +1245,11 @@ const Battle = (function () {
     if (S.banner) {
       const p = S.banner.t / S.banner.max, a = S.banner.max > 50 ? 1 : Math.min(1, p * 3, (1 - p) * 6);
       c.globalAlpha = a;
-      c.fillStyle = 'rgba(10,6,4,.6)'; c.fillRect(0, 300, W, 64);
-      c.fillStyle = '#d8b04a'; c.fillRect(0, 300, W, 2); c.fillRect(0, 362, W, 2);
+      const bh = S.banner.sub ? 90 : 64;                       // 带一行小字说明的横幅高一些
+      c.fillStyle = 'rgba(10,6,4,.6)'; c.fillRect(0, 300, W, bh);
+      c.fillStyle = '#d8b04a'; c.fillRect(0, 300, W, 2); c.fillRect(0, 298 + bh, W, 2);
       outlined(S.banner.text, W / 2, 343, 30, S.over && !S.win ? '#ff6a5a' : '#ffe08a', 'center', 5);
+      if (S.banner.sub) outlined(S.banner.sub, W / 2, 375, 13, '#f0e2c4', 'center', 3);
       c.globalAlpha = 1;
     }
   }

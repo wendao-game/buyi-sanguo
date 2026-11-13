@@ -2,7 +2,7 @@
 
 拼图放在 sanguo-td/assets/_sheets/：
   hero_1.png … hero_7.png    武将（每张 3×3，顺序见下面的 SHEETS）
-  enemy_1.png、enemy_2.png   敌人和各章敌将
+  enemy_1.png … enemy_3.png 敌人和各章敌将（enemy_3 是 v1.3 的新敌兵）
   head_1.png … head_7.png    武将正面头像（顺序同 hero_1 … hero_7）
   weapon_1.png、weapon_2.png 兵器图标（透明底）
   fx_1.png … fx_3.png        技能特效（黑底）
@@ -27,6 +27,7 @@ SHEETS_ORDER = {
     'hero_7': ('heroes', ['zhanghe', 'zhoutai', 'chengong', 'madai', 'gongsunzan', 'yuejin', 'lidian', 'handang', 'wangping']),
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
+    'enemy_3': ('enemies', ['sapper', 'ram', 'drummer', 'heavy', 'catapult', 'rattan', 'shaman', None, None]),
 }
 # 头像拼图：顺序和武将拼图一样，切出来存 heroes/<id>_head.png
 HEAD_SHEETS = {'head_' + k[5:]: v[1] for k, v in SHEETS_ORDER.items() if k.startswith('hero_')}

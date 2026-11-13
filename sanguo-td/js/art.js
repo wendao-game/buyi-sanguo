@@ -426,7 +426,26 @@ const Art = (function () {
     c.globalCompositeOperation = 'lighter'; c.globalAlpha = (1 - p) * 0.7; c.drawImage(sp.im, sp.x, sp.y, sp.w, sp.h);
     c.restore();
   }
+  /* 攻城器械（冲车、投石车）：没有人，画一辆木头车 */
+  function siegeBody(c, d) {
+    c.lineCap = 'round';
+    c.fillStyle = '#2a1d14'; circ(c, -11, 14, 5); circ(c, 11, 14, 5); c.fillStyle = '#8a6a44'; circ(c, -11, 14, 2.6); circ(c, 11, 14, 2.6);   // 轮子
+    if (d.id === 'ram') {
+      c.fillStyle = '#5a3d22'; rr(c, -15, -8, 30, 20, 3); c.fill();                                 // 车身
+      c.fillStyle = '#7a5632'; c.beginPath(); c.moveTo(-17, -8); c.lineTo(0, -22); c.lineTo(17, -8); c.closePath(); c.fill();   // 尖顶棚
+      c.strokeStyle = '#3c2a1a'; c.lineWidth = 1.2; for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(i * 8, -9); c.lineTo(i * 4, -17); c.stroke(); }
+      c.fillStyle = '#4a321c'; rr(c, -4, 2, 8, 18, 3); c.fill();                                    // 撞木，头朝城墙
+      c.fillStyle = '#9aa2ac'; rr(c, -5, 15, 10, 7, 2); c.fill(); c.fillStyle = '#d8dde4'; c.fillRect(-3, 19, 6, 2);   // 包铁的撞头
+    } else {
+      c.fillStyle = '#5a3d22'; rr(c, -15, 2, 30, 10, 2); c.fill();                                  // 底架
+      c.strokeStyle = '#4a321c'; c.lineWidth = 3; c.beginPath(); c.moveTo(-9, 4); c.lineTo(0, -12); c.lineTo(9, 4); c.stroke();   // 三角支架
+      c.strokeStyle = '#7a5632'; c.lineWidth = 2.6; c.beginPath(); c.moveTo(8, 2); c.lineTo(-10, -24); c.stroke();     // 抛杆
+      c.fillStyle = '#3c2a1a'; circ(c, -10, -24, 4.2); c.fillStyle = '#84705a'; circ(c, -10.5, -25, 3);                // 兜里的石头
+      c.fillStyle = '#2a1d14'; rr(c, 5, -1, 7, 7, 1.5); c.fill();                                   // 配重
+    }
+  }
   function enemyBody(c, d) {
+    if (d.siege) return siegeBody(c, d);
     if (d.id === 'rider') {                                   // 战马
       c.fillStyle = '#5b3a24'; ell(c, 0, 5, 8, 12);
       c.fillStyle = '#6e4a30'; ell(c, 0, 15, 5, 6.5);
@@ -439,6 +458,17 @@ const Art = (function () {
     c.lineCap = 'round';
     if (d.id === 'archer') {
       c.strokeStyle = '#3a2616'; c.lineWidth = 1.8; c.beginPath(); c.arc(6, 3, 8, -1.1, 1.1); c.stroke();
+    } else if (d.id === 'sapper') {                           // 死士：背上一只火药桶，引线冒着火星
+      c.fillStyle = '#5a3a20'; rr(c, 5, -6, 10, 14, 3); c.fill(); c.fillStyle = '#2a1d14'; c.fillRect(5, -2, 10, 1.6); c.fillRect(5, 3, 10, 1.6);
+      c.strokeStyle = '#2a1d14'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(10, -6); c.quadraticCurveTo(13, -12, 10, -15); c.stroke();
+      c.fillStyle = '#ffb030'; circ(c, 10, -16, 2.4); c.fillStyle = '#fff2b0'; circ(c, 10, -16, 1.1);
+    } else if (d.id === 'drummer') {                          // 鼓手：背后一面旗
+      c.strokeStyle = '#3a2616'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(9, 10); c.lineTo(9, -24); c.stroke();
+      c.fillStyle = '#c8302a'; c.beginPath(); c.moveTo(9, -24); c.lineTo(20, -20); c.lineTo(9, -14); c.closePath(); c.fill();
+    } else if (d.id === 'shaman') {                           // 巫医：骨头法杖
+      c.strokeStyle = '#4a3420'; c.lineWidth = 1.8; c.beginPath(); c.moveTo(10, 12); c.lineTo(10, -18); c.stroke();
+      c.fillStyle = '#eee6d0'; circ(c, 10, -21, 3.6); c.fillStyle = '#2a1d14'; circ(c, 8.8, -21.4, 0.9); circ(c, 11.2, -21.4, 0.9);
+      c.fillStyle = '#8dff8a'; circ(c, 10, -27, 1.6);
     } else if (d.id === 'boss') {
       c.strokeStyle = '#2a1d16'; c.lineWidth = 2; c.beginPath(); c.moveTo(11, 12); c.lineTo(11, -14); c.stroke();
       c.fillStyle = '#dfe5ee'; c.beginPath(); c.moveTo(10, -13); c.quadraticCurveTo(20, -18, 16, -27); c.quadraticCurveTo(14, -19, 10, -18); c.closePath(); c.fill();
@@ -452,10 +482,30 @@ const Art = (function () {
     if (d.id === 'shield') {
       c.fillStyle = '#3d4450'; circ(c, -4, 6, 8.2); c.fillStyle = '#8f98a6'; circ(c, -4, 6, 6.6); c.fillStyle = '#d8b04a'; circ(c, -4, 6, 2.2);
     }
+    if (d.id === 'heavy') {                                   // 重甲兵：一身甲片，一面大方盾
+      c.strokeStyle = 'rgba(255,255,255,.22)'; c.lineWidth = 0.8; for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(-7, i * 4); c.lineTo(7, i * 4); c.stroke(); }
+      c.fillStyle = '#2c3240'; rr(c, -12, -3, 11, 17, 2); c.fill(); c.fillStyle = '#7c8696'; rr(c, -10.6, -1.6, 8.2, 14.2, 1.5); c.fill(); c.fillStyle = '#d8b04a'; c.fillRect(-7.4, -1.6, 1.8, 14.2);
+    }
+    if (d.id === 'rattan') {                                  // 藤甲兵：编出来的格子纹，一面圆藤牌
+      c.strokeStyle = 'rgba(70,48,14,.7)'; c.lineWidth = 0.9;
+      for (let i = -2; i <= 2; i++) { c.beginPath(); c.moveTo(i * 3.4 - 4, -4); c.lineTo(i * 3.4 + 4, 12); c.moveTo(i * 3.4 + 4, -4); c.lineTo(i * 3.4 - 4, 12); c.stroke(); }
+      c.fillStyle = '#7a5a22'; circ(c, -5, 6, 7.4); c.fillStyle = '#c8a24a'; circ(c, -5, 6, 5.8); c.strokeStyle = '#7a5a22'; c.lineWidth = 1; c.beginPath(); c.arc(-5, 6, 3.2, 0, TAU); c.stroke();
+    }
+    if (d.id === 'drummer') {                                 // 鼓手：胸前一面鼓
+      c.fillStyle = '#7a2a20'; ell(c, 0, 8, 8.4, 5.6); c.fillStyle = '#f0e2c0'; ell(c, 0, 7, 7, 4.2); c.fillStyle = '#d8b04a'; circ(c, 0, 7, 1.4);
+      c.strokeStyle = '#4a3420'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-9, 0); c.lineTo(-3, 6); c.moveTo(9, 0); c.lineTo(3, 6); c.stroke();
+    }
+    if (d.id === 'shaman') {                                  // 巫医：脖子上一串骨珠
+      c.fillStyle = '#eee6d0'; for (let i = -2; i <= 2; i++) circ(c, i * 2.6, -1.4 + Math.abs(i) * -0.5 + 1.4, 1.1);
+    }
     // 头
     c.fillStyle = '#e8c49c'; circ(c, 0, -9, 7);
     c.fillStyle = d.hat; c.beginPath(); c.arc(0, -10, 7.4, Math.PI * 1.02, Math.PI * 1.98); c.closePath(); c.fill();
     if (d.id === 'grunt') { c.fillStyle = d.hat; c.fillRect(-7.4, -11.5, 14.8, 2.6); }
+    if (d.id === 'sapper') { c.fillStyle = '#fff'; c.fillRect(-7.4, -11.5, 14.8, 2.2); c.fillStyle = d.hat; c.beginPath(); c.moveTo(-7, -11); c.lineTo(-13, -8); c.lineTo(-8, -9); c.closePath(); c.fill(); }   // 白布条勒头
+    if (d.id === 'heavy') { c.fillStyle = d.hat; c.beginPath(); c.arc(0, -9, 7.6, Math.PI * 0.9, Math.PI * 2.1); c.closePath(); c.fill(); c.fillRect(-7.6, -10, 15.2, 4.4); c.fillStyle = '#e8c49c'; c.fillRect(-4.6, -9.4, 9.2, 2.6); }   // 铁盔只露一条缝
+    if (d.id === 'rattan') { c.fillStyle = '#c8a24a'; c.beginPath(); c.moveTo(-9, -12); c.lineTo(0, -20); c.lineTo(9, -12); c.closePath(); c.fill(); }      // 藤编尖帽
+    if (d.id === 'shaman') { ['#c8302a', '#e8c04a', '#3a8a4a'].forEach((col, i) => { c.fillStyle = col; c.beginPath(); c.moveTo((i - 1) * 4.4 - 1.6, -15); c.lineTo((i - 1) * 6, -25 + Math.abs(i - 1) * 2); c.lineTo((i - 1) * 4.4 + 1.6, -15); c.closePath(); c.fill(); }); }   // 三根羽毛
     if (d.id === 'elite' || d.id === 'boss') {
       c.fillStyle = d.id === 'boss' ? '#e8c04a' : '#c23b3b';
       c.beginPath(); c.moveTo(-6, -15); c.lineTo(-10, -23); c.lineTo(-3, -17); c.closePath(); c.fill();

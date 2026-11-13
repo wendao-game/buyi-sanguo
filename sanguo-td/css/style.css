@@ -296,6 +296,11 @@ button, input, textarea { font-family: var(--fs); }
 .powers { font-family: var(--fr); font-size: 16px; gap: 0; }
 .powers span { padding: 3px 14px; background: #00000059; border-radius: 12px; margin: 0 5px; box-shadow: inset 0 0 0 1px #ffffff12; }
 .reward { font-size: 13px; }
+.reward { margin-bottom: 8px; }
+.intel { margin: 0 14px 14px; padding: 8px 12px; font-size: 12px; line-height: 1.7; color: #c8b89c; text-align: left; background: rgba(0,0,0,.28); border: 1px solid rgba(216,176,74,.25); border-radius: 8px; }
+.intel b { color: #ff9a6a; font-weight: normal; margin-right: 4px; }
+.intel i { font-style: normal; display: inline-block; margin: 0 4px 0 0; padding: 0 6px; border-radius: 9px; background: rgba(255,255,255,.08); }
+.intel i.new { color: #1a120c; background: #ffd24a; }
 .fightrow { gap: 18px; }
 .btn-big { font-family: var(--fb); font-weight: normal; font-size: 36px; letter-spacing: 14px; padding-left: 14px; width: 250px; height: 68px; border: 0; border-radius: 34px; color: #fff6dc; text-shadow: 0 3px 0 #5a0f0c;
   background: radial-gradient(130% 150% at 50% 0%, #ff9a56, #df3f26 45%, #8f1418);

@@ -258,7 +258,33 @@ const ENEMIES = {
   archer: { id: 'archer', name: '弓手',   hp: 50,   spd: 34, atk: 7,  r: 12, coin: 2,  body: '#5d8a4c', hat: '#2f4a28', range: 150 },
   elite:  { id: 'elite',  name: '校尉',   hp: 460,  spd: 30, atk: 20, r: 19, coin: 8,  body: '#a83232', hat: '#d8b04a' },
   boss:   { id: 'boss',   name: '敌将',   hp: 2400, spd: 17, atk: 55, r: 34, coin: 50, body: '#3a3140', hat: '#b01f2a' },
+  /* —— v1.3 新增：每章登场一种新敌人，各有各的打法 ——
+   * from 第几关开始出现；tip 第一次出现时横幅上的一句提示
+   * boom 冲到城下自爆（一次性伤害 = atk，自己也没了）；acd 攻击间隔（默认 1 秒）；push 击退系数；cc 被控时长系数；
+   * res 各系伤害系数；aura 鼓舞周围敌人（移动、攻城都更快）；heal 给周围敌人回血；lob 远远地抛石头；support 不会攻城，只剩它们时自己溃逃 */
+  sapper:   { id: 'sapper',   name: '死士',   hp: 55,  spd: 82, atk: 34, r: 12, coin: 2,  body: '#7a2a22', hat: '#d83a2a', from: 11, boom: true, tip: '抱着火药桶冲城，到城下就炸——半路射死他' },
+  ram:      { id: 'ram',      name: '冲车',   hp: 760, spd: 16, atk: 44, r: 22, coin: 10, body: '#6b4a2c', hat: '#3c2a1a', from: 21, acd: 2.2, push: 0.3, cc: 0.6, siege: true, tip: '又慢又硬，撞城墙很疼，很难推开——集火打掉' },
+  drummer:  { id: 'drummer',  name: '鼓手',   hp: 130, spd: 32, atk: 0,  r: 13, coin: 4,  body: '#8a3a5a', hat: '#e0c060', from: 31, range: 215, aura: 150, support: true, tip: '躲在后面擂鼓，周围的敌人走得更快、砍得更勤' },
+  heavy:    { id: 'heavy',    name: '重甲兵', hp: 330, spd: 24, atk: 12, r: 16, coin: 4,  body: '#4a5262', hat: '#2c3240', from: 41, push: 0.45, cc: 0.5, res: { arrow: 0.7, blade: 0.8, thunder: 1.3 }, tip: '一身铁甲：推不太动、控不太住，弓和刀打他打折，怕雷' },
+  catapult: { id: 'catapult', name: '投石车', hp: 420, spd: 15, atk: 60, r: 21, coin: 10, body: '#70522e', hat: '#3c2a1a', from: 51, range: 320, acd: 4.5, lob: true, push: 0.3, cc: 0.6, siege: true, tip: '停在老远的地方往城墙上砸石头，要靠能打到阵后的大招' },
+  rattan:   { id: 'rattan',   name: '藤甲兵', hp: 210, spd: 36, atk: 10, r: 14, coin: 3,  body: '#b08a3a', hat: '#7a5a22', from: 61, res: { blade: 0.6, arrow: 0.6, fire: 2 }, tip: '藤甲刀枪不入：刃、弓伤害打六折，但是一点就着——用火' },
+  shaman:   { id: 'shaman',   name: '巫医',   hp: 120, spd: 30, atk: 5,  r: 13, coin: 5,  body: '#5a3a7a', hat: '#c8d0a0', from: 61, range: 200, acd: 1.6, heal: 140, tip: '躲在后面给周围的敌人治伤——先杀他' },
 };
+/* 各章敌将的招式（放一次要 cd 秒；写在 battle.js 的 BOSS_CAST 里） */
+const BOSS_SKILLS = [
+  { name: '黄巾聚义', cd: 9,  desc: '每 9 秒喊来 4 个黄巾兵' },
+  { name: '暴虐',     cd: 11, desc: '每 11 秒一声怒喝，全场敌人 3.5 秒内走得更快、砍得更勤' },
+  { name: '突阵',     cd: 9,  desc: '每 9 秒策马猛冲一段，冲锋时不吃减速和击退' },
+  { name: '连珠箭',   cd: 7,  desc: '每 7 秒隔着老远朝城墙连射 3 箭' },
+  { name: '拔矢啖睛', cd: 0,  desc: '血量掉到一半时暴怒：攻击、速度大涨，4 秒内不吃控制' },
+  { name: '陷阵',     cd: 10, desc: '每 10 秒给身边的敌人架起盾阵，4 秒内受到的伤害减半' },
+  { name: '藤甲军',   cd: 10, desc: '每 10 秒召来 3 个藤甲兵' },
+  { name: '虎豹骑',   cd: 9,  desc: '每 9 秒召来 3 骑狂奔的虎豹骑' },
+  { name: '不死',     cd: 0,  desc: '第一次倒下后以四成血量爬起来再战' },
+];
+function bossSkill(stage) { return BOSS_SKILLS[Math.min(BOSS_SKILLS.length, Math.floor((stage - 1) / 10) + 1) - 1]; }
+/* 这一关第一次登场的新敌人（没有就是 null） */
+function newEnemyAt(stage) { for (const k in ENEMIES) if (ENEMIES[k].from === stage) return ENEMIES[k]; return null; }
 
 /* 各章敌将；立绘是 assets/enemies/boss_<章>.png（第 9 章起用 boss_9） */
 const CHAPTERS = [
@@ -292,7 +318,7 @@ function stagePower(stage) {
 }
 /* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
  * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
-const HP_PER_POWER = [[1, 0.0060], [10, 0.0057], [20, 0.0054], [40, 0.0051], [50, 0.0052], [60, 0.0051], [70, 0.0052], [80, 0.0054]];   // 各关校准值在 0.0050–0.0065 之间，取平滑后的
+const HP_PER_POWER = [[1, 0.0060], [10, 0.0055], [20, 0.0049], [30, 0.0040], [40, 0.0039], [50, 0.0039], [60, 0.0040], [70, 0.0040], [80, 0.0039]];   // v1.3 加了新敌人和敌将招式后重新校准：第 3 章起敌人更会打，血量系数从 0.0052 左右降到 0.0040 左右
 function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];
@@ -314,6 +340,10 @@ function genWave(stage, wave) {
   if (stage >= 3 || wave >= 6) pool.push(['rider', 3]);
   if ((stage >= 2 && wave >= 2) || wave >= 7) pool.push(['archer', 3]);
   if (stage >= 4 && wave >= 4) pool.push(['elite', 1]);
+  const ch = Math.floor((stage - 1) / 10) + 1;                          // 第几章
+  if (stage >= ENEMIES.sapper.from && wave >= 2) pool.push(['sapper', 1.5]);
+  if (stage >= ENEMIES.heavy.from) pool.push(['heavy', 2.5]);
+  if (stage >= ENEMIES.rattan.from) pool.push(['rattan', ch === 7 ? 5 : 2]);   // 第 7 章（七擒孟获）藤甲兵是主力，之后只是掺着来
   const total = pool.reduce((s, p) => s + p[1], 0);
   const dur = 4 + n * 0.1;
   const list = [];
@@ -322,6 +352,12 @@ function genWave(stage, wave) {
     for (const p of pool) { if ((r -= p[1]) <= 0) { type = p[0]; break; } }
     list.push({ t: Math.random() * dur, type, x: 56 + Math.random() * 428 });
   }
+  // 器械和后排：数量是定好的，不靠随机——冲车、投石车隔几波来一辆，鼓手、巫医每波一两个
+  const add = (type, k, t0) => { for (let i = 0; i < k; i++) list.push({ t: t0 + Math.random() * dur * 0.6, type, x: 90 + Math.random() * 360 }); };
+  if (stage >= ENEMIES.ram.from && wave % 3 === 0) add('ram', stage >= 51 ? 2 : 1, 1);
+  if (stage >= ENEMIES.drummer.from && wave >= 2) add('drummer', wave >= 7 ? 2 : 1, 0.5);
+  if (stage >= ENEMIES.catapult.from && wave % 3 === 1 && wave >= 4) add('catapult', wave === CFG.WAVES ? 2 : 1, 2);
+  if (stage >= ENEMIES.shaman.from && wave >= 3) add('shaman', wave >= 8 ? 2 : 1, 1);
   if (wave % 5 === 0 && wave < CFG.WAVES) list.push({ t: 1.5, type: 'elite', x: 270 });
   if (wave === CFG.WAVES) list.push({ t: 2.5, type: 'boss', x: 270 });
   list.sort((a, b) => a.t - b.t);
