@@ -39,11 +39,15 @@ window.ASSET_LIST = [
   'fx/el_hit_wind.jpg',
   'fx/el_orb_fire.jpg',
   'fx/el_orb_wind.jpg',
+  'fx/elephant.png',
   'fx/flame.jpg',
+  'fx/horse.png',
+  'fx/horse_side.png',
   'fx/phoenix.jpg',
   'fx/pillar.jpg',
   'fx/ring.jpg',
   'fx/slash.jpg',
+  'fx/soldier.png',
   'fx/thrust.jpg',
   'fx/whirl.jpg',
   'heroes/caiwenji.png',
@@ -225,4 +229,4 @@ window.ASSET_LIST = [
   'weapons/zhemugong.png',
   'weapons/zhuqiang.png',
 ];
-window.ASSET_VER = '795e9f10f9';
+window.ASSET_VER = 'f83e384575';
