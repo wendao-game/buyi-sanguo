@@ -184,7 +184,8 @@ const GLView = (function () {
     const bob = moving ? -Math.abs(Math.sin(e.walk)) * 2.4 : (e.frozen > 0 ? 0 : Math.sin(t * 9 + e.ph) * 1.2);
     ell(La, e.x, e.y + d.r * 0.95 * ds, d.r * 1.05 * ds, d.r * 0.4 * ds, 0x000000, 0.35);
     const lunge = e.atkT > 0 ? Math.sin((1 - e.atkT / 0.24) * Math.PI) * 8 * ds : 0;   // 攻城：往城墙扑一下
-    const k = s * q.k, fx = e.x, fy = e.y + bob + lunge + 12.4 * s, w = q.w * k, h = q.h * k, ax = -q.x / q.w, ay = (12.4 - q.y) / q.h;
+    const hitK = Math.max(0, Math.min(1, e.flash * 10));                                  // 挨打的一瞬间：压扁一下、往后（远离城墙）顿一下
+    const k = s * q.k, fx = e.x, fy = e.y + bob + lunge + 12.4 * s - hitK * 2.5 * ds, w = q.w * k * (1 + hitK * 0.07), h = q.h * k * (1 - hitK * 0.08), ax = -q.x / q.w, ay = (12.4 - q.y) / q.h;
     if (e.demon) img(La, 'el_hit_dark', e.x, e.y - d.r * 0.9, d.r * 4.6 * (1 + Math.sin(t * 2.4) * 0.06), 0, t * 0.7, 0.75);   // 心魔：身后一团翻涌的黑紫气焰
     const sh = sp(La, tex, fx, fy, w, h * 0.9014, { ax, ay, tint: 0x000000, a: 0.24, flip: e.flip });   // 斜投影：压扁、倒向右下
     sh.scale.y = -sh.scale.y; sh.skew.x = 1.2315; sh._sk = true;
@@ -206,13 +207,24 @@ const GLView = (function () {
       if (d.id === 'boss') txt(Lt, numW, e.name, e.x, hy - 4, 12, '#ffe9a8', 'center', 2.4);
     }
   }
+  /* 阵亡的敌人：按被什么打死的，倒下的样子不同 */
   function drawGhost(g) {
-    const p = 1 - g.life / g.max, d = g.def, ds = Art.depth(g.y), s = d.r / 13 * ds, q = Art.enemySprite(g), tex = T(q.im), k = s * q.k;
-    const o = { ax: -q.x / q.w, ay: (12.4 - q.y) / q.h, flip: g.flip, a: (1 - p) * 0.85 };
-    sp(La, tex, g.x, g.y - p * 12 * ds + 12.4 * s, q.w * k * (1 + p * 0.12), q.h * k * (1 - p * 0.2), o);
-    o.a = (1 - p) * 0.7; o.blend = ADD;
-    sp(La, tex, g.x, g.y - p * 12 * ds + 12.4 * s, q.w * k * (1 + p * 0.12), q.h * k * (1 - p * 0.2), o);
+    const p = 1 - g.life / g.max, d = g.def, ds = Art.depth(g.y), s = d.r / 13 * ds, q = Art.enemySprite(g), tex = T(q.im), k = s * q.k, e2 = p * p;
+    const o = { ax: -q.x / q.w, ay: (12.4 - q.y) / q.h, flip: g.flip, a: 1 - e2 };
+    let x = g.x, y = g.y + 12.4 * s, w = q.w * k, h = q.h * k, glowC = 0xffffff, add = (1 - p) * 0.6;
+    switch (g.el) {
+      case 'fire':    o.tint = lerpC(0xffb070, 0x2a1a12, Math.min(1, p * 1.5)); h *= 1 - e2 * 0.55; w *= 1 - e2 * 0.2; glowC = 0xff8030; break;   // 烧黑、缩成一堆灰
+      case 'ice':     o.tint = 0xbfe6ff; o.a = p < 0.3 ? 1 : (1 - p) * 1.2; w *= 1 + p * 0.1; glowC = 0xcfefff; add = p < 0.3 ? 0.8 : 0; break;      // 冻成冰雕，然后碎掉
+      case 'poison':  o.tint = lerpC(0xd0f0a0, 0x4a8a2a, p); h *= 1 - e2 * 0.7; w *= 1 + e2 * 0.35; glowC = 0x9be84f; add *= 0.5; break;         // 化成一滩
+      case 'thunder': o.tint = (Math.floor(p * 12) % 2) ? 0xffffff : 0x9a7aff; o.a = 1 - p; glowC = 0xd8c4ff; add = (Math.floor(p * 12) % 2) ? 0.9 : 0.2; break;   // 电得一闪一闪
+      case 'wind':    o.rot = g.dir * p * 5; y -= e2 * 60 * ds; x += g.dir * p * 26; w *= 1 - p * 0.4; h *= 1 - p * 0.4; glowC = 0xb8ffe8; break;   // 卷上天
+      default:        o.rot = g.dir * e2 * 1.35; y += e2 * 5 * ds; x += g.dir * p * 7; break;                                              // 刀砍箭射：往后一仰倒下
+    }
+    sp(La, tex, x, y, w, h, o);
+    if (add > 0.02) sp(La, tex, x, y, w, h, { ax: o.ax, ay: o.ay, flip: g.flip, rot: o.rot || 0, a: add, tint: glowC, blend: ADD });
+    if (p < 0.5) ringE(La, g.x, g.y + d.r * 0.9 * ds, d.r * (1 + p * 2.4) * ds, d.r * (0.4 + p * 0.9) * ds, 0xd8c8b0, (0.5 - p) * 0.7);          // 倒地扬起的一圈土
   }
+  function lerpC(a, b, t) { const r = ((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * t, g = ((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * t, bl = (a & 255) + ((b & 255) - (a & 255)) * t; return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl); }
   function drawHeroes(list, t) {
     list.slice().sort((a, b) => a.y - b.y).forEach(h => {
       const d = h.def, qc = col(QUALITIES[d.q].color), S = 1.45, by = h.y + 20 * S, a = Math.min(1, h.anim || 0), q = Art.heroSprite(d), tex = T(q.im);
@@ -252,6 +264,15 @@ const GLView = (function () {
       ell(La, s.x, s.y, s.big ? 3.2 : 2.2, s.big ? 3.2 : 2.2, 0xffffff, 1);
     } else if (s.k === 'blade') {
       const ang = Math.atan2(s.vy, s.vx);
+      if (s.tex && s.solid) {                               // 实体小图（兵、马、象）：直立着画、普通混合；往左冲时镜像；一颠一颠地跑
+        const tx2 = fxT(s.tex);
+        if (tx2) {
+          const w2 = s.texW || s.w * 2, h2 = w2 * tx2.orig.height / tx2.orig.width, hop = Math.abs(Math.sin(t * 16 + s.x * 0.05)) * 3;
+          sp(La, tx2, s.x, s.y + h2 * 0.4 - hop, w2, h2, { ax: 0.5, ay: 1, flip: s.vx < -1, rot: Math.sin(t * 16 + s.x * 0.05) * 0.04 });
+          glow(Lf, s.x, s.y + h2 * 0.3, w2 * 0.4, s.rgb ? col(s.rgb) : 0xffe6c0, 0.16);
+          return;
+        }
+      }
       if (s.tex && img(Lf, s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang + s.spin * t, 1, s.rgb || undefined)) { light(s.x, s.y, (s.texW || s.w * 2) * 0.5, 0xe8fff0, 0.7); return; }
       if (s.look === 'arrow') img(Lf, 'thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1, s.rgb || undefined);
       else if (s.look === 'ice') img(Lf, 'el_arrow_ice', s.x - Math.cos(ang) * s.w * 0.6, s.y - Math.sin(ang) * s.w * 0.6, Math.max(70, s.w * 2.6), 0, ang, 1);
@@ -388,7 +409,9 @@ const GLView = (function () {
     if (perf.slow > 4000) { perf.slow = 0; if (fxOn.bloom) fxOn.bloom = false; else if (fxOn.light) fxOn.light = false; }
 
     const sh = S && S.shake > 0 ? 9 * Math.min(1, S.shake * 4) : 0;
-    world.position.set((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
+    let zoom = 1, zx = W / 2, zy = H / 2;
+    if (S && S.slowT > 0 && S.slowAt) { zoom = 1 + 0.07 * Math.sin(Math.PI * Math.min(1, S.slowT)); zx = S.slowAt.x; zy = S.slowAt.y; }   // 敌将倒下：镜头朝他推近一点
+    world.scale.set(zoom); world.position.set((Math.random() - 0.5) * sh + zx * (1 - zoom), (Math.random() - 0.5) * sh + zy * (1 - zoom));
 
     // —— 地面 ——
     sp(Lg, T(Art.background()), 0, 0, W, H, { ax: 0, ay: 0 });
@@ -398,6 +421,9 @@ const GLView = (function () {
       sp(Lg, TX.glow, l[0], l[1] + 26, l[2] * 3, l[2] * 1.2, { tint: 0xff963c, a: 0.2 * f, blend: ADD });
       light(l[0], l[1] + 10, l[2] * 3.4, 0xffb464, 0.95 * f);
     });
+    // 云影：两大片淡淡的影子慢慢飘过战场；几道被风带着跑的沙尘
+    for (let i = 0; i < 2; i++) { const cx = ((t * (9 + i * 5) + i * 420) % (W + 700)) - 350, cy = 230 + i * 210 + Math.sin(t * 0.13 + i * 2) * 40; sp(Lg, TX.soft, cx, cy, 560, 250, { tint: 0x120a06, a: 0.13 }); }
+    for (let i = 0; i < 4; i++) { const u = (t * (0.11 + i * 0.023) + i * 0.27) % 1, x = -120 + u * (W + 240), y = 190 + i * 118 + Math.sin(u * 6 + i) * 22; sp(Lg, TX.glow, x, y, 190, 5, { tint: 0xffe6c0, a: 0.11 * Math.sin(u * Math.PI), rot: 0.06, blend: ADD }); }
     // 整体光：战场中间和城楼平台稍亮，四周暗
     light(W / 2, 400, 560, 0xfff0e0, 0.5); light(W / 2, 800, 330, 0xffe8d0, 0.42);
     if (S) {
@@ -408,7 +434,14 @@ const GLView = (function () {
         sp(Lg, TX.glow, W / 2, WY + 4, 440, 80, { tint: 0xff4628, a: a * 0.55, blend: ADD });
         sp(Lg, TX.glow, hx, WY + 2, 180, 96, { tint: 0xffc8a0, a, blend: ADD }); light(hx, WY, 150, 0xffa070, a);
       }
-      for (const d of S.decals) sp(Lg, TX.scorch, d.x, d.y, d.r * 2, d.r * 1.2, { rot: d.rot, a: Math.min(1, d.life / 2) * 0.42 });
+      for (const d of S.decals) {
+        const a = Math.min(1, d.life / 2);
+        if (d.el === 'ice') { sp(Lg, TX.soft, d.x, d.y, d.r * 2.1, d.r * 1.25, { tint: 0xcfeaff, a: a * 0.2 }); sp(Lg, TX.scorch, d.x, d.y, d.r * 1.7, d.r * 1.0, { rot: d.rot, tint: 0x8fc8ff, a: a * 0.16, blend: ADD }); continue; }   // 霜
+        sp(Lg, TX.scorch, d.x, d.y, d.r * 2, d.r * 1.2, { rot: d.rot, a: a * (d.el === 'rock' ? 0.6 : 0.42) });
+        if (d.el === 'fire' && d.life > 4.2) glow(Lg, d.x, d.y, d.r * 0.55, 0xff5a1e, (d.life - 4.2) / 1.8 * 0.4);           // 刚烧过的地方还红着
+        else if (d.el === 'thunder' && d.life > 5) glow(Lg, d.x, d.y, d.r * 0.5, 0xa890ff, (d.life - 5) * 0.5);
+        else if (d.el === 'rock') ringE(Lg, d.x, d.y, d.r * 0.8, d.r * 0.46, 0x2a1d14, a * 0.35);                               // 砸出来的坑沿
+      }
       for (const z of S.zones) drawZone(z, 0, t);
       for (const d of S.drops) { if (d.k === 'coin') sp(La, TX.coin, d.x, d.y, 13, 13); else { ell(La, d.x, d.y + 6, 8, 3, 0x000000, 0.3); sp(La, TX.bun, d.x, d.y, 19, 15); } if (d.wait > 0 && (d.k !== 'coin' || d.val >= 2)) txt(Lt, numW, d.k === 'coin' ? '铜钱' : '馒头', d.x, d.y + 20, 12, '#fff3d6', 'center', 2.6, Math.min(1, d.wait * 5)); }   // 刚掉出来时带个名字
       const es = S.enemies.slice().sort((a, b) => a.y - b.y);
@@ -450,7 +483,12 @@ const GLView = (function () {
         sp(Lf, TX.glow, p.x, p.y, r * 4.4, r * 4.4, { tint: c, a: a * 0.75 });
         sp(Lf, TX.disc, p.x, p.y, r * 1.1, r * 1.1, { tint: 0xffffff, a: a * 0.9 });
       }
-      for (const x of S.texts) { const p = x.life / x.max; txt(Lt, numW, x.str, x.x, x.y, x.size, x.color, 'center', 3, Math.min(1, p * 2.2), p > 0.82 ? 1 + (p - 0.82) * 4.2 : 1); }
+      for (const x of S.texts) {
+        const p = x.life / x.max;
+        if (!x.num) { txt(Lt, numW, x.str, x.x, x.y, x.size, x.color, 'center', 3, Math.min(1, p * 2.2), p > 0.82 ? 1 + (p - 0.82) * 4.2 : 1); continue; }
+        if (x.crit && x.pop > 0) { const k = Math.min(1, x.pop); sp(Lf, TX.star, x.x, x.y - x.size * 0.35, 86 * k, 86 * k, { rot: x.val * 0.7, tint: 0xffd24a, a: 0.85 * k }); glow(Lf, x.x, x.y - x.size * 0.35, 30 * k, 0xffe08a, 0.5 * k); }   // 暴击：数字后面炸开一颗星
+        txt(Lt, numW, x.str, x.x, x.y, x.size, x.color, 'center', 3, Math.min(1, p * 3.2) * (x.dot ? 0.78 : 1), 1 + x.pop * 0.42);
+      }
     }
     // 火星和远处的尘雾
     for (let i = 0; i < 46; i++) {

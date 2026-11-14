@@ -155,6 +155,24 @@ const Battle = (function () {
     if (S.texts.length > 110 && !force) return;
     S.texts.push({ x, y, str: String(str), color, size, life: life || 0.8, max: life || 0.8 });
   }
+  /* 伤害数字：同一个敌人身上短时间里连着挨的几下合成一个数（越加越大、每加一次弹一下），不再糊成一团；
+   * 暴击单独跳一个大的金色数字；持续伤害（灼烧、中毒）是另一个小一号的数 */
+  function dmgText(e, dmg, color, crit, dot) {
+    const top = Math.max(96, e.y - e.def.r * (e.ds || 1) * 1.9 - 6);
+    if (!crit && e.y < RANGE_Y + 6) return;                     // 还没走进战场的（挤在画面最上面）不跳普通数字，免得糊在血条底下
+    if (crit) {
+      S.texts.push({ x: e.x + (rand() - 0.5) * 20, y: top - 8, val: dmg, str: String(dmg), color, size: 27, life: 0.95, max: 0.95, vx: (rand() - 0.5) * 70, pop: 1.5, num: true, crit: true });
+      return;
+    }
+    const key = dot ? 'dtxt' : 'txt', t = e[key];
+    if (t && !t.gone && t.life > t.max * 0.35) {
+      t.val += dmg; t.str = String(t.val); t.color = color; t.pop = 1; t.life = Math.max(t.life, t.max * 0.8); t.size = Math.min(dot ? 16 : 23, t.size + 0.5);
+      return;
+    }
+    if (S.texts.length > 90) return;
+    const n = { x: e.x + (rand() - 0.5) * 14 + (dot ? 14 : 0), y: top - rand() * 6 + (dot ? 10 : 0), val: dmg, str: String(dmg), color, size: dot ? 11 : 17, life: dot ? 0.6 : 0.85, max: dot ? 0.6 : 0.85, dot, vx: (rand() - 0.5) * 28, pop: 1, num: true };
+    S.texts.push(n); e[key] = n;
+  }
   function later(t, fn) { const ref = S; S.timers.push({ t, fn: () => { if (S === ref && !S.over) fn(); } }); }
   /* ---------------- 贴图特效（黑底贴图 + 叠加混合） ---------------- */
   const hexRgb = h => { if (!h || h[0] !== '#') return '255,255,255'; const n = parseInt(h.slice(1), 16); return h.length === 4 ? [((n >> 8) & 15) * 17, ((n >> 4) & 15) * 17, (n & 15) * 17].join(',') : [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); };
@@ -199,7 +217,7 @@ const Battle = (function () {
   function bolt(x1, y1, x2, y2, wide) {
     if ((wide || 1) >= 1.5 && y2 - y1 > 80 && tex('bolt', x2, y2 + 8, { w: 46 * wide, h: y2 - y1 + 40, ay: 1, life: 0.28, rot: Math.atan2(x1 - x2, y2 - y1) })) {
       tex('el_hit_thunder', x2, y2, { w: 54 * wide, life: 0.3, grow: 1.3, rot: rand() * TAU });
-      if (wide >= 2) decal(x2, y2, 26 * wide);
+      if (wide >= 2) decal(x2, y2, 26 * wide, 'thunder');
       Sfx.play('thunder');
       return;
     }
@@ -229,7 +247,7 @@ const Battle = (function () {
     if (crit && !o.dot) Sfx.play('crit');
     if (crit && !o.dot && S.fx.length < 120) { tex('burst', e.x, e.y - e.def.r * 0.6, { w: 44 + e.def.r, life: 0.24, grow: 1.35, rgb: '255,225,140', rot: rand() * TAU }); burst(e.x, e.y - e.def.r * 0.6, 4, '#ffe9a8', 230, 2.2, 0.28, 300); }
     else if (!o.dot && S.fx.length < 70) tex('burst', e.x, e.y - e.def.r * 0.5, { w: 20 + e.def.r * 0.7, life: 0.13, grow: 1.25, a: 0.75, rgb: hexRgb(elColor(el)), rot: rand() * TAU });   // 命中小闪光
-    text(e.x + (rand() - 0.5) * 18, e.y - e.def.r - 8 - rand() * 8, dmg, crit ? '#ffdf4a' : elColor(el), crit ? 28 : (o.dot ? 13 : 18), 0.75, crit);
+    dmgText(e, dmg, crit ? '#ffdf4a' : elColor(el), crit && !o.dot, !!o.dot);
     if (o.basic && src && src.sk && src.sk.passive.onHit && e.hp > 0) src.sk.passive.onHit(B, src, e);
     if (e.hp <= 0) kill(e, src, el);
   }
@@ -242,7 +260,15 @@ const Battle = (function () {
     e.dead = true; S.kills++;
     burst(e.x, e.y, e.def.id === 'boss' ? 40 : 4, e.def.body, 120, 4, 0.5);
     if (S.parts.length < 400) burst(e.x, e.y - 4, 3, '#ffe2a0', 170, 2, 0.3, 320);
-    if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.38, max: 0.38 });
+    if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.5, max: 0.5, el: el || '', dir: rand() < 0.5 ? -1 : 1 });   // el：按是被什么打死的，倒下的样子不同
+    if (S.parts.length < 360) {
+      if (el === 'ice') burst(e.x, e.y - 8, 6, '#d8f2ff', 210, 2.6, 0.45, 520);                    // 冻碎：冰碴四溅
+      else if (el === 'fire') { burst(e.x, e.y - 8, 5, '#ffa040', 120, 2, 0.5, -160); part(e.x, e.y - 10, 0, -30, 0.7, '#3a2e27', 6); }   // 烧成灰：火星往上飘，一缕黑烟
+      else if (el === 'poison') burst(e.x, e.y - 4, 5, '#9be84f', 90, 2.6, 0.5, 200);
+      else if (el === 'thunder') burst(e.x, e.y - 10, 5, '#d8c4ff', 260, 1.6, 0.25);
+      else if (el === 'wind') burst(e.x, e.y - 8, 5, '#b8ffe8', 200, 2, 0.4, -120);
+    }
+    if (e.def.id === 'boss' && !S.over) { S.slowT = 1.0; S.slowAt = { x: e.x, y: e.y }; }          // 敌将倒下：慢动作
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (e.def.id === 'boss') Sfx.play('bossdie');
     if (e.demon) { for (let i = 0; i < 3; i++) tex('el_hit_dark', e.x + (rand() - 0.5) * 50, e.y - 20 - i * 26, { w: 150, life: 0.9 + i * 0.2, grow: 1.6, vy: -40, force: true }); text(e.x, e.y - 90, '心魔已散', '#d8b4ff', 22, 1.6, true); }
@@ -391,6 +417,7 @@ const Battle = (function () {
       if (r > 50) Sfx.play('boom');
       if (big && r >= 90) shockwave(x, y, r * 2.2, 1);
     } else if (el === 'ice') {
+      if (r > 40) decal(x, y, r * 0.8, 'ice');
       inRadius(x, y, r, e => { hit(e, dmg, 'ice', h, o); slow(e, 2.2); });
       if (!tex('el_hit_ice', x, y, { w: r * 2.1, h: r * 1.8, life: 0.4, grow: 1.2, a: 0.9, rot: rand() * TAU })) ring(x, y, 6, r, 0.3, '#bfeaff', 3);
       burst(x, y, 14, '#d9f4ff', 240, 1.6, 0.45, 380);
@@ -408,16 +435,16 @@ const Battle = (function () {
       ring(x, y, 8, r, 0.35, '#c8a878', 5); burst(x, y, 14, '#8a6a48', 180, 5, 0.5); burst(x, y, 6, '#d8c8a8', 120, 3, 0.4);
       tex('burst', x, y - 6, { w: r * 2.2, life: 0.35, grow: 1.3, rgb: '220,180,130', rot: rand() * TAU });
       S.shake = Math.max(S.shake, 0.15);
-      decal(x, y, r * 0.75);
+      decal(x, y, r * 0.75, 'rock');
       Sfx.play('rock');
     }
   }
   /* 冲击波（只有 WebGL 画面会画成扭曲的波纹）：r 扩散半径，k 强度 */
   function shockwave(x, y, r, k) { if (!S.shock || S.shock.t < S.shock.max * 0.5 || (k || 1) >= (S.shock.k || 1)) S.shock = { x, y, r, k: k || 1, t: 0.55, max: 0.55 }; }
   /* 地面焦痕：爆炸、落石、落雷之后留几秒 */
-  function decal(x, y, r) {
-    if (S.decals.length >= 18) S.decals.shift();
-    S.decals.push({ x, y, r, rot: rand() * TAU, life: 6, max: 6 });
+  function decal(x, y, r, el) {
+    if (S.decals.length >= 22) S.decals.shift();
+    S.decals.push({ x, y, r, rot: rand() * TAU, life: 6, max: 6, el: el || 'fire' });          // el：fire 焦痕 / ice 霜 / poison 毒渍 / thunder 雷击 / rock 坑
   }
   function pool(h, x, y, r, life, dmg, el) {
     const blobs = [];
@@ -445,7 +472,7 @@ const Battle = (function () {
   }
   function shotBlade(h, x, y, ang, o) {
     S.shots.push({ k: 'blade', h, x, y, vx: Math.cos(ang) * (o.spd || 430), vy: Math.sin(ang) * (o.spd || 430), w: o.w || 50, dmg: o.dmg, hit: new Set(), life: o.life || 2.2,
-      big: !!o.big, push: o.push || 0, slow: o.slow || 0, look: o.look || 'blade', el: o.el || 'blade', color: o.color || '', basic: !!o.basic, tex: o.tex || '', texW: o.texW || 0, rgb: o.rgb || '', spin: o.spin || 0 });   // rgb 染色；spin 贴图自转（掷出去的兵器）
+      big: !!o.big, push: o.push || 0, slow: o.slow || 0, look: o.look || 'blade', el: o.el || 'blade', color: o.color || '', basic: !!o.basic, tex: o.tex || '', texW: o.texW || 0, rgb: o.rgb || '', spin: o.spin || 0, solid: !!o.solid });   // solid：实体小图（直立着画，不跟着方向转；往左飞时镜像）   // rgb 染色；spin 贴图自转（掷出去的兵器）
   }
   function shotLob(h, el, x0, y0, tx, ty, o) {
     S.shots.push({ k: 'lob', h, el, x: x0, y: y0, px: x0, py: y0, x0, y0, tx, ty, t: 0, dur: o.dur || 0.5, arc: o.arc || 0, r: o.r || 50, dmg: o.dmg, big: !!o.big, size: o.size || 1, slow: o.slow || 0, basic: !!o.basic });
@@ -864,7 +891,12 @@ const Battle = (function () {
 
   function updateFx(dt) {
     for (let i = S.parts.length - 1; i >= 0; i--) { const p = S.parts[i]; p.life -= dt; if (p.life <= 0) { S.parts.splice(i, 1); continue; } p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.vx *= 0.96; p.vy *= 0.96; }
-    for (let i = S.texts.length - 1; i >= 0; i--) { const t = S.texts[i]; t.life -= dt; t.y -= 34 * dt; if (t.life <= 0) S.texts.splice(i, 1); }
+    for (let i = S.texts.length - 1; i >= 0; i--) {
+      const t = S.texts[i]; t.life -= dt;
+      if (t.num) { const p = Math.max(0, t.life / t.max); t.y -= (12 + 78 * p * p) * dt; t.x += t.vx * dt * p; if (t.pop > 0) t.pop = Math.max(0, t.pop - dt * 7); }   // 先快后慢地往上飘，带一点横向的漂
+      else t.y -= 34 * dt;
+      if (t.life <= 0) { t.gone = true; S.texts.splice(i, 1); }
+    }
     for (let i = S.bolts.length - 1; i >= 0; i--) if ((S.bolts[i].life -= dt) <= 0) S.bolts.splice(i, 1);
     for (let i = S.rings.length - 1; i >= 0; i--) if ((S.rings[i].life -= dt) <= 0) S.rings.splice(i, 1);
     for (let i = S.slashes.length - 1; i >= 0; i--) if ((S.slashes[i].life -= dt) <= 0) S.slashes.splice(i, 1);
@@ -913,7 +945,8 @@ const Battle = (function () {
       const ang = Math.atan2(s.vy, s.vx);
       c.globalCompositeOperation = 'lighter';
       let done = false;
-      if (s.tex) done = img(s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang + s.spin * S.t, 1, s.rgb || undefined);   // 青龙、白龙这类专属贴图；没有就按普通刀光 / 冰枪画
+      if (s.tex && s.solid) { const im2 = Assets.get('fx:' + s.tex); if (im2) { const w2 = s.texW || s.w * 2, h2 = w2 * im2.height / im2.width; c.globalCompositeOperation = 'source-over'; c.save(); c.translate(s.x, s.y); if (s.vx < -1) c.scale(-1, 1); c.drawImage(im2, -w2 / 2, -h2 * 0.6, w2, h2); c.restore(); c.globalCompositeOperation = 'lighter'; done = true; } }   // 实体小图（兵、马、象）：不发光
+      else if (s.tex) done = img(s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang + s.spin * S.t, 1, s.rgb || undefined);   // 青龙、白龙这类专属贴图；没有就按普通刀光 / 冰枪画
       if (done) { /* 已画 */ } else if (s.look === 'arrow') done = img('thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1, s.rgb || undefined);
       else if (s.look === 'ice') done = img('el_arrow_ice', s.x - Math.cos(ang) * s.w * 0.6, s.y - Math.sin(ang) * s.w * 0.6, Math.max(70, s.w * 2.6), 0, ang, 1);
       else {
@@ -1159,7 +1192,9 @@ const Battle = (function () {
     }
     for (const d of S.decals) {
       c.globalAlpha = Math.min(1, d.life / 2) * 0.42;
-      c.save(); c.translate(d.x, d.y); c.scale(1, 0.6); c.rotate(d.rot); c.drawImage(scorch(), -d.r, -d.r, d.r * 2, d.r * 2); c.restore();
+      c.save(); c.translate(d.x, d.y); c.scale(1, 0.6); c.rotate(d.rot); c.drawImage(scorch(), -d.r, -d.r, d.r * 2, d.r * 2);
+      if (d.el === 'ice') { c.globalCompositeOperation = 'lighter'; c.fillStyle = 'rgba(170,220,255,.22)'; Art.circ(c, 0, 0, d.r * 0.8); c.globalCompositeOperation = 'source-over'; }
+      c.restore();
     }
     c.globalAlpha = 1;
     for (const z of S.zones) drawZone(z, 0);
@@ -1209,8 +1244,8 @@ const Battle = (function () {
     }
     c.globalCompositeOperation = 'source-over';
     for (const t of S.texts) {
-      const p = t.life / t.max; c.globalAlpha = Math.min(1, p * 2.2);
-      outlined(t.str, t.x, t.y, t.size * (p > 0.85 ? 1 + (p - 0.85) * 3 : 1), t.color, 'center', 3);
+      const p = t.life / t.max; c.globalAlpha = Math.min(1, p * (t.num ? 3.2 : 2.2));
+      outlined(t.str, t.x, t.y, t.size * (t.num ? 1 + t.pop * 0.4 : p > 0.85 ? 1 + (p - 0.85) * 3 : 1), t.color, 'center', 3);
     }
     c.globalAlpha = 1;
     c.restore();
@@ -1364,6 +1399,7 @@ const Battle = (function () {
   }
   function frame(dt) {
     dt = Math.min(dt, 0.05); idleT += dt;
+    if (S && S.slowT > 0 && !S.paused) { S.slowT -= dt; dt *= 0.3; }   // 敌将倒下的那一秒放慢（只影响画面，不带画面的模拟不走这里）
     if (S && !S.paused && !S.choosing) step(dt);
     draw();
     if (S) UI.hud(S);

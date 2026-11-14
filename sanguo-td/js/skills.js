@@ -713,7 +713,7 @@ const SKILLS = (function () {
       ult: { desc: '黄巾聚义：一排黄巾兵从城门杀出去，一路冲到阵后，撞上的敌人受到 ×1.8 伤害并被顶退（觉醒 ×2.7）',
         cast(B, h, a, k) {
           B.flash('255,210,90', 0.18, 0.35);
-          for (let i = 0; i < 6; i++) B.later(i * 0.05, () => B.blade(h, 68 + i * 81 + (Math.random() - 0.5) * 14, B.WY - 24, -Math.PI / 2, { w: 78, spd: 380 + Math.random() * 60, dmg: a * 1.8 * k, push: 16, life: 1.9, big: true, tex: 'soldier', texW: 96 }));
+          for (let i = 0; i < 6; i++) B.later(i * 0.05, () => B.blade(h, 68 + i * 81 + (Math.random() - 0.5) * 14, B.WY - 24, -Math.PI / 2, { w: 78, spd: 380 + Math.random() * 60, dmg: a * 1.8 * k, push: 16, life: 1.9, big: true, tex: 'soldier', texW: 46, solid: true }));
         } },
     },
     gaoshun: {
@@ -735,7 +735,7 @@ const SKILLS = (function () {
           for (let i = 0; i < n; i++) B.later(i * 0.16, () => {
             const L = B.lives(); if (!L.length) return;
             const t = L[(i * 4 + 1) % L.length], left = i % 2 === 0;                                      // 每一骑对着一个敌人所在的那一排冲
-            B.blade(h, left ? -30 : B.W + 30, t.y, left ? 0 : Math.PI, { w: 74, spd: 760, dmg: a * 1.9, push: 22, life: 0.85, big: true, el: 'wind', tex: 'horse', texW: 150, rgb: '190,255,235' });
+            B.blade(h, left ? -30 : B.W + 30, t.y, left ? 0 : Math.PI, { w: 74, spd: 760, dmg: a * 1.9, push: 22, life: 0.85, big: true, el: 'wind', tex: 'horse_side', texW: 104, solid: true, rgb: '190,255,235' });
           });
         } },
     },
@@ -744,10 +744,10 @@ const SKILLS = (function () {
       ult: { desc: '突阵：策马从敌人最密的地方直冲到阵后，沿途 ×5 并把敌人撞开；冲到头拨马杀回来再砍一遍 ×2.5（觉醒 ×7.5）',
         cast(B, h, a, k) {
           const p = B.at(120) || B.front(); if (!p) return; const x = Math.max(70, Math.min(B.W - 70, p.x));
-          const o = { w: 130, spd: 620, big: true, tex: 'horse', texW: 210, rgb: '255,205,160' };
+          const o = { w: 130, spd: 620, big: true, rgb: '255,205,160' };
           B.shake(0.25); B.ring(x, B.WY - 30, 10, 90, 0.35, '#ffcf9a', 5);
-          B.blade(h, x, B.WY - 20, -Math.PI / 2, Object.assign({ dmg: a * 5 * k, push: 34, life: 0.95 }, o));
-          B.later(1.0, () => B.blade(h, x + (x < B.W / 2 ? 90 : -90), B.TOP + 10, Math.PI / 2, Object.assign({ dmg: a * 2.5 * k, life: 0.9 }, o)));
+          B.blade(h, x, B.WY - 20, -Math.PI / 2, Object.assign({ dmg: a * 5 * k, push: 34, life: 0.95, tex: 'horse', texW: 92, solid: true }, o));   // 冲出去是背影
+          B.later(1.0, () => B.blade(h, x + (x < B.W / 2 ? 90 : -90), B.TOP + 10, Math.PI / 2, Object.assign({ dmg: a * 2.5 * k, life: 0.9, color: 'red' }, o)));   // 杀回来的是一道红色的大刀气
         } },
     },
     wenchou: {
@@ -773,7 +773,7 @@ const SKILLS = (function () {
           xs.forEach((x, i) => B.later(i * 0.22, () => {
             const cx = Math.max(80, Math.min(B.W - 80, x < 60 ? x + 300 : x > B.W - 60 ? x - 300 : x));
             const sh = { k: 'blade' };
-            B.blade(h, cx, B.WY - 10, -Math.PI / 2, { w: 120, spd: 330, dmg: a * 4 * k, life: 2.2, big: true, push: 10, tex: 'elephant', texW: 150 });
+            B.blade(h, cx, B.WY - 10, -Math.PI / 2, { w: 120, spd: 330, dmg: a * 4 * k, life: 2.2, big: true, push: 10, tex: 'elephant', texW: 116, solid: true });
             for (let j = 0; j < 7; j++) B.later(j * 0.3, () => { const y = B.WY - 40 - j * 99; if (y > B.TOP) { B.shock(cx, y, 90, 0.35); B.area(cx, y, 70, e => B.stun(e, 1.2)); B.burst(cx, y + 20, 5, '#c8a878', 150, 3, 0.4); } });
           }));
         } },

@@ -39,6 +39,10 @@ WEAPON_SHEETS = {
     'weapon_3': ['liangyin', 'jiaowei', 'qixing', 'hutou', 'shuangji', 'goulian', 'taiping', 'dunjia', 'liuxing'],
     'weapon_4': ['sanjian', 'wugou', 'guduo', 'duanji', 'tongchui', 'bingshu', 'chaifu', 'zhuqiang', 'pushan'],
 }
+# 大招里冲出去的兵、马、象（透明底，和武将一样的画风）：切出来存 fx/<名字>.png，游戏里有图就用图，没有就用代码画的
+UNIT_SHEETS = {
+    'unit_1': ['soldier', 'horse', 'horse_side', 'elephant', None, None, None, None, None],
+}
 # 特效拼图（黑底）：名字 -> 最长边
 FX_SHEETS = {
     'fx_1': ['slash', 'burst', 'ring', 'flame', 'bolt', 'pillar', 'thrust', 'el_arrow_ice', 'el_arrow_fire'],
@@ -193,6 +197,25 @@ def main():
             cell = cell.resize((max(1, round(cell.width * k)), max(1, round(cell.height * k))), Image.LANCZOS)
             out = Image.new('RGBA', (192, 192), (0, 0, 0, 0)); out.alpha_composite(cell, ((192 - cell.width) // 2, (192 - cell.height) // 2))
             save_png(out, os.path.join(DST, 'weapons', wid + '.png'))
+            done += 1
+    for name, ids in UNIT_SHEETS.items():
+        path = os.path.join(SHEETS, name + '.png')
+        if not os.path.exists(path):
+            continue
+        sheet = clear_bg(Image.open(path))
+        w, h = sheet.size
+        os.makedirs(os.path.join(DST, 'fx'), exist_ok=True)
+        for i, uid in enumerate(ids):
+            if not uid:
+                continue
+            col, row = i % 3, i // 3
+            cell = keep_main(sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3)))
+            box = cell.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()
+            if not box:
+                continue
+            cell = cell.crop(box)
+            k = 256 / max(cell.size)                           # 贴着轮廓裁，最长边 256
+            save_png(cell.resize((max(1, round(cell.width * k)), max(1, round(cell.height * k))), Image.LANCZOS), os.path.join(DST, 'fx', uid + '.png'))
             done += 1
     for name, ids in FX_SHEETS.items():
         path = os.path.join(SHEETS, name + '.png')
