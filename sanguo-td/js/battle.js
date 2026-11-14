@@ -184,7 +184,7 @@ const Battle = (function () {
     if (S.fx.length > 180 && !o.force) return true;
     const w = o.w || 64;
     S.fx.push({ im, x, y, w, h: o.h || w * im.height / im.width, rot: o.rot || 0, spin: o.spin || 0, life: o.life || 0.4, max: o.life || 0.4,
-      grow: o.grow || 1, a: o.a == null ? 1 : o.a, fadeIn: o.fadeIn || 0, ax: o.ax == null ? 0.5 : o.ax, ay: o.ay == null ? 0.5 : o.ay, vx: o.vx || 0, vy: o.vy || 0 });
+      grow: o.grow || 1, a: o.a == null ? 1 : o.a, fadeIn: o.fadeIn || 0, ax: o.ax == null ? 0.5 : o.ax, ay: o.ay == null ? 0.5 : o.ay, vx: o.vx || 0, vy: o.vy || 0, flip: !!o.flip });   // flip：左右镜像（朝左扑的老虎）
     return true;
   }
   const glowCache = {};
@@ -1230,7 +1230,7 @@ const Battle = (function () {
     for (const f of S.fx) {
       const p = 1 - f.life / f.max, k = 1 + (f.grow - 1) * p;
       c.globalAlpha = Math.max(0, Math.min(1, f.a * Math.min(1, f.life / f.max * 2.5) * (f.fadeIn ? Math.min(1, p / f.fadeIn) : 1)));
-      c.save(); c.translate(f.x, f.y); if (f.rot) c.rotate(f.rot); c.scale(k, k);
+      c.save(); c.translate(f.x, f.y); if (f.rot) c.rotate(f.rot); c.scale(f.flip ? -k : k, k);
       c.drawImage(f.im, -f.w * f.ax, -f.h * f.ay, f.w, f.h); c.restore();
     }
     c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
