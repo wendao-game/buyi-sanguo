@@ -92,15 +92,20 @@ const DEV = (function () {
 
 /* 品质：白 绿 蓝 紫 金 橙 黑 彩（黑、彩为神将，暂未开放） */
 /* mult = 攻击倍率；pw = 战力数字再乘的「技能含金量」（高品质武将的技能本身更强，模拟器量出来的，见 tools/sim/heroes.js）*/
+/* 品质：mult = 攻击倍率，pw = 技能值多少战力（模拟器量出来的：同样的攻击力，高品武将的技能更能打）。
+ * v1.7 起 mult 压平了（橙的攻击只比白高 72%，原来是 3.8 倍）：高品强在技能和起点，不靠面板碾压。
+ * 同等级同星下战力 白 1 : 绿 1.2 : 蓝 1.45 : 紫 1.8 : 金 2.4 : 橙 3.1（原来是 1 : 1.25 : 1.6 : 2.4 : 4.2 : 6.8）。
+ * 每升一星 +20%、三星觉醒再 ×1.2（满星 = 2.4 倍），而低品的重复卡多得多、星升得快：
+ * 满星白 = 零星金；满星蓝（3.5）> 零星橙（3.1）、接近一星橙（3.7）；满星紫（4.3）= 二星橙；满星金（5.8）= 三星橙 */
 const QUALITIES = [
   { id: 0, name: '白', color: '#d9dde0', dark: '#6b7278', mult: 1.00, pw: 1.00, rate: 38 },
-  { id: 1, name: '绿', color: '#62d267', dark: '#1f6b2a', mult: 1.25, pw: 1.00, rate: 28 },
-  { id: 2, name: '蓝', color: '#4ea8ff', dark: '#1b4a8c', mult: 1.60, pw: 1.00, rate: 19 },
-  { id: 3, name: '紫', color: '#b968ff', dark: '#52208c', mult: 2.10, pw: 1.15, rate: 10 },
-  { id: 4, name: '金', color: '#ffd84a', dark: '#8c6410', mult: 2.80, pw: 1.50, rate: 4 },
-  { id: 5, name: '橙', color: '#ff8a2a', dark: '#8c3a08', mult: 3.80, pw: 1.80, rate: 1 },
-  { id: 6, name: '黑', color: '#3a3340', dark: '#0d0a12', mult: 5.20, pw: 2.00, rate: 0, god: true },
-  { id: 7, name: '彩', color: '#ff7ad9', dark: '#3a2a7a', mult: 7.00, pw: 2.20, rate: 0, god: true },
+  { id: 1, name: '绿', color: '#62d267', dark: '#1f6b2a', mult: 1.20, pw: 1.00, rate: 28 },
+  { id: 2, name: '蓝', color: '#4ea8ff', dark: '#1b4a8c', mult: 1.45, pw: 1.00, rate: 19 },
+  { id: 3, name: '紫', color: '#b968ff', dark: '#52208c', mult: 1.57, pw: 1.15, rate: 10 },
+  { id: 4, name: '金', color: '#ffd84a', dark: '#8c6410', mult: 1.60, pw: 1.50, rate: 4 },
+  { id: 5, name: '橙', color: '#ff8a2a', dark: '#8c3a08', mult: 1.72, pw: 1.80, rate: 1 },
+  { id: 6, name: '黑', color: '#3a3340', dark: '#0d0a12', mult: 1.85, pw: 2.00, rate: 0, god: true },
+  { id: 7, name: '彩', color: '#ff7ad9', dark: '#3a2a7a', mult: 2.00, pw: 2.20, rate: 0, god: true },
 ];
 
 const FACTIONS = {
@@ -338,7 +343,7 @@ function chapterOf(stage) {
  *       再用不带画面的模拟器（tools/sim/）校准，让「战力 = 推荐战力」时挂机胜率约六成。
  * ============================================================ */
 /* 每章最后一关的战力预算（第 0 项 = 开局）。章内按等比插值；第 8 章之后每关 +3% */
-const STAGE_POWER = [250, 2750, 7500, 15500, 25800, 41700, 59500, 86000, 119000];   // 前两章比模拟算出来的（3100、7900）放宽一些：新手期不卡人
+const STAGE_POWER = [250, 1800, 4200, 7900, 12700, 19100, 27500, 36100, 50600];   // v1.7 品质压平后重算（模拟算出来前两章是 2000、4400，放宽一些：新手期不卡人）
 function stagePower(stage) {
   const n = STAGE_POWER.length - 1, s = Math.max(1, stage);
   if (s >= n * 10) return STAGE_POWER[n] * Math.pow(1.03, s - n * 10);
@@ -347,7 +352,7 @@ function stagePower(stage) {
 }
 /* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
  * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
-const HP_PER_POWER = [[1, 0.0060], [10, 0.0055], [20, 0.0049], [30, 0.0040], [40, 0.0039], [50, 0.0039], [60, 0.0040], [70, 0.0040], [80, 0.0039]];   // v1.3 加了新敌人和敌将招式后重新校准：第 3 章起敌人更会打，血量系数从 0.0052 左右降到 0.0040 左右
+const HP_PER_POWER = [[1, 0.0060], [10, 0.0050], [20, 0.0046], [30, 0.0037], [40, 0.0037], [50, 0.0035], [60, 0.0035], [70, 0.0036], [80, 0.0034]];   // v1.7 品质压平后重新校准（各关校准值 0.0032–0.0049，取平滑后的）
 function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];
@@ -397,7 +402,7 @@ function genWave(stage, wave) {
 const SLOT_ROLES = [
   { name: '左翼', desc: '弓、火、毒、雷系出手速度 +15%', els: ['arrow', 'fire', 'poison', 'thunder'], spd: 0.15 },
   { name: '前锋', desc: '刃、风、冰系攻击 +15%', els: ['blade', 'wind', 'ice'], atk: 0.15 },
-  { name: '主帅', desc: '全军攻击 +品质×3%（白 0% … 橙 15%），本人怒气获取 +20%', leader: true },
+  { name: '主帅', desc: '全军攻击 +星级×3%（零星 0% … 五星 15%），本人怒气获取 +20%', leader: true },
   { name: '前锋', desc: '刃、风、冰系攻击 +15%', els: ['blade', 'wind', 'ice'], atk: 0.15 },
   { name: '右翼', desc: '弓、火、毒、雷系出手速度 +15%', els: ['arrow', 'fire', 'poison', 'thunder'], spd: 0.15 },
 ];
@@ -421,15 +426,15 @@ const COMBOS = [
   { name: '五虎上将', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong', 'machao'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
   { name: '长沙旧部', ids: ['huangzhong', 'weiyan'], need: 2, desc: '弓、火系伤害 +25%', eff: { el: { arrow: 0.25, fire: 0.25 } } },
   { name: '荆襄名士', ids: ['zhugeliang', 'xushu'], need: 2, desc: '风系伤害 +35%', eff: { el: { wind: 0.35 } } },
-  { name: '赤壁之盟', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +20%、怒气获取 +10%', eff: { ult: 0.20, rage: 0.10 } },
-  { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +35%', eff: { el: { fire: 0.35 } } },
+  { name: '赤壁之盟', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +15%、怒气获取 +8%', eff: { ult: 0.15, rage: 0.08 } },
+  { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +28%', eff: { el: { fire: 0.28 } } },
   { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu', 'huanggai', 'lingtong', 'jiangqin', 'zhoutai', 'handang'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
   { name: '魏之谋主', ids: ['caocao', 'simayi', 'jiaxu', 'guojia'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
   { name: '曹氏宗亲', ids: ['caocao', 'caohong', 'xiahoudun', 'caochun'], need: 2, desc: '城防上限 +25%', eff: { wall: 0.25 } },
   { name: '五子良将', ids: ['zhangliao', 'xuhuang', 'yujin', 'yuejin', 'zhanghe'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
   { name: '并州旧部', ids: ['lvbu', 'zhangliao', 'gaoshun'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
   { name: '西凉董营', ids: ['huaxiong', 'liru', 'lvbu', 'jiaxu', 'dongzhuo'], need: 2, desc: '毒、风系伤害 +30%', eff: { el: { poison: 0.30, wind: 0.30 } } },
-  { name: '乱世才女', ids: ['caiwenji', 'zhenji'], need: 2, desc: '冰系伤害 +30%、怒气获取 +15%', eff: { el: { ice: 0.30 }, rage: 0.15 } },
+  { name: '乱世才女', ids: ['caiwenji', 'zhenji'], need: 2, desc: '冰系伤害 +25%、怒气获取 +10%', eff: { el: { ice: 0.25 }, rage: 0.10 } },
   { name: '天公地公', ids: ['zhangjiao', 'zhangbao', 'panfeng'], need: 2, desc: '雷系伤害 +30%', eff: { el: { thunder: 0.30 } } },
   // —— v1.0 新增 ——
   { name: '桃园结义', ids: ['liubei', 'guanyu', 'zhangfei'], need: 3, desc: '全军攻击 +15%、怒气获取 +15%', eff: { atk: 0.15, rage: 0.15 } },
@@ -437,7 +442,7 @@ const COMBOS = [
   { name: '长坂救主', ids: ['liubei', 'zhaoyun'], need: 2, desc: '冰系伤害 +25%、城防上限 +10%', eff: { el: { ice: 0.25 }, wall: 0.10 } },
   { name: '定军山',   ids: ['fazheng', 'huangzhong'], need: 2, desc: '弓、毒系伤害 +25%', eff: { el: { arrow: 0.25, poison: 0.25 } } },
   { name: '孙刘联姻', ids: ['liubei', 'sunshangxiang'], need: 2, desc: '城防上限 +20%、全军攻击 +6%', eff: { wall: 0.20, atk: 0.06 } },
-  { name: '江东二乔', ids: ['daqiao', 'xiaoqiao'], need: 2, desc: '冰、风系伤害 +30%', eff: { el: { ice: 0.30, wind: 0.30 } } },
+  { name: '江东二乔', ids: ['daqiao', 'xiaoqiao'], need: 2, desc: '冰、风系伤害 +25%', eff: { el: { ice: 0.25, wind: 0.25 } } },
   { name: '总角之交', ids: ['sunce', 'zhouyu'], need: 2, desc: '火、雷系伤害 +20%', eff: { el: { fire: 0.20, thunder: 0.20 } } },
   { name: '孙氏兄妹', ids: ['sunce', 'sunshangxiang'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
   { name: '苦肉计',   ids: ['huanggai', 'zhouyu'], need: 2, desc: '火系伤害 +20%', eff: { el: { fire: 0.20 } } },
@@ -462,7 +467,7 @@ const COMBOS = [
   { name: '逍遥津',   ids: ['zhangliao', 'ganning', 'lingtong'], need: 2, desc: '风、弓系伤害 +20%', eff: { el: { wind: 0.20, arrow: 0.20 } } },
   { name: '孙陆联姻', ids: ['luxun', 'sunce'], need: 2, desc: '全军暴击率 +8%、怒气获取 +8%', eff: { crit: 0.08, rage: 0.08 } },
   { name: '国舅',     ids: ['mifang', 'liubei'], need: 2, desc: '城防上限 +12%', eff: { wall: 0.12 } },
-  { name: '倾国倾城', ids: ['diaochan', 'zhenji', 'daqiao', 'xiaoqiao', 'caiwenji', 'sunshangxiang'], need: 3, desc: '怒气获取 +15%、全军出手速度 +8%', eff: { rage: 0.15, spd: 0.08 } },
+  { name: '倾国倾城', ids: ['diaochan', 'zhenji', 'daqiao', 'xiaoqiao', 'caiwenji', 'sunshangxiang'], need: 3, desc: '怒气获取 +10%、全军出手速度 +6%', eff: { rage: 0.10, spd: 0.06 } },
   // —— v1.2 新增：蓝绿卡池的新武将也有自己的缘分 ——
   { name: '合肥守将', ids: ['zhangliao', 'yuejin', 'lidian'], need: 2, desc: '城防上限 +12%、全军攻击 +6%', eff: { wall: 0.12, atk: 0.06 } },
   { name: '白马义从', ids: ['gongsunzan', 'zhaoyun'], need: 2, desc: '弓、冰系伤害 +25%', eff: { el: { arrow: 0.25, ice: 0.25 } } },

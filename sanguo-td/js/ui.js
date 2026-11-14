@@ -94,7 +94,8 @@ const UI = (function () {
   /* ---------------- 武将 ---------------- */
   function renderHeroes() {
     if (Object.keys(Save.data.heroes).some(id => Save.data.heroes[id].lv >= 5 && teamIndex(id) < 0)) tip('reset1', '不上阵的武将可以在详情里<b>重置等级</b>，升级花的金币<b>全额返还</b>，拿去练新武将', 9000);
-    if (Object.keys(Save.data.heroes).length > 3) tip('heroes1', '点两个位置可以<b>交换站位</b>。位置名变<b>绿</b> = 这名武将适合这个位置；中间是<b>主帅</b>，品质越高全军加成越多', 10000);
+    if (Object.keys(Save.data.heroes).some(id => Save.data.heroes[id].star >= 1)) tip('star1', '<b>品质高不等于一定强</b>：高品强在技能，面板差得不多。低品的重复卡多、<b>升星快</b>——满星的蓝将比一星的橙将还能打，三星还会<b>觉醒</b>', 11000);
+    if (Object.keys(Save.data.heroes).length > 3) tip('heroes1', '点两个位置可以<b>交换站位</b>。位置名变<b>绿</b> = 这名武将适合这个位置；中间是<b>主帅</b>，星级越高全军加成越多', 10000);
     const S = Save.data;
     const team = S.team.map((id, i) => {
       const role = SLOT_ROLES[i], fit = id && (role.leader || role.els.includes(HERO_MAP[id].el));
@@ -305,6 +306,7 @@ const UI = (function () {
       return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '未开放'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>
+      <p class="mtext" style="font-size:13px;margin-top:10px"><b>品质高不等于一定强</b>：同等级同星，橙将战力约是白将的 3 倍（攻击只高七成，强在技能）；每升一星 +20%，三星觉醒。低品重复卡多、升星快：满星白 ≈ 零星金，满星蓝 ≈ 一星橙，满星紫 ≈ 二星橙。</p>
       <p class="mtext" style="font-size:13px;margin-top:10px">每一抽先定品质，再有 ${ws}% 的概率是这个品质的兵器、${100 - ws}% 是武将；同品质里每个概率相同<br>十连必出紫品以上 · 累计 ${CFG.PITY} 抽未出橙品时必得橙品<br>以上为单抽基础概率，计入保底后紫、橙的实际概率更高<br>重复武将转为碎片用于升星；重复兵器熔成精铁用于强化</p></div>`);
   }
   /* 网页版模拟广告：看完 resolve(true)，中途放弃 resolve(false) */

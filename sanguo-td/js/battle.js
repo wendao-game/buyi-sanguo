@@ -234,7 +234,7 @@ const Battle = (function () {
     o = o || {};
     let m = 1 + (e.vuln || 0) + ((e.psn > 0 || e.psnMark > 0) ? S.psnVuln : 0);
     m *= S.buffs.el[el] || 1;
-    if (el === 'fire' && S.windT > 0) m *= 1.3;
+    if (el === 'fire' && S.windT > 0) m *= 1.2;
     if (isBig(e)) m *= S.buffs.boss;
     if (e.def.res && e.def.res[el]) m *= e.def.res[el];          // 藤甲、重甲：有的系打折，有的系加倍
     if (e.shieldT > 0) m *= 0.5;                                   // 陷阵统领的盾阵

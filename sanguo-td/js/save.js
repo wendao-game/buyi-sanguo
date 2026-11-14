@@ -128,7 +128,7 @@ function teamBonus(team) {
     const r = SLOT_ROLES[i], d = HERO_MAP[id], ws = weaponStats(heroWeapon(id), id);
     if (ws) { const p = out.per[i]; p.watk = ws.atk || 0; p.wspd = ws.spd || 0; p.wcrit = ws.crit || 0; p.wrage = ws.rage || 0; p.wult = ws.ult || 0; }
     if (r.leader) {
-      const v = d.q * 0.03; out.atk += v; out.per[i].rage += 0.2;
+      const own = heroOwn(id), v = Math.min(5, own ? own.star : 0) * 0.03; out.atk += v; out.per[i].rage += 0.2;   // 主帅看星级（养得好），不看品质
       out.active.push({ type: 'slot', name: '主帅 · ' + d.name, desc: '全军攻击 +' + Math.round(v * 100) + '%，本人怒气获取 +20%' });
     } else if (r.els.includes(d.el)) {
       if (r.atk) out.per[i].atk += r.atk;
@@ -145,8 +145,8 @@ function teamPower(team) {
   team.forEach((id, i) => {
     if (!id) return;
     const d = HERO_MAP[id], sk = heroSkill(id), m = (sk && sk.passive.mod) || {}, p = b.per[i];
-    sum += heroStats(id).power * (1 + (m.atk || 0)) * (1 + (m.spd || 0)) * (1 + b.atk + p.atk) * (1 + b.spd + p.spd) * (1 + b.crit + (m.crit || 0)) * (1 + (b.el[d.el] || 0) * 0.6) * (1 + b.ult * 0.3 + b.rage * 0.2 + p.rage * 0.2)
-      * (1 + p.watk) * (1 + p.wspd) * (1 + p.wcrit) * (1 + p.wult * 0.3 + p.wrage * 0.2);   // 兵器
+    sum += heroStats(id).power * (1 + (m.atk || 0)) * (1 + (m.spd || 0)) * (1 + b.atk + p.atk) * (1 + b.spd + p.spd) * (1 + b.crit + (m.crit || 0)) * (1 + (b.el[d.el] || 0) * 0.6) * (1 + b.ult * 0.3 + b.rage * 0.35 + p.rage * 0.35)   // 怒气获取 +10% ≈ 战力 +3.5%（模拟器量出来的：原来按 2% 算，怒气叠得多的阵容实际比战力数字强一截）
+      * (1 + p.watk) * (1 + p.wspd) * (1 + p.wcrit) * (1 + p.wult * 0.3 + p.wrage * 0.35);   // 兵器
   });
   return Math.round(sum);
 }

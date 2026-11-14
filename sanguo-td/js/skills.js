@@ -288,11 +288,11 @@ const SKILLS = (function () {
     /* ======================= 橙 ======================= */
     zhugeliang: {
       passive: { name: '卧龙', desc: '全军大招伤害 +15%', aura(ctx) { ctx.S.buffs.ult *= 1.15; } },
-      ult: { desc: '借东风：6 秒东风把敌人持续吹回，全军出手速度 +25%、火系伤害 +30%，其他武将怒气 +10（觉醒 9 秒）',
+      ult: { desc: '借东风：6 秒东风把敌人持续吹回，全军出手速度 +20%、火系伤害 +20%，其他武将怒气 +10（觉醒 9 秒）',
         cast(B, h, a, k) {
           const t = 6 * k;
           B.zone({ k: 'wind', h, life: t, dmg: a * 0.9, push: 9 });
-          B.teamHaste(t, 1.25); B.teamRage(10, h); B.S.windT = t;
+          B.teamHaste(t, 1.2); B.teamRage(10, h); B.S.windT = t;
           B.flash('200,255,235', 0.25, 0.6);
         } },
     },
@@ -564,8 +564,8 @@ const SKILLS = (function () {
         } },
     },
     sunce: {
-      passive: { name: '小霸王', desc: '攻击 +15%；每亲手击杀一个敌人，本局攻击 +1%（最多 +40%）', mod: { atk: 0.15 },
-        onKill(B, h) { if ((h.kills = (h.kills || 0) + 1) <= 40) h.atk *= 1.01; } },
+      passive: { name: '小霸王', desc: '攻击 +15%；每亲手击杀一个敌人，本局攻击 +1%（最多 +25%）', mod: { atk: 0.15 },
+        onKill(B, h) { if ((h.kills = (h.kills || 0) + 1) <= 25) h.atk *= 1.01; } },
       ult: { desc: '霸王激昂：一声怒喝，三圈雷霆从脚下荡开，扫到谁谁就受到 ×3 伤害；之后 6 秒自身出手速度 ×1.5（觉醒 9 秒）',
         cast(B, h, a, k) {
           B.shake(0.45); B.flash('210,190,255', 0.25, 0.4); B.haste(h, 6 * k, 1.5); B.shock(h.x, h.y - 20, 320, 1);
