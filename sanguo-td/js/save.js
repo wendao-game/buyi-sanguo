@@ -107,21 +107,21 @@ function teamBonus(team) {
     if (n < 2) return;
     const v = b.vals[Math.min(2, n - 2)];
     out[b.stat] += v;
-    out.active.push({ type: 'fac', fac: f, name: FACTIONS[f].name + ' · ' + b.name + '（' + n + '）', desc: b.fmt(v) });
+    out.active.push({ type: 'fac', fac: f, name: FACTIONS[f].name + ' · ' + b.name + '（' + n + '）', desc: b.fmt(v), who: ids.filter(id => HERO_MAP[id].fac === f) });   // who：是哪几名武将凑出来的
   });
   ids.forEach(id => { const e = HERO_MAP[id].el; out.elc[e] = (out.elc[e] || 0) + 1; });
   Object.keys(out.elc).forEach(e => {                        // 属性共鸣：同系 3 人以上
     const n = out.elc[e], v = ELEMENT_BOND[Math.min(n, ELEMENT_BOND.length - 1)];
     if (!v) return;
     out.el[e] = (out.el[e] || 0) + v;
-    out.active.push({ type: 'elem', name: ELEMENTS[e].name + '系共鸣（' + n + '）', desc: ELEMENTS[e].name + '系伤害 +' + Math.round(v * 100) + '%' });
+    out.active.push({ type: 'elem', name: ELEMENTS[e].name + '系共鸣（' + n + '）', desc: ELEMENTS[e].name + '系伤害 +' + Math.round(v * 100) + '%', who: ids.filter(id => HERO_MAP[id].el === e) });
   });
   COMBOS.forEach(c => {
     const n = c.ids.filter(id => ids.includes(id)).length;
     if (n < c.need || (c.must && !ids.includes(c.must))) return;
     ['atk', 'spd', 'crit', 'rage', 'ult', 'wall'].forEach(k => add(c.eff, k));
     if (c.eff.el) for (const e in c.eff.el) out.el[e] = (out.el[e] || 0) + c.eff.el[e];
-    out.active.push({ type: 'combo', name: c.name, desc: c.desc });
+    out.active.push({ type: 'combo', name: c.name, desc: c.desc, who: c.ids.filter(id => ids.includes(id)) });
   });
   team.forEach((id, i) => {
     if (!id) return;

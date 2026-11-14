@@ -405,7 +405,7 @@ const UI = (function () {
   /* 换将面板里看羁绊：草稿阵容已经激活的、差一个人就能激活的 */
   function lpBonds() {
     const b = teamBonus(lpDraft), has = Save.data.heroes;
-    const act = b.active.map(a => `<tr class="on"><td>${a.name}</td><td>${a.desc}</td></tr>`).join('');
+    const act = b.active.map(a => `<tr class="on"><td>${a.name}</td><td>${a.desc}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
     const near = COMBOS.map(c => {
       const inn = c.ids.filter(x => lpDraft.includes(x)), ok = inn.length >= c.need && (!c.must || lpDraft.includes(c.must));
       if (ok || !inn.length) return '';
