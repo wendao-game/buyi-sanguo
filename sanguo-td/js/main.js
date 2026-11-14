@@ -30,6 +30,7 @@
     GLView.init(document.getElementById('gl'));   // WebGL 战斗画面；起不来就自动用 2D 画面
     Battle.init(document.getElementById('cv'));
     UI.init();
+    Assets.onLate(() => { Art.refresh(); if (!Battle.state) UI.render(); });   // 进游戏后才下完的图：头像、图标重做，当前页面重画（战斗画面每帧都取最新的图，不用管）
     Cloud.init();
     const ld = document.getElementById('loading'); if (ld) { ld.classList.add('out'); setTimeout(() => ld.remove(), 450); }
     let last = performance.now();

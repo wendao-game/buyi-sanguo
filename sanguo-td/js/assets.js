@@ -26,21 +26,47 @@ const Assets = (function () {
     return t === 'hero' ? 'heroes/' + n : t === 'head' ? 'heroes/' + n + '_head' : t === 'enemy' ? 'enemies/' + n
       : t === 'fx' ? 'fx/' + n : t === 'cut' ? 'cutins/' + n : k;
   };
+  /* 加载一张图：失败了隔一会儿再试，一共试 3 次（国内访问慢，偶尔会断） */
+  let started = false, lateCb = null, lateT = 0, total = 0, loaded = 0;
   function loadOne(file) {
+    const key = file.replace(/\.(png|jpe?g|webp)$/i, '');
     return new Promise(resolve => {
-      const im = new Image();
-      im.onload = () => { img[file.replace(/\.(png|jpe?g|webp)$/i, '')] = im; resolve(true); };
-      im.onerror = () => resolve(false);
-      im.src = 'assets/' + file + (window.ASSET_VER ? '?v=' + window.ASSET_VER : '');   // 换了图版本号就变，不会用到手机里缓存的旧图
+      let n = 0;
+      const go = () => {
+        const im = new Image();
+        im.onload = () => {
+          img[key] = im; loaded++;
+          if (started) {                                   // 进游戏之后才到的图：换色缓存作废，攒半秒一起通知界面重画
+            const fx = key.indexOf('fx/') === 0 ? key.slice(3) + '|' : null;
+            if (fx) Object.keys(tintCache).forEach(k => { if (k.indexOf(fx) === 0) delete tintCache[k]; });
+            clearTimeout(lateT); lateT = setTimeout(() => { if (lateCb) lateCb(); }, 500);
+          }
+          resolve(true);
+        };
+        im.onerror = () => { if (++n < 3) setTimeout(go, 800 * n * n); else resolve(false); };
+        im.src = 'assets/' + file + (window.ASSET_VER ? '?v=' + window.ASSET_VER : '') + (n ? (window.ASSET_VER ? '&' : '?') + 'r=' + n : '');   // 换了图版本号就变，不会用到手机里缓存的旧图
+      };
+      go();
     });
   }
-  /* 只加载 assets/manifest.js 里列出的图（window.ASSET_LIST），不再逐个去试，没放图时不会有一堆 404 */
+  /* 只加载 assets/manifest.js 里列出的图（window.ASSET_LIST），不再逐个去试，没放图时不会有一堆 404。
+   * 一次只下 8 张、先下要紧的（背景、特效、敌人、头像，再是立绘和兵器）；等到全部下完或者 15 秒就进游戏，
+   * 没下完的在后台接着下，到了以后界面会自动换上（onLate） */
   function load(onProgress) {
-    const list = Array.isArray(window.ASSET_LIST) ? window.ASSET_LIST : [];
-    let done = 0;
-    const one = f => loadOne(f).then(ok => { done++; if (onProgress) onProgress(done / list.length); return ok; });
-    const timeout = new Promise(resolve => setTimeout(resolve, 12000));  // 网络卡住也不挡住进游戏（没加载到的图先用代码画的）
-    return Promise.race([Promise.all(list.map(one)), timeout]).then(() => Object.keys(img));
+    const rank = f => f.indexOf('bg/') === 0 ? 0 : f.indexOf('ui/') === 0 ? 1 : f.indexOf('fx/') === 0 ? 2 : f.indexOf('enemies/') === 0 ? 3 : /_head\./.test(f) ? 4 : f.indexOf('heroes/') === 0 ? 5 : 6;
+    const list = (Array.isArray(window.ASSET_LIST) ? window.ASSET_LIST : []).slice().sort((a, b) => rank(a) - rank(b));
+    total = list.length;
+    let next = 0, done = 0;
+    const all = new Promise(resolve => {
+      if (!list.length) return resolve();
+      const pump = () => {
+        if (next >= list.length) return;
+        loadOne(list[next++]).then(() => { done++; if (onProgress && !started) onProgress(done / list.length); if (done >= list.length) resolve(); else pump(); });
+      };
+      for (let i = 0; i < 8; i++) pump();
+    });
+    const timeout = new Promise(resolve => setTimeout(resolve, 15000));  // 网络卡住也不挡住进游戏（没加载到的图先用代码画的，到了再换）
+    return Promise.race([all, timeout]).then(() => { started = true; return Object.keys(img); });
   }
 
   /* 特效贴图换色：黑底贴图乘上颜色（黑的还是黑，亮的部分变成该颜色），带缓存 */
@@ -62,5 +88,6 @@ const Assets = (function () {
   /* 代码生成的贴图（fxgen.js）也登记进来，和图片一样取用 */
   const put = (key, cv) => { img[key] = cv; };
 
-  return { load, get: k => img[alias(k)] || null, keys: () => Object.keys(img), tinted, put };
+  return { load, get: k => img[alias(k)] || null, keys: () => Object.keys(img), tinted, put,
+    onLate(fn) { lateCb = fn; }, pending: () => Math.max(0, total - loaded) };
 })();
