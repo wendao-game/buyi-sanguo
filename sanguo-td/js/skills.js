@@ -177,7 +177,7 @@ const SKILLS = (function () {
           B.later(0.5, () => {
             const tx = t.dead ? h.x : t.x, ty = t.dead ? 0 : t.y;
             if (!t.dead) B.hit(t, a * 18 * k, 'arrow', h, { crit: 0.5 });
-            B.blade(h, h.x, h.y - 24, Math.atan2(ty - h.y, tx - h.x), { look: 'arrow', el: 'arrow', w: 46, spd: 1100, dmg: a * 10 * k, big: true, life: 1.4 });
+            B.blade(h, h.x, h.y - 24, Math.atan2(ty - h.y, tx - h.x), { look: 'arrow', el: 'arrow', w: 46, spd: 1100, dmg: a * 10 * k, big: true, life: 1.4, tex: 'gold_arrow', texW: 320 });   // 专属特效：拖着金羽的巨箭
             B.shake(0.2);
           });
         } },
@@ -188,6 +188,7 @@ const SKILLS = (function () {
       ult: { desc: '威震逍遥：全场敌人受惊后退 2.5 秒并受到 ×2 伤害（敌将减半，觉醒 3.75 秒）',
         cast(B, h, a, k) {
           B.shake(0.3); B.ring(h.x, h.y, 20, 520, 0.6, '#9ff3d6', 6);
+          B.tex('wolf', B.W / 2, B.WY - 130, { w: 400, life: 1.05, vy: -540, grow: 1.35, a: 0.88, fadeIn: 0.08 });        // 专属特效：一头苍狼的虚影冲向敌阵
           for (let i = 0; i < 6; i++) B.later(i * 0.06, () => B.tex('wind_arc', 60 + i % 3 * 210 + (i > 2 ? 105 : 0), B.WY - 40 - (i > 2 ? 70 : 0), { w: 230, h: 84, life: 0.75, vy: -620, grow: 1.5, a: 0.8, rgb: '70,230,185' }));   // 一排排月牙风痕扫向敌阵
           for (const e of B.lives()) { B.fear(e, (e.def.id === 'boss' ? 1.25 : 2.5) * k); B.hit(e, a * 2, 'wind', h); }
         } },
@@ -225,7 +226,8 @@ const SKILLS = (function () {
           for (let i = 0; i < n; i++) B.later(i * 0.13, () => {
             const L = B.lives().slice().sort((x, y) => y.y - x.y); if (!L.length) return;
             const t = L[Math.min(i, L.length - 1)], x = t.x, y = t.y;                                        // 第 i 记斩第 i 靠前的人；人不够就都砍最前面的
-            [-0.75, 0.75].forEach(r => B.tex('slash', x, y - 6, { w: 170, h: 78, rot: r, life: 0.24, grow: 1.25, rgb: '255,205,185', a: 0.95 }));   // 两道交叉的戟光
+            if (!B.tex('cross_slash', x, y - 6, { w: 220, life: 0.28, grow: 1.25, rot: (i % 2) * 0.5 }))                      // 专属特效：交叉的双戟斩光（没有图时用两道刀光拼）
+              [-0.75, 0.75].forEach(r => B.tex('slash', x, y - 6, { w: 170, h: 78, rot: r, life: 0.24, grow: 1.25, rgb: '255,205,185', a: 0.95 }));
             B.tex('burst', x, y - 6, { w: 70, life: 0.14, grow: 1.4, rgb: '255,230,210' });
             B.hit(t, a * 6, 'blade', h); B.shake(0.12);
             B.area(x, y, 110, e => { if (e !== t) B.hit(e, a * 3, 'blade', h); });
@@ -250,6 +252,7 @@ const SKILLS = (function () {
         cast(B, h, a, k) {
           B.shake(0.5); B.flash('255,220,160', 0.25, 0.4);
           for (let i = 0; i < 3; i++) B.later(i * 0.12, () => B.ring(h.x, h.y - 20, 20, 560, 0.7, '#ffd8a0', 8 - i * 2));
+          for (let i = 0; i < 3; i++) B.later(i * 0.14, () => B.tex('roar', h.x, h.y - 80, { w: 250, life: 0.75, grow: 2.8, vy: -560, a: 0.95 }));   // 专属特效：一声声吼出去的声浪
           for (const e of B.lives()) { B.stun(e, (e.def.id === 'boss' ? 1 : 2.5) * k); B.vuln(e, 5, 0.3); B.hit(e, a * 3, 'thunder', h); }
         } },
     },
@@ -281,6 +284,7 @@ const SKILLS = (function () {
       ult: { desc: '鬼谋：全场敌人 6 秒内受到的伤害 +45% 并持续剧毒（觉醒 9 秒）',
         cast(B, h, a, k) {
           B.flash('80,40,120', 0.3, 0.6);
+          B.tex('ghost_mask', B.W / 2, (B.TOP + B.WY) / 2 - 50, { w: 440, life: 1.9, fadeIn: 0.18, grow: 1.12, a: 0.75 });   // 专属特效：战场上空浮出一张鬼面
           for (const e of B.lives()) { B.vuln(e, 6 * k, 0.45); B.poison(e, 6 * k, a * 1.0, h); B.mark(e, 6 * k); B.tex('el_hit_dark', e.x, e.y - 10, { w: 70, life: 0.5, grow: 1.3 }); }
         } },
     },
@@ -293,6 +297,7 @@ const SKILLS = (function () {
           const t = 6 * k;
           B.zone({ k: 'wind', h, life: t, dmg: a * 0.9, push: 9 });
           B.teamHaste(t, 1.2); B.teamRage(10, h); B.S.windT = t;
+          B.tex('seven_stars', B.W / 2, B.TOP + 150, { w: 400, life: t, fadeIn: 0.06, a: 0.8 });                  // 专属特效：天上亮起北斗七星
           B.flash('200,255,235', 0.25, 0.6);
         } },
     },
@@ -303,7 +308,7 @@ const SKILLS = (function () {
       ult: { desc: '无双乱舞：6 秒内不停向四面八方挥出大型刀气（觉醒 9 秒）',
         cast(B, h, a, k) {
           const n = R(24, k);
-          for (let i = 0; i < n; i++) B.later(i * 0.25, () => B.blade(h, h.x, h.y - 22, -Math.PI / 2 + (Math.random() - 0.5) * 2.2, { w: 120, spd: 520, dmg: a * 1.2, big: true, life: 2.2, color: 'red' }));
+          for (let i = 0; i < n; i++) B.later(i * 0.25, () => B.blade(h, h.x, h.y - 22, -Math.PI / 2 + (Math.random() - 0.5) * 2.2, { w: 120, spd: 520, dmg: a * 1.2, big: true, life: 2.2, color: 'red', tex: 'halberd_slash', texW: 250 }));   // 专属特效：戟形的气刃（没有图时是红色刀气）
           B.shake(0.3);
         } },
     },
@@ -314,6 +319,7 @@ const SKILLS = (function () {
       ult: { desc: '万箭齐发：三轮箭雨覆盖全场，每轮 20 支并减速（觉醒四轮半）',
         cast(B, h, a, k) {
           const rounds = 3 * k;
+          for (let r = 0; r < Math.ceil(rounds); r++) B.later(r * 1.35, () => { for (let j = 0; j < 5; j++) B.later(j * 0.09, () => B.tex('arrow_rain', 60 + Math.random() * (B.W - 120), B.TOP + 40 + Math.random() * 120, { w: 170, life: 0.55, vy: 760, a: 0.9 })); });   // 专属特效：成片压下来的箭雨
           for (let i = 0; i < Math.round(20 * rounds); i++) B.later(i * 0.05 + Math.floor(i / 20) * 0.35, () => {
             const t = B.rnd(); if (!t) return;
             B.rain(h, t.x + (Math.random() - 0.5) * 24, t.y, a * 0.8, 0.8);
@@ -411,6 +417,7 @@ const SKILLS = (function () {
           for (let i = 0; i < 3; i++) B.later(i * 0.28, () => {
             const t = pick(i); if (!t) return; const x = t.x, y = t.y; done.push({ x, y });
             B.tex('wind_line', (px + x) / 2, (py + y) / 2, { w: Math.hypot(x - px, y - py) + 40, h: 46, rot: Math.atan2(y - py, x - px), life: 0.22, rgb: '255,170,110', a: 0.9 });   // 扑过去的一道残影
+            B.tex('tiger', x, y - 24, { w: 260, life: 0.42, grow: 1.12, rot: Math.atan2(y - py, x - px) });                // 专属特效：扑过去的猛虎
             px = x; py = y;
             B.tex('claw', x, y - 8, { w: 230, life: 0.45, grow: 1.2, rot: -0.2 + i * 1.1 }); B.tex('claw', x, y - 8, { w: 160, life: 0.65, grow: 1.5, rot: -0.2 + i * 1.1, a: 0.4 });
             B.ring(x, y, 12, 140, 0.35, '#ffb070', 5); B.shock(x, y, 150, 0.5); B.shake(0.22);
@@ -507,7 +514,7 @@ const SKILLS = (function () {
           const n = R(5, k); B.shake(0.3);
           for (let i = 0; i < n; i++) B.later(i * 0.08, () => {
             const x = 60 + (B.W - 120) * (i + 0.5) / n;
-            B.blade(h, x, B.WY - 16, -Math.PI / 2, { look: 'arrow', el: 'thunder', w: 58, spd: 780, dmg: a * 3.8, big: true, life: 1.15, rgb: '205,185,255' });
+            B.blade(h, x, B.WY - 16, -Math.PI / 2, { look: 'arrow', el: 'thunder', w: 58, spd: 780, dmg: a * 3.8, big: true, life: 1.15, rgb: B.has('thunder_lance') ? '' : '205,185,255', tex: 'thunder_lance', texW: 230 });   // 专属特效：缠着电光的银枪
             B.bolt(x, B.WY - 10, x + (Math.random() - 0.5) * 30, B.WY - 130, 1.6); B.ring(x, B.WY - 20, 6, 40, 0.3, '#c4b0ff', 3);
           });
         } },
@@ -522,6 +529,7 @@ const SKILLS = (function () {
             const t = L[Math.floor(Math.random() * L.length)], dx = t.x - px, dy = t.y - py, d = Math.hypot(dx, dy);
             B.tex('thrust', (px + t.x) / 2, (py + t.y) / 2, { w: Math.max(60, d), h: 26, rot: Math.atan2(dy, dx), life: 0.17, rgb: '255,140,165', a: 1 });
             B.tex('burst', t.x, t.y - 4, { w: 54, life: 0.15, grow: 1.3, rgb: '255,170,195' });
+            B.tex('red_arrow', t.x - dx / (d || 1) * 34, t.y - dy / (d || 1) * 34, { w: 120, rot: Math.atan2(dy, dx), life: 0.22 });   // 专属特效：红翎箭
             B.hit(t, a * 4.5, 'arrow', h, { crit: 1 });
             px = t.x; py = t.y; last = t;
           });
@@ -560,6 +568,7 @@ const SKILLS = (function () {
           B.heal(0.15 * k); B.teamRage(15, h); B.teamHaste(8 * k, 1.25); B.flash('255,235,170', 0.25, 0.6);
           B.heroes().forEach((x, i) => B.later(i * 0.05, () => { B.tex('pillar', x.x, x.y + 34, { w: 76, h: 250, ay: 1, life: 1.0, fadeIn: 0.1, a: 0.8, rgb: '255,215,110' }); B.ring(x.x, x.y + 26, 8, 56, 0.5, '#ffe08a', 3); }));
           const t = B.front();
+          if (t) B.tex('twin_swords', t.x, t.y - 16, { w: 310, life: 0.95, grow: 1.18, fadeIn: 0.12 });                 // 专属特效：雌雄双剑的剑光
           if (t) [-1, 1].forEach(s => B.blade(h, t.x + s * 150, t.y + 150, Math.atan2(-150, -s * 150), { w: 110, spd: 640, dmg: a * 3.5, big: true, life: 0.9, rgb: s < 0 ? '255,225,140' : '170,255,190' }));
         } },
     },
@@ -571,6 +580,7 @@ const SKILLS = (function () {
           B.shake(0.45); B.flash('210,190,255', 0.25, 0.4); B.haste(h, 6 * k, 1.5); B.shock(h.x, h.y - 20, 320, 1);
           B.tex('flame', h.x, h.y - 6, { w: 76, h: 140, life: 1.1, rgb: '185,150,255', a: 0.85 });           // 身上腾起紫色的气焰
           for (let i = 0; i < 3; i++) B.later(i * 0.1, () => B.ring(h.x, h.y - 20, 20, 560, 0.62, '#c4b0ff', 8 - i * 2));
+          for (let i = 0; i < 2; i++) B.later(i * 0.16, () => B.tex('thunder_ring', h.x, h.y - 20, { w: 150, life: 0.75, grow: 7.5, a: 0.95, spin: 1.2 }));   // 专属特效：炸开的雷环
           for (const e of B.lives()) B.later(Math.hypot(e.x - h.x, e.y - h.y) / 900, () => {                   // 雷圈扫到的时候才挨打
             if (e.dead) return;
             B.hit(e, a * 3, 'thunder', h); B.bolt(e.x + (Math.random() - 0.5) * 30, e.y - 70, e.x, e.y - 6, 1.4);
@@ -783,7 +793,7 @@ const SKILLS = (function () {
       ult: { desc: '火烧洛阳：全场燃起大火，所有敌人受到 ×1.8 伤害、灼烧 6 秒，并吓得后退 1.5 秒（敌将不退，觉醒 9 秒）',
         cast(B, h, a, k) {
           B.flash('255,90,40', 0.32, 0.6); B.shake(0.3); Sfx.play('boom');
-          for (let i = 0; i < 14; i++) B.later(i * 0.05, () => B.tex('flame', 40 + Math.random() * (B.W - 80), B.TOP + 60 + Math.random() * (B.WY - B.TOP - 120), { w: 90, h: 170, ay: 1, life: 1.3, fadeIn: 0.1, a: 0.8 }));
+          for (let i = 0; i < 14; i++) B.later(i * 0.05, () => B.tex(B.has('demon_flame') ? 'demon_flame' : 'flame', 40 + Math.random() * (B.W - 80), B.TOP + 60 + Math.random() * (B.WY - B.TOP - 120), { w: 100, h: 180, ay: 1, life: 1.3, fadeIn: 0.1, a: 0.85 }));   // 专属特效：黑红色的魔焰
           for (const e of B.lives()) { B.hit(e, a * 1.8, 'fire', h); B.burn(e, 6 * k, a * 0.4, h); if (e.def.id !== 'boss') B.fear(e, 1.5); }
         } },
     },
@@ -794,6 +804,7 @@ const SKILLS = (function () {
           const lost = 1 - Math.max(0, B.S.wall) / B.S.wallMax, m = 3 + lost * 2.5;
           B.flash('255,60,40', 0.25, 0.4); B.tex('burst', h.x + 6, h.y - 44, { w: 90, life: 0.5, grow: 1.6, rgb: '255,70,50' });     // 眼里冒出的红光
           h.critT = 4 * k;
+          B.tex('blood_eye', h.x, h.y - 84, { w: 180, life: 0.95, grow: 1.25, fadeIn: 0.1 });                            // 专属特效：一只血红的独眼
           const done = [];
           for (let i = 0; i < 3; i++) B.later(0.15 + i * 0.2, () => {
             const L = B.lives().filter(e => done.every(p => Math.hypot(p.x - e.x, p.y - e.y) > 140)); const pool = L.length ? L : B.lives(); if (!pool.length) return;

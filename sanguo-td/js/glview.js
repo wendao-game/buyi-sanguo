@@ -306,6 +306,7 @@ const GLView = (function () {
       for (let x = 30; x < W; x += 80) img(Lf, 'slash', x, s.y + 4, 110, 40, 0, 0.8, '225,210,255');
       light(W / 2, s.y, 300, 0xe0d0ff, 0.5);
     } else if (s.k === 'ship') {
+      if (img(Lf, 'fire_ship', s.x, s.y + 6, 104, 0, Math.sin(t * 9 + s.x) * 0.05, 1)) { glow(Lf, s.x, s.y + 34, 52, 0xff8c32, 0.4); light(s.x, s.y, 150, 0xffa050, 0.9); return; }   // 周瑜的专属火船图
       img(Lf, 'flame', s.x, s.y + 62, 62, 150, Math.PI + Math.sin(t * 20) * 0.04, 0.9);   // 火尾拖在后面（下方）
       glow(Lf, s.x, s.y, 46, 0xff8c32, 0.5); img(Lf, 'el_orb_fire', s.x, s.y, 74, 74, t * 7, 1);
       light(s.x, s.y, 150, 0xffa050, 0.9);

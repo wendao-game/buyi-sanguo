@@ -5,7 +5,7 @@
   enemy_1.png … enemy_3.png 敌人和各章敌将（enemy_3 是 v1.3 的新敌兵）
   head_1.png … head_8.png    武将正面头像（顺序同 hero_1 … hero_8）
   weapon_1.png、weapon_2.png 兵器图标（透明底）
-  fx_1.png … fx_3.png        技能特效（黑底）
+  fx_1.png … fx_6.png        技能特效（黑底；fx_4 … fx_6 是金、橙武将的专属大招特效）
   battle.png                 战场背景（竖版，会裁成 9:16 缩到 1080×1920）
 用法（在仓库根目录）：python3 sanguo-td/tools/slice_sheets.py
 缺的拼图跳过；切出来的图覆盖同名旧图，最后重写 assets/manifest.js。
@@ -48,6 +48,10 @@ FX_SHEETS = {
     'fx_1': ['slash', 'burst', 'ring', 'flame', 'bolt', 'pillar', 'thrust', 'el_arrow_ice', 'el_arrow_fire'],
     'fx_2': ['el_hit_fire', 'el_hit_ice', 'el_hit_thunder', 'el_hit_wind', 'el_hit_dark', 'el_orb_fire', 'el_orb_wind', 'whirl', 'circle'],
     'fx_3': ['dragon_azure', 'dragon_white', 'phoenix', None, None, None, None, None, None],
+    # 金、橙武将的专属大招特效（fx_4 … fx_6）。和代码生成的同名贴图（moon、halberd、chain、snowflake）重名的会顶替掉它
+    'fx_4': ['seven_stars', 'roar', 'twin_swords', 'arrow_rain', 'halberd_slash', 'fire_ship', 'ghost_mask', 'thunder_lance', 'gold_arrow'],
+    'fx_5': ['thunder_ring', 'moon', 'halberd', 'tiger', 'wolf', 'chain', 'snowflake', 'cross_slash', 'red_arrow'],
+    'fx_6': ['demon_flame', 'blood_eye', None, None, None, None, None, None, None],
 }
 FX_SIZE = {'slash': 384, 'bolt': 384, 'pillar': 384, 'thrust': 384, 'circle': 320, 'whirl': 256, 'flame': 256,
            'el_orb_fire': 128, 'el_orb_wind': 160, 'dragon_azure': 512, 'dragon_white': 512, 'phoenix': 512}

@@ -522,6 +522,7 @@ const Battle = (function () {
       heal(frac) { const v = Math.round(S.wallMax * frac * S.healK); S.healK = Math.max(CFG.HEAL_MIN, S.healK * CFG.HEAL_DECAY); S.wall = Math.min(S.wallMax, S.wall + v); text(W / 2, WY - 10, '城防 +' + v, '#8dff8a', 18, 1.2, true); },
       ring, burst, bolt, later,
       tex: (name, x, y, o) => tex(name, x, y, Object.assign({ force: true }, o)),
+      has: name => !!Assets.get('fx:' + name),                 // 有没有这张特效图（金、橙武将的专属特效是手绘的，没放图时退回原来的画法）
       text: (x, y, s, col, size, life) => text(x, y, s, col, size, life, true),
       flash(rgb, a, t) { S.flash = { color: rgb, a, t, max: t }; },
       shake(t) { S.shake = Math.max(S.shake, t); },
@@ -1043,6 +1044,7 @@ const Battle = (function () {
     } else if (s.k === 'ship') {
       // 火船：贴图画成拖着火尾往敌阵冲的火流星（火尾在后面，也就是下方）；没有贴图时退回画一条小船
       c.globalCompositeOperation = 'lighter';
+      if (img('fire_ship', s.x, s.y + 6, 104, 0, Math.sin(S.t * 9 + s.x) * 0.05, 1)) { glow(s.x, s.y + 30, 50, '255,140,50', 0.4); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; return; }   // 周瑜的专属火船图
       const ok = img('flame', s.x, s.y + 62, 62, 150, Math.PI + Math.sin(S.t * 20) * 0.04, 0.9);
       if (ok) { glow(s.x, s.y, 46, '255,140,50', 0.5); img('el_orb_fire', s.x, s.y, 74, 74, S.t * 7, 1); }
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
