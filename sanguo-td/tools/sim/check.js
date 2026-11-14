@@ -38,7 +38,8 @@ const TEAMS = [                                             // 缘分叠得多�
   // 3 阵容
   const ts = get('team').split('\n').map(l => l.match(/^(.*?)\s+战力.*k=([\d.]+)/)).filter(Boolean).map(m => ({ name: m[1], k: Number(m[2]) }));
   // 上下限按第 60 关（team.js 测的那一关）的正常值算：敌人的组成一改，所有阵容的数值会一起挪，写死的数字就不准了
-  const tBase = load().hpPerPower(60), tMax = tBase * 1.9, tMin = tBase * 0.6;
+  // hpPerPower 是按「达标时挂机胜率 75%」校准的，team.js 找的是胜率 50% 时能扛的血量；胜率每降 12.5 个点大约对应血量 +10%，所以基准要 ×1.2 才是同一个口径
+  const tBase = load().hpPerPower(60) * 1.2, tMax = tBase * 1.9, tMin = tBase * 0.6;
   const tHi = ts.filter(x => x.k > tMax), tLo = ts.filter(x => x.k < tMin);
   line(ts.length === TEAMS.length && !tHi.length && !tLo.length, '阵容', `${ts.length} 支阵容强度 ${(Math.min(...ts.map(x => x.k)) * 1e4).toFixed(0)}–${(Math.max(...ts.map(x => x.k)) * 1e4).toFixed(0)}（这一关的正常值 ${(tBase * 1e4).toFixed(0)}，上限 ${(tMax * 1e4).toFixed(0)}，下限 ${(tMin * 1e4).toFixed(0)}）` + (tHi.length ? '；太强：' + tHi.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join(' / ') : '') + (tLo.length ? '；太弱：' + tLo.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join(' / ') : ''));
   // 4 推荐战力
@@ -46,14 +47,14 @@ const TEAMS = [                                             // 缘分叠得多�
   // 单关只有二三十局、波动大：单关只抓离谱的（达标了还赢不到两成 / 六成战力还能赢一半 / 超两成还输一半），主要看第 20–80 关的平均
   const cBad = []; cs.forEach(c => { if (c.s >= 20 && c.w['1'] < 18) cBad.push(`第 ${c.s} 关战力达标时胜率只有 ${c.w['1']}%`); if (c.s >= 20 && c.w['0.6'] > 50) cBad.push(`第 ${c.s} 关战力只有六成也能赢 ${c.w['0.6']}%`); if (c.w['1.2'] < 50) cBad.push(`第 ${c.s} 关战力超两成只赢 ${c.w['1.2']}%`); });
   const late = cs.filter(c => c.s >= 20), mean = r => late.reduce((s, c) => s + c.w[r], 0) / Math.max(1, late.length), avg1 = mean('1'), avg06 = mean('0.6'), avg12 = mean('1.2');
-  if (avg1 < 45 || avg1 > 78) cBad.push(`战力达标时平均胜率 ${avg1.toFixed(0)}%（应该在 45–78%）`);
+  if (avg1 < 62 || avg1 > 90) cBad.push(`战力达标时平均胜率 ${avg1.toFixed(0)}%（应该在 62–90%）`);   // v1.8：难度适中偏轻松，达标挂机七成半左右
   if (avg06 > 20) cBad.push(`战力只有六成时平均还能赢 ${avg06.toFixed(0)}%（应该不到 20%）`);
   if (avg12 < 75) cBad.push(`战力超两成时平均只赢 ${avg12.toFixed(0)}%（应该 75% 以上）`);
   line(cs.length === 8 && !cBad.length, '推荐战力', `第 20–80 关平均胜率：战力六成 ${avg06.toFixed(0)}% / 达标 ${avg1.toFixed(0)}% / 超两成 ${avg12.toFixed(0)}%；各关达标时：${cs.map(c => c.s + ' 关 ' + c.w['1'] + '%').join('、')}` + (cBad.length ? '；问题：' + cBad.join('；') : ''));
   // 5 进度
   const bs = get('bot').split('\n').map(l => l.match(/结束：打到第\s*(\d+)\s*关，共\s*(\d+)\s*局/)).filter(Boolean).map(m => ({ stage: Number(m[1]), n: Number(m[2]) }));
-  const bBad = bs.filter(b => b.stage < 81 || b.n < 220 || b.n > 750);                     // 抽卡运气影响很大，同样的数值两次能差一倍
-  line(bs.length > 0 && !bBad.length, '进度', bs.map(b => b.stage >= 81 ? `${b.n} 局打完八章` : `${b.n} 局只打到第 ${b.stage} 关`).join('、') + '（应该在 220–750 局；目标 540 左右）');
+  const bBad = bs.filter(b => b.stage < 81 || b.n < 150 || b.n > 750);                     // 抽卡运气影响很大，同样的数值两次能差一倍
+  line(bs.length > 0 && !bBad.length, '进度', bs.map(b => b.stage >= 81 ? `${b.n} 局打完八章` : `${b.n} 局只打到第 ${b.stage} 关`).join('、') + '（应该在 150–750 局；目标 350 左右）');
   console.log(rows.join('\n'));
   console.log((fail ? `自检有 ${fail} 项不通过` : '自检全部通过') + `，用时 ${Math.round((Date.now() - t0) / 1000)} 秒`);
   process.exitCode = fail ? 1 : 0;

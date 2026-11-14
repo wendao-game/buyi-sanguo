@@ -3,7 +3,7 @@
 // 用法：node tools/sim/calibrate.js   → 输出 data.js 里的 HP_PER_POWER 一行
 //       CAL_STAGES=40,50 node tools/sim/calibrate.js   只校准这几关（可以开几个进程分着跑）
 const { load, fight, account, levelTo, planAt } = require('./harness.js');
-const TARGET = 0.62, ACCOUNTS = 16, REPEAT = 2, STAGES = process.env.CAL_STAGES ? process.env.CAL_STAGES.split(',').map(Number) : [1, 3, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80];
+const TARGET = 0.75, ACCOUNTS = 16, REPEAT = 2, STAGES = process.env.CAL_STAGES ? process.env.CAL_STAGES.split(',').map(Number) : [1, 3, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80];
 let K = 0.005, PW = 1000;
 const patch = (G, ctx) => { ctx.stageHpMul = (stage, wave) => K * PW * (1 + 0.07 * (wave - 1)); };
 function winRate(s, accs, k) {

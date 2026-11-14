@@ -56,6 +56,12 @@ const CFG = {
   ROCK_DMG: 1.0,           // 每块伤害 = 当前关卡黄巾兵血量 × 此倍率（并眩晕 1 秒）
   AIM_SLOW: 0.25,          // 手动瞄准大招时的慢动作倍率
   SWAP_DELAY: 1.5,         // 局中换上场的武将过多少秒才第一次出手（怒气从 0 开始）
+  /* —— 爽感（v1.8）—— */
+  HORDE: 1.35,             // 割草：小兵（ENEMIES 里带 horde 的）人数 × 此值，单个的血量、攻击、掉钱概率 ÷ 此值——总量不变，杀得更快更密
+  KILL_RAGE: 0.45,         // 每杀一个敌人，全体武将回这么多怒气（校尉、敌将、器械 ×8）：杀得多，大招就放得勤
+  COMBO_GAP: 2.5,          // 连斩：这么多秒没杀人就断
+  COMBO_STEPS: [[30, '势如破竹'], [60, '横扫千军'], [100, '万夫莫敌'], [150, '所向披靡'], [220, '天下无双']],   // 连斩到这些数：喊一声，全体武将怒气 +COMBO_RAGE
+  COMBO_RAGE: 8,
 
   HEAL_DECAY: 0.7,         // 技能回复城防的递减：每回复一次，之后的回复量 × 此值
   HEAL_MIN: 0.2,           // 回复量最低打到几折
@@ -284,22 +290,22 @@ const STARTER_HEROES = ['liaohua', 'zhoucang', 'peiyuan'];
 
 /* 敌人：hp/atk 会按关卡与波次放大 */
 const ENEMIES = {
-  grunt:  { id: 'grunt',  name: '黄巾兵', hp: 80,   spd: 38, atk: 6,  r: 13, coin: 1,  body: '#9a6b3a', hat: '#e2b53a' },
-  shield: { id: 'shield', name: '刀盾兵', hp: 170,  spd: 26, atk: 8,  r: 15, coin: 2,  body: '#6d7684', hat: '#4b525e' },
-  rider:  { id: 'rider',  name: '轻骑',   hp: 85,   spd: 72, atk: 10, r: 15, coin: 2,  body: '#a8543c', hat: '#5e2c20' },
-  archer: { id: 'archer', name: '弓手',   hp: 50,   spd: 34, atk: 7,  r: 12, coin: 2,  body: '#5d8a4c', hat: '#2f4a28', range: 150 },
+  grunt:  { id: 'grunt', horde: true,  name: '黄巾兵', hp: 80,   spd: 38, atk: 6,  r: 13, coin: 1,  body: '#9a6b3a', hat: '#e2b53a' },
+  shield: { id: 'shield', horde: true, name: '刀盾兵', hp: 170,  spd: 26, atk: 8,  r: 15, coin: 2,  body: '#6d7684', hat: '#4b525e' },
+  rider:  { id: 'rider', horde: true,  name: '轻骑',   hp: 85,   spd: 72, atk: 10, r: 15, coin: 2,  body: '#a8543c', hat: '#5e2c20' },
+  archer: { id: 'archer', horde: true, name: '弓手',   hp: 50,   spd: 34, atk: 7,  r: 12, coin: 2,  body: '#5d8a4c', hat: '#2f4a28', range: 150 },
   elite:  { id: 'elite',  name: '校尉',   hp: 460,  spd: 30, atk: 20, r: 19, coin: 8,  body: '#a83232', hat: '#d8b04a' },
   boss:   { id: 'boss',   name: '敌将',   hp: 2400, spd: 17, atk: 55, r: 34, coin: 50, body: '#3a3140', hat: '#b01f2a' },
   /* —— v1.3 新增：每章登场一种新敌人，各有各的打法 ——
    * from 第几关开始出现；tip 第一次出现时横幅上的一句提示
    * boom 冲到城下自爆（一次性伤害 = atk，自己也没了）；acd 攻击间隔（默认 1 秒）；push 击退系数；cc 被控时长系数；
    * res 各系伤害系数；aura 鼓舞周围敌人（移动、攻城都更快）；heal 给周围敌人回血；lob 远远地抛石头；support 不会攻城，只剩它们时自己溃逃 */
-  sapper:   { id: 'sapper',   name: '死士',   hp: 55,  spd: 82, atk: 34, r: 12, coin: 2,  body: '#7a2a22', hat: '#d83a2a', from: 11, boom: true, tip: '抱着火药桶冲城，到城下就炸——半路射死他' },
+  sapper:   { id: 'sapper', horde: true,   name: '死士',   hp: 55,  spd: 82, atk: 34, r: 12, coin: 2,  body: '#7a2a22', hat: '#d83a2a', from: 11, boom: true, tip: '抱着火药桶冲城，到城下就炸——半路射死他' },
   ram:      { id: 'ram',      name: '冲车',   hp: 760, spd: 16, atk: 44, r: 22, coin: 10, body: '#6b4a2c', hat: '#3c2a1a', from: 21, acd: 2.2, push: 0.3, cc: 0.6, siege: true, tip: '又慢又硬，撞城墙很疼，很难推开——集火打掉' },
   drummer:  { id: 'drummer',  name: '鼓手',   hp: 130, spd: 32, atk: 0,  r: 13, coin: 4,  body: '#8a3a5a', hat: '#e0c060', from: 31, range: 215, aura: 150, support: true, tip: '躲在后面擂鼓，周围的敌人走得更快、砍得更勤' },
-  heavy:    { id: 'heavy',    name: '重甲兵', hp: 330, spd: 24, atk: 12, r: 16, coin: 4,  body: '#4a5262', hat: '#2c3240', from: 41, push: 0.45, cc: 0.5, res: { arrow: 0.7, blade: 0.8, thunder: 1.3 }, tip: '一身铁甲：推不太动、控不太住，弓和刀打他打折，怕雷' },
+  heavy:    { id: 'heavy', horde: true,    name: '重甲兵', hp: 330, spd: 24, atk: 12, r: 16, coin: 4,  body: '#4a5262', hat: '#2c3240', from: 41, push: 0.45, cc: 0.5, res: { arrow: 0.7, blade: 0.8, thunder: 1.3 }, tip: '一身铁甲：推不太动、控不太住，弓和刀打他打折，怕雷' },
   catapult: { id: 'catapult', name: '投石车', hp: 420, spd: 15, atk: 60, r: 21, coin: 10, body: '#70522e', hat: '#3c2a1a', from: 51, range: 320, acd: 4.5, lob: true, push: 0.3, cc: 0.6, siege: true, tip: '停在老远的地方往城墙上砸石头，要靠能打到阵后的大招' },
-  rattan:   { id: 'rattan',   name: '藤甲兵', hp: 210, spd: 36, atk: 10, r: 14, coin: 3,  body: '#b08a3a', hat: '#7a5a22', from: 61, res: { blade: 0.6, arrow: 0.6, fire: 2 }, tip: '藤甲刀枪不入：刃、弓伤害打六折，但是一点就着——用火' },
+  rattan:   { id: 'rattan', horde: true,   name: '藤甲兵', hp: 210, spd: 36, atk: 10, r: 14, coin: 3,  body: '#b08a3a', hat: '#7a5a22', from: 61, res: { blade: 0.6, arrow: 0.6, fire: 2 }, tip: '藤甲刀枪不入：刃、弓伤害打六折，但是一点就着——用火' },
   shaman:   { id: 'shaman',   name: '巫医',   hp: 120, spd: 30, atk: 5,  r: 13, coin: 5,  body: '#5a3a7a', hat: '#c8d0a0', from: 61, range: 200, acd: 1.6, heal: 140, tip: '躲在后面给周围的敌人治伤——先杀他' },
 };
 /* 各章敌将的招式（放一次要 cd 秒；写在 battle.js 的 BOSS_CAST 里） */
@@ -352,7 +358,7 @@ function stagePower(stage) {
 }
 /* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
  * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
-const HP_PER_POWER = [[1, 0.0060], [10, 0.0050], [20, 0.0046], [30, 0.0037], [40, 0.0037], [50, 0.0035], [60, 0.0035], [70, 0.0036], [80, 0.0034]];   // v1.7 品质压平后重新校准（各关校准值 0.0032–0.0049，取平滑后的）
+const HP_PER_POWER = [[1, 0.0060], [10, 0.0054], [20, 0.0049], [30, 0.0042], [40, 0.0038], [50, 0.0039], [60, 0.0043], [70, 0.0046], [80, 0.0048]];   // v1.8 割草 + 击杀回怒之后重新校准，目标：战力达标时挂机胜率七成半（原来六成）
 function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];
@@ -368,7 +374,7 @@ function stageIron(stage)        { return 2 + Math.floor(stage / 5); }   // 通�
 
 /* 生成一波敌人：返回按出场时间排序的 [{t, type, x}] */
 function genWave(stage, wave) {
-  const n = Math.round(10 + wave * 2.2 + Math.min(stage, 40) * 0.6);   // 每波人数：第 40 关以后不再加人（最多 56），后面靠血量变强
+  const n = Math.round((10 + wave * 2.2 + Math.min(stage, 40) * 0.6) * CFG.HORDE);   // 每波人数：第 40 关以后不再加人（最多 76），后面靠血量变强
   const pool = [['grunt', 10]];
   if (stage >= 2 || wave >= 4) pool.push(['shield', 3]);
   if (stage >= 3 || wave >= 6) pool.push(['rider', 3]);
@@ -379,7 +385,7 @@ function genWave(stage, wave) {
   if (stage >= ENEMIES.heavy.from) pool.push(['heavy', 2.5]);
   if (stage >= ENEMIES.rattan.from) pool.push(['rattan', ch === 7 ? 5 : 2]);   // 第 7 章（七擒孟获）藤甲兵是主力，之后只是掺着来
   const total = pool.reduce((s, p) => s + p[1], 0);
-  const dur = 4 + n * 0.1;
+  const dur = 4 + n * 0.1 / CFG.HORDE;                                // 人多了，出场的时间不拉长
   const list = [];
   for (let i = 0; i < n; i++) {
     let r = Math.random() * total, type = 'grunt';

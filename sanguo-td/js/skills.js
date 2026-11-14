@@ -789,19 +789,19 @@ const SKILLS = (function () {
     },
     xiahoudun: {
       passive: { name: '独眼', desc: '暴击伤害 +50%；城防低于一半时自身伤害 +15%', mod: { critDmg: 0.5 }, dmg(B) { return B.S.wall < B.S.wallMax * 0.5 ? 1.15 : 1; } },
-      ult: { desc: '拔矢啖睛：一声怒吼，朝敌人最密的三处各劈一刀，每刀 ×3.5 起、城防每损失 10% 再 +0.4，波及一大片并吓退 1.5 秒；之后 6 秒自身必定暴击（觉醒 9 秒）',
+      ult: { desc: '拔矢啖睛：一声怒吼，朝敌人最密的三处各劈一刀，每刀 ×3 起、城防每损失 10% 再 +0.25，波及一片并吓退 1 秒；之后 4 秒自身必定暴击（觉醒 6 秒）',
         cast(B, h, a, k) {
-          const lost = 1 - Math.max(0, B.S.wall) / B.S.wallMax, m = 3.5 + lost * 4;
+          const lost = 1 - Math.max(0, B.S.wall) / B.S.wallMax, m = 3 + lost * 2.5;
           B.flash('255,60,40', 0.25, 0.4); B.tex('burst', h.x + 6, h.y - 44, { w: 90, life: 0.5, grow: 1.6, rgb: '255,70,50' });     // 眼里冒出的红光
-          h.critT = 6 * k;
+          h.critT = 4 * k;
           const done = [];
           for (let i = 0; i < 3; i++) B.later(0.15 + i * 0.2, () => {
             const L = B.lives().filter(e => done.every(p => Math.hypot(p.x - e.x, p.y - e.y) > 140)); const pool = L.length ? L : B.lives(); if (!pool.length) return;
             let t = pool[0], best = -1; for (const e of pool) { let n = 0; for (const o of pool) if (Math.hypot(o.x - e.x, o.y - e.y) < 110) n++; if (n > best) { best = n; t = e; } }
             const x = t.x, y = t.y; done.push({ x, y });
             B.tex('slash', x, y - 6, { w: 300, h: 120, rot: -0.5 + i * 0.5, life: 0.26, grow: 1.2, rgb: '255,90,70', a: 1 }); B.tex('slash', x, y - 6, { w: 220, h: 70, rot: -0.5 + i * 0.5, life: 0.2, grow: 1.2, rgb: '255,240,230', a: 0.9 });
-            B.ring(x, y, 10, 130, 0.35, '#ff7a5a', 5); B.shake(0.2);
-            B.area(x, y, 130, e => { B.hit(e, a * m, 'blade', h); if (e.def.id !== 'boss') B.fear(e, 1.5); });
+            B.ring(x, y, 10, 115, 0.35, '#ff7a5a', 5); B.shake(0.2);
+            B.area(x, y, 115, e => { B.hit(e, a * m, 'blade', h); if (e.def.id !== 'boss') B.fear(e, 1); });
           });
         } },
     },

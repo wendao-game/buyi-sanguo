@@ -30,7 +30,7 @@ const Battle = (function () {
       queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
       cut: null, lastCut: -99, shock: null, dim: null,
       t: 0, coins: 0, kills: 0,
-      buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 }, guard: { t: 0, k: 1 },
+      buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 }, guard: { t: 0, k: 1 }, combo: 0, comboT: 0, comboPop: 0, comboMax: 0,
       picks: [], dmgLog: {}, teamVer: 0,                     // 已选的军令（换将后要重新算一遍）、下场武将的伤害记录、阵容版本号（界面据此重建大招按钮）
       rock: { n: CFG.ROCK_MAX, max: CFG.ROCK_MAX, t: 0, dmg: 1 }, aim: null, aimT: 0,
       over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, wallHitX: W / 2, wallLag: 0, wallAcc: 0, wallAccX: 0, wallAccT: 0, wallFxT: 0, hurt: 0, alarm: false, healK: 1, banner: null, flash: null,
@@ -92,13 +92,13 @@ const Battle = (function () {
   }
   /* q: { type, x }；召出来的援兵另外带 y（出现的位置）、hpK（血量打几折）、haste（狂奔几秒） */
   function spawn(q) {
-    const d = ENEMIES[q.type], hp = Math.round(d.hp * stageHpMul(S.stage, S.wave) * (q.hpK || 1));
+    const d = ENEMIES[q.type], hk = d.horde ? 1 / CFG.HORDE : 1, hp = Math.round(d.hp * stageHpMul(S.stage, S.wave) * (q.hpK || 1) * hk);   // 小兵：人多、单个脆
     if (q.y == null) S.spawned++;
     S.enemies.push({
       def: d, name: d.id === 'boss' ? S.ch.boss : d.name, x: q.x, y: q.y == null ? -d.r - rand() * 16 : q.y,
       demon: d.id === 'boss' && !!S.ch.hero,                 // 心魔：也是武将的敌将，画成黑紫色的影子
       hasteT: q.haste || 0, auraT: 0, shieldT: 0, ccImm: 0, chargeT: 0, supT: 1 + rand(), skT: d.id === 'boss' ? S.bossSk.cd * 0.6 : 0, enraged: false, revived: false,
-      hp, max: hp, atk: d.atk * stageAtkMul(S.stage), spd: d.spd * (0.9 + rand() * 0.2),
+      hp, max: hp, atk: d.atk * stageAtkMul(S.stage) * hk, spd: d.spd * (0.9 + rand() * 0.2),
       stopY: WY - 15 - d.r - rand() * 12 - (d.range ? d.range * (0.6 + rand() * 0.4) : 0),
       acd: 0.3 + rand() * 0.7, flash: 0, frozen: 0, slow: 0, burn: 0, burnT: 0, burnDps: 0, burnSrc: null,
       psn: 0, psnT: 0, psnDps: 0, psnSrc: null, psnMark: 0, vuln: 0, vulnT: 0, fear: 0, conf: 0, confT: 0, confSrc: null, mark: 0,
@@ -126,7 +126,7 @@ const Battle = (function () {
     Sfx.music(null); Sfx.play(win ? 'win' : 'lose');
     S.banner = { text: win ? '大获全胜' : '城池失守', t: 99, max: 99 };
     const res = settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins));
-    res.win = win; res.kills = S.kills; res.stage = S.stage; res.wave = S.wave;
+    res.win = win; res.kills = S.kills; res.stage = S.stage; res.wave = S.wave; res.combo = S.comboMax;
     res.dmg = damageList();
     const ref = S;
     setTimeout(() => { if (S === ref) UI.showResult(res); }, 1100);
@@ -258,6 +258,15 @@ const Battle = (function () {
       return;
     }
     e.dead = true; S.kills++;
+    // 连斩和击杀回怒：杀得越快越密，大招放得越勤
+    const big2 = isBig(e) || !!e.def.siege, kr = CFG.KILL_RAGE * (big2 ? 8 : 1);
+    for (const h of S.heroes) h.rage = Math.min(100, h.rage + kr);
+    S.combo = S.comboT > 0 ? S.combo + 1 : 1; S.comboT = CFG.COMBO_GAP; S.comboPop = 1; if (S.combo > S.comboMax) S.comboMax = S.combo;
+    for (const st of CFG.COMBO_STEPS) if (S.combo === st[0]) {
+      text(W / 2, 236, st[1], '#ffd24a', 34, 1.8, true); Sfx.play('ult');
+      S.flash = { color: '255,220,120', a: 0.22, t: 0.35, max: 0.35 };
+      for (const h of S.heroes) { h.rage = Math.min(100, h.rage + CFG.COMBO_RAGE); ring(h.x, h.y + 20, 10, 46, 0.4, '#ffd24a', 3); }
+    }
     burst(e.x, e.y, e.def.id === 'boss' ? 40 : 4, e.def.body, 120, 4, 0.5);
     if (S.parts.length < 400) burst(e.x, e.y - 4, 3, '#ffe2a0', 170, 2, 0.3, 320);
     if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, flip: e.flip, x: e.x, y: e.y, life: 0.5, max: 0.5, el: el || '', dir: rand() < 0.5 ? -1 : 1 });   // el：按是被什么打死的，倒下的样子不同
@@ -272,8 +281,9 @@ const Battle = (function () {
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (e.def.id === 'boss') Sfx.play('bossdie');
     if (e.demon) { for (let i = 0; i < 3; i++) tex('el_hit_dark', e.x + (rand() - 0.5) * 50, e.y - 20 - i * 26, { w: 150, life: 0.9 + i * 0.2, grow: 1.6, vy: -40, force: true }); text(e.x, e.y - 90, '心魔已散', '#d8b4ff', 22, 1.6, true); }
-    if (isBig(e) || rand() < CFG.COIN_DROP_RATE) dropCoin(e);
-    if (rand() < CFG.BUN_DROP_RATE) S.drops.push({ k: 'bun', x: e.x, y: e.y, sx: e.x, sy: e.y, t: 0, dur: 0.8, wait: 0.5, val: 0.04 });
+    const dk = e.def.horde ? 1 / CFG.HORDE : 1;                 // 小兵多了，单个掉东西的概率相应低一些，总量不变
+    if (isBig(e) || rand() < CFG.COIN_DROP_RATE * dk) dropCoin(e);
+    if (rand() < CFG.BUN_DROP_RATE * dk) S.drops.push({ k: 'bun', x: e.x, y: e.y, sx: e.x, sy: e.y, t: 0, dur: 0.8, wait: 0.5, val: 0.04 });
     if (src && src.sk && src.sk.passive.onKill) src.sk.passive.onKill(B, src, e, el);
     for (const h of S.heroes) if (h.sk && h.sk.passive.onAnyKill) h.sk.passive.onAnyKill(B, h, e);
   }
@@ -560,6 +570,7 @@ const Battle = (function () {
     for (let i = 0; i < 10; i++) part(h.x + (rand() - 0.5) * 56, h.y + 24 - rand() * 20, (rand() - 0.5) * 20, -150 - rand() * 170, 0.45 + rand() * 0.35, q.color, 2.4);   // 往上蹿的光点
     S.dim = { t: 0.5, max: 0.5 };                               // 放大招的一瞬间场景压暗，特效更突出
     B.pt = pt || null;
+    const k0 = S.kills; later(1.6, () => { const n = S.kills - k0; if (n >= 8) text(h.x, h.y - 84, '一招 ' + n + ' 杀', '#ffd24a', n >= 20 ? 26 : 21, 1.4, true); });   // 大招放完看这一下杀了多少
     if (h.sk) h.sk.ult.cast(B, h, a, k); else defaultUlt(h, a);
     B.pt = null;
     if (h.sk && h.sk.passive.onUlt) h.sk.passive.onUlt(B, h);
@@ -627,6 +638,8 @@ const Battle = (function () {
     for (let i = S.timers.length - 1; i >= 0; i--) { const tm = S.timers[i]; if ((tm.t -= dt) <= 0) { S.timers.splice(i, 1); tm.fn(); if (!S || S.over) return; } }
     if (S.haste.t > 0) S.haste.t -= dt;
     if (S.guard.t > 0) S.guard.t -= dt;
+    if (S.comboT > 0 && (S.comboT -= dt) <= 0) S.combo = 0;
+    if (S.comboPop > 0) S.comboPop = Math.max(0, S.comboPop - dt * 6);
     if (S.windT > 0) S.windT -= dt;
     if (S.rock.n < S.rock.max && (S.rock.t += dt) >= CFG.ROCK_CD) { S.rock.n++; S.rock.t = 0; }
 
@@ -1287,6 +1300,7 @@ const Battle = (function () {
       outlined('再点一次头像 = 自动选目标', W / 2, 174, 13, '#e8d8b8', 'center', 3);
     }
 
+    if (S.combo >= 5 && !S.over) { c.globalAlpha = Math.min(1, S.comboT / 0.8); outlined('连斩 ' + S.combo, W / 2, 134, 22 * (1 + S.comboPop * 0.25), S.combo >= 100 ? '#ff7a3a' : S.combo >= 30 ? '#ffd24a' : '#fff0d0', 'center', 4); c.globalAlpha = 1; }
     if (S.banner) {
       const p = S.banner.t / S.banner.max, a = S.banner.max > 50 ? 1 : Math.min(1, p * 3, (1 - p) * 6);
       c.globalAlpha = a;

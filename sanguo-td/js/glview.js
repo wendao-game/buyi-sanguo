@@ -541,6 +541,10 @@ const GLView = (function () {
     sp(Lo, TX.gradV, 0, 0, W, 120, { ax: 0, ay: 0, tint: 0x0a0604, a: 0.75 });
     txt(Lh, numH, '第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关', W / 2, 40, 27, '#ffd76a', 'center', 5, 1, -1);
     const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
+    if (S.combo >= 5 && !S.over) {                          // 连斩：快断的时候变淡
+      const k = 1 + S.comboPop * 0.35, al = Math.min(1, S.comboT / 0.8), hot = S.combo >= 100 ? '#ff7a3a' : S.combo >= 30 ? '#ffd24a' : '#fff0d0';
+      txt(Lh, numH, '连斩', W / 2 - 8, 132, 17, hot, 'right', 4, al, -1); txt(Lh, numH, String(S.combo), W / 2 - 2, 134, 26, hot, 'left', 4, al, k);
+    }
     const hp = Math.max(0, S.wall / S.wallMax), lag = Math.min(1, Math.max(hp, (S.wallLag || 0) / S.wallMax)), hf = Math.min(1, Math.max(0, S.wallFlash) * 6), low = hp < 0.3 && !S.over;
     const hx = hf > 0 ? Math.sin(t * 95) * 2.6 * hf : 0, hurt = Math.max((S.hurt || 0) * 0.85, low ? 0.32 + 0.18 * Math.sin(t * 5.5) : 0);   // 挨打时血条抖一下、屏幕四周泛红；快破城时一直闪
     if (hurt > 0.01) sp(Lo, TX.vig, 0, 0, W, H, { ax: 0, ay: 0, a: hurt });
