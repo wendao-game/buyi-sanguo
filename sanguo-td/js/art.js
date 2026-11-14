@@ -633,5 +633,7 @@ const Art = (function () {
     }
     try { return (wCache[key] = cv.toDataURL()); } catch (e) { return (wCache[key] = im ? im.src : ''); }
   }
-  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU, crack, weaponIcon, shield };
+  /* 进游戏之后才下完的图：把已经做好的头像、兵器图标作废，下次用的时候按新图重做 */
+  function refresh() { Object.keys(pCache).forEach(k => delete pCache[k]); Object.keys(wCache).forEach(k => delete wCache[k]); }
+  return { background, hero, enemy, enemyGhost, heroSprite, enemySprite, portrait, depth, circ, ell, rr, TAU, crack, weaponIcon, shield, refresh };
 })();
