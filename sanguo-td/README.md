@@ -74,7 +74,7 @@
   - `brush.woff2` 马善政毛笔体：logo、大标题、大招名（只留用得到的约 370 个字）
   - `num.woff2` Fredoka：数字和英文字母
 - 都是 SIL Open Font License 1.1，可商用、可随游戏分发；许可全文在 `assets/fonts/*.OFL.txt`，原始字体在 `tools/fonts-src/`。
-- **claude.ai 试玩页要公开分享时**：平台审核只认图片和音视频，`.woff2` 字体文件过不了。发布试玩页前跑 `python3 sanguo-td/tools/artifact_css.py`，它会生成一份把三个字体嵌进去的 `style.css`，用它顶替 `css/style.css` 发上去，`assets/fonts/` 不发。正式上线不需要这一步。
+- **claude.ai 试玩页要公开分享时**：平台审核只认 JPEG / PNG / GIF / WebP 图片和常见音视频，字体文件、SVG、AVIF 都过不了。发布试玩页前跑 `python3 sanguo-td/tools/artifact_build.py`，它生成三个试玩页专用的文件顶替同名文件：`css/style.css`（去掉 @font-face）、`js/fontload.js`（字体数据放在脚本里，用 FontFace 接口注册；仓库里的同名文件是空的占位）、`js/lib/pixi.min.js`（去掉库里探测 AVIF / WebM 用的内嵌样本）；`assets/fonts/` 不发。面板四角的花纹原来是内嵌 SVG，已改成 `assets/ui/corner_*.png`。正式上线不需要这一步。
 - **改了游戏里的文字（新武将名、新技能名等）之后**，在仓库根目录运行一次 `python3 sanguo-td/tools/build_fonts.py`（需要 `pip install fonttools brotli`）重新裁字；没运行也不会出错，新出现的字会退回系统字体。
 - 小号说明文字保持系统字体（好认）。
 

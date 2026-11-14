@@ -234,10 +234,10 @@ textarea.code { width: 100%; height: 150px; margin-top: 4px; padding: 8px; borde
   --fb: 'SGBrush', 'SGNum', 'SGRound', "STKaiti", "KaiTi", serif;
   --fs: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
   --gold-hi: #fff0b4; --gold-lo: #b8862a; --lacquer: #2c1b13;
-  --c-tl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cpath d='M2 28V8a6 6 0 0 1 6-6h20' fill='none' stroke='%23f2d27a' stroke-width='2.4'/%3E%3Cpath d='M8 28V13a5 5 0 0 1 5-5h15M14 22v-5a3 3 0 0 1 3-3h5' fill='none' stroke='%23b8862a' stroke-width='1.6'/%3E%3C/svg%3E");
-  --c-tr: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cg transform='translate(30 0) scale(-1 1)'%3E%3Cpath d='M2 28V8a6 6 0 0 1 6-6h20' fill='none' stroke='%23f2d27a' stroke-width='2.4'/%3E%3Cpath d='M8 28V13a5 5 0 0 1 5-5h15M14 22v-5a3 3 0 0 1 3-3h5' fill='none' stroke='%23b8862a' stroke-width='1.6'/%3E%3C/g%3E%3C/svg%3E");
-  --c-bl: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cg transform='translate(0 30) scale(1 -1)'%3E%3Cpath d='M2 28V8a6 6 0 0 1 6-6h20' fill='none' stroke='%23f2d27a' stroke-width='2.4'/%3E%3Cpath d='M8 28V13a5 5 0 0 1 5-5h15M14 22v-5a3 3 0 0 1 3-3h5' fill='none' stroke='%23b8862a' stroke-width='1.6'/%3E%3C/g%3E%3C/svg%3E");
-  --c-br: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30'%3E%3Cg transform='translate(30 30) scale(-1 -1)'%3E%3Cpath d='M2 28V8a6 6 0 0 1 6-6h20' fill='none' stroke='%23f2d27a' stroke-width='2.4'/%3E%3Cpath d='M8 28V13a5 5 0 0 1 5-5h15M14 22v-5a3 3 0 0 1 3-3h5' fill='none' stroke='%23b8862a' stroke-width='1.6'/%3E%3C/g%3E%3C/svg%3E");
+  --c-tl: url("../assets/ui/corner_tl.png");
+  --c-tr: url("../assets/ui/corner_tr.png");
+  --c-bl: url("../assets/ui/corner_bl.png");
+  --c-br: url("../assets/ui/corner_br.png");
   --panel-bg: var(--c-tl) left 6px top 6px / 30px no-repeat, var(--c-tr) right 6px top 6px / 30px no-repeat, var(--c-bl) left 6px bottom 6px / 30px no-repeat, var(--c-br) right 6px bottom 6px / 30px no-repeat,
     repeating-linear-gradient(135deg, #ffffff06 0 2px, transparent 2px 9px),
     radial-gradient(120% 90% at 50% 0%, #5c3a27 0%, #2f1d14 58%, #1d120c 100%);
