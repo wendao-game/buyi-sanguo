@@ -40,7 +40,7 @@ const UI = (function () {
 
   /* ---------------- 页面切换 ---------------- */
   function show(tab) {
-    screen = tab; $('#app').dataset.screen = tab;
+    screen = tab; $('#app').dataset.screen = tab; lpDraft = null;
     hideTip();                                              // 上一个页面的提示不带过来
     Sfx.music(tab === 'battle' ? 'battle' : 'home');
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
@@ -161,14 +161,14 @@ const UI = (function () {
     modal(h + '</div>');
   }
 
-  function skillHtml(id, own) {
+  function skillHtml(id, own, noCombo) {
     const d = HERO_MAP[id], el = ELEMENTS[d.el], sk = heroSkill(id), awake = heroAwake(id, own);
     const combos = COMBOS.filter(c => c.ids.includes(id)).map(c => c.name + '（' + c.ids.map(x => HERO_MAP[x].name).join('、') + (c.need < c.ids.length ? ' 中 ' + c.need + ' 人' : '') + (c.must ? '，须有' + HERO_MAP[c.must].name : '') + '）：' + c.desc).join('<br>');
     return `<div class="dskill"><b>普攻 · ${el.name}</b>：${el.desc}
       ${sk ? `<br><b>被动 · ${sk.passive.name}</b>：${sk.passive.desc}
       <br><b>大招 · ${d.ult}</b>：${sk.ult.desc.replace(d.ult + '：', '')}${sk.ult.aim ? '<i class="aimtag">可瞄准</i>' : ''}
       <br><span class="${awake ? 'awake' : 'dim'}">${CFG.AWAKEN_STAR} 星觉醒：大招效果 ×1.5${awake ? '（已觉醒）' : ''}</span>` : `<br><b>大招 · ${d.ult}</b>：${el.ult}`}
-      ${combos ? `<br><b>缘分</b>：<span class="dim">${combos}</span>` : ''}</div>`;
+      ${combos && !noCombo ? `<br><b>缘分</b>：<span class="dim">${combos}</span>` : ''}</div>`;
   }
   function bondHelp() {
     const fac = Object.keys(FACTION_BONDS).map(f => { const b = FACTION_BONDS[f]; return `<tr><td>${FACTIONS[f].name} · ${b.name}</td><td>${b.fmt(0).replace(/\s*\+0%$/, '')}：2 人 +${Math.round(b.vals[0] * 100)}% / 3 人 +${Math.round(b.vals[1] * 100)}% / 4 人以上 +${Math.round(b.vals[2] * 100)}%</td></tr>`; }).join('');
@@ -363,21 +363,65 @@ const UI = (function () {
     const own = Save.data.heroes;
     const slots = lpDraft.map((id, i) => {
       const role = SLOT_ROLES[i], fit = id && (role.leader || role.els.includes(HERO_MAP[id].el)), sel = lpSel && lpSel.t === 's' && lpSel.i === i;
-      return id ? `<div class="tslot has ${sel ? 'pick' : ''}" style="--qc:${qc(id)}" data-act="lpSlot" data-i="${i}"><em class="${fit ? 'fit' : ''}">${role.name}</em><img src="${P(id)}"><span>${HERO_MAP[id].name}</span></div>`
+      return id ? `<div class="tslot has ${sel ? 'pick' : ''}" style="--qc:${qc(id)}" data-act="lpSlot" data-i="${i}"><em class="${fit ? 'fit' : ''}">${role.name}</em><img src="${P(id)}"><span>${HERO_MAP[id].name}</span><b class="lpi" data-act="lpInfo" data-id="${id}">详</b></div>`
         : `<div class="tslot ${sel ? 'pick' : ''}" data-act="lpSlot" data-i="${i}"><em>${role.name}</em>空位</div>`;
     }).join('');
     const bench = Object.keys(own).filter(id => !lpDraft.includes(id)).sort((a, b) => heroStats(b).power - heroStats(a).power);
     const cards = bench.map(id => { const d = HERO_MAP[id], q = QUALITIES[d.q], sel = lpSel && lpSel.t === 'h' && lpSel.id === id;
-      return `<div class="card ${sel ? 'pick' : ''}" style="--qc:${q.color}" data-act="lpHero" data-id="${id}"><i class="qtag">${ELEMENTS[d.el].name}</i><img src="${P(id)}"><div class="cname">${d.name}</div><div class="cmeta">Lv.${own[id].lv} · ${heroStats(id).power}</div></div>`; }).join('');
+      return `<div class="card ${sel ? 'pick' : ''}" style="--qc:${q.color}" data-act="lpHero" data-id="${id}"><i class="qtag">${ELEMENTS[d.el].name}</i><img src="${P(id)}"><div class="cname">${d.name}</div><div class="cmeta">Lv.${own[id].lv} · ${heroStats(id).power}</div><b class="lpi" data-act="lpInfo" data-id="${id}">详</b></div>`; }).join('');
     const b = teamBonus(lpDraft), bonds = b.active.filter(a => a.type !== 'slot').map(a => a.name).join('、');
-    const hint = lpSel ? (lpSel.t === 's' ? '再点下面的武将换上来，或点另一个位置交换站位' : '再点上面的一个位置，把他换上去') : '点一个位置，再点下面的武将换上；点两个位置交换站位';
+    const hint = lpSel ? (lpSel.t === 's' ? '再点下面的武将换上来，或点另一个位置交换站位' : '再点上面的一个位置，把他换上去') : '点一个位置，再点下面的武将换上；点两个位置交换站位。点头像角上的「详」看技能和缘分';
     modal(`<div class="mbox lp"><h2>更换武将</h2>
       <div class="team">${slots}</div>
-      <div class="lpinfo"><span>战力 <b>${teamPower(lpDraft)}</b></span><span>${bonds ? '羁绊：' + bonds : '没有激活的羁绊'}</span></div>
+      <div class="lpinfo"><span>战力 <b>${teamPower(lpDraft)}</b></span><span class="lpb" data-act="lpBonds">${bonds ? '羁绊：' + bonds : '没有激活的羁绊'}<i>详情 ›</i></span></div>
       <p class="mtext lphint">${hint}</p>
       <div class="lpgrid">${cards || '<p class="mtext" style="grid-column:1/-1;padding:18px 0">没有其他武将了，去招募吧</p>'}</div>
       <p class="mtext" style="font-size:12.5px;margin-top:8px">留在场上的武将保留怒气；新上场的怒气从 0 开始，${CFG.SWAP_DELAY} 秒后出手</p>
       <div class="mrow"><button class="btn gray" data-act="lpOff">下阵</button><button class="btn" data-act="lpCancel">取消</button><button class="btn red" data-act="lpOk">确定</button></div></div>`, false);
+  }
+  /* 换将面板里看某个武将：技能、兵器、他能凑的缘分（按草稿阵容标出已经凑齐的）。只看不改，关掉回到换将面板 */
+  function lpInfo(id) {
+    const d = HERO_MAP[id], q = QUALITIES[d.q], el = ELEMENTS[d.el], own = heroOwn(id), st = heroStats(id), has = Save.data.heroes;
+    const wid = heroWeapon(id), w = wid && WEAPON_MAP[wid], on = lpDraft.includes(id);
+    const combos = COMBOS.filter(c => c.ids.includes(id)).map(c => {
+      const n = c.ids.filter(x => lpDraft.includes(x)).length, ok = n >= c.need && (!c.must || lpDraft.includes(c.must));
+      return `<tr class="${ok ? 'on' : ''}"><td>${c.name}${ok ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${lpDraft.includes(x) ? 'in' : has[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}</td></tr>`;
+    }).join('');
+    const slot = lpDraft.indexOf(id), role = slot >= 0 ? SLOT_ROLES[slot] : null, fit = role && (role.leader || role.els.includes(d.el));
+    modal(`<div class="mbox" style="--qc:${q.color}"><button class="x" data-act="lpBack">×</button>
+      <div class="dhead"><img src="${P(id, 128)}"><div>
+        <h3>${d.name}</h3><p>${d.title}</p>
+        <span class="tag">${q.name}品</span><span class="tag dark">${FACTIONS[d.fac].name}</span><span class="tag dark">${el.name}系</span>
+        <p style="margin-top:6px">Lv.${own.lv}　${stars(own.star)}</p>
+      </div></div>
+      <div class="dstat"><div><b>${st.atk}</b>攻击</div><div><b>${(1 / st.cd).toFixed(2)}</b>每秒出手</div><div><b>${st.power}</b>战力</div></div>
+      ${skillHtml(id, own, true)}
+      ${w ? `<div class="wrow ro" style="--wq:${QUALITIES[w.q].color}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${weaponOwn(wid).lv}${w.owner === id ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, id))}</div></div>` : ''}
+      <p class="mtext lpwhere">${on ? '现在站在「' + role.name + '」' + (fit ? '，位置合适' : '，这个位置对他没有加成（' + role.desc + '）') : '没有上阵 · 适合的位置：' + SLOT_ROLES.filter((r, i) => i <= 2 && (r.leader || r.els.includes(d.el))).map(r => r.name).join('、')}</p>
+      <h4 class="sub">他的缘分（<span class="in">亮色</span> = 已在阵，灰色 = 还没获得）</h4>
+      ${combos ? `<table class="rates wrap lpc">${combos}</table>` : '<p class="mtext">没有专属的缘分，靠阵营羁绊和属性共鸣</p>'}
+      <div class="mrow"><button class="btn" data-act="lpBack">返回换将</button></div></div>`, false);
+  }
+  /* 换将面板里看羁绊：草稿阵容已经激活的、差一个人就能激活的 */
+  function lpBonds() {
+    const b = teamBonus(lpDraft), has = Save.data.heroes;
+    const act = b.active.map(a => `<tr class="on"><td>${a.name}</td><td>${a.desc}</td></tr>`).join('');
+    const near = COMBOS.map(c => {
+      const inn = c.ids.filter(x => lpDraft.includes(x)), ok = inn.length >= c.need && (!c.must || lpDraft.includes(c.must));
+      if (ok || !inn.length) return '';
+      let miss = [];
+      if (c.must && !lpDraft.includes(c.must)) { if (inn.length < c.need - 1 || !has[c.must]) return ''; miss = [c.must]; }
+      else { if (inn.length !== c.need - 1) return ''; miss = c.ids.filter(x => !lpDraft.includes(x) && has[x]); }
+      if (!miss.length) return '';
+      return `<tr><td>${c.name}</td><td>已有 ${inn.map(x => HERO_MAP[x].name).join('、')}，再上 <span class="in">${miss.map(x => HERO_MAP[x].name).join(' / ')}</span>：${c.desc}</td></tr>`;
+    }).join('');
+    const facs = Object.keys(FACTION_BONDS).map(f => { const n = b.fac[f] || 0; return n ? FACTIONS[f].name + ' ' + n : ''; }).filter(Boolean).join('　');
+    const els = Object.keys(b.elc).map(e => ELEMENTS[e].name + ' ' + b.elc[e]).join('　');
+    modal(`<div class="mbox"><button class="x" data-act="lpBack">×</button><h2>阵容羁绊</h2>
+      <p class="mtext lpwhere">阵营：${facs || '无'}<br>攻击类型：${els || '无'}</p>
+      <h4 class="sub">已经激活</h4>${act ? `<table class="rates wrap lpc">${act}</table>` : '<p class="mtext">还没有激活的羁绊</p>'}
+      <h4 class="sub">再上一个人就能激活</h4>${near ? `<table class="rates wrap lpc">${near}</table>` : '<p class="mtext">手上的武将凑不出更多缘分了</p>'}
+      <div class="mrow"><button class="btn gray" data-act="bondHelp">全部羁绊</button><button class="btn" data-act="lpBack">返回换将</button></div></div>`, false);
   }
   function showBuffs(opts, cb) {
     buffCb = cb;
@@ -405,7 +449,7 @@ const UI = (function () {
   /* ---------------- 点击处理 ---------------- */
   const ACT = {
     nav: d => { pickSlot = -1; show(d.tab); },
-    close: () => { closeModal(); if (screen !== 'battle') render(); },
+    close: () => { if (lpDraft) return renderLineup(); closeModal(); if (screen !== 'battle') render(); },   // 换将面板里打开的子窗口：关掉回到换将面板
     stage: d => { const S = Save.data; S.pick = Math.max(1, Math.min(S.stage, S.pick + Number(d.d))); Save.save(); render(); },
     fight: () => startBattle(Save.data.pick),
     settings: () => settings(),
@@ -543,6 +587,9 @@ const UI = (function () {
       else lpSel = lpSel && lpSel.t === 'h' && lpSel.id === d.id ? null : { t: 'h', id: d.id };
       renderLineup();
     },
+    lpInfo: d => { if (lpDraft && heroOwn(d.id)) lpInfo(d.id); },
+    lpBonds: () => { if (lpDraft) lpBonds(); },
+    lpBack: () => { if (lpDraft) renderLineup(); else closeModal(); },
     lpOff: () => {
       if (!lpSel || lpSel.t !== 's' || !lpDraft[lpSel.i]) return toast('先点一个有武将的位置');
       if (lpDraft.filter(Boolean).length <= 1) return toast('至少要留一名武将守城');

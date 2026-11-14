@@ -453,6 +453,14 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 .lpinfo { display: flex; justify-content: space-between; gap: 10px; margin: 10px 2px 0; font-family: var(--fr); font-size: 14px; color: #c8b08a; }
 .lpinfo b { color: var(--gold2); font-size: 18px; font-weight: normal; }
 .lpinfo span:last-child { text-align: right; font-size: 12.5px; }
+.lpi { position: absolute; right: -5px; top: -5px; width: 24px; height: 24px; line-height: 24px; border-radius: 50%; font-family: var(--fr); font-size: 13px; font-weight: normal; text-align: center; color: #2a1608; background: linear-gradient(#ffe9a8, #d8a23a); box-shadow: 0 0 0 1.5px #1a0e08, 0 2px 4px #000a; z-index: 2; }
+.tslot .lpi { right: 2px; top: 2px; }
+.lpb { cursor: pointer; }
+.lpb i { font-style: normal; color: var(--gold2); margin-left: 6px; white-space: nowrap; }
+.lpwhere { font-size: 13px; margin: 8px 0 2px; color: #c8b08a; line-height: 1.6; }
+.lpc tr.on td:first-child { color: #8dff8a; }
+.lpc .in, .sub .in { color: #ffd76a; }
+.wrow.ro { cursor: default; }
 .lphint { font-size: 13px; color: #ffb36a; margin: 6px 0 8px; line-height: 1.5; }
 .lpgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px 9px; max-height: 318px; overflow-y: auto; padding: 8px 6px 6px; border-radius: 10px; background: #00000066; box-shadow: inset 0 0 0 1.5px #5a3e22; }
 .lpgrid::-webkit-scrollbar { width: 0; }
