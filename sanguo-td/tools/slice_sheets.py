@@ -36,6 +36,8 @@ HEAD_SHEETS = {'head_' + k[5:]: v[1] for k, v in SHEETS_ORDER.items() if k.start
 WEAPON_SHEETS = {
     'weapon_1': ['fangtian', 'yitian', 'baiyushan', 'qinglong', 'zhangba', 'cixiong', 'guding', 'qilingong', 'guanshifu'],
     'weapon_2': ['bailian', 'liannu', 'heyushan', 'huanshou', 'zhemugong', 'changmao', 'tiejian', 'liegong', 'podao'],
+    'weapon_3': ['liangyin', 'jiaowei', 'qixing', 'hutou', 'shuangji', 'goulian', 'taiping', 'dunjia', 'liuxing'],
+    'weapon_4': ['sanjian', 'wugou', 'guduo', 'duanji', 'tongchui', 'bingshu', 'chaifu', 'zhuqiang', 'pushan'],
 }
 # 特效拼图（黑底）：名字 -> 最长边
 FX_SHEETS = {

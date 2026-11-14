@@ -14,7 +14,7 @@ function load(patch) {
   ctx.window = ctx; ctx.globalThis = ctx;
   vm.createContext(ctx);
   let src = ['data', 'skills', 'save', 'battle'].map(f => fs.readFileSync(ROOT + f + '.js', 'utf8')).join('\n');
-  src += '\n;globalThis.G = { COMBOS, STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, WEAPONS, WEAPON_MAP, weaponOwn, heroWeapon, weaponStats, weaponUpCost, weaponUp, weaponEquip, weaponMelt, weaponMeltBack, weaponSpent, stageIron, starSoulCost, starNeed, heroRefine, refineBatch, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn, capture, captureAt };';
+  src += '\n;globalThis.G = { COMBOS, STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, WEAPONS, WEAPON_MAP, weaponOwn, heroWeapon, weaponStats, weaponUpCost, weaponUp, weaponEquip, weaponMelt, weaponMeltBack, weaponSpent, stageIron, starSoulCost, starNeed, heroRefine, refineBatch, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn };';
   vm.runInContext(src, ctx);
   ctx.G.ctx = ctx;
   if (patch) patch(ctx.G, ctx);
@@ -91,7 +91,6 @@ function planAt(stage) {
 function account(draws, lv, patch, iron, stage) {
   const G = load(patch), D = G.Save.data;
   D.tickets = draws; while (D.tickets >= 10) G.gachaDraw(10); while (D.tickets >= 1) G.gachaDraw(1);
-  for (let c = 1; c * 10 < (stage || 1); c++) G.capture(c * 10);   // 打到这一关之前，前面各章的敌将已经收服了
   starOwn(G); Object.keys(D.heroes).forEach(id => { D.heroes[id].lv = lv; });
   bestTeam(G); spendSoul(G); bestTeam(G);
   D.iron += iron || 0; spendIron(G);                       // 抽卡时重复兵器熔出来的精铁 + 规划里通关给的精铁，全部拿去强化

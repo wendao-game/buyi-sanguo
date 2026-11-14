@@ -30,7 +30,6 @@ const Save = {
       soul: 0,             // 将魂（碎片炼化得来，升星时顶碎片用）
       weapons: {},         // 已有的兵器：id → { lv, hero: 装在谁身上 / null }
       tips: {},            // 已经看过的新手提示
-      captured: {},        // 已经收服的敌将：id → 1（每章只送一次）
       earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
       at: 0,               // 最后保存时间
       ver: 2,
@@ -44,9 +43,6 @@ const Save = {
     Object.keys(this.data.heroes).forEach(id => { if (!HERO_MAP[id]) delete this.data.heroes[id]; });
     this.data.team = (Array.isArray(this.data.team) ? this.data.team : []).slice(0, 5).map(id => (id && this.data.heroes[id] ? id : null));
     while (this.data.team.length < 5) this.data.team.push(null);
-    // 老存档：以前打通的章节，把那一章的敌将补发给他
-    this.data.captured = (this.data.captured && typeof this.data.captured === 'object') ? this.data.captured : {};
-    for (let c = 1; c * 10 < this.data.stage; c++) capture(c * 10);
     if (!this.data.team.some(Boolean)) { const first = Object.keys(this.data.heroes)[0]; if (first) this.data.team[2] = first; }
     // 兵器：清掉已不存在的；装在不存在的武将身上、或者两件装在同一个人身上的，卸下来
     const W = this.data.weapons = (this.data.weapons && typeof this.data.weapons === 'object') ? this.data.weapons : {}, used = {};
@@ -389,27 +385,18 @@ function settleBattle(stage, win, wavesCleared, dropped) {
   const S = Save.data;
   const base = Math.round(stageWinCoins(stage) * (stage < S.stage ? CFG.REPLAY_COIN : 1));   // 重复打已通关的关：通关金币打折（掉落照常）
   const coins = dropped + (win ? base : Math.floor(base * 0.3 * wavesCleared / CFG.WAVES));
-  let tickets = 0, first = false, captured = null;
+  let tickets = 0, first = false;
   if (win && stage >= S.stage) {
     first = true;
     tickets = (stage % 10 === 0) ? 5 : 1;       // 首通奖励，章节末关给 5 张
     S.stage = stage + 1;
     S.pick = S.stage;
-    captured = capture(stage);                  // 章节末关：收服这一章的敌将
   }
   const ironBase = stageIron(stage) * (stage < S.stage && !first ? CFG.REPLAY_COIN : 1);              // 精铁：重复通关同样减半；战败按打过的波数给三成
   const iron = win ? Math.max(1, Math.round(ironBase)) : Math.floor(ironBase * 0.3 * wavesCleared / CFG.WAVES);
   gain(coins, tickets); S.iron = (S.iron || 0) + iron;
   Save.save();
-  return { coins, tickets, first, dropped, iron, captured };
-}
-/* 收服第 stage 关的敌将（每名只送一次）：没有的直接得到，已经有的变成碎片。返回武将 id，没有可收服的返回 null */
-function capture(stage) {
-  const id = captureAt(stage), S = Save.data;
-  if (!id || !HERO_MAP[id] || (S.captured && S.captured[id])) return null;
-  (S.captured = S.captured || {})[id] = 1;
-  grantHero(id);
-  return id;
+  return { coins, tickets, first, dropped, iron };
 }
 
 /* ---------------- 礼包码 ---------------- */

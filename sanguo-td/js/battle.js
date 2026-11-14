@@ -96,7 +96,7 @@ const Battle = (function () {
     if (q.y == null) S.spawned++;
     S.enemies.push({
       def: d, name: d.id === 'boss' ? S.ch.boss : d.name, x: q.x, y: q.y == null ? -d.r - rand() * 16 : q.y,
-      demon: d.id === 'boss' && !!S.ch.hero,                 // 心魔：能收服的敌将，画成黑紫色的影子
+      demon: d.id === 'boss' && !!S.ch.hero,                 // 心魔：也是武将的敌将，画成黑紫色的影子
       hasteT: q.haste || 0, auraT: 0, shieldT: 0, ccImm: 0, chargeT: 0, supT: 1 + rand(), skT: d.id === 'boss' ? S.bossSk.cd * 0.6 : 0, enraged: false, revived: false,
       hp, max: hp, atk: d.atk * stageAtkMul(S.stage), spd: d.spd * (0.9 + rand() * 0.2),
       stopY: WY - 15 - d.r - rand() * 12 - (d.range ? d.range * (0.6 + rand() * 0.4) : 0),

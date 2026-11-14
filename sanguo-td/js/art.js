@@ -610,6 +610,19 @@ const Art = (function () {
         shaft(-12, 27, 2.8); shape([[0, -30], [4.4, -20], [0, -13], [-4.4, -20]], METAL);
         [-1, 1].forEach(s => { c.beginPath(); c.moveTo(s * 2.5, -15); c.quadraticCurveTo(s * 14, -22, s * 11, -7); c.quadraticCurveTo(s * 7, -12, s * 2.5, -8); c.closePath(); c.fillStyle = METAL; c.fill(); c.strokeStyle = OUT; c.lineWidth = 2; c.stroke(); });
         c.fillStyle = RED; c.beginPath(); c.arc(0, -6, 2.6, 0, TAU); c.fill();
+      } else if (t === 'hammer') {
+        shaft(-10, 27, 3.2);
+        c.fillStyle = METAL; c.strokeStyle = OUT; c.lineWidth = 2.2; c.beginPath(); c.arc(0, -17, 10, 0, TAU); c.fill(); c.stroke();
+        c.strokeStyle = SHADE; c.lineWidth = 1.4; c.beginPath(); c.arc(0, -17, 6, 0.6, 2.4); c.stroke();
+        for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; shape([[Math.cos(a) * 9, -17 + Math.sin(a) * 9], [Math.cos(a + 0.25) * 13.5, -17 + Math.sin(a + 0.25) * 13.5], [Math.cos(a + 0.5) * 9, -17 + Math.sin(a + 0.5) * 9]], SHADE); }
+        shape([[-4, -8], [4, -8], [3, -4], [-3, -4]], GOLD);
+      } else if (t === 'relic') {                               // 宝物：一卷竹简
+        c.rotate(-0.7);
+        shape([[-17, -11], [17, -11], [17, 11], [-17, 11]], '#d8b878');
+        c.strokeStyle = '#8a6a3a'; c.lineWidth = 1.2; for (let i = -3; i <= 3; i++) { c.beginPath(); c.moveTo(i * 4.6, -10); c.lineTo(i * 4.6, 10); c.stroke(); }
+        c.strokeStyle = RED; c.lineWidth = 2; c.beginPath(); c.moveTo(-17, -5); c.lineTo(17, -5); c.moveTo(-17, 5); c.lineTo(17, 5); c.stroke();
+        [-19, 19].forEach(x => { c.strokeStyle = OUT; c.lineWidth = 6; c.beginPath(); c.moveTo(x, -14); c.lineTo(x, 14); c.stroke(); c.strokeStyle = WOOD; c.lineWidth = 3.4; c.beginPath(); c.moveTo(x, -14); c.lineTo(x, 14); c.stroke(); });
+        c.fillStyle = GOLD; c.strokeStyle = OUT; c.lineWidth = 1.6; c.beginPath(); c.arc(0, 0, 3.4, 0, TAU); c.fill(); c.stroke();
       } else {                                                  // 斧
         shaft(-22, 27, 3.2);
         c.beginPath(); c.moveTo(1.5, -22); c.quadraticCurveTo(15, -27, 15, -11); c.quadraticCurveTo(15, 3, 1.5, -2); c.closePath(); c.fillStyle = METAL; c.fill(); c.strokeStyle = OUT; c.lineWidth = 2.2; c.stroke();

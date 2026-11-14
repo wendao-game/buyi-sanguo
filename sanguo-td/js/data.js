@@ -227,7 +227,7 @@ const HEROES = [
  *   owner 专属武将：装在他身上时全部加成 × CFG.WEAPON_OWNER_MUL
  * 数值规划见《数值规划.md》第 6 节
  * ============================================================ */
-const WEAPON_TYPES = { sword: '剑', blade: '刀', spear: '枪', bow: '弓', fan: '扇', halberd: '戟', axe: '斧' };
+const WEAPON_TYPES = { sword: '剑', blade: '刀', spear: '枪', bow: '弓', fan: '扇', halberd: '戟', axe: '斧', hammer: '锤', relic: '宝物' };
 const WSTATS = { atk: '攻击', spd: '出手速度', crit: '暴击率', rage: '怒气获取', ult: '大招伤害' };
 function Wp(id, name, q, type, eff, owner, desc) { return { id, name, q, type, eff, owner: owner || null, desc: desc || '' }; }
 const WEAPONS = [
@@ -249,6 +249,25 @@ const WEAPONS = [
   Wp('fangtian',   '方天画戟',   5, 'halberd', { atk: 0.24, spd: 0.10 }, 'lvbu', '人中吕布，戟中方天'),
   Wp('yitian',     '倚天剑',     5, 'sword',   { atk: 0.24, crit: 0.10 }, 'caocao', '倚天而立，削铁如泥'),
   Wp('baiyushan',  '白羽扇',     5, 'fan',     { atk: 0.20, ult: 0.25 }, 'zhugeliang', '羽扇纶巾，谈笑间樯橹灰飞烟灭'),
+  // —— v1.5 新增 18 件：每个品质再加 3 件，多了「锤」和「宝物」（书、琴这类不是兵刃的东西）两类 ——
+  Wp('chaifu',     '柴斧',       0, 'axe',     { atk: 0.04 }, null, '砍柴的斧头，抡起来也能要命'),
+  Wp('zhuqiang',   '竹枪',       0, 'spear',   { atk: 0.02, spd: 0.03 }, null, '削尖的竹竿，黄巾军人手一根'),
+  Wp('pushan',     '蒲扇',       0, 'fan',     { rage: 0.07 }, null, '摇着凉快，心也静些'),
+  Wp('duanji',     '短戟',       1, 'halberd', { atk: 0.05, crit: 0.02 }, null, '单手使的小戟，也能掷出去'),
+  Wp('tongchui',   '铜锤',       1, 'hammer',  { atk: 0.07 }, null, '实心铜锤，专砸盔甲'),
+  Wp('bingshu',    '竹简兵书',   1, 'relic',   { atk: 0.03, rage: 0.10 }, null, '一卷翻旧了的兵法'),
+  Wp('sanjian',    '三尖两刃刀', 2, 'blade',   { atk: 0.09, spd: 0.03 }, null, '刀头分三尖，两面开刃'),
+  Wp('wugou',      '吴钩',       2, 'sword',   { spd: 0.07, crit: 0.05 }, null, '江东的弯刀，出手极快'),
+  Wp('guduo',      '铁蒺藜骨朵', 2, 'hammer',  { atk: 0.10, crit: 0.02 }, null, '带刺的铁锤头，蛮王沙摩柯的兵器'),
+  Wp('taiping',    '太平要术',   3, 'relic',   { atk: 0.11, ult: 0.14 }, 'zhangjiao', '南华老仙所授的三卷天书'),
+  Wp('dunjia',     '遁甲天书',   3, 'relic',   { atk: 0.10, rage: 0.18 }, 'zuoci', '峨眉山石壁里得来的天书'),
+  Wp('liuxing',    '流星锤',     3, 'hammer',  { atk: 0.12, crit: 0.07 }, null, '铁链拴着的锤头，百步之内指哪打哪'),
+  Wp('hutou',      '虎头湛金枪', 4, 'spear',   { atk: 0.18, spd: 0.08 }, 'machao', '枪头如虎口吞刃，通体鎏金'),
+  Wp('shuangji',   '双铁戟',     4, 'halberd', { atk: 0.18, ult: 0.15 }, 'dianwei', '一对重八十斤的大铁戟'),
+  Wp('goulian',    '钩镰刀',     4, 'blade',   { atk: 0.16, spd: 0.10 }, 'zhangliao', '刀背带钩，专破骑兵'),
+  Wp('liangyin',   '龙胆亮银枪', 5, 'spear',   { atk: 0.22, crit: 0.12 }, 'zhaoyun', '七进七出，枪下无一合之将'),
+  Wp('jiaowei',    '焦尾琴',     5, 'relic',   { atk: 0.20, rage: 0.30 }, 'zhouyu', '曲有误，周郎顾'),
+  Wp('qixing',     '七星宝刀',   5, 'blade',   { atk: 0.22, crit: 0.06, ult: 0.12 }, null, '镶着七颗宝石的短刀，曹操曾拿它去刺董卓'),
 ];
 const WEAPON_MAP = {};
 WEAPONS.forEach(w => { WEAPON_MAP[w.id] = w; });
@@ -295,7 +314,7 @@ function bossSkill(stage) { return BOSS_SKILLS[Math.min(BOSS_SKILLS.length, Math
 function newEnemyAt(stage) { for (const k in ENEMIES) if (ENEMIES[k].from === stage) return ENEMIES[k]; return null; }
 
 /* 各章敌将；立绘是 assets/enemies/boss_<章>.png（第 9 章起用 boss_9）。
- * hero：站在对面的是这名武将的「心魔」（一身黑紫气焰的影子）；第一次打通这一章的最后一关 = 降服心魔，武将本人归心加入（之后也进卡池，抽到重复的用来升星） */
+ * hero：这名敌将也是卡池里能抽到的武将，所以站在对面的是他的「心魔」（一身黑紫气焰的影子），名字前面加「心魔·」 */
 const CHAPTERS = [
   { name: '黄巾之乱', boss: '程远志', hero: 'chengyuanzhi' },
   { name: '讨伐董卓', boss: '董卓',   hero: 'dongzhuo' },
@@ -306,12 +325,10 @@ const CHAPTERS = [
   { name: '七擒孟获', boss: '孟获',   hero: 'menghuo' },
   { name: '北伐中原', boss: '曹纯',   hero: 'caochun' },
 ];
-/* 打通第 stage 关能收服谁（只有每章最后一关有；没有就是 null） */
-function captureAt(stage) { const c = stage % 10 === 0 ? CHAPTERS[stage / 10 - 1] : null; return c && c.hero ? c.hero : null; }
 function chapterOf(stage) {
   const idx = Math.floor((stage - 1) / 10);
   const c = CHAPTERS[idx] || { name: '乱世无尽', boss: '幽冥鬼将' };
-  // 能收服的敌将，站在对面的是他的「心魔」：打败心魔，本人归心
+  // 也是武将的敌将，站在对面的是他的「心魔」
   return { index: idx + 1, name: c.name, boss: c.hero ? '心魔·' + c.boss : c.boss, who: c.boss, hero: c.hero || null, sub: ((stage - 1) % 10) + 1 };
 }
 
@@ -321,7 +338,7 @@ function chapterOf(stage) {
  *       再用不带画面的模拟器（tools/sim/）校准，让「战力 = 推荐战力」时挂机胜率约六成。
  * ============================================================ */
 /* 每章最后一关的战力预算（第 0 项 = 开局）。章内按等比插值；第 8 章之后每关 +3% */
-const STAGE_POWER = [250, 2750, 7500, 15500, 25800, 41700, 58400, 86000, 116500];   // 前两章比模拟算出来的（3100、7900）放宽一些：新手期不卡人
+const STAGE_POWER = [250, 2750, 7500, 15500, 25800, 41700, 59500, 86000, 119000];   // 前两章比模拟算出来的（3100、7900）放宽一些：新手期不卡人
 function stagePower(stage) {
   const n = STAGE_POWER.length - 1, s = Math.max(1, stage);
   if (s >= n * 10) return STAGE_POWER[n] * Math.pow(1.03, s - n * 10);
