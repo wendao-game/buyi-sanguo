@@ -280,7 +280,7 @@ const UI = (function () {
         <h2>群英招募</h2><p>白 · 绿 · 蓝 · 紫 · 金 · 橙　武将与兵器同池</p>
         <div class="gshow">${showIds.map(id => `<img src="${P(id)}">`).join('')}</div>
       </div>
-      <div class="gstat">招募令 <b>${fmt(S.tickets)}</b>　·　再 <b>${Math.max(1, CFG.PITY - S.pity)}</b> 抽必得橙品武将</div>
+      <div class="gstat">招募令 <b>${fmt(S.tickets)}</b>　·　再 <b>${Math.max(1, CFG.PITY - S.pity)}</b> 抽必得${QUALITIES[CFG.PITY_Q].name}品武将</div>
       <div class="grow">
         <button class="btn" data-act="draw" data-n="1">招募 1 次<small>招募令 ×1</small></button>
         <button class="btn red" data-act="draw" data-n="10">招募 10 次<small>招募令 ×10 · 必出紫品以上</small></button>
@@ -322,7 +322,7 @@ const UI = (function () {
       return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '未开放'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>
-      <p class="mtext" style="font-size:13px;margin-top:10px">每一抽先定品质，再有 ${ws}% 的概率是这个品质的兵器、${100 - ws}% 是武将；同品质里每个概率相同<br>十连必出紫品以上 · 累计 ${CFG.PITY} 抽没出橙品武将时，下一抽必得橙品武将<br>以上为单抽基础概率，计入保底后紫、橙的实际概率更高<br>重复武将转为碎片用于升星；重复兵器熔成精铁用于强化</p></div>`);
+      <p class="mtext" style="font-size:13px;margin-top:10px">每一抽先定品质，再有 ${ws}% 的概率是这个品质的兵器、${100 - ws}% 是武将；同品质里每个概率相同<br>十连必出紫品以上 · 累计 ${CFG.PITY} 抽没出${QUALITIES[CFG.PITY_Q].name}品以上的武将时，下一抽必得${QUALITIES[CFG.PITY_Q].name}品武将<br>以上为单抽基础概率，计入保底后紫、金的实际概率更高<br>重复武将转为碎片用于升星；重复兵器熔成精铁用于强化</p></div>`);
   }
   /* 网页版模拟广告：看完 resolve(true)，中途放弃 resolve(false) */
   function fakeAd(sec) {

@@ -371,11 +371,11 @@ function gachaDraw(n) {
   if (n >= 10 && !qs.some(q => q >= CFG.TEN_GUARANTEE_Q)) qs[n - 1] = CFG.TEN_GUARANTEE_Q;
   const res = qs.map(q => {
     S.pity++;
-    const must = S.pity >= CFG.PITY;                        // 保底：这么多抽没出橙品武将，这一抽必出橙品武将（橙品兵器不算，也不清零）
-    if (must) q = 5;
+    const must = S.pity >= CFG.PITY;                        // 保底：这么多抽没出金品以上的武将，这一抽必出金品武将（兵器不算，也不清零；这一抽本来是橙就还是橙）
+    if (must && q < CFG.PITY_Q) q = CFG.PITY_Q;
     const wp = (WEAPON_POOL[q] || []).filter(id => !WEAPON_MAP[id].lock || (S.unlocked && S.unlocked[id]));   // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将（没解锁的神兽兵器不在池子里）
     if (!must && wp.length && Math.random() < CFG.WEAPON_SHARE) return grantWeapon(wp[Math.floor(Math.random() * wp.length)]);
-    if (q >= 5) S.pity = 0;
+    if (q >= CFG.PITY_Q) S.pity = 0;
     const pool = GACHA_POOL[q];
     return grantHero(pool[Math.floor(Math.random() * pool.length)]);
   });
