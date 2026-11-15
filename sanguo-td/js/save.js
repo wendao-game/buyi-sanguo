@@ -31,7 +31,7 @@ const Save = {
       weapons: {},         // 已有的兵器：id → { lv, hero: 装在谁身上 / null }
       tips: {},            // 已经看过的新手提示
       unlocked: {},        // 奇遇里解锁的神兽兵器：兵器 id → 1（解锁后才会进卡池）
-      enc: { n: 0, kills: {} },   // 奇遇：连着多少局没碰上、各击败过几次
+      enc: { n: 0, kills: {}, seen: {} },   // 奇遇：连着多少局没碰上、各击败过几次、见过哪些（奇遇录）
       earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
       at: 0,               // 最后保存时间
       ver: 2,
@@ -406,7 +406,7 @@ function settleBattle(stage, win, wavesCleared, dropped, encId) {
 /* 出征时掷一次：这一局会不会碰上山贼首领 / 神兽（没有返回 null）。神兽优先出兵器还没解锁的那几只 */
 function rollEncounter(stage) {
   const S = Save.data;
-  S.enc = (S.enc && typeof S.enc === 'object') ? S.enc : { n: 0, kills: {} }; S.enc.kills = S.enc.kills || {};
+  S.enc = (S.enc && typeof S.enc === 'object') ? S.enc : { n: 0, kills: {} }; S.enc.kills = S.enc.kills || {}; S.enc.seen = S.enc.seen || {};
   S.unlocked = (S.unlocked && typeof S.unlocked === 'object') ? S.unlocked : {};
   const of = k => ENCOUNTERS.filter(e => e.kind === k && stage >= e.from), beasts = of('beast'), bandits = of('bandit');
   const r = Math.random();

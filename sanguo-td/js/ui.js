@@ -81,9 +81,21 @@ const UI = (function () {
         </div>
         ${pw < rec ? '<div class="tip">战力不足？去「武将」页凑羁绊、调站位；战斗中点战场可以投石</div>' : ''}
       </div>
-      <div class="homefoot"><button class="link" data-act="settings">设置 · 存档</button><div id="cloudNote" class="cloudnote">${Cloud.note()}</div></div>`;
+      <div class="homefoot"><button class="link" data-act="settings">设置 · 存档</button>${S.enc && S.enc.seen && Object.keys(S.enc.seen).length ? '<button class="link" data-act="encLog">奇遇录</button>' : ''}<div id="cloudNote" class="cloudnote">${Cloud.note()}</div></div>`;
   }
 
+  /* 奇遇录：碰到过的山贼首领和神兽（没见过的只写「？？？」，让玩家自己去碰） */
+  function encLog() {
+    const E = Save.data.enc || {}, seen = E.seen || {}, kills = E.kills || {}, un = Save.data.unlocked || {};
+    const rows = ENCOUNTERS.map(e => {
+      if (!seen[e.id]) return `<div class="encrow dim"><b>？？？</b><span>还没有遇见</span></div>`;
+      const w = e.weapon ? WEAPON_MAP[e.weapon] : null;
+      return `<div class="encrow" style="--ec:rgb(${e.aura || '232,192,74'})"><b>${e.name}</b><span>${kills[e.id] ? '击败 ' + kills[e.id] + ' 次' : '还没击败过'}</span>
+        <p>${e.skills.map(k => '「' + k.name + '」' + k.desc).join('；')}</p>
+        <p class="rw">${w ? (un[e.weapon] ? '已解锁「' + w.name + '」，再击败有重赏' : '击败后解锁「' + w.name + '」') : '击败有赏金'}</p></div>`;
+    }).join('');
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>奇遇录</h2><div class="enclist">${rows}</div></div>`);
+  }
   /* 敌情：这一关的敌将会什么招、有哪些特别的敌人（这一关新登场的标出来） */
   function intel(st) {
     const ch = chapterOf(st), sk = bossSkill(st);
@@ -461,6 +473,7 @@ const UI = (function () {
     stage: d => { const S = Save.data; S.pick = Math.max(1, Math.min(S.stage, S.pick + Number(d.d))); Save.save(); render(); },
     fight: () => startBattle(Save.data.pick),
     settings: () => settings(),
+    encLog: () => encLog(),
     codeOut: () => codeOut(),
     codeIn: () => codeIn(),
     codeCopy: () => {

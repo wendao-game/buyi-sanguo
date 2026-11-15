@@ -123,7 +123,13 @@ const Battle = (function () {
       e.look = Object.assign({}, d, { key: 'enc_' + x.id, body: x.body, hat: x.hat, beast: x.kind === 'beast' ? x.id : '' }); e.spr = 'enemies/enc_' + x.id;
       e.sk = x.skills.map(k => ({ k, t: k.cd * 0.5 }));
       e.fleeT = x.kind === 'beast' ? CFG.ENC.flee : 0;         // 神兽不恋战：这么多秒没被击败就遁走（不给奖励，也不再攻城）
-      ring(e.x, 40, 20, 260, 0.8, '#ffd24a', 6);
+      ring(e.x, 40, 20, 260, 0.8, x.aura ? 'rgb(' + x.aura + ')' : '#ffd24a', 6);
+      (Save.data.enc.seen = Save.data.enc.seen || {})[x.id] = 1;   // 奇遇录：见过了
+      if (x.kind === 'beast') {                               // 神兽登场：天色一变，一道光柱落下来
+        S.flash = { color: x.aura, a: 0.35, t: 0.9, max: 0.9 }; S.shake = Math.max(S.shake, 0.5); Sfx.play('bossdie');
+        tex('pillar', e.x, 150, { w: 220, h: 620, ay: 1, life: 1.4, fadeIn: 0.1, rgb: x.aura, force: true }); shockwave(e.x, 60, 420, 1.2);
+        for (let i = 0; i < 3; i++) ring(e.x, 60, 20, 200 + i * 120, 0.7 + i * 0.25, 'rgb(' + x.aura + ')', 5);
+      }
     }
   }
   /* 敌人造型：第 1 章黄巾兵，之后换官军造型；敌将每章不同 */
@@ -304,7 +310,8 @@ const Battle = (function () {
     if ((e.def.id === 'boss' || e.rare) && !S.over) { S.slowT = 1.0; S.slowAt = { x: e.x, y: e.y }; }          // 敌将倒下：慢动作
     if (e.rare && S.enc) {                                    // 奇遇里的那一只被击败了
       S.enc.killed = true;
-      text(W / 2, 250, '击败 ' + e.rare.name, '#ffd24a', 32, 2.2, true); S.flash = { color: '255,220,120', a: 0.3, t: 0.5, max: 0.5 }; Sfx.play('win');
+      text(W / 2, 250, '击败 ' + e.rare.name, '#ffd24a', 32, 2.2, true);
+      if (e.rare.weapon && !(Save.data.unlocked || {})[e.rare.weapon]) text(W / 2, 292, '解锁「' + WEAPON_MAP[e.rare.weapon].name + '」', '#ffe9a8', 22, 2.2, true); S.flash = { color: '255,220,120', a: 0.3, t: 0.5, max: 0.5 }; Sfx.play('win');
       tex('pillar', e.x, e.y + 20, { w: 170, h: 560, ay: 1, life: 1.3, fadeIn: 0.1, rgb: '255,220,120', force: true }); ring(e.x, e.y, 10, 200, 0.6, '#ffd24a', 6); shockwave(e.x, e.y, 420, 1.4);
       for (let i = 0; i < 10; i++) dropCoin(e);
     }
@@ -371,7 +378,7 @@ const Battle = (function () {
     if (delay > 0) S.timers.push({ t: delay, fn: fx }); else fx();
   }
   /* ---------------- 敌将的招式（每章一个，名字和说明在 data.js 的 BOSS_SKILLS） ---------------- */
-  function bossShout(e, name) { text(e.x, e.y - e.def.r * 2.6 - 34, name, '#ff6a4a', 24, 1.4, true); Sfx.play('horn'); }
+  function bossShout(e, name) { text(e.x, e.y - e.def.r * 2.6 - 34, name, e.aura ? 'rgb(' + e.aura + ')' : '#ff6a4a', 24, 1.4, true); Sfx.play('horn'); }
   function summon(e, type, n, o) {
     if (S.enemies.length > 90) return;                          // 场上人太多就不再叫人
     for (let i = 0; i < n; i++) {
@@ -387,8 +394,9 @@ const Battle = (function () {
   /* 敌人朝武将飞过去的一下：dur 秒后命中才扣血。look: 'arrow' 箭 / 'knife' 飞刀 / 'rock' 石头 */
   function strikeHero(e, h, frac, look, dur, after) {
     const ref = S, x0 = e.x, y0 = e.y - (e.def.id === 'boss' || e.def.id === 'rare' ? 20 : 6);
-    S.shots.push({ k: 'earrow', rock: look === 'rock', knife: look === 'knife', big: e.def.id === 'boss' || e.def.id === 'rare', x: x0, y: y0, x0, y0, tx: h.x, ty: h.y - 20, t: 0, dur, arc: look === 'rock' ? 110 : 0 });
-    S.timers.push({ t: dur, fn: () => { if (S === ref && !S.over) { heroHurt(h, frac * S.heroHit); if (after) after(); } } });
+    const orb = look && look.orb ? look : null;               // 神兽吐的光球：{ orb: 贴图名, rgb }
+    S.shots.push({ k: 'earrow', rock: look === 'rock', knife: look === 'knife', orb: orb ? orb.orb : '', rgb: orb ? orb.rgb : '', big: e.def.id === 'boss' || e.def.id === 'rare', x: x0, y: y0, x0, y0, tx: h.x, ty: h.y - 20, t: 0, dur, arc: look === 'rock' ? 110 : 0 });
+    S.timers.push({ t: dur, fn: () => { if (S === ref && !S.over) { heroHurt(h, frac * S.heroHit); if (orb) { tex('burst', h.x, h.y - 24, { w: 110, life: 0.25, grow: 1.5, rgb: orb.rgb, force: true }); ring(h.x, h.y - 10, 8, 60, 0.3, 'rgb(' + orb.rgb + ')', 4); } if (after) after(); } } });
   }
   const livingHeroes = () => S.heroes.filter(h => !h.dead);
   function pickHeroes(n, low) {
@@ -405,17 +413,20 @@ const Battle = (function () {
         for (const x of S.enemies) if (!x.dead) x.hasteT = k.t;
         ring(e.x, e.y, 20, 520, 0.7, '#ff7a50', 6); S.flash = { color: '255,90,60', a: 0.2, t: 0.4, max: 0.4 }; S.shake = Math.max(S.shake, 0.25);
         break;
-      case 'charge': e.chargeT = 1.5; e.slow = 0; ring(e.x, e.y, 10, 90, 0.4, '#ffd9a0', 5); break;
+      case 'charge': e.chargeT = 1.5; e.slow = 0; ring(e.x, e.y, 10, 90, 0.4, k.rgb ? 'rgb(' + k.rgb + ')' : '#ffd9a0', 5);
+        if (k.rgb) for (let i = 0; i < 3; i++) tex('el_hit_wind', e.x + (i - 1) * 46, e.y - 30 - i * 14, { w: 150, life: 0.9, grow: 1.5, spin: 1.2, a: 0.7, rgb: k.rgb, force: true });   // 神兽：脚下翻起一团云气
+        break;
       case 'shield':
         for (const x of S.enemies) if (!x.dead && Math.hypot(x.x - e.x, x.y - e.y) < k.r) x.shieldT = k.t;
         ring(e.x, e.y, 20, Math.min(520, k.r), 0.5, '#8fd0ff', 6);
         break;
       case 'heal': {
-        for (const x of S.enemies) if (!x.dead && x.hp < x.max && Math.hypot(x.x - e.x, x.y - e.y) < k.r) { x.hp = Math.min(x.max, x.hp + Math.round(x.max * (x === e ? k.frac * 0.4 : k.frac))); if (S.fx.length < 120) tex('el_hit_wind', x.x, x.y - 8, { w: 46, life: 0.5, grow: 1.4, rgb: '140,255,140' }); }
-        ring(e.x, e.y, 20, Math.min(520, k.r), 0.6, '#8dff8a', 5);
+        for (const x of S.enemies) if (!x.dead && x.hp < x.max && Math.hypot(x.x - e.x, x.y - e.y) < k.r) { x.hp = Math.min(x.max, x.hp + Math.round(x.max * (x === e ? k.frac * 0.4 : k.frac))); if (S.fx.length < 120) tex(k.fx === 'ice' ? 'el_hit_ice' : 'el_hit_wind', x.x, x.y - 8, { w: 46, life: 0.5, grow: 1.4, rgb: k.rgb || '140,255,140' }); }
+        ring(e.x, e.y, 20, Math.min(520, k.r), 0.6, k.rgb ? 'rgb(' + k.rgb + ')' : '#8dff8a', 5);
+        if (k.fx === 'ice') { tex('snowflake', e.x, e.y - 20, { w: 260, life: 0.9, grow: 1.6, spin: 0.8, a: 0.8, rgb: k.rgb, force: true }); S.flash = { color: k.rgb, a: 0.16, t: 0.4, max: 0.4 }; }   // 玄武的寒潮
         break;
       }
-      case 'guard': e.guardT = k.t; e.guardK = k.mul || 0.4; ring(e.x, e.y, 10, 80, 0.5, '#e8c860', 6); tex('circle', e.x, e.y + 10, { w: 150, h: 60, life: k.t, spin: 2, rgb: '240,200,90', a: 0.8, fadeIn: 0.05, force: true }); break;
+      case 'guard': e.guardT = k.t; e.guardK = k.mul || 0.4; ring(e.x, e.y, 10, 80, 0.5, k.rgb ? 'rgb(' + k.rgb + ')' : '#e8c860', 6); tex('circle', e.x, e.y + 10, { w: 150, h: 60, life: k.t, spin: 2, rgb: k.rgb || '240,200,90', a: 0.8, fadeIn: 0.05, force: true }); break;
       case 'wallhit': e.atkT = 0.24; wallHurt(e, e.x, 0.15, k.dmg); ring(e.x, WY - 10, 10, 130, 0.4, '#ffb090', 6); S.shake = Math.max(S.shake, 0.35); break;
       case 'burnwall':
         S.wallBurn = { t: k.t, dps: k.dps * e.atk, tick: 0 };
@@ -423,19 +434,26 @@ const Battle = (function () {
         S.flash = { color: '255,120,50', a: 0.18, t: 0.35, max: 0.35 };
         break;
       case 'shoot':
-        pickHeroes(k.n, k.low).forEach((h, i) => { const ref = S; S.timers.push({ t: i * 0.18, fn: () => { if (S === ref && !S.over && !e.dead && !h.dead) strikeHero(e, h, k.dmg, k.name === '飞刀' ? 'knife' : 'arrow', 0.32); } }); });
+        pickHeroes(k.n, k.low).forEach((h, i) => { const ref = S; S.timers.push({ t: i * 0.18, fn: () => { if (S === ref && !S.over && !e.dead && !h.dead) strikeHero(e, h, k.dmg, k.orb ? { orb: k.orb, rgb: k.rgb } : k.name === '飞刀' ? 'knife' : 'arrow', k.orb ? 0.5 : 0.32); } }); });
+        if (k.orb) { ring(e.x, e.y - 10, 10, 110, 0.4, 'rgb(' + k.rgb + ')', 5); tex('burst', e.x, e.y - 20, { w: 150, life: 0.3, grow: 1.4, rgb: k.rgb, force: true }); }
         break;
       case 'smash': {
         const h = pickHeroes(1)[0]; if (!h) break;
         const ref = S; tex('circle', h.x, h.y + 26, { w: 110, h: 44, life: 0.6, spin: 3, rgb: '255,90,70', a: 0.9, force: true });      // 先在脚下亮一圈红的，半秒后才砸下来
         S.timers.push({ t: 0.55, fn: () => {
           if (S !== ref || S.over || h.dead) return;
-          bolt(h.x + 30, h.y - 220, h.x, h.y - 10, 2.2); tex('burst', h.x, h.y - 20, { w: 150, life: 0.25, grow: 1.4, rgb: '255,160,120', force: true }); shockwave(h.x, h.y, 120, 0.6); S.shake = Math.max(S.shake, 0.3);
+          if (k.fx === 'tiger') { tex('tiger', h.x, h.y - 30, { w: 210, life: 0.45, grow: 1.25, fadeIn: 0.05, rgb: k.rgb, force: true }); tex('cross_slash', h.x, h.y - 24, { w: 170, life: 0.3, grow: 1.3, rgb: k.rgb, force: true }); }   // 白虎：一道虎影扑下来
+          else bolt(h.x + 30, h.y - 220, h.x, h.y - 10, 2.2);
+          tex('burst', h.x, h.y - 20, { w: 150, life: 0.25, grow: 1.4, rgb: k.fx === 'tiger' ? k.rgb : '255,160,120', force: true }); shockwave(h.x, h.y, 120, 0.6); S.shake = Math.max(S.shake, 0.3);
           heroHurt(h, k.dmg * S.heroHit); if (!h.dead) h.stunT = Math.max(h.stunT, k.stun);
         } });
         break;
       }
       case 'rain':
+        if (k.fx === 'fire') {                                  // 朱雀的火雨：一团团火从天上砸到城楼上
+          for (let i = 0; i < 10; i++) { const ref = S, fx0 = 70 + rand() * (W - 140), fy0 = WY + 20 + rand() * 70; S.timers.push({ t: i * 0.05, fn: () => { if (S !== ref || S.over) return; tex('el_arrow_fire', fx0 - 40, fy0 - 190, { w: 120, life: 0.4, vx: 100, vy: 470, rot: 1.36, a: 0.95, force: true }); S.timers.push({ t: 0.4, fn: () => { if (S === ref && !S.over) tex('el_hit_fire', fx0, fy0, { w: 110, life: 0.35, grow: 1.5, force: true }); } }); } }); }
+          S.flash = { color: '255,120,50', a: 0.2, t: 0.5, max: 0.5 };
+        } else
         for (let i = 0; i < 8; i++) { const ref = S; S.timers.push({ t: i * 0.06, fn: () => { if (S === ref && !S.over) tex('arrow_rain', 80 + rand() * (W - 160), WY + 10 + rand() * 60, { w: 150, life: 0.45, vy: 620, a: 0.9, rgb: Assets.get('fx:arrow_rain') ? undefined : '255,200,140', force: true }); } }); }
         { const ref = S; S.timers.push({ t: 0.45, fn: () => { if (S === ref && !S.over) for (const h of livingHeroes()) heroHurt(h, k.dmg * S.heroHit); } }); }
         break;
@@ -1052,7 +1070,8 @@ const Battle = (function () {
       let ax, ay;
       if (s.k === 'arrow') { ax = s.x - s.px; ay = s.y - s.py; } else { ax = s.tx - s.x0; ay = s.ty - s.y0; }
       const d = Math.hypot(ax, ay) || 1; ax /= d; ay /= d;
-      if (s.knife) { drawArrow(s.x, s.y, ax, ay, 14, '#e8edf2', 3, 0); }
+      if (s.orb) { c.globalCompositeOperation = 'lighter'; if (!img(s.orb, s.x, s.y, 54, 0, S.t * 7, 1, s.rgb)) glow(s.x, s.y, 16, s.rgb, 0.8); glow(s.x - ax * 14, s.y - ay * 14, 12, s.rgb, 0.4); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; }
+      else if (s.knife) { drawArrow(s.x, s.y, ax, ay, 14, '#e8edf2', 3, 0); }
       else if (s.rock) { c.fillStyle = 'rgba(0,0,0,.25)'; Art.ell(c, s.tx, s.ty + 4, 14 * (s.t / s.dur), 5 * (s.t / s.dur)); c.fillStyle = '#5a4a3c'; Art.circ(c, s.x, s.y, 9); c.fillStyle = '#84705a'; Art.circ(c, s.x - 2.5, s.y - 2.5, 5); }
       else if (s.k === 'earrow') drawArrow(s.x, s.y, ax, ay, 10, '#2a1d14', 1.6, 0);
       else {
