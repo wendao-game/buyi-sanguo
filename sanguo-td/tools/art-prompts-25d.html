@@ -61,7 +61,7 @@ section { display: flex; flex-direction: column; gap: 14px; }
 <div class="wrap">
   <header>
     <h1>烽火守城 · <span>国风卡通</span> 出图</h1>
-    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 是所有图的标准：每次把它们一起发给 GPT。<b>还差 5 张：敌人 4、敌人 5、敌人 6</b>（每章前 9 关的 24 位新敌将）、<b>敌人 7</b>（奇遇里的四个山贼首领和四神兽）、<b>兵器 5</b>（四件神兽兵器），排在最前面；画敌人时附上已画好的「敌人 1」「敌人 2」，画兵器时附上「兵器 1」。画好前游戏里先用代码画的造型顶着。其余 31 张都已经在游戏里了，想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。</p>
+    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 是所有图的标准：每次把它们一起发给 GPT。<b>全部 36 张都已经画好、换进游戏了。</b>想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。</p>
   </header>
 
   <ol class="steps">
@@ -389,12 +389,12 @@ const groups = [
   { title: '敌人', note: '6 张九宫格。敌人 4～6 是新加的 24 位敌将（每章前 9 关的三位），体型和已画好的各章敌将一样大、一样华丽；画的时候附上已画好的「敌人 1」「敌人 2」。敌人面朝镜头往城墙走来。', items: ENEMIES.map(h => ({ file: h[0] + '.png', name: h[1], who: h[2].filter(t => !t.startsWith('（')).map(t => t.split('：')[0]).join('、'), text: sheetPrompt(ENEMY_POSE, h[2]) })) },
   { title: '战场背景', note: '1 张，建议最先画：整体观感变化最大。城楼平台和武将站的位置要按比例画，游戏里的站位是对着这张图定的。', items: [{ file: 'battle.png', name: '战场背景', who: '城墙、荒原、远处敌营', text: BG }] },
   { title: '大招里的单位', note: '1 张九宫格，透明底。程远志、颜良、曹纯、孟获的大招里冲出去的兵、马、象；画的时候附上「武将 1」和「敌人 1」。没画之前用代码画的简笔小图。', items: UNITS.map(h => ({ file: h[0] + '.png', name: h[1], who: h[2].filter(t => !t.startsWith('（')).map(t => t.split('：')[0]).join('、'), text: sheetPrompt(UNIT_POSE, h[2]) })) },
-  { title: '兵器图标', note: '4 张九宫格，透明底（兵器 3、4 是新加的 18 件）。用在兵器页和武将详情里；没画之前用代码画的简单图标。', items: WEAPONS.map(h => ({ file: h[0] + '.png', name: h[1], who: h[2].map(t => t.split('：')[0]).join('、'), text: WEAPON_STYLE + '\n\n' + h[2].map((t, i) => (i + 1) + '. ' + t).join('\n') })) },
+  { title: '兵器图标', note: '5 张九宫格，透明底（兵器 3、4 是新加的 18 件，兵器 5 是四件神兽兵器）。用在兵器页和武将详情里；没画之前用代码画的简单图标。', items: WEAPONS.map(h => ({ file: h[0] + '.png', name: h[1], who: h[2].map(t => t.split('：')[0]).join('、'), text: WEAPON_STYLE + '\n\n' + h[2].map((t, i) => (i + 1) + '. ' + t).join('\n') })) },
   { title: '技能特效', note: '6 张九宫格，黑底。特效 4～6 是金、橙武将的专属大招特效（共 20 个；关羽、赵云、陆逊的在特效 3 里已经有了），画的时候附上已画好的「特效 3」保持画风；没画之前这些大招还是现在的样子。', items: FX.map(h => ({ file: h[0] + '.png', name: h[1], who: h[2].filter(t => !t.startsWith('（')).map(t => t.split('：')[0]).join('、'), text: FX_STYLE + '\n\n' + FX_GRID + '\n\n' + h[2].map((t, i) => (i + 1) + '. ' + t).join('\n') })) },
 ];
 
 /* 已经画好并换进游戏的图（要重画也可以，照样复制提示词） */
-const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'hero_7.png', 'head_7.png', 'hero_8.png', 'head_8.png', 'weapon_1.png', 'weapon_2.png', 'weapon_3.png', 'weapon_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'fx_4.png', 'fx_5.png', 'fx_6.png', 'enemy_1.png', 'enemy_2.png', 'enemy_3.png', 'unit_1.png'];
+const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'hero_7.png', 'head_7.png', 'hero_8.png', 'head_8.png', 'weapon_1.png', 'weapon_2.png', 'weapon_3.png', 'weapon_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'fx_4.png', 'fx_5.png', 'fx_6.png', 'enemy_1.png', 'enemy_2.png', 'enemy_3.png', 'unit_1.png', 'enemy_4.png', 'enemy_5.png', 'enemy_6.png', 'enemy_7.png', 'weapon_5.png'];
 
 /* 页面上的排法：还没画的排最前面（按建议的出图顺序：武将和它的头像挨着），已画好的收在后面 */
 const all = [];
