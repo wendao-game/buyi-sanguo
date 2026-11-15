@@ -270,6 +270,11 @@ const GLView = (function () {
       if (s.k === 'arrow') { ax = s.x - s.px; ay = s.y - s.py; } else { ax = s.tx - s.x0; ay = s.ty - s.y0; }
       const d = Math.hypot(ax, ay) || 1; ax /= d; ay /= d;
       if (s.rock) { const p = s.t / s.dur; ell(La, s.tx, s.ty + 4, 14 * p, 5 * p, 0x000000, 0.3); sp(La, TX.rock, s.x, s.y, 20, 20, { rot: t * 6 }); return; }
+      if (s.orb) {                                          // 神兽吐的光球：一团转着的光，拖一道尾巴
+        sp(Lf, TX.gradV, s.x, s.y, 16, 90, { ax: 0.5, ay: 0, rot: Math.atan2(-ay, -ax) - Math.PI / 2, tint: col(s.rgb), a: 0.7 });
+        if (!img(Lf, s.orb, s.x, s.y, 58, 0, t * 7, 1, s.rgb)) glow(Lf, s.x, s.y, 16, col(s.rgb), 0.8);
+        light(s.x, s.y, 70, col(s.rgb), 0.7); return;
+      }
       if (s.knife) { line(La, s.x - ax * 14, s.y - ay * 14, s.x, s.y, 3.4, 0xe8edf2, 1); glow(Lf, s.x, s.y, 9, 0xffffff, 0.5); return; }
       if (s.k === 'earrow' && s.big) { line(La, s.x - ax * 18, s.y - ay * 18, s.x, s.y, 2.8, 0x2a1d14, 1); sp(Lf, TX.gradV, s.x, s.y, 5, 44, { ax: 0.5, ay: 0, rot: Math.atan2(-ay, -ax) - Math.PI / 2, tint: 0xff8a5a, a: 0.7 }); return; }   // 敌将射向武将的箭：粗一些、拖一道红尾
       if (s.k === 'earrow') { line(La, s.x - ax * 10, s.y - ay * 10, s.x, s.y, 1.6, 0x2a1d14, 1); return; }
