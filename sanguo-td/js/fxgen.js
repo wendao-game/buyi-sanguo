@@ -458,6 +458,18 @@ const FXGen = (function () {
   const blob = (c, fill, lw, path) => { c.beginPath(); path(); c.fillStyle = fill; c.fill(); c.strokeStyle = OUT; c.lineWidth = lw; c.stroke(); };
   const dust = (c, x, y, n, len) => { for (let i = 0; i < n; i++) { c.strokeStyle = 'rgba(240,225,195,' + (0.55 - i * 0.1) + ')'; c.lineWidth = 5 - i; c.beginPath(); c.moveTo(x, y - (n - 1) * 7 + i * 14); c.lineTo(x - len * (0.6 + (i % 2) * 0.4), y - (n - 1) * 7 + i * 14); c.stroke(); } };
   const SOLID = {
+    /* 雪球（邓艾）：一个滚下山的大雪球，沾着几块碎冰和石子，后面带着雪沫 */
+    snowball: () => mkSolid(176, 192, (c, w, h) => {
+      const x = w / 2, y = h * 0.6, r = w * 0.36;
+      c.fillStyle = 'rgba(0,0,0,.26)'; c.beginPath(); c.ellipse(x, h * 0.93, w * 0.34, h * 0.05, 0, 0, TAU); c.fill();
+      [[-0.3, -0.52, 0.11], [0.02, -0.66, 0.13], [0.3, -0.5, 0.1], [-0.1, -0.8, 0.07], [0.2, -0.82, 0.06]].forEach(P => { c.fillStyle = 'rgba(235,245,255,.75)'; c.beginPath(); c.arc(x + P[0] * w, y + P[1] * r * 1.5, P[2] * w, 0, TAU); c.fill(); });   // 身后扬起的雪沫
+      blob(c, '#f4f9ff', 5, () => c.arc(x, y, r, 0, TAU));
+      c.fillStyle = '#c4dcf4'; c.beginPath(); c.arc(x, y, r - 3, 0.25, Math.PI - 0.25); c.quadraticCurveTo(x, y + r * 0.35, x + (r - 3) * Math.cos(0.25), y + (r - 3) * Math.sin(0.25)); c.fill();   // 下半边的阴影
+      c.strokeStyle = '#9fc0e6'; c.lineWidth = 4; [[0.62, 3.5, 4.6], [0.4, 5.2, 6.2], [0.7, 0.2, 0.9]].forEach(A => { c.beginPath(); c.arc(x, y, r * A[0], A[1], A[2]); c.stroke(); });        // 滚动的弧纹
+      blob(c, '#8a8f98', 3, () => c.arc(x - r * 0.42, y + r * 0.2, w * 0.045, 0, TAU)); blob(c, '#8a8f98', 3, () => c.arc(x + r * 0.5, y - r * 0.1, w * 0.035, 0, TAU));                    // 裹进去的石子
+      blob(c, '#d6efff', 3, () => { c.moveTo(x + r * 0.05, y - r * 0.62); c.lineTo(x + r * 0.3, y - r * 0.4); c.lineTo(x, y - r * 0.3); c.closePath(); });                                  // 一块碎冰
+      c.fillStyle = 'rgba(255,255,255,.95)'; c.beginPath(); c.ellipse(x - r * 0.35, y - r * 0.45, r * 0.22, r * 0.12, -0.6, 0, TAU); c.fill();
+    }),
     /* 黄巾兵（程远志）：背影，黄头巾、褐布衣，斜举着长矛往前冲 */
     soldier: () => mkSolid(128, 168, (c, w, h) => {
       const x = w / 2;
