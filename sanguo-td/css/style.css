@@ -137,6 +137,13 @@ button { font-family: inherit; border: 0; cursor: pointer; color: inherit; }
 .ult img { position: absolute; inset: 5px; width: 52px; height: 52px; border-radius: 50%; filter: brightness(.55) saturate(.6); }
 .ult span { position: absolute; left: -6px; right: -6px; bottom: -3px; font-size: 11px; font-weight: bold; color: #fff3d6; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 1px 2px #000; white-space: nowrap; text-align: center; }
 .ult.ready { animation: pulse .7s infinite alternate; }
+.ult.dead { background: #2a2422; animation: none; box-shadow: 0 2px 8px #000c; }
+.ult.dead img { filter: grayscale(1) brightness(.35); }
+.ult.dead::after { content: '阵亡'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #ff6a5a; font-size: 15px; font-weight: bold; text-shadow: 0 0 4px #000, 0 0 4px #000; }
+.ult.stun img { filter: brightness(.4) sepia(1); }
+.tslot.fallen img, .card.fallen img { filter: grayscale(1) brightness(.45); }
+.tslot.fallen span, .card.fallen .cmeta { color: #ff6a5a; }
+.card.fallen { opacity: .7; }
 .ult.ready img { filter: none; }
 @keyframes pulse { from { box-shadow: 0 0 4px 1px var(--qc); transform: scale(1); } to { box-shadow: 0 0 16px 5px var(--qc); transform: scale(1.08); } }
 

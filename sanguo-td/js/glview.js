@@ -227,7 +227,13 @@ const GLView = (function () {
   function lerpC(a, b, t) { const r = ((a >> 16) & 255) + (((b >> 16) & 255) - ((a >> 16) & 255)) * t, g = ((a >> 8) & 255) + (((b >> 8) & 255) - ((a >> 8) & 255)) * t, bl = (a & 255) + ((b & 255) - (a & 255)) * t; return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(bl); }
   function drawHeroes(list, t) {
     list.slice().sort((a, b) => a.y - b.y).forEach(h => {
-      const d = h.def, qc = col(QUALITIES[d.q].color), S = 1.45, by = h.y + 20 * S, a = Math.min(1, h.anim || 0), q = Art.heroSprite(d), tex = T(q.im);
+      const d = h.def, qc = col(QUALITIES[d.q].color), S = 1.45, by = h.y + 20 * S, a = h.dead ? 0 : Math.min(1, h.anim || 0), q = Art.heroSprite(d), tex = T(q.im);
+      if (h.dead) {                                         // 阵亡：人还在台上，但是灰了、倒了，不再出手
+        ell(La, h.x, by, 25 * S, 9.5 * S, 0x0c0806, 0.5);
+        sp(La, tex, h.x + 14, by - 6, q.w * S * (q.proc ? q.k : 1), q.h * S * (q.proc ? q.k : 1), { ax: q.ax, ay: q.ay, rot: 1.25, tint: 0x5a5560, a: 0.75 });
+        txt(Lt, numW, '阵亡', h.x, h.y - 26, 18, '#ff6a5a', 'center', 4);
+        return;
+      }
       ell(La, h.x, by, 25 * S, 9.5 * S, 0x0c0806, 0.66);                                  // 底座
       if (d.q >= 3) glow(La, h.x, h.y + 14 * S, 34 * S, qc, 0.3);
       ringE(La, h.x, by, 26 * S, 10 * S, 0x000000, 0.45);
@@ -245,6 +251,14 @@ const GLView = (function () {
       if (a > 0.55) { const ec = col(ELEMENTS[d.el].color); glow(Lf, h.x + 10, h.y - 46, 26 * a, ec, 0.55 * a); sp(Lf, TX.disc, h.x + 10, h.y - 46, 7 * a, 7 * a, { tint: 0xffffff, a: 0.8 * a }); }   // 出手时兵器上一闪
       light(h.x, h.y - 10, 78, 0xfff0d8, 0.5);
       if (h.rage >= 100) light(h.x, by, 95, 0xffd870, 0.55);
+      if (h.maxHp) {                                        // 血条：挨打时闪白；中毒泛绿；被定住头上有个「晕」
+        const bw = 56, p = Math.max(0, h.hp / h.maxHp), hy = by + 14;
+        rect(Lt, h.x - bw / 2 - 1.5, hy - 1.5, bw + 3, 8, 0x000000, 0.65);
+        if (p > 0) rect(Lt, h.x - bw / 2, hy, bw * p, 5, h.hurtT > 0 ? 0xffffff : p > 0.5 ? 0x5ad25a : p > 0.25 ? 0xe8a82a : 0xff3a2a, 1);
+        if (h.hurtT > 0) sp(La, tex, h.x, by, q.w * S * (q.proc ? q.k : 1), q.h * S * (q.proc ? q.k : 1), { ax: q.ax, ay: q.ay, tint: 0xff4030, a: Math.min(1, h.hurtT * 4) * 0.55, blend: ADD });
+        if (h.psnT > 0) glow(Lf, h.x, h.y - 10, 34, 0x78e646, 0.28 + Math.sin(t * 6) * 0.08);
+        if (h.stunT > 0) { txt(Lt, numW, '晕', h.x, h.y - 70, 16, '#ffe08a', 'center', 3); for (let i = 0; i < 3; i++) { const g = t * 5 + i * TAU / 3; sp(Lf, TX.star, h.x + Math.cos(g) * 16, h.y - 56 + Math.sin(g) * 5, 12, 12, { a: 0.9 }); } }
+      }
     });
   }
 
@@ -255,6 +269,8 @@ const GLView = (function () {
       if (s.k === 'arrow') { ax = s.x - s.px; ay = s.y - s.py; } else { ax = s.tx - s.x0; ay = s.ty - s.y0; }
       const d = Math.hypot(ax, ay) || 1; ax /= d; ay /= d;
       if (s.rock) { const p = s.t / s.dur; ell(La, s.tx, s.ty + 4, 14 * p, 5 * p, 0x000000, 0.3); sp(La, TX.rock, s.x, s.y, 20, 20, { rot: t * 6 }); return; }
+      if (s.knife) { line(La, s.x - ax * 14, s.y - ay * 14, s.x, s.y, 3.4, 0xe8edf2, 1); glow(Lf, s.x, s.y, 9, 0xffffff, 0.5); return; }
+      if (s.k === 'earrow' && s.big) { line(La, s.x - ax * 18, s.y - ay * 18, s.x, s.y, 2.8, 0x2a1d14, 1); sp(Lf, TX.gradV, s.x, s.y, 5, 44, { ax: 0.5, ay: 0, rot: Math.atan2(-ay, -ax) - Math.PI / 2, tint: 0xff8a5a, a: 0.7 }); return; }   // 敌将射向武将的箭：粗一些、拖一道红尾
       if (s.k === 'earrow') { line(La, s.x - ax * 10, s.y - ay * 10, s.x, s.y, 1.6, 0x2a1d14, 1); return; }
       if (s.big) img(Lf, s.burn ? 'el_arrow_fire' : 'thrust', s.x - ax * 20, s.y - ay * 20, s.burn ? 70 : 90, 0, Math.atan2(ay, ax), 1);
       else glow(Lf, s.x, s.y, 8, s.burn ? 0xff9646 : 0xffe6a0, 0.6);

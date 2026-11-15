@@ -56,6 +56,14 @@ const CFG = {
   ROCK_DMG: 1.0,           // 每块伤害 = 当前关卡黄巾兵血量 × 此倍率（并眩晕 1 秒）
   AIM_SLOW: 0.25,          // 手动瞄准大招时的慢动作倍率
   SWAP_DELAY: 1.5,         // 局中换上场的武将过多少秒才第一次出手（怒气从 0 开始）
+  /* —— 武将血量（v2.0）：弓手、投石车和敌将的招式会打到台上的武将；阵亡了这一关不能再出手，可以换板凳上的人顶上 —— */
+  HERO_HP_BASE: 80,        // 武将血量 = HERO_HP_BASE + 战力 × HERO_HP_K
+  HERO_HP_K: 0.55,
+  HERO_HIT: { arrow: 0.035, rock: 0.11, rockSplash: 0.05, elite: 0.07, boss: 0.1 },   // 校尉每 5 秒、敌将每 3.5 秒朝一名武将掷一次兵器   // 弓手一箭、投石车一块石头打掉多少（按 heroHitBase 折算）
+  ARCHER_AT_HERO: 0.4,    // 弓手每次出手有这么大概率射向武将，其余射城墙
+  LOB_AT_HERO: 0.35,       // 投石车每次出手有这么大概率砸向武将
+  HERO_WAVE_HEAL: 0.15,    // 每打完一波，活着的武将回这么多血
+
   /* —— 爽感（v1.8）—— */
   HORDE: 1.35,             // 割草：小兵（ENEMIES 里带 horde 的）人数 × 此值，单个的血量、攻击、掉钱概率 ÷ 此值——总量不变，杀得更快更密
   KILL_RAGE: 0.45,         // 每杀一个敌人，全体武将回这么多怒气（校尉、敌将、器械 ×8）：杀得多，大招就放得勤
@@ -308,39 +316,79 @@ const ENEMIES = {
   rattan:   { id: 'rattan', horde: true,   name: '藤甲兵', hp: 210, spd: 36, atk: 10, r: 14, coin: 3,  body: '#b08a3a', hat: '#7a5a22', from: 61, res: { blade: 0.6, arrow: 0.6, fire: 2 }, tip: '藤甲刀枪不入：刃、弓伤害打六折，但是一点就着——用火' },
   shaman:   { id: 'shaman',   name: '巫医',   hp: 120, spd: 30, atk: 5,  r: 13, coin: 5,  body: '#5a3a7a', hat: '#c8d0a0', from: 61, range: 200, acd: 1.6, heal: 140, tip: '躲在后面给周围的敌人治伤——先杀他' },
 };
-/* 各章敌将的招式（放一次要 cd 秒；写在 battle.js 的 BOSS_CAST 里） */
-const BOSS_SKILLS = [
-  { name: '黄巾聚义', cd: 9,  desc: '每 9 秒喊来 4 个黄巾兵' },
-  { name: '暴虐',     cd: 11, desc: '每 11 秒一声怒喝，全场敌人 3.5 秒内走得更快、砍得更勤' },
-  { name: '突阵',     cd: 9,  desc: '每 9 秒策马猛冲一段，冲锋时不吃减速和击退' },
-  { name: '连珠箭',   cd: 7,  desc: '每 7 秒隔着老远朝城墙连射 3 箭' },
-  { name: '拔矢啖睛', cd: 0,  desc: '血量掉到一半时暴怒：攻击、速度大涨，4 秒内不吃控制' },
-  { name: '陷阵',     cd: 10, desc: '每 10 秒给身边的敌人架起盾阵，4 秒内受到的伤害减半' },
-  { name: '藤甲军',   cd: 10, desc: '每 10 秒召来 3 个藤甲兵' },
-  { name: '虎豹骑',   cd: 9,  desc: '每 9 秒召来 3 骑狂奔的虎豹骑' },
-  { name: '不死',     cd: 0,  desc: '第一次倒下后以四成血量爬起来再战' },
-];
-function bossSkill(stage) { return BOSS_SKILLS[Math.min(BOSS_SKILLS.length, Math.floor((stage - 1) / 10) + 1) - 1]; }
+/* 这一关敌将的第一招（主城「敌情」和最终波横幅上写的那一句） */
+function bossSkill(stage) { return stageBoss(stage).skills[0]; }
 /* 这一关第一次登场的新敌人（没有就是 null） */
 function newEnemyAt(stage) { for (const k in ENEMIES) if (ENEMIES[k].from === stage) return ENEMIES[k]; return null; }
 
-/* 各章敌将；立绘是 assets/enemies/boss_<章>.png（第 9 章起用 boss_9）。
- * hero：这名敌将也是卡池里能抽到的武将，所以站在对面的是他的「心魔」（一身黑紫气焰的影子），名字前面加「心魔·」 */
+/* 各章敌将。每章 4 个：mid 里的三个各管 3 关（第 1–3、4–6、7–9 关），boss 是章节敌将（第 10 关）。
+ * 立绘：章节敌将 assets/enemies/boss_<章>.png（第 9 章起用 boss_9）；其余 assets/enemies/<id>.png，没有图时用代码画的（body / hat 是配色）。
+ * hero：这名敌将也是卡池里能抽到的武将，所以站在对面的是他的「心魔」（一身黑紫气焰的影子），名字前面加「心魔·」。
+ * skills：招式。cd = 每隔几秒放一次（0 = 被动）；k = 哪一种（battle.js 的 bossCast）：
+ *   summon 召兵 / haste 全场敌人加速 / charge 自己冲锋 / shield 给敌人架盾 / heal 给敌人回血 / guard 自己减伤 / wallhit 猛撞城墙 / burnwall 城墙着火
+ *   打武将的：shoot 放箭（n 个人）/ smash 砸一个人并打晕 / rain 箭雨（全体）/ poison 放毒（全体，持续）/ bind 定身（n 个人）
+ *   被动：enrage 半血暴怒 / regen 残血回一口 / revive 倒下再起
+ *   dmg 是武将血量的几成（按 heroHitBase 折算：战力达标时就是上阵武将平均血量的几成） */
+const SK = (name, cd, k, o, desc) => Object.assign({ name, cd, k, desc }, o);
 const CHAPTERS = [
-  { name: '黄巾之乱', boss: '程远志', hero: 'chengyuanzhi' },
-  { name: '讨伐董卓', boss: '董卓',   hero: 'dongzhuo' },
-  { name: '群雄割据', boss: '颜良',   hero: 'yanliang' },
-  { name: '官渡之战', boss: '文丑',   hero: 'wenchou' },
-  { name: '火烧赤壁', boss: '夏侯惇', hero: 'xiahoudun' },
-  { name: '三分天下', boss: '高顺',   hero: 'gaoshun' },
-  { name: '七擒孟获', boss: '孟获',   hero: 'menghuo' },
-  { name: '北伐中原', boss: '曹纯',   hero: 'caochun' },
+  { name: '黄巾之乱', boss: '程远志', hero: 'chengyuanzhi', skills: [SK('黄巾聚义', 9, 'summon', { type: 'grunt', n: 4 }, '每 9 秒喊来 4 个黄巾兵')], mid: [
+    { id: 'dengmao',    name: '邓茂', body: '#8a5a2a', hat: '#e2b53a', skills: [SK('乱刀', 8, 'smash', { dmg: 0.22, stun: 1 }, '每 8 秒砍伤一名武将，把他打晕 1 秒')] },
+    { id: 'zhangliang', name: '张梁', body: '#b89a3a', hat: '#f2d24a', skills: [SK('人公妖法', 9, 'heal', { frac: 0.12, r: 240 }, '每 9 秒给身边的敌人回一成多血')] },
+    { id: 'bocai',      name: '波才', body: '#a8452a', hat: '#e2b53a', skills: [SK('火攻', 10, 'burnwall', { t: 4, dps: 0.7 }, '每 10 秒点着城墙，烧 4 秒')] },
+  ] },
+  { name: '讨伐董卓', boss: '董卓', hero: 'dongzhuo', skills: [SK('暴虐', 11, 'haste', { t: 3.5 }, '每 11 秒一声怒喝，全场敌人 3.5 秒内走得更快、砍得更勤')], mid: [
+    { id: 'lijue',    name: '李傕', body: '#4a4e5a', hat: '#8a2a2a', skills: [SK('飞熊军', 10, 'summon', { type: 'shield', n: 3 }, '每 10 秒召来 3 个刀盾兵')] },
+    { id: 'guosi',    name: '郭汜', body: '#5a4a3a', hat: '#3a2a1a', skills: [SK('乱箭', 7, 'shoot', { n: 2, dmg: 0.16 }, '每 7 秒朝两名武将各放一箭')] },
+    { id: 'huaxiong', name: '华雄', hero: 'huaxiong', body: '#6a3a2a', hat: '#c8a04a', skills: [SK('骁勇', 0, 'enrage', {}, '血量掉到一半时暴怒：攻击、速度大涨，4 秒内不吃控制')] },
+  ] },
+  { name: '群雄割据', boss: '颜良', hero: 'yanliang', skills: [SK('突阵', 9, 'charge', {}, '每 9 秒策马猛冲一段，冲锋时不吃减速和击退')], mid: [
+    { id: 'jiling',   name: '纪灵', body: '#7a6a2a', hat: '#d8b04a', skills: [SK('三尖刀', 9, 'smash', { dmg: 0.3, stun: 1.5 }, '每 9 秒重劈一名武将，打晕 1.5 秒')] },
+    { id: 'yuanshu',  name: '袁术', body: '#8a6a9a', hat: '#e8c04a', skills: [SK('僭号', 11, 'shield', { r: 999, t: 3 }, '每 11 秒全场敌人架起盾，3 秒内受到的伤害减半')] },
+    { id: 'zhangxiu', name: '张绣', body: '#5a6a7a', hat: '#c23b3b', skills: [SK('北地枪王', 8, 'charge', {}, '每 8 秒策马猛冲一段'), SK('回马枪', 12, 'shoot', { n: 1, dmg: 0.22 }, '每 12 秒回身刺伤一名武将')] },
+  ] },
+  { name: '官渡之战', boss: '文丑', hero: 'wenchou', skills: [SK('连珠箭', 7, 'shoot', { n: 3, dmg: 0.14 }, '每 7 秒隔着老远朝三名武将各射一箭')], mid: [
+    { id: 'chunyuqiong', name: '淳于琼', body: '#6a4a3a', hat: '#9a2a2a', skills: [SK('醉酒', 0, 'regen', { at: 0.4, frac: 0.25 }, '血量掉到四成时灌一口酒，回四分之一的血')] },
+    { id: 'gaolan',      name: '高览',   body: '#3a5a7a', hat: '#d8dde4', skills: [SK('破城', 9, 'wallhit', { dmg: 3 }, '每 9 秒猛撞一下城墙，伤害是平时的 3 倍')] },
+    { id: 'yuanshao',    name: '袁绍',   body: '#9a7a2a', hat: '#f2d24a', skills: [SK('四世三公', 12, 'summon', { type: 'elite', n: 1 }, '每 12 秒召来一名校尉')] },
+  ] },
+  { name: '火烧赤壁', boss: '夏侯惇', hero: 'xiahoudun', skills: [SK('拔矢啖睛', 0, 'enrage', {}, '血量掉到一半时暴怒：攻击、速度大涨，4 秒内不吃控制')], mid: [
+    { id: 'caimao',   name: '蔡瑁', body: '#2a5a7a', hat: '#8fc8e8', skills: [SK('水寨箭雨', 10, 'rain', { dmg: 0.1 }, '每 10 秒一阵箭雨落在城楼上，所有武将都挨一下')] },
+    { id: 'zhangyun', name: '张允', body: '#3a6a6a', hat: '#c8d0d8', skills: [SK('铁索', 11, 'bind', { n: 2, t: 2.5 }, '每 11 秒用铁索缠住两名武将，2.5 秒不能出手')] },
+    { id: 'caoren',   name: '曹仁', body: '#3a4a8a', hat: '#d8b04a', skills: [SK('八门金锁', 12, 'shield', { r: 999, t: 4 }, '每 12 秒全场敌人架起盾，4 秒内受到的伤害减半')] },
+  ] },
+  { name: '三分天下', boss: '高顺', hero: 'gaoshun', skills: [SK('陷阵', 10, 'shield', { r: 210, t: 4 }, '每 10 秒给身边的敌人架起盾阵，4 秒内受到的伤害减半')], mid: [
+    { id: 'houcheng', name: '侯成', body: '#6a5a3a', hat: '#4a3a2a', skills: [SK('盗马', 9, 'summon', { type: 'rider', n: 3, haste: 5 }, '每 9 秒召来 3 骑狂奔的轻骑')] },
+    { id: 'songxian', name: '宋宪', body: '#4a5a4a', hat: '#2a3a2a', skills: [SK('暗箭', 7, 'shoot', { n: 1, dmg: 0.26, low: true }, '每 7 秒朝血最少的武将放一支冷箭')] },
+    { id: 'zangba',   name: '臧霸', body: '#5a4a6a', hat: '#8a8a9a', skills: [SK('泰山寇', 11, 'summon', { type: 'heavy', n: 2 }, '每 11 秒召来 2 个重甲兵')] },
+  ] },
+  { name: '七擒孟获', boss: '孟获', hero: 'menghuo', skills: [SK('藤甲军', 10, 'summon', { type: 'rattan', n: 3 }, '每 10 秒召来 3 个藤甲兵')], mid: [
+    { id: 'zhurong', name: '祝融夫人', body: '#b8402a', hat: '#f2c230', skills: [SK('飞刀', 8, 'shoot', { n: 3, dmg: 0.13 }, '每 8 秒朝三名武将各掷一把飞刀')] },
+    { id: 'mulu',    name: '木鹿大王', body: '#4a7a3a', hat: '#e8e0c0', skills: [SK('瘴气', 11, 'poison', { t: 5, dps: 0.03 }, '每 11 秒往城楼上放毒瘴，所有武将中毒 5 秒')] },
+    { id: 'wutugu',  name: '兀突骨',   body: '#b08a3a', hat: '#7a5a22', skills: [SK('藤甲护体', 11, 'guard', { t: 5, mul: 0.4 }, '每 11 秒藤甲护体 5 秒，受到的伤害只剩四成')] },
+  ] },
+  { name: '北伐中原', boss: '曹纯', hero: 'caochun', skills: [SK('虎豹骑', 9, 'summon', { type: 'rider', n: 3, haste: 6 }, '每 9 秒召来 3 骑狂奔的虎豹骑')], mid: [
+    { id: 'wangshuang', name: '王双', body: '#5a3a3a', hat: '#9aa4b2', skills: [SK('流星锤', 9, 'smash', { dmg: 0.36, stun: 2 }, '每 9 秒一锤砸中一名武将，打晕 2 秒')] },
+    { id: 'guohuai',    name: '郭淮', body: '#3a5a8a', hat: '#c8d0d8', skills: [SK('方略', 10, 'heal', { frac: 0.1, r: 999 }, '每 10 秒给全场敌人回一成血')] },
+    { id: 'caozhen',    name: '曹真', body: '#2a3a7a', hat: '#e8c04a', skills: [SK('大都督', 12, 'summon', { type: 'elite', n: 1 }, '每 12 秒召来一名校尉'), SK('箭阵', 10, 'rain', { dmg: 0.1 }, '每 10 秒一阵箭雨落在城楼上')] },
+  ] },
 ];
+const ENDLESS_BOSS = { name: '幽冥鬼将', skills: [SK('不死', 0, 'revive', {}, '第一次倒下后以四成血量爬起来再战'), SK('鬼火', 10, 'poison', { t: 5, dps: 0.035 }, '每 10 秒放出鬼火，所有武将中毒 5 秒')] };
+/* 第 stage 关的敌将：{ id, name（心魔会带前缀）, who 本名, hero, sprite 立绘, look 没图时的配色, skills, hpK 血量系数, final 是不是章节敌将 } */
+function stageBoss(stage) {
+  const ci = Math.floor((stage - 1) / 10), c = CHAPTERS[ci], sub = (stage - 1) % 10;
+  if (!c) return { id: 'boss_9', name: ENDLESS_BOSS.name, who: ENDLESS_BOSS.name, hero: null, sprite: 'enemies/boss_9', look: null, skills: ENDLESS_BOSS.skills, hpK: 1, final: true };
+  if (sub === 9) return { id: 'boss_' + (ci + 1), name: (c.hero ? '心魔·' : '') + c.boss, who: c.boss, hero: c.hero || null, sprite: 'enemies/boss_' + (ci + 1), look: null, skills: c.skills, hpK: 1, final: true };
+  const m = c.mid[Math.floor(sub / 3)];
+  return { id: m.id, name: (m.hero ? '心魔·' : '') + m.name, who: m.name, hero: m.hero || null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills, hpK: 0.75, final: false };
+}
+/* 敌人打武将的伤害基准：上阵武将的平均血量 × (这一关的推荐战力 ÷ 阵容战力)，比值限制在 0.6–2.5 之间。
+ * 战力刚好达标 = 伤害按自己平均血量的几成算；战力不够，同样的一箭就疼得多，武将倒得快；战力超出很多则几乎打不动 */
+function heroHitBase(stage, avgHp, power) { return avgHp * Math.max(0.6, Math.min(2.5, stagePower(stage) / Math.max(1, power))); }
 function chapterOf(stage) {
   const idx = Math.floor((stage - 1) / 10);
   const c = CHAPTERS[idx] || { name: '乱世无尽', boss: '幽冥鬼将' };
-  // 也是武将的敌将，站在对面的是他的「心魔」
-  return { index: idx + 1, name: c.name, boss: c.hero ? '心魔·' + c.boss : c.boss, who: c.boss, hero: c.hero || null, sub: ((stage - 1) % 10) + 1 };
+  const b = stageBoss(stage);
+  return { index: idx + 1, name: c.name, boss: b.name, who: b.who, hero: b.hero, sub: ((stage - 1) % 10) + 1 };
 }
 
 /* ============================================================
@@ -358,7 +406,7 @@ function stagePower(stage) {
 }
 /* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
  * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
-const HP_PER_POWER = [[1, 0.0060], [10, 0.0054], [20, 0.0049], [30, 0.0042], [40, 0.0038], [50, 0.0039], [60, 0.0043], [70, 0.0046], [80, 0.0048]];   // v1.8 割草 + 击杀回怒之后重新校准，目标：战力达标时挂机胜率七成半（原来六成）
+const HP_PER_POWER = [[1, 0.0060], [10, 0.0050], [20, 0.0048], [30, 0.0042], [40, 0.0040], [50, 0.0043], [60, 0.0045], [70, 0.0044], [80, 0.0046]];   // v2.0 加了每章三个新敌将、武将血量之后重新校准，目标：战力达标时挂机胜率七成半
 function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];

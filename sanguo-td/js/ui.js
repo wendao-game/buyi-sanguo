@@ -88,7 +88,7 @@ const UI = (function () {
   function intel(st) {
     const ch = chapterOf(st), sk = bossSkill(st);
     const sp = Object.keys(ENEMIES).map(k => ENEMIES[k]).filter(d => d.from && d.from <= st);
-    return `<b>敌将 ${ch.boss}</b>「${sk.name}」${sk.desc}` + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
+    return `<b>敌将 ${ch.boss}</b>` + stageBoss(st).skills.map(k => `「${k.name}」${k.desc}`).join('；') + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
   }
 
   /* ---------------- 武将 ---------------- */
@@ -360,19 +360,19 @@ const UI = (function () {
       if (hudRage[i] === p) return;
       hudRage[i] = p; btns[i].style.setProperty('--p', p + '%'); btns[i].classList.toggle('ready', p >= 100);
     });
-    S.heroes.forEach((h, i) => btns[i].classList.toggle('aiming', S.aim === h.slot));
+    S.heroes.forEach((h, i) => { btns[i].classList.toggle('aiming', S.aim === h.slot); btns[i].classList.toggle('dead', !!h.dead); btns[i].classList.toggle('stun', !h.dead && h.stunT > 0); });
   }
   /* 局中换将面板：先改草稿（lpDraft），点「确定」才真的换 */
   function renderLineup() {
-    const own = Save.data.heroes;
+    const own = Save.data.heroes, fallen = (Battle.state && Battle.state.fallen) || {};
     const slots = lpDraft.map((id, i) => {
       const role = SLOT_ROLES[i], fit = id && (role.leader || role.els.includes(HERO_MAP[id].el)), sel = lpSel && lpSel.t === 's' && lpSel.i === i;
-      return id ? `<div class="tslot has ${sel ? 'pick' : ''}" style="--qc:${qc(id)}" data-act="lpSlot" data-i="${i}"><em class="${fit ? 'fit' : ''}">${role.name}</em><img src="${P(id)}"><span>${HERO_MAP[id].name}</span><b class="lpi" data-act="lpInfo" data-id="${id}">详</b></div>`
+      return id ? `<div class="tslot has ${sel ? 'pick' : ''} ${fallen[id] ? 'fallen' : ''}" style="--qc:${qc(id)}" data-act="lpSlot" data-i="${i}"><em class="${fit ? 'fit' : ''}">${role.name}</em><img src="${P(id)}"><span>${fallen[id] ? '阵亡' : HERO_MAP[id].name}</span><b class="lpi" data-act="lpInfo" data-id="${id}">详</b></div>`
         : `<div class="tslot ${sel ? 'pick' : ''}" data-act="lpSlot" data-i="${i}"><em>${role.name}</em>空位</div>`;
     }).join('');
-    const bench = Object.keys(own).filter(id => !lpDraft.includes(id)).sort((a, b) => heroStats(b).power - heroStats(a).power);
+    const bench = Object.keys(own).filter(id => !lpDraft.includes(id)).sort((a, b) => (fallen[a] ? 1 : 0) - (fallen[b] ? 1 : 0) || heroStats(b).power - heroStats(a).power);   // 阵亡的排最后
     const cards = bench.map(id => { const d = HERO_MAP[id], q = QUALITIES[d.q], sel = lpSel && lpSel.t === 'h' && lpSel.id === id;
-      return `<div class="card ${sel ? 'pick' : ''}" style="--qc:${q.color}" data-act="lpHero" data-id="${id}"><i class="qtag">${ELEMENTS[d.el].name}</i><img src="${P(id)}"><div class="cname">${d.name}</div><div class="cmeta">Lv.${own[id].lv} · ${heroStats(id).power}</div><b class="lpi" data-act="lpInfo" data-id="${id}">详</b></div>`; }).join('');
+      return `<div class="card ${sel ? 'pick' : ''} ${fallen[id] ? 'fallen' : ''}" style="--qc:${q.color}" data-act="lpHero" data-id="${id}"><i class="qtag">${ELEMENTS[d.el].name}</i><img src="${P(id)}"><div class="cname">${d.name}</div><div class="cmeta">${fallen[id] ? '阵亡' : 'Lv.' + own[id].lv + ' · ' + heroStats(id).power}</div><b class="lpi" data-act="lpInfo" data-id="${id}">详</b></div>`; }).join('');
     const b = teamBonus(lpDraft), bonds = b.active.filter(a => a.type !== 'slot').map(a => a.name).join('、');
     const hint = lpSel ? (lpSel.t === 's' ? '再点下面的武将换上来，或点另一个位置交换站位' : '再点上面的一个位置，把他换上去') : '点一个位置，再点下面的武将换上；点两个位置交换站位。点头像角上的「详」看技能和缘分';
     modal(`<div class="mbox lp"><h2>更换武将</h2>
@@ -380,7 +380,7 @@ const UI = (function () {
       <div class="lpinfo"><span>战力 <b>${teamPower(lpDraft)}</b></span><span class="lpb" data-act="lpBonds">${bonds ? '羁绊：' + bonds : '没有激活的羁绊'}<i>详情 ›</i></span></div>
       <p class="mtext lphint">${hint}</p>
       <div class="lpgrid">${cards || '<p class="mtext" style="grid-column:1/-1;padding:18px 0">没有其他武将了，去招募吧</p>'}</div>
-      <p class="mtext" style="font-size:12.5px;margin-top:8px">留在场上的武将保留怒气；新上场的怒气从 0 开始，${CFG.SWAP_DELAY} 秒后出手</p>
+      <p class="mtext" style="font-size:12.5px;margin-top:8px">留在场上的武将保留怒气和血量；新上场的满血、怒气从 0 开始，${CFG.SWAP_DELAY} 秒后出手。<b>阵亡</b>的武将这一关不能再出手，换下去也不能再上</p>
       <div class="mrow"><button class="btn gray" data-act="lpOff">下阵</button><button class="btn" data-act="lpCancel">取消</button><button class="btn red" data-act="lpOk">确定</button></div></div>`, false);
   }
   /* 换将面板里看某个武将：技能、兵器、他能凑的缘分（按草稿阵容标出已经凑齐的）。只看不改，关掉回到换将面板 */
@@ -435,10 +435,11 @@ const UI = (function () {
     hideTip();
     lastRes = r;
     const canNext = r.win;
-    modal(`<div class="mbox res ${r.win ? '' : 'lose'}"><h2>${r.win ? '大获全胜' : '城池失守'}</h2><ul>
+    modal(`<div class="mbox res ${r.win ? '' : 'lose'}"><h2>${r.win ? '大获全胜' : r.wiped ? '全军覆没' : '城池失守'}</h2><ul>
         ${r.win ? '' : `<li>坚守至<b>第 ${r.wave} / ${CFG.WAVES} 波</b></li>`}
         <li>击败敌军<b>${r.kills}</b></li>
         ${r.combo >= 10 ? `<li>最高连斩<b>${r.combo}</b></li>` : ''}
+        ${r.fallen && r.fallen.length ? `<li>阵亡武将<b>${r.fallen.map(x => HERO_MAP[x].name).join('、')}</b></li>` : ''}
         <li>获得金币（含掉落 ${r.dropped}）<b>+${r.coins}</b></li>
         ${r.iron ? `<li>精铁（强化兵器用）<b>+${r.iron}</b></li>` : ''}
         ${r.tickets ? `<li>首通奖励 · 招募令<b>+${r.tickets}</b></li>` : ''}
@@ -587,6 +588,7 @@ const UI = (function () {
       renderLineup();
     },
     lpHero: d => {
+      if (Battle.state && Battle.state.fallen[d.id]) return toast(HERO_MAP[d.id].name + ' 已经阵亡，这一关不能再上');
       if (lpSel && lpSel.t === 's') { lpDraft[lpSel.i] = d.id; lpSel = null; }
       else lpSel = lpSel && lpSel.t === 'h' && lpSel.id === d.id ? null : { t: 'h', id: d.id };
       renderLineup();
@@ -601,7 +603,7 @@ const UI = (function () {
     },
     lpOk: () => {
       const S = Battle.state, changed = lpDraft.some((id, i) => id !== Save.data.team[i]);
-      if (changed && Battle.lineup(lpDraft)) toast('阵容已更换');
+      if (changed) { if (Battle.lineup(lpDraft)) toast('阵容已更换'); else return toast('台上至少要留一名还能打的武将'); }
       lpDraft = null; if (S) S.paused = false; closeModal();
     },
     lpCancel: () => { const S = Battle.state; lpDraft = null; if (S) S.paused = false; closeModal(); },
