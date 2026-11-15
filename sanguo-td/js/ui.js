@@ -173,13 +173,17 @@ const UI = (function () {
   function bondHelp() {
     const fac = Object.keys(FACTION_BONDS).map(f => { const b = FACTION_BONDS[f]; return `<tr><td>${FACTIONS[f].name} · ${b.name}</td><td>${b.fmt(0).replace(/\s*\+0%$/, '')}：2 人 +${Math.round(b.vals[0] * 100)}% / 3 人 +${Math.round(b.vals[1] * 100)}% / 4 人以上 +${Math.round(b.vals[2] * 100)}%</td></tr>`; }).join('');
     const own = Save.data.heroes;
-    const combo = COMBOS.map(c => `<tr><td>${c.name}</td><td>${c.ids.map(x => `<span class="${own[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}</td></tr>`).join('');
+    const team = lpDraft || Save.data.team, b = teamBonus(team), on = {};          // 局中换将时按面板里调整后的阵容算
+    b.active.forEach(a => { on[a.name] = 1; });
+    const act = b.active.map(a => `<tr class="on"><td>${a.name}</td><td>${a.desc}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
+    const combo = COMBOS.map(c => `<tr class="${on[c.name] ? 'on' : ''}"><td>${c.name}${on[c.name] ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${own[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}</td></tr>`).join('');
     const roles = SLOT_ROLES.filter((r, i) => i <= 2).map(r => `<tr><td>${r.name}</td><td>${r.desc}</td></tr>`).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>羁绊一览</h2>
+      <h4 class="sub">当前阵容已激活（${b.active.length}）</h4>${act ? `<table class="rates wrap lpc">${act}</table>` : '<p class="mtext">还没有激活的羁绊</p>'}
       <h4 class="sub">站位</h4><table class="rates wrap">${roles}</table>
       <h4 class="sub">阵营羁绊</h4><table class="rates wrap">${fac}</table>
       <h4 class="sub">属性共鸣</h4><table class="rates wrap"><tr><td>同系上阵</td><td>同一种攻击类型（弓 刃 火 冰 雷 毒 风）上阵 3 / 4 / 5 人：该系伤害 +${Math.round(ELEMENT_BOND[3] * 100)}% / +${Math.round(ELEMENT_BOND[4] * 100)}% / +${Math.round(ELEMENT_BOND[5] * 100)}%</td></tr></table>
-      <h4 class="sub">缘分（灰色 = 还没获得）</h4><table class="rates wrap">${combo}</table></div>`);
+      <h4 class="sub">缘分（灰色 = 还没获得，绿色打勾 = 已激活）</h4><table class="rates wrap lpc">${combo}</table></div>`);
   }
   /* ---------------- 兵器 ---------------- */
   function renderArms() {
