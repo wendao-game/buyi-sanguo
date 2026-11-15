@@ -12,7 +12,7 @@ const Battle = (function () {
   const RANGE_Y = 120;            // 敌人越过这条线后武将才会攻击（到城墙线约 550，和换背景前一样）
   const FONT = 'SGNum,SGRound,"Microsoft YaHei","PingFang SC",sans-serif';   // 本地打包的字体（css 里声明）：SGNum 数字和字母，SGRound 站酷快乐体
   const rand = Math.random;
-  const isBig = e => e.def.id === 'boss' || e.def.id === 'elite';
+  const isBig = e => e.def.id === 'boss' || e.def.id === 'elite' || e.def.id === 'rare';
   const clampX = x => Math.max(40, Math.min(W - 40, x));
   let cv, c, S = null, idleT = 0, B = null;
 
@@ -36,6 +36,8 @@ const Battle = (function () {
       over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, wallHitX: W / 2, wallLag: 0, wallAcc: 0, wallAccX: 0, wallAccT: 0, wallFxT: 0, hurt: 0, alarm: false, healK: 1, banner: null, flash: null,
     };
     setupTeam(true);
+    const ed = rollEncounter(stage);                           // 奇遇：这一局会不会碰上山贼首领 / 神兽，在第 3～7 波里出现
+    S.enc = ed ? { def: ed, wave: 3 + Math.floor(rand() * 5), killed: false } : null;
     S.heroHit = heroHitBase(stage, S.heroes.reduce((a, h) => a + h.maxHp, 0) / Math.max(1, S.heroes.length), teamPower());   // 敌人打武将的伤害基准：开局定下来，中途换人不变
     nextWave();
   }
@@ -90,9 +92,11 @@ const Battle = (function () {
   function nextWave() {
     S.wave++;
     const w = genWave(S.stage, S.wave);
+    if (S.enc && S.wave === S.enc.wave) { w.list.push({ t: Math.min(3, w.dur * 0.4), type: 'rare', x: 270 }); w.list.sort((a, b) => a.t - b.t); }
     S.queue = w.list; S.waveDur = w.dur; S.waveT = 0; S.spawned = 0; S.waveSize = w.list.length;
     const ne = S.wave === 1 ? newEnemyAt(S.stage) : null;
     S.banner = ne ? { text: '新敌人 · ' + ne.name, sub: ne.tip, t: 4, max: 4 } : { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', sub: S.wave === CFG.WAVES ? S.boss.skills.map(k => k.name + '：' + k.desc).join('；') : '', t: S.wave === CFG.WAVES ? 3.2 : 1.8, max: S.wave === CFG.WAVES ? 3.2 : 1.8 };
+    if (S.enc && S.wave === S.enc.wave) { const e = S.enc.def, wn = e.weapon && !(Save.data.unlocked || {})[e.weapon] ? WEAPON_MAP[e.weapon].name : ''; S.banner = { text: '奇遇 · ' + e.name, sub: wn ? '击败它，解锁「' + wn + '」，以后招募有机会抽到' : '击败' + (e.kind === 'beast' ? '它' : '他') + '，有重赏', t: 4, max: 4 }; Sfx.play('horn'); }
     Sfx.play(S.wave === CFG.WAVES ? 'horn' : 'wave');
     if (S.wave === CFG.WAVES) Sfx.music('boss');             // 最后一波：音乐换成更急的一段
   }
@@ -104,19 +108,28 @@ const Battle = (function () {
       def: d, name: isBoss ? S.boss.name : d.name, x: q.x, y: q.y == null ? -d.r - rand() * 16 : q.y,
       demon: isBoss && !!S.boss.hero,                        // 心魔：也是武将的敌将，画成黑紫色的影子
       look: isBoss && S.boss.look ? Object.assign({}, d, S.boss.look) : null,   // 没有立绘的敌将：代码画的小人换一套配色
-      sk: isBoss ? S.boss.skills.map(k => ({ k, t: k.cd * 0.6 })) : null, guardT: 0, guardK: 1, regenUsed: false,
+      sk: isBoss ? S.boss.skills.map(k => ({ k, t: k.cd * 0.6 })) : null, guardT: 0, guardK: 1, regenUsed: false, rare: null, aura: '',
       hasteT: q.haste || 0, auraT: 0, shieldT: 0, ccImm: 0, chargeT: 0, supT: 1 + rand(), heroT: 1.5 + rand() * 2, enraged: false, revived: false,
       hp, max: hp, atk: d.atk * stageAtkMul(S.stage) * hk, spd: d.spd * (0.9 + rand() * 0.2),
       stopY: WY - 15 - d.r - rand() * 12 - (d.range ? d.range * (0.6 + rand() * 0.4) : 0),
       acd: 0.3 + rand() * 0.7, flash: 0, frozen: 0, slow: 0, burn: 0, burnT: 0, burnDps: 0, burnSrc: null,
       psn: 0, psnT: 0, psnDps: 0, psnSrc: null, psnMark: 0, vuln: 0, vulnT: 0, fear: 0, conf: 0, confT: 0, confSrc: null, mark: 0,
       walk: rand() * 6, ph: rand() * 6, dead: false, ccK: 1, pushK: 1, atkT: 0,
-      spr: enemySprite(d.id), flip: d.id !== 'boss' && rand() < 0.5,
+      spr: enemySprite(d.id), flip: d.id !== 'boss' && d.id !== 'rare' && rand() < 0.5,
     });
+    if (d.id === 'rare' && S.enc) {                           // 奇遇：名字、血量、招式、配色都换成这一只的
+      const e = S.enemies[S.enemies.length - 1], x = S.enc.def;
+      e.rare = x; e.name = x.name; e.aura = x.aura || ''; e.hp = e.max = Math.round(e.max * x.hpK * 0.9);
+      e.look = Object.assign({}, d, { key: 'enc_' + x.id, body: x.body, hat: x.hat, beast: x.kind === 'beast' ? x.id : '' }); e.spr = 'enemies/enc_' + x.id;
+      e.sk = x.skills.map(k => ({ k, t: k.cd * 0.5 }));
+      e.fleeT = x.kind === 'beast' ? CFG.ENC.flee : 0;         // 神兽不恋战：这么多秒没被击败就遁走（不给奖励，也不再攻城）
+      ring(e.x, 40, 20, 260, 0.8, '#ffd24a', 6);
+    }
   }
   /* 敌人造型：第 1 章黄巾兵，之后换官军造型；敌将每章不同 */
   function enemySprite(id) {
     if (id === 'boss') return S.boss.sprite;
+    if (id === 'rare') return null;                             // 奇遇的立绘在 spawn 里按是哪一只来定
     if (S.ch.index > 1 && Assets.get('enemy:' + id + '_2')) return 'enemy:' + id + '_2';
     return null;
   }
@@ -134,7 +147,7 @@ const Battle = (function () {
     S.over = true; S.win = win; S.aim = null;
     Sfx.music(null); Sfx.play(win ? 'win' : 'lose');
     S.banner = { text: win ? '大获全胜' : S.wiped ? '全军覆没' : '城池失守', t: 99, max: 99 };
-    const res = settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins));
+    const res = settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins), S.enc && S.enc.killed ? S.enc.def.id : null);
     res.win = win; res.kills = S.kills; res.stage = S.stage; res.wave = S.wave; res.combo = S.comboMax; res.wiped = !!S.wiped; res.fallen = Object.keys(S.fallen);
     res.dmg = damageList();
     const ref = S;
@@ -288,7 +301,13 @@ const Battle = (function () {
       else if (el === 'thunder') burst(e.x, e.y - 10, 5, '#d8c4ff', 260, 1.6, 0.25);
       else if (el === 'wind') burst(e.x, e.y - 8, 5, '#b8ffe8', 200, 2, 0.4, -120);
     }
-    if (e.def.id === 'boss' && !S.over) { S.slowT = 1.0; S.slowAt = { x: e.x, y: e.y }; }          // 敌将倒下：慢动作
+    if ((e.def.id === 'boss' || e.rare) && !S.over) { S.slowT = 1.0; S.slowAt = { x: e.x, y: e.y }; }          // 敌将倒下：慢动作
+    if (e.rare && S.enc) {                                    // 奇遇里的那一只被击败了
+      S.enc.killed = true;
+      text(W / 2, 250, '击败 ' + e.rare.name, '#ffd24a', 32, 2.2, true); S.flash = { color: '255,220,120', a: 0.3, t: 0.5, max: 0.5 }; Sfx.play('win');
+      tex('pillar', e.x, e.y + 20, { w: 170, h: 560, ay: 1, life: 1.3, fadeIn: 0.1, rgb: '255,220,120', force: true }); ring(e.x, e.y, 10, 200, 0.6, '#ffd24a', 6); shockwave(e.x, e.y, 420, 1.4);
+      for (let i = 0; i < 10; i++) dropCoin(e);
+    }
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (e.def.id === 'boss') Sfx.play('bossdie');
     if (e.demon) { for (let i = 0; i < 3; i++) tex('el_hit_dark', e.x + (rand() - 0.5) * 50, e.y - 20 - i * 26, { w: 150, life: 0.9 + i * 0.2, grow: 1.6, vy: -40, force: true }); text(e.x, e.y - 90, '心魔已散', '#d8b4ff', 22, 1.6, true); }
@@ -330,7 +349,7 @@ const Battle = (function () {
   /* ---------------- 城防挨打的反馈 ---------------- */
   /* 扣血立刻生效；命中的画面（碎石、白光、震动、音效）等 delay 秒：近战是兵器落下，弓手是箭飞到 */
   function wallHurt(e, x, delay, dmgK) {
-    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite' || !!e.def.siege || !!e.def.boom, dmg = e.atk * (dmgK || 1) * (S.guard.t > 0 ? S.guard.k : 1), ref = S;   // S.guard：高顺的陷阵营，城墙少挨打
+    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite' || e.def.id === 'rare' || !!e.def.siege || !!e.def.boom, dmg = e.atk * (dmgK || 1) * (S.guard.t > 0 ? S.guard.k : 1), ref = S;   // S.guard：高顺的陷阵营，城墙少挨打
     S.wall -= dmg;
     S.wallAcc += dmg; S.wallAccX += x * dmg;
     const fx = () => {
@@ -367,8 +386,8 @@ const Battle = (function () {
   }
   /* 敌人朝武将飞过去的一下：dur 秒后命中才扣血。look: 'arrow' 箭 / 'knife' 飞刀 / 'rock' 石头 */
   function strikeHero(e, h, frac, look, dur, after) {
-    const ref = S, x0 = e.x, y0 = e.y - (e.def.id === 'boss' ? 20 : 6);
-    S.shots.push({ k: 'earrow', rock: look === 'rock', knife: look === 'knife', big: e.def.id === 'boss', x: x0, y: y0, x0, y0, tx: h.x, ty: h.y - 20, t: 0, dur, arc: look === 'rock' ? 110 : 0 });
+    const ref = S, x0 = e.x, y0 = e.y - (e.def.id === 'boss' || e.def.id === 'rare' ? 20 : 6);
+    S.shots.push({ k: 'earrow', rock: look === 'rock', knife: look === 'knife', big: e.def.id === 'boss' || e.def.id === 'rare', x: x0, y: y0, x0, y0, tx: h.x, ty: h.y - 20, t: 0, dur, arc: look === 'rock' ? 110 : 0 });
     S.timers.push({ t: dur, fn: () => { if (S === ref && !S.over) { heroHurt(h, frac * S.heroHit); if (after) after(); } } });
   }
   const livingHeroes = () => S.heroes.filter(h => !h.dead);
@@ -648,7 +667,7 @@ const Battle = (function () {
       case 'arrow': for (let i = 0; i < 40; i++) later(i * 0.035, () => { const e = randLive(); if (e) B.rain(h, e.x, e.y, a * 1.3); }); break;
       case 'blade': { const base = Math.atan2(t.y - h.y, t.x - h.x); [-0.22, 0, 0.22].forEach((o, i) => later(i * 0.16, () => shotBlade(h, h.x, h.y - 22, base + o, { w: 150, spd: 520, dmg: a * 4, big: true, life: 2.4 }))); break; }
       case 'fire': for (let i = 0; i < 6; i++) later(i * 0.18, () => { const e = densest(90); if (e) shotLob(h, 'fire', e.x + 150, -40, e.x, e.y, { dur: 0.42, r: 96, dmg: a * 3.5, big: true }); }); break;
-      case 'ice': for (const e of lives()) { stun(e, e.def.id === 'boss' ? 1.5 : 3); hit(e, a * 2.5, 'ice', h); } S.flash = { color: '160,225,255', a: 0.45, t: 0.6, max: 0.6 }; break;
+      case 'ice': for (const e of lives()) { stun(e, e.def.id === 'boss' || e.def.id === 'rare' ? 1.5 : 3); hit(e, a * 2.5, 'ice', h); } S.flash = { color: '160,225,255', a: 0.45, t: 0.6, max: 0.6 }; break;
       case 'thunder': lives().slice(0, 14).forEach((e, i) => later(i * 0.06, () => { if (e.dead) return; bolt(e.x, -10, e.x, e.y - 6, 2); stun(e, 1); hit(e, a * 4.5, 'thunder', h); })); break;
       case 'poison': pool(h, t.x, t.y, 135, 6, a * 1.1, 'poison'); break;
       case 'wind': tornado(h, t.x, WY - 30, { vy: -48, r: 92, life: 5.5, dmg: a * 1.2, push: 20, big: true }); break;
@@ -768,9 +787,15 @@ const Battle = (function () {
       }
       const d = e.def, fast = e.hasteT > 0 ? 1.45 : e.auraT > 0 ? 1.3 : 1;      // 董卓的怒喝、鼓手的鼓声：走得更快、砍得更勤（不叠加）
       // 敌将的招式
+      if (e.fleeT > 0 && (e.fleeT -= dt) <= 0) {                // 神兽遁走
+        e.dead = true; if (S.ghosts.length < 40) S.ghosts.push({ def: d, spr: e.spr, look: e.look, flip: e.flip, x: e.x, y: e.y, life: 0.8, max: 0.8 });
+        text(W / 2, 250, e.name + '遁走了', '#cfe8ff', 28, 2, true); ring(e.x, e.y, 10, 180, 0.6, 'rgb(' + (e.aura || '255,255,255') + ')', 5); Sfx.play('wave');
+        continue;
+      }
+      if (e.fleeT > 0 && e.fleeT < 10 && e.fleeT + dt >= 10) text(e.x, e.y - 70, e.name + '就要遁走了', '#cfe8ff', 20, 1.6);
       if (e.sk && e.y > RANGE_Y + 20) for (const x of e.sk) if (x.k.cd > 0 && (x.t -= dt) <= 0) { x.t = x.k.cd; bossCast(e, x.k); }
       // 校尉、敌将一边往前走一边朝台上的武将掷兵器
-      if ((d.id === 'elite' || d.id === 'boss') && e.y > RANGE_Y + 30 && (e.heroT -= dt) <= 0) { e.heroT = d.id === 'boss' ? 3.5 : 5; const hh = pickHeroes(1)[0]; if (hh) strikeHero(e, hh, CFG.HERO_HIT[d.id], 'knife', 0.4); }
+      if ((d.id === 'elite' || d.id === 'boss' || d.id === 'rare') && e.y > RANGE_Y + 30 && (e.heroT -= dt) <= 0) { e.heroT = d.id === 'elite' ? 5 : 3.5; const hh = pickHeroes(1)[0]; if (hh) strikeHero(e, hh, CFG.HERO_HIT[d.id === 'elite' ? 'elite' : 'boss'], 'knife', 0.4); }
       // 后排：鼓手擂鼓、巫医治伤
       if ((d.aura || d.heal) && (e.supT -= dt) <= 0 && e.y > RANGE_Y) {
         if (d.aura) {
@@ -782,7 +807,7 @@ const Battle = (function () {
           let any = false;
           for (const x of S.enemies) {
             if (x.dead || x.hp >= x.max || Math.hypot(x.x - e.x, x.y - e.y) > d.heal) continue;
-            const v = Math.round(x.max * (x.def.id === 'boss' ? 0.012 : 0.06)); x.hp = Math.min(x.max, x.hp + v); any = true;
+            const v = Math.round(x.max * (x.def.id === 'boss' || x.def.id === 'rare' ? 0.012 : 0.06)); x.hp = Math.min(x.max, x.hp + v); any = true;
             if (S.texts.length < 60) text(x.x, x.y - x.def.r - 6, '+' + v, '#8dff8a', 12, 0.6);
           }
           if (any) { ring(e.x, e.y, 10, d.heal, 0.5, '#8dff8a', 2); burst(e.x, e.y - 10, 5, '#a8ffa0', 90, 2.4, 0.5); }
@@ -1237,12 +1262,17 @@ const Battle = (function () {
   }
   /* 敌人头上的状态：中毒、受惊、混乱、标记 */
   function drawStatus(e) {
-    const ds = e.ds || 1, top = e.y - e.def.r * 2.5 * ds - (e.def.id === 'boss' ? 30 : 12);
+    const ds = e.ds || 1, top = e.y - e.def.r * 2.5 * ds - (e.def.id === 'boss' || e.def.id === 'rare' ? 30 : 12);
     if (e.psn > 0 && !Assets.get(e.spr || 'enemy:' + e.def.id)) { c.fillStyle = 'rgba(120,230,70,.35)'; Art.circ(c, e.x, e.y, e.def.r * 0.9); }
     if (e.burn > 0 && Assets.get('fx:flame')) { c.globalCompositeOperation = 'lighter'; img('flame', e.x, e.y - e.def.r * 0.8, e.def.r * 1.1, e.def.r * 1.9, 0, 0.35 + Math.sin(S.t * 18 + e.ph) * 0.1); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; }
     if (e.fear > 0) outlined('!', e.x, top, 15, '#ffe08a', 'center', 3);
     else if (e.conf > 0) {
       for (let i = 0; i < 3; i++) { const a = S.t * 6 + i * TAU / 3; c.fillStyle = '#e8b0ff'; Art.circ(c, e.x + Math.cos(a) * 9, top + Math.sin(a) * 3, 2.2); }
+    }
+    if (e.aura && Assets.get('fx:el_hit_wind')) {             // 神兽：身上一团带颜色的气焰
+      c.globalCompositeOperation = 'lighter';
+      img('el_hit_wind', e.x, e.y - e.def.r * 0.9, e.def.r * 4.4 * (1 + Math.sin(S.t * 2.4) * 0.06), 0, S.t * 0.8, 0.5, e.aura);
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     }
     if (e.demon && Assets.get('fx:el_hit_dark')) {             // 心魔：脚下一团翻涌的黑紫气焰
       c.globalCompositeOperation = 'lighter';

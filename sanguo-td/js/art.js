@@ -446,15 +446,58 @@ const Art = (function () {
       c.fillStyle = '#2a1d14'; rr(c, 5, -1, 7, 7, 1.5); c.fill();                                   // 配重
     }
   }
+  /* 四神兽（奇遇）：没有立绘时的代码造型，头朝下（朝着城墙） */
+  function beastBody(c, d) {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const OUT = '#14100c', B = d.body, H = d.hat;
+    const path = (pts, fill, lw) => { c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath(); c.fillStyle = fill; c.fill(); c.strokeStyle = OUT; c.lineWidth = lw || 1.4; c.stroke(); };
+    const eyes = (y, col) => { c.fillStyle = col || '#ffe14a'; circ(c, -3, y, 1.5); circ(c, 3, y, 1.5); c.fillStyle = OUT; circ(c, -3, y + 0.3, 0.7); circ(c, 3, y + 0.3, 0.7); };
+    if (d.beast === 'qinglong') {                              // 青龙：一条盘着的长龙
+      const body = w => { c.lineWidth = w; c.beginPath(); c.moveTo(10, -26); c.bezierCurveTo(-22, -22, -18, -8, 2, -6); c.bezierCurveTo(22, -4, 18, 8, 0, 8); c.stroke(); };
+      c.strokeStyle = OUT; body(10.5); c.strokeStyle = B; body(7.6);
+      c.strokeStyle = H; c.lineWidth = 1.6; c.setLineDash([1.5, 4]); c.beginPath(); c.moveTo(10, -26); c.bezierCurveTo(-22, -22, -18, -8, 2, -6); c.bezierCurveTo(22, -4, 18, 8, 0, 8); c.stroke(); c.setLineDash([]);
+      path([[-8, 6], [8, 6], [6, 19], [0, 23], [-6, 19]], B);                                        // 龙头
+      path([[-6, 7], [-13, -2], [-3, 5]], H, 1.1); path([[6, 7], [13, -2], [3, 5]], H, 1.1);           // 角
+      c.strokeStyle = H; c.lineWidth = 1.2; c.beginPath(); c.moveTo(-4, 20); c.quadraticCurveTo(-13, 22, -15, 15); c.moveTo(4, 20); c.quadraticCurveTo(13, 22, 15, 15); c.stroke();   // 须
+      eyes(13);
+    } else if (d.beast === 'baihu') {                          // 白虎
+      c.strokeStyle = OUT; c.lineWidth = 5.4; c.beginPath(); c.moveTo(4, -14); c.quadraticCurveTo(16, -24, 12, -8); c.stroke();
+      c.strokeStyle = B; c.lineWidth = 3; c.beginPath(); c.moveTo(4, -14); c.quadraticCurveTo(16, -24, 12, -8); c.stroke();                       // 尾巴
+      [[-10, -8], [10, -8], [-10, 8], [10, 8]].forEach(p => { c.fillStyle = OUT; ell(c, p[0], p[1], 4.6, 5.6); c.fillStyle = B; ell(c, p[0], p[1], 3.4, 4.4); });   // 四爪
+      c.fillStyle = OUT; ell(c, 0, -2, 11.4, 15.4); c.fillStyle = B; ell(c, 0, -2, 10, 14);
+      c.strokeStyle = H; c.lineWidth = 2; for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(-8, -11 + i * 5); c.quadraticCurveTo(0, -8 + i * 5, 8, -11 + i * 5); c.stroke(); }   // 斑纹
+      path([[-8, 8], [-10, 2], [-4, 6]], B, 1.2); path([[8, 8], [10, 2], [4, 6]], B, 1.2);             // 耳朵
+      c.fillStyle = OUT; circ(c, 0, 14, 8.6); c.fillStyle = B; circ(c, 0, 14, 7.4);
+      c.strokeStyle = H; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-2.4, 9); c.lineTo(2.4, 9); c.moveTo(0, 8); c.lineTo(0, 11.4); c.moveTo(-2.4, 11.4); c.lineTo(2.4, 11.4); c.stroke();   // 额头的「王」
+      eyes(14.5); c.fillStyle = '#e88a8a'; circ(c, 0, 18.4, 1.3);
+    } else if (d.beast === 'zhuque') {                         // 朱雀：展开双翅的火鸟
+      [-1, 1].forEach(s => { path([[s * 3, -4], [s * 21, -18], [s * 19, -6], [s * 22, 2], [s * 15, 2], [s * 14, 9], [s * 4, 6]], B); c.strokeStyle = H; c.lineWidth = 1.3; c.beginPath(); c.moveTo(s * 5, -1); c.lineTo(s * 18, -12); c.moveTo(s * 5, 2); c.lineTo(s * 17, -2); c.stroke(); });
+      [-0.5, 0, 0.5].forEach(a => { c.save(); c.translate(0, -6); c.rotate(a); path([[-2.4, 0], [0, -22], [2.4, 0]], H, 1.1); c.fillStyle = B; circ(c, 0, -17, 1.6); c.restore(); });   // 尾羽
+      c.fillStyle = OUT; ell(c, 0, 3, 6.6, 10.6); c.fillStyle = B; ell(c, 0, 3, 5.4, 9.4);
+      c.fillStyle = OUT; circ(c, 0, 14, 5.6); c.fillStyle = B; circ(c, 0, 14, 4.6);
+      path([[-2, 17], [2, 17], [0, 23]], H, 1.1); path([[-2, 10], [0, 3], [2, 10]], H, 1);               // 喙、冠
+      eyes(14, '#fff2b0');
+    } else {                                                   // 玄武：龟背上盘着一条蛇
+      [[-12, -10], [12, -10], [-12, 8], [12, 8]].forEach(p => { c.fillStyle = OUT; ell(c, p[0], p[1], 5, 4.4); c.fillStyle = H; ell(c, p[0], p[1], 3.8, 3.2); });
+      c.fillStyle = OUT; circ(c, 0, 15, 6.4); c.fillStyle = H; circ(c, 0, 15, 5.2); eyes(16.5);
+      c.fillStyle = OUT; ell(c, 0, -2, 14.4, 16.4); c.fillStyle = B; ell(c, 0, -2, 13, 15);
+      c.strokeStyle = 'rgba(160,200,255,.55)'; c.lineWidth = 1.1;
+      c.beginPath(); for (let i = 0; i < 6; i++) { const a = i * TAU / 6; c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * 6, -2 + Math.sin(a) * 7); } c.closePath(); c.stroke();
+      for (let i = 0; i < 6; i++) { const a = i * TAU / 6; c.beginPath(); c.moveTo(Math.cos(a) * 6, -2 + Math.sin(a) * 7); c.lineTo(Math.cos(a) * 12, -2 + Math.sin(a) * 14); c.stroke(); }
+      const snake = w => { c.lineWidth = w; c.beginPath(); c.moveTo(-9, 6); c.bezierCurveTo(-18, -8, 2, -10, 6, -16); c.bezierCurveTo(9, -22, 16, -20, 14, -27); c.stroke(); };
+      c.strokeStyle = OUT; snake(4.6); c.strokeStyle = '#8fc0ff'; snake(2.6); c.fillStyle = OUT; circ(c, 14, -27, 3); c.fillStyle = '#8fc0ff'; circ(c, 14, -27, 2.1);
+    }
+  }
   function enemyBody(c, d) {
     if (d.siege) return siegeBody(c, d);
+    if (d.beast) return beastBody(c, d);
     if (d.id === 'rider') {                                   // 战马
       c.fillStyle = '#5b3a24'; ell(c, 0, 5, 8, 12);
       c.fillStyle = '#6e4a30'; ell(c, 0, 15, 5, 6.5);
       c.fillStyle = '#1e1410'; circ(c, -2.4, 16, 1); circ(c, 2.4, 16, 1);
     }
-    if (d.id === 'boss') {                                    // 披风
-      c.fillStyle = '#7a1620'; c.beginPath(); c.moveTo(-8, -5); c.quadraticCurveTo(-17, 4, -13, 13); c.lineTo(13, 13); c.quadraticCurveTo(17, 4, 8, -5); c.closePath(); c.fill();
+    if (d.id === 'boss' || d.id === 'rare') {                 // 披风
+      c.fillStyle = d.id === 'rare' ? '#3a2a1c' : '#7a1620'; c.beginPath(); c.moveTo(-8, -5); c.quadraticCurveTo(-17, 4, -13, 13); c.lineTo(13, 13); c.quadraticCurveTo(17, 4, 8, -5); c.closePath(); c.fill();
     }
     // 兵器
     c.lineCap = 'round';
@@ -471,7 +514,7 @@ const Art = (function () {
       c.strokeStyle = '#4a3420'; c.lineWidth = 1.8; c.beginPath(); c.moveTo(10, 12); c.lineTo(10, -18); c.stroke();
       c.fillStyle = '#eee6d0'; circ(c, 10, -21, 3.6); c.fillStyle = '#2a1d14'; circ(c, 8.8, -21.4, 0.9); circ(c, 11.2, -21.4, 0.9);
       c.fillStyle = '#8dff8a'; circ(c, 10, -27, 1.6);
-    } else if (d.id === 'boss') {
+    } else if (d.id === 'boss' || d.id === 'rare') {
       c.strokeStyle = '#2a1d16'; c.lineWidth = 2; c.beginPath(); c.moveTo(11, 12); c.lineTo(11, -14); c.stroke();
       c.fillStyle = '#dfe5ee'; c.beginPath(); c.moveTo(10, -13); c.quadraticCurveTo(20, -18, 16, -27); c.quadraticCurveTo(14, -19, 10, -18); c.closePath(); c.fill();
     } else {
@@ -508,6 +551,7 @@ const Art = (function () {
     if (d.id === 'heavy') { c.fillStyle = d.hat; c.beginPath(); c.arc(0, -9, 7.6, Math.PI * 0.9, Math.PI * 2.1); c.closePath(); c.fill(); c.fillRect(-7.6, -10, 15.2, 4.4); c.fillStyle = '#e8c49c'; c.fillRect(-4.6, -9.4, 9.2, 2.6); }   // 铁盔只露一条缝
     if (d.id === 'rattan') { c.fillStyle = '#c8a24a'; c.beginPath(); c.moveTo(-9, -12); c.lineTo(0, -20); c.lineTo(9, -12); c.closePath(); c.fill(); }      // 藤编尖帽
     if (d.id === 'shaman') { ['#c8302a', '#e8c04a', '#3a8a4a'].forEach((col, i) => { c.fillStyle = col; c.beginPath(); c.moveTo((i - 1) * 4.4 - 1.6, -15); c.lineTo((i - 1) * 6, -25 + Math.abs(i - 1) * 2); c.lineTo((i - 1) * 4.4 + 1.6, -15); c.closePath(); c.fill(); }); }   // 三根羽毛
+    if (d.id === 'rare') { c.fillStyle = '#c23b3b'; c.fillRect(-7.6, -12, 15.2, 2.6); c.beginPath(); c.moveTo(7, -12); c.lineTo(14, -8); c.lineTo(8, -9.4); c.closePath(); c.fill(); }   // 山贼首领：红头巾
     if (d.id === 'elite' || d.id === 'boss') {
       c.fillStyle = d.id === 'boss' ? '#e8c04a' : '#c23b3b';
       c.beginPath(); c.moveTo(-6, -15); c.lineTo(-10, -23); c.lineTo(-3, -17); c.closePath(); c.fill();
@@ -529,11 +573,11 @@ const Art = (function () {
   }
   function drawBars(c, e, d, k) {
     // 血条
-    if (e.hp < e.max || d.id === 'boss') {
-      const w = d.id === 'boss' ? 70 : d.r * 2, hy = e.y - d.r * (k || 2.1) - (d.id === 'boss' ? 14 : 4);
-      c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(e.x - w / 2 - 1, hy - 1, w + 2, d.id === 'boss' ? 7 : 5);
-      c.fillStyle = d.id === 'boss' ? '#ff5a3a' : '#e8463a'; c.fillRect(e.x - w / 2, hy, w * Math.max(0, e.hp / e.max), d.id === 'boss' ? 5 : 3);
-      if (d.id === 'boss') { c.fillStyle = '#ffe9a8'; c.font = 'bold 12px "Microsoft YaHei",sans-serif'; c.textAlign = 'center'; c.fillText(e.name, e.x, hy - 4); }
+    if (e.hp < e.max || (d.id === 'boss' || d.id === 'rare')) {
+      const w = (d.id === 'boss' || d.id === 'rare') ? 70 : d.r * 2, hy = e.y - d.r * (k || 2.1) - ((d.id === 'boss' || d.id === 'rare') ? 14 : 4);
+      c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(e.x - w / 2 - 1, hy - 1, w + 2, (d.id === 'boss' || d.id === 'rare') ? 7 : 5);
+      c.fillStyle = (d.id === 'boss' || d.id === 'rare') ? '#ff5a3a' : '#e8463a'; c.fillRect(e.x - w / 2, hy, w * Math.max(0, e.hp / e.max), (d.id === 'boss' || d.id === 'rare') ? 5 : 3);
+      if ((d.id === 'boss' || d.id === 'rare')) { c.fillStyle = '#ffe9a8'; c.font = 'bold 12px "Microsoft YaHei",sans-serif'; c.textAlign = 'center'; c.fillText(e.name, e.x, hy - 4); }
     }
   }
 
