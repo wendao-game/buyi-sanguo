@@ -92,7 +92,7 @@ const UI = (function () {
       const w = e.weapon ? WEAPON_MAP[e.weapon] : null;
       return `<div class="encrow" style="--ec:rgb(${e.aura || '232,192,74'})"><b>${e.name}</b><span>${kills[e.id] ? '击败 ' + kills[e.id] + ' 次' : '还没击败过'}</span>
         <p>${e.skills.map(k => '「' + k.name + '」' + k.desc).join('；')}</p>
-        <p class="rw">${w ? (un[e.weapon] ? '已解锁「' + w.name + '」，再击败有重赏' : '击败后解锁「' + w.name + '」') : '击败有赏金'}</p></div>`;
+        ${kills[e.id] ? `<p class="rw">${w && un[e.weapon] ? '已得「' + w.name + '」入卡池' : '赏金'}</p>` : ''}</div>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>奇遇录</h2><div class="enclist">${rows}</div></div>`);
   }
@@ -200,17 +200,18 @@ const UI = (function () {
   /* ---------------- 兵器 ---------------- */
   function renderArms() {
     const S = Save.data, W = S.weapons;
-    const cards = WEAPONS.slice().sort((a, b) => (W[b.id] ? 1 : 0) - (W[a.id] ? 1 : 0) || b.q - a.q).map(w => {
+    const shown = WEAPONS.filter(w => !w.lock || (S.unlocked || {})[w.id] || W[w.id]);   // 神兽兵器：解锁之前不显示，让玩家自己碰
+    const cards = shown.slice().sort((a, b) => (W[b.id] ? 1 : 0) - (W[a.id] ? 1 : 0) || b.q - a.q).map(w => {
       const own = W[w.id], q = QUALITIES[w.q];
       const dot = own && own.lv < CFG.WEAPON_MAX_LV && S.iron >= weaponUpCost(w.id) && own.hero;
       return `<div class="card wcard ${own ? '' : 'lock'}" style="--qc:${q.color}" data-act="weapon" data-id="${w.id}">
         <i class="qtag">${q.name}</i>${own && own.hero ? `<img class="whead" src="${P(own.hero)}">` : ''}
         <img src="${WI(w.id)}"><div class="cname">${w.name}</div>
-        <div class="cmeta">${own ? '强化 <b>+' + own.lv + '</b>' : w.lock && !(S.unlocked || {})[w.id] ? '击败' + ENC_MAP[w.lock].name + '解锁' : '未获得'}</div>${dot ? '<span class="dot"></span>' : ''}</div>`;
+        <div class="cmeta">${own ? '强化 <b>+' + own.lv + '</b>' : '未获得'}</div>${dot ? '<span class="dot"></span>' : ''}</div>`;
     }).join('');
     $('#arms').innerHTML = `
       <div class="ahead"><div class="cur"><i class="ico iron"></i><b>${fmt(S.iron)}</b></div>
-        <p>兵器在<b>「招募」</b>里和武将一起抽（已有 ${Object.keys(W).length}/${WEAPONS.length} 件）。<b>精铁</b>用来强化：通关会给，抽到已有的兵器也会熔成精铁。<br>四件<b>神兽兵器</b>要先在出征的<b>奇遇</b>里击败对应的神兽，才会进卡池。</p></div>
+        <p>兵器在<b>「招募」</b>里和武将一起抽（已有 ${Object.keys(W).length}/${shown.length} 件）。<b>精铁</b>用来强化：通关会给，抽到已有的兵器也会熔成精铁。</p></div>
       <div class="grid agrid">${cards}</div>`;
   }
   /* 兵器详情：强化 / 装给上阵的武将 / 熔掉 */
@@ -226,8 +227,7 @@ const UI = (function () {
       <div class="wstat">${Object.keys(cur).map(k => `<div><b>${pct(cur[k])}</b>${WSTATS[k]}${nxt ? `<br><small>下一级 ${pct(nxt[k])}</small>` : ''}</div>`).join('')}</div>
       ${w.owner ? `<p class="mtext" style="font-size:13px;margin-top:10px">装在<b style="color:var(--gold2)">${HERO_MAP[w.owner].name}</b>身上时，全部加成 ×${CFG.WEAPON_OWNER_MUL}${own && own.hero === w.owner ? '（已生效）' : ''}</p>` : ''}`;
     if (!own) {
-      if (w.lock && !(S.unlocked || {})[wid]) h += `<p class="mtext" style="margin-top:14px">神兽兵器 · 现在还抽不到<br>出征时有小概率碰上<b style="color:var(--gold2)">${ENC_MAP[w.lock].name}</b>（第 ${ENC_MAP[w.lock].from} 关起），击败它之后这件兵器就会进卡池</p><div class="mrow"><button class="btn" data-act="close">知道了</button></div>`;
-      else h += `<p class="mtext" style="margin-top:14px">还没有这件兵器 · 招募有机会获得${w.lock ? '（已击败' + ENC_MAP[w.lock].name + '解锁）' : ''}</p><div class="mrow"><button class="btn red" data-act="nav" data-tab="gacha">去招募</button></div>`;
+      h += `<p class="mtext" style="margin-top:14px">还没有这件兵器 · 招募有机会获得</p><div class="mrow"><button class="btn red" data-act="nav" data-tab="gacha">去招募</button></div>`;
     } else {
       h += `<div class="mrow"><button class="btn gold" data-act="wup" data-id="${wid}">${maxed ? '已强化到顶' : '强化<small>精铁 ' + weaponUpCost(wid) + '（现有 ' + fmt(S.iron) + '）</small>'}</button>
           <button class="btn gray" data-act="wmelt" data-id="${wid}">熔掉<small>返还精铁 ${weaponMeltBack(wid)}</small></button></div>
@@ -318,7 +318,7 @@ const UI = (function () {
   function showRates() {
     const total = QUALITIES.reduce((s, q) => s + q.rate, 0), ws = Math.round(CFG.WEAPON_SHARE * 100);
     const rows = QUALITIES.map(q => {
-      const names = HEROES.filter(h => h.q === q.id).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id).map(w => w.name + (w.lock ? ((Save.data.unlocked || {})[w.id] ? '' : '（击败' + ENC_MAP[w.lock].name + '后加入）') : '')).join('、');
+      const names = HEROES.filter(h => h.q === q.id).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id && (!w.lock || (Save.data.unlocked || {})[w.id])).map(w => w.name).join('、');   // 只列现在抽得到的
       return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '未开放'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>

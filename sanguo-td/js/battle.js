@@ -96,7 +96,7 @@ const Battle = (function () {
     S.queue = w.list; S.waveDur = w.dur; S.waveT = 0; S.spawned = 0; S.waveSize = w.list.length;
     const ne = S.wave === 1 ? newEnemyAt(S.stage) : null;
     S.banner = ne ? { text: '新敌人 · ' + ne.name, sub: ne.tip, t: 4, max: 4 } : { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', sub: S.wave === CFG.WAVES ? S.boss.skills.map(k => k.name + '：' + k.desc).join('；') : '', t: S.wave === CFG.WAVES ? 3.2 : 1.8, max: S.wave === CFG.WAVES ? 3.2 : 1.8 };
-    if (S.enc && S.wave === S.enc.wave) { const e = S.enc.def, wn = e.weapon && !(Save.data.unlocked || {})[e.weapon] ? WEAPON_MAP[e.weapon].name : ''; S.banner = { text: '奇遇 · ' + e.name, sub: wn ? '击败它，解锁「' + wn + '」，以后招募有机会抽到' : '击败' + (e.kind === 'beast' ? '它' : '他') + '，有重赏', t: 4, max: 4 }; Sfx.play('horn'); }
+    if (S.enc && S.wave === S.enc.wave) { const e = S.enc.def; S.banner = { text: '奇遇 · ' + e.name, t: 4, max: 4 }; Sfx.play('horn'); }
     Sfx.play(S.wave === CFG.WAVES ? 'horn' : 'wave');
     if (S.wave === CFG.WAVES) Sfx.music('boss');             // 最后一波：音乐换成更急的一段
   }
@@ -268,9 +268,11 @@ const Battle = (function () {
     if (e.shieldT > 0) m *= 0.5;                                   // 盾阵
     if (e.guardT > 0) m *= e.guardK;                               // 敌将自己的护体
     if (src && src.sk && src.sk.passive.dmg) m *= src.sk.passive.dmg(B, src, e);
+    if (src && S.rally && S.rally.t > 0) m *= S.rally.mul;       // 孙权「坐断东南」：一段时间内全军伤害提高
     const canCrit = !o.dot || (src && src.m.dotCrit);
     const crit = canCrit && rand() < 0.08 + S.buffs.crit + (src ? src.crit + (src.critT > 0 ? 1 : 0) : 0) + (o.crit || 0);   // critT：夏侯惇放完大招后的几秒必定暴击
     dmg = Math.max(1, Math.round(dmg * m * (0.9 + rand() * 0.2) * (crit ? 2 + (src ? src.critDmg : 0) : 1)));
+    if (o.execute) dmg = Math.max(dmg, Math.ceil(e.hp));         // 斩杀：不管有没有盾，这一下一定打死
     if (src) src.dmg += Math.min(dmg, Math.max(0, e.hp));
     e.hp -= dmg; e.flash = 0.1;
     if (crit && !o.dot) Sfx.play('crit');
@@ -470,7 +472,11 @@ const Battle = (function () {
   /* ---------------- 武将挨打 ---------------- */
   function heroHurt(h, dmg) {
     if (!h || h.dead || S.over) return;
-    dmg = Math.max(1, Math.round(dmg));
+    dmg = Math.max(1, Math.round(dmg * (S.buffs.heroHurt || 1)));
+    if (h.shieldT > 0 && h.shield > 0) {                        // 护盾先挡
+      const ab = Math.min(h.shield, dmg); h.shield -= ab; dmg -= ab;
+      if (dmg <= 0) { text(h.x + (rand() - 0.5) * 16, h.y - 62, '挡', '#9fd8ff', 16, 0.7); ring(h.x, h.y - 20, 20, 44, 0.25, '#9fd8ff', 3); return; }
+    }
     h.hp -= dmg; h.hurtT = 0.3;
     text(h.x + (rand() - 0.5) * 16, h.y - 62, '-' + dmg, '#ff6a5a', 17, 0.8);
     if (S.fx.length < 140) tex('burst', h.x, h.y - 24, { w: 70, life: 0.16, grow: 1.3, rgb: '255,120,100' });
@@ -583,7 +589,7 @@ const Battle = (function () {
   }
   function shotBlade(h, x, y, ang, o) {
     S.shots.push({ k: 'blade', h, x, y, vx: Math.cos(ang) * (o.spd || 430), vy: Math.sin(ang) * (o.spd || 430), w: o.w || 50, dmg: o.dmg, hit: new Set(), life: o.life || 2.2,
-      big: !!o.big, push: o.push || 0, slow: o.slow || 0, look: o.look || 'blade', el: o.el || 'blade', color: o.color || '', basic: !!o.basic, tex: o.tex || '', texW: o.texW || 0, rgb: o.rgb || '', spin: o.spin || 0, solid: !!o.solid });   // solid：实体小图（直立着画，不跟着方向转；往左飞时镜像）   // rgb 染色；spin 贴图自转（掷出去的兵器）
+      big: !!o.big, push: o.push || 0, slow: o.slow || 0, look: o.look || 'blade', el: o.el || 'blade', color: o.color || '', basic: !!o.basic, tex: o.tex || '', texW: o.texW || 0, rgb: o.rgb || '', spin: o.spin || 0, solid: !!o.solid, stun: o.stun || 0 });   // solid：实体小图（直立着画，不跟着方向转；往左飞时镜像）   // rgb 染色；spin 贴图自转（掷出去的兵器）
   }
   function shotLob(h, el, x0, y0, tx, ty, o) {
     S.shots.push({ k: 'lob', h, el, x: x0, y: y0, px: x0, py: y0, x0, y0, tx, ty, t: 0, dur: o.dur || 0.5, arc: o.arc || 0, r: o.r || 50, dmg: o.dmg, big: !!o.big, size: o.size || 1, slow: o.slow || 0, basic: !!o.basic });
@@ -622,6 +628,29 @@ const Battle = (function () {
       haste(h, t, mul) { h.hasteT = t; h.hasteMul = mul; },
       teamHaste(t, mul) { S.haste.t = t; S.haste.mul = mul; },
       guard(t, k) { S.guard.t = t; S.guard.k = k; },             // t 秒内城墙受到的伤害 × k
+      /* —— v2.2 新武将用到的 —— */
+      rally(t, mul) { S.rally = { t, mul }; },                   // t 秒内全军伤害 × mul
+      shield(t, frac) { for (const h of S.heroes) if (!h.dead) { h.shield = Math.round(h.maxHp * frac); h.shieldT = t; tex('circle', h.x, h.y + 29, { w: 104, h: 42, spin: -1.6, life: t, rgb: '120,200,255', a: 0.85, fadeIn: 0.1, force: true }); ring(h.x, h.y - 16, 10, 60, 0.4, '#9fd8ff', 4); } },   // 全体武将的护盾：能挡相当于生命 frac 的伤害
+      heroHp(h, frac) {                                          // 武将自己加血（frac > 0）或者耗血（frac < 0，不会耗死）
+        if (h.dead) return; const v = Math.round(h.maxHp * frac);
+        h.hp = Math.max(1, Math.min(h.maxHp, h.hp + v)); if (v > 0) text(h.x, h.y - 70, '+' + v, '#8dff8a', 15, 0.8);
+      },
+      healHeroes(frac) { for (const h of S.heroes) if (!h.dead) { const v = Math.round(h.maxHp * frac); h.hp = Math.min(h.maxHp, h.hp + v); h.stunT = 0; h.psnT = 0; text(h.x, h.y - 70, '+' + v, '#8dff8a', 16, 1); tex('el_hit_wind', h.x, h.y - 24, { w: 96, life: 0.7, grow: 1.4, rgb: '140,255,150', force: true }); } },
+      revive(frac) {                                             // 救活一名阵亡的武将（每局次数有限），返回救活的是谁
+        if ((S.revives || 0) >= CFG.REVIVE_MAX) return null;
+        const h = S.heroes.find(x => x.dead); if (!h) return null;
+        S.revives = (S.revives || 0) + 1; h.dead = false; h.hp = Math.round(h.maxHp * frac); h.stunT = 0; h.psnT = 0; delete S.fallen[h.def.id]; S.teamVer++;
+        text(h.x, h.y - 88, h.def.name + ' 被救活了', '#8dff8a', 22, 1.8, true); tex('pillar', h.x, h.y + 34, { w: 90, h: 320, ay: 1, life: 1, fadeIn: 0.1, rgb: '140,255,150', force: true }); ring(h.x, h.y + 20, 10, 100, 0.6, '#8dff8a', 5);
+        return h;
+      },
+      recast(h2, a, k) {                                         // 让另一名武将立刻再放一次大招（不耗怒气），伤害按给定的 a 算
+        if (!h2 || h2.dead || !h2.sk) return false;
+        h2.anim = 1.6; text(h2.x, h2.y - 58, '【' + h2.def.ult + '】', QUALITIES[h2.def.q].color, 21, 1.5, true); ring(h2.x, h2.y + 26, 12, 70, 0.5, QUALITIES[h2.def.q].color, 4);
+        h2.sk.ult.cast(api, h2, a, k); return true;
+      },
+      pull(x, y, r, k) { inRadius(x, y, r, e => { const m = k * (isBig(e) ? 0.35 : 1) * (e.def.siege ? 0.3 : 1); e.x += (x - e.x) * m; e.y += (y - e.y) * m; }); },   // 把一圈敌人往中心拽
+      isBig,
+      execute(e, h) { if (e.dead) return; hit(e, e.hp * 1.5 + 1, 'thunder', h, { execute: true }); },   // 斩杀（按它剩下的血量记伤害）
       /* 技能回复城防：同一局里每回复一次，之后的回复量 × CFG.HEAL_DECAY（最低 CFG.HEAL_MIN），几个会回血的武将轮着放也不至于城墙永远打不破 */
       heal(frac) { heroHeal(frac * S.healK * 1.5); const v = Math.round(S.wallMax * frac * S.healK); S.healK = Math.max(CFG.HEAL_MIN, S.healK * CFG.HEAL_DECAY); S.wall = Math.min(S.wallMax, S.wall + v); text(W / 2, WY - 10, '城防 +' + v, '#8dff8a', 18, 1.2, true); },
       ring, burst, bolt, later,
@@ -679,6 +708,7 @@ const Battle = (function () {
     if (h.sk) h.sk.ult.cast(B, h, a, k); else defaultUlt(h, a);
     B.pt = null;
     if (h.sk && h.sk.passive.onUlt) h.sk.passive.onUlt(B, h);
+    for (const o of S.heroes) if (o !== h && !o.dead && o.sk && o.sk.passive.onAllyUlt) o.sk.passive.onAllyUlt(B, o, h);   // 别人放了大招（孙权的制衡）
     return true;
   }
   /* 没有专属技能的武将（未开放的神将）：按攻击类型的通用大招 */
@@ -743,6 +773,7 @@ const Battle = (function () {
     for (let i = S.timers.length - 1; i >= 0; i--) { const tm = S.timers[i]; if ((tm.t -= dt) <= 0) { S.timers.splice(i, 1); tm.fn(); if (!S || S.over) return; } }
     if (S.haste.t > 0) S.haste.t -= dt;
     if (S.guard.t > 0) S.guard.t -= dt;
+    if (S.rally && S.rally.t > 0) S.rally.t -= dt;
     if (S.comboT > 0 && (S.comboT -= dt) <= 0) S.combo = 0;
     if (S.comboPop > 0) S.comboPop = Math.max(0, S.comboPop - dt * 6);
     if (S.windT > 0) S.windT -= dt;
@@ -754,6 +785,7 @@ const Battle = (function () {
       if (h.dead) continue;                                      // 阵亡的这一关不能再出手
       if (h.psnT > 0) { h.psnT -= dt; if ((h.psnTick -= dt) <= 0) { h.psnTick = 1; heroHurt(h, h.psnDps); if (h.dead || S.over) { if (S.over) return; continue; } } } else h.psnDps = 0;
       h.anim = Math.max(0, h.anim - dt * 4);
+      if (h.shieldT > 0 && (h.shieldT -= dt) <= 0) h.shield = 0;
       if (h.stunT > 0) { h.stunT -= dt; continue; }               // 被定住 / 打晕：不出手、不涨怒气
       if (h.hasteT > 0) h.hasteT -= dt;
       if (h.critT > 0) h.critT -= dt;
@@ -912,6 +944,7 @@ const Battle = (function () {
             if (!e.dead) {
               if (s.push) pushBack(e, s.push);
               if (s.slow) slow(e, s.slow);
+              if (s.stun) stun(e, s.stun);
             }
             burst(e.x, e.y, 2, s.look === 'ice' ? '#d9f4ff' : '#e6dcff', 80, 3, 0.25);
           }

@@ -816,5 +816,121 @@ const SKILLS = (function () {
           });
         } },
     },
+
+    /* ======================= v2.2 新增 9 名 ======================= */
+    masu: {
+      passive: { name: '熟读兵书', desc: '怒气获取 +15%', mod: { rage: 0.15 } },
+      ult: { aim: true, desc: '纸上谈兵：火计、水计、雷计里随机用一计——火计炸一大片 ×5.5，水计冰封一片 2 秒 ×3.5，雷计闪电连跳 14 个敌人 ×2.8（觉醒连用两计）',
+        cast(B, h, a, k) {
+          const plans = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, k > 1 ? 2 : 1);
+          plans.forEach((pl, i) => B.later(i * 0.7, () => {
+            const p = i ? (B.dense(110) || B.rnd()) : (B.at(110) || B.rnd()); if (!p) return;
+            B.text(h.x, h.y - 96, ['火计', '水计', '雷计'][pl], ['#ff9a4a', '#9fd8ff', '#d4b8ff'][pl], 24, 1.1);
+            if (pl === 0) { B.tex('el_orb_fire', p.x, p.y - 260, { w: 120, life: 0.3, vy: 860 }); B.later(0.3, () => { B.explode('fire', p.x, p.y, 125, a * 5.5, true, h); B.shake(0.3); }); }
+            else if (pl === 1) { B.tex('snowflake', p.x, p.y, { w: 300, life: 0.7, grow: 1.3, spin: 0.6, a: 0.8, rgb: '170,225,255' }); B.zone({ k: 'frost', x: p.x, y: p.y, r: 140, life: 2 }); B.area(p.x, p.y, 140, e => { B.hit(e, a * 3.5, 'ice', h); B.stun(e, 2); }); }
+            else { const t = B.lives().sort((x, y) => Math.hypot(x.x - p.x, x.y - p.y) - Math.hypot(y.x - p.x, y.y - p.y))[0]; if (t) { B.bolt(t.x + 30, t.y - 300, t.x, t.y, 2.4); B.chain(h, t.x, t.y - 40, t, a * 2.8, 14, 0.5); B.flash('200,170,255', 0.2, 0.3); } }
+          }));
+        } },
+    },
+    pangde: {
+      passive: { name: '抬榇死战', desc: '自己的血量越低伤害越高：每少一成血，伤害 +6%', dmg(B, h) { return 1 + (1 - h.hp / Math.max(1, h.maxHp)) * 0.6; } },
+      ult: { desc: '抬榇决死：耗掉自己一成半的血，对离城最近的敌人连劈 5 刀，每刀 ×5（觉醒 ×7.5）；这个砍倒了就接着砍下一个，每砍倒一个回一成血',
+        cast(B, h, a, k) {
+          B.heroHp(h, -0.15); B.tex('burst', h.x, h.y - 30, { w: 110, life: 0.4, grow: 1.5, rgb: '255,80,60' });
+          for (let i = 0; i < 5; i++) B.later(0.12 + i * 0.17, () => {
+            const t = B.front(); if (!t) return;
+            B.tex('slash', t.x, t.y - 6, { w: 210, h: 90, rot: (i % 2 ? 0.6 : -0.6) + (Math.random() - 0.5) * 0.3, life: 0.2, grow: 1.25, rgb: i === 4 ? '255,90,70' : '255,235,215' });
+            B.slash(t.x, t.y); B.shake(i === 4 ? 0.3 : 0.12);
+            B.hit(t, a * 5 * k, 'blade', h); if (t.dead) { B.heroHp(h, 0.10); B.ring(t.x, t.y, 8, 70, 0.3, '#ff7a5a', 4); }
+          });
+        } },
+    },
+    dengai: {
+      passive: { name: '凿山通道', desc: '冰爆范围 +25%；普攻有两成机会把敌人冻住 1 秒', mod: { r: 0.25 }, onHit(B, h, e) { if (Math.random() < 0.2) B.stun(e, 1); } },
+      ult: { desc: '阴平雪崩：6 个大雪球从敌阵背后的山上滚下来，一路滚到城前，碾到的敌人 ×3.4 并冻住 1.2 秒（觉醒 9 个）',
+        cast(B, h, a, k) {
+          const n = R(6, k), L = B.lives();
+          B.flash('200,235,255', 0.2, 0.5); B.shake(0.3);
+          for (let i = 0; i < n; i++) B.later(i * 0.14, () => {
+            const t = L.length ? L[(i * 5 + 2) % L.length] : null, x = t && !t.dead ? t.x : 60 + (i + 0.5) * (B.W - 120) / n;      // 对着有敌人的那一列滚
+            B.blade(h, Math.max(50, Math.min(B.W - 50, x + (Math.random() - 0.5) * 30)), B.TOP - 30, Math.PI / 2, { w: 84, spd: 470, dmg: a * 3.4, life: (B.WY - 50 - B.TOP) / 470, big: true, el: 'ice', look: 'ice', tex: 'snowball', texW: 92, solid: true, rgb: '200,235,255', stun: 1.2 });
+          });
+        } },
+    },
+    huatuo: {
+      passive: { name: '麻沸散', desc: '毒潭持续时间 +40%；普攻打中的敌人减速 1.5 秒', mod: { life: 0.4 }, onHit(B, h, e) { B.slow(e, 1.5); } },
+      ult: { desc: '青囊济世：全体武将回复 35% 生命（觉醒 50%），解除眩晕和中毒，城防回复 8%；有人阵亡时救活一人（四成血，一局最多救 2 人）；药烟散到城下，靠近城墙的敌人 ×3 并减速 3 秒',
+        cast(B, h, a, k) {
+          B.flash('140,255,150', 0.18, 0.5);
+          B.healHeroes(0.35 * (k > 1 ? 1.43 : 1)); B.heal(0.08);
+          B.revive(0.4);
+          for (let i = 0; i < 5; i++) B.tex('el_hit_dark', 70 + i * 100, B.WY - 90 - (i % 2) * 50, { w: 200, life: 1.2, fadeIn: 0.15, a: 0.45, spin: 0.5, rgb: '120,230,120' });
+          B.lives().forEach(e => { if (e.y > B.WY - 260) { B.hit(e, a * 3, 'poison', h); B.slow(e, 3); } });              // 药烟散到城下：靠近城墙的敌人挨一下、行动迟缓
+        } },
+    },
+    jiangwei: {
+      passive: { name: '继丞相之志', desc: '旋风击退 +30%；诸葛亮在阵时，自己的大招伤害 +20%', mod: { push: 0.3 },
+        aura(ctx) { if (ctx.has('zhugeliang')) ctx.self.ultMul *= 1.2; } },
+      ult: { aim: true, desc: '八阵图：在敌群里布下石阵，把一大圈敌人卷到阵心困住，1.3 秒后阵眼炸开 ×6 并眩晕 1.5 秒（觉醒 ×9）',
+        cast(B, h, a, k) {
+          const p = B.at(140); if (!p) return;
+          B.tex('circle', p.x, p.y, { w: 380, h: 230, spin: 2.2, life: 1.5, a: 0.9, rgb: '150,255,210', fadeIn: 0.1 }); B.tex('whirl', p.x, p.y, { w: 300, life: 1.4, spin: -5, a: 0.7, rgb: '170,255,225' });
+          for (let i = 0; i < 8; i++) { const an = i * Math.PI / 4; B.tex('icespike', p.x + Math.cos(an) * 150, p.y + Math.sin(an) * 90 + 20, { w: 44, h: 88, ay: 1, life: 1.5, fadeIn: 0.12, rgb: '200,190,170' }); }   // 八块石头围成一圈
+          for (let i = 0; i < 10; i++) B.later(i * 0.11, () => { B.pull(p.x, p.y, 190, 0.2); B.area(p.x, p.y, 190, e => B.slow(e, 0.6)); });
+          B.later(1.3, () => { B.tex('burst', p.x, p.y, { w: 330, life: 0.4, grow: 1.5, rgb: '170,255,225' }); B.ring(p.x, p.y, 20, 180, 0.45, '#a8ffe0', 7); B.shake(0.4); B.shock(p.x, p.y, 300, 1.2);
+            B.area(p.x, p.y, 130, e => { B.hit(e, a * 6 * k, 'wind', h); B.stun(e, 1.5); }); });
+        } },
+    },
+    lvmeng: {
+      passive: { name: '士别三日', desc: '每放一次大招，这一局里自己的攻击 +8%（最多 5 次）', onUlt(B, h) { if ((h.grown || 0) < 5) { h.grown = (h.grown || 0) + 1; h.atk *= 1.08; B.text(h.x, h.y - 84, '刮目相看', '#d4b8ff', 16, 1); } } },
+      ult: { desc: '白衣渡江：白衣人悄悄摸进敌阵——血量不到三成的敌人直接斩杀（校尉、敌将除外），其余每人挨一刀 ×2.6 并麻痹 1 秒（觉醒斩杀线四成半）',
+        cast(B, h, a, k) {
+          const line = k > 1 ? 0.45 : 0.3;
+          B.flash('235,240,255', 0.22, 0.4);
+          B.lives().forEach((e, i) => B.later(Math.min(1, i * 0.03), () => {
+            if (e.dead) return;
+            if (i < 36) B.tex('soldier', e.x + 16, e.y - 6, { w: 40, life: 0.45, fadeIn: 0.08, a: 0.85 });                   // 白衣人的影子
+            B.slash(e.x, e.y);
+            if (!B.isBig(e) && !e.def.siege && e.hp < e.max * line) B.execute(e, h); else { B.hit(e, a * 2.6, 'thunder', h); B.stun(e, 1); }
+          }));
+        } },
+    },
+    xiahouyuan: {
+      passive: { name: '神速', desc: '出手速度 +12%；每射倒一个敌人，下一箭立刻跟上', mod: { spd: 0.12 }, onKill(B, h) { h.t = Math.min(h.t, 0.12); } },
+      ult: { desc: '千里奔袭：策马沿着城墙来回冲两趟，一边跑一边朝正前方的敌人放箭，每箭 ×1.5，马蹄下的敌人被撞开 ×1.2（觉醒三趟）',
+        cast(B, h, a, k) {
+          const passes = k > 1 ? 3 : 2, T = 1.05;
+          for (let pss = 0; pss < passes; pss++) B.later(pss * (T + 0.08), () => {
+            const left = pss % 2 === 0, x0 = left ? -40 : B.W + 40, v = (B.W + 80) / T * (left ? 1 : -1);
+            B.blade(h, x0, B.WY - 62, left ? 0 : Math.PI, { w: 70, spd: Math.abs(v), dmg: a * 1.2, push: 26, life: T, big: true, el: 'arrow', tex: 'horse_side', texW: 104, solid: true, rgb: '255,230,170' });
+            for (let j = 1; j <= 15; j++) B.later(j * T / 16, () => {
+              const rx = x0 + v * j * T / 16; let t = null, best = 1e9;
+              for (const e of B.lives()) { const d = Math.abs(e.x - rx) * 2.2 + (B.WY - e.y) * 0.35; if (d < best) { best = d; t = e; } }
+              if (t) B.lob(h, 'arrow', rx, B.WY - 84, t.x, t.y, { dur: 0.16, r: 30, dmg: a * 1.5 });
+            });
+          });
+        } },
+    },
+    xunyu: {
+      passive: { name: '荐贤', desc: '全军怒气获取 +8%，自己再 +12%', mod: { rage: 0.12 }, aura(ctx) { ctx.S.buffs.rage *= 1.08; } },
+      ult: { desc: '驱虎吞狼：借一招——让攻击最高的另一名武将立刻再放一次他的大招，不耗怒气，威力按荀彧的攻击算（觉醒时那一招也按觉醒算）；台上没有别人时，自己放一片毒雾',
+        cast(B, h, a, k) {
+          const L = B.heroes().filter(x => x !== h && !x.dead && x.sk && x.def.id !== 'xunyu').sort((x, y) => y.atk - x.atk), t = L[0];
+          if (t) { B.bolt(h.x, h.y - 40, t.x, t.y - 40, 1.6); B.tex('circle', t.x, t.y + 29, { w: 110, h: 44, spin: 3, life: 0.9, grow: 1.5, rgb: '190,150,255' }); B.later(0.25, () => B.recast(t, a, k)); }
+          else { const p = B.at(120) || B.rnd(); if (p) { B.pool(h, p.x, p.y, 110, 6 * k, a * 0.55, 'poison'); B.area(p.x, p.y, 110, e => B.hit(e, a * 2.5, 'poison', h)); } }
+        } },
+    },
+    sunquan: {
+      passive: { name: '制衡', desc: '全体武将受到的伤害 -20%；别的武将每放一次大招，孙权怒气 +10',
+        aura(ctx) { ctx.S.buffs.heroHurt = (ctx.S.buffs.heroHurt || 1) * 0.8; },
+        onAllyUlt(B, h) { B.rage(h, 10); } },
+      ult: { desc: '坐断东南：全体武将套上相当于三成生命的护盾 8 秒（觉醒四成半），这 8 秒里全军伤害 +35%、城墙受到的伤害 -30%',
+        cast(B, h, a, k) {
+          B.flash('120,190,255', 0.22, 0.5); B.shock(h.x, h.y, 420, 1.2);
+          B.tex('thunder_ring', B.W / 2, B.WY - 20, { w: 560, h: 150, life: 1, grow: 1.25, a: 0.8, rgb: '140,200,255' });
+          B.shield(8, 0.3 * k); B.rally(8, 1.35); B.guard(8, 0.7);
+          B.tex('circle', B.W / 2, B.WY + 60, { w: 560, h: 190, spin: 0.7, life: 8, a: 0.35, fadeIn: 0.3, rgb: '120,190,255' });
+        } },
+    },
   };
 })();
