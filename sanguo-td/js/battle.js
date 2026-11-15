@@ -603,7 +603,10 @@ const Battle = (function () {
       hit: (e, dmg, el, h, o) => hit(e, dmg, el, h, o),
       area: inRadius, explode, pool, chain, tornado,
       arrow: shotArrow, blade: shotBlade, lob: shotLob,
-      rain(h, tx, ty, dmg, slowT) { shotLob(h, 'arrow', tx - 50, ty - 320, tx, ty, { dur: 0.26, r: 26, dmg, slow: slowT }); },
+      rain(h, tx, ty, dmg, slowT) {                           // 箭雨里的一支箭：从我方城头射出去，飞向敌人（不能从屏幕上方落下来，那样像敌人在射我们）
+        const x0 = h.x + (tx - h.x) * 0.3 + (rand() - 0.5) * 70, y0 = WY - 50, d = Math.hypot(tx - x0, ty - y0);
+        shotLob(h, 'arrow', x0, y0, tx, ty, { dur: 0.16 + d / 2600, arc: Math.min(46, d * 0.1), r: 26, dmg, slow: slowT });
+      },
       /* 一道横贯战场、从城下推向远处的波。o: slow 减速秒数, push 击退距离, burn [秒, 每跳伤害], el 伤害类型, look 样子（'' 刀浪 / 'petal' 花雨 / 'fire' 火墙）, vy 速度 */
       sweep(h, dmg, o) { o = o || {}; S.shots.push({ k: 'sweep', h, y: WY - 20, vy: o.vy || -420, dmg, hit: new Set(), slow: o.slow || 0, push: o.push || 0, burn: o.burn || null, el: o.el || 'blade', look: o.look || '' }); },
       ship(h, x, a) { S.shots.push({ k: 'ship', h, x, y: WY - 34, vy: -250, a, hit: new Set(), trail: 0.25 }); },   // 火船从城下出发，冲向敌阵深处
