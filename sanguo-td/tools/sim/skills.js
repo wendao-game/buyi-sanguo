@@ -7,7 +7,7 @@
 const { load } = require('./harness.js');
 const only = process.argv[2] && process.argv[2] !== 'all' ? process.argv[2].split(',') : null, stage = Number(process.argv[3] || 20), REP = Number(process.argv[4] || 5);
 function once(id) {
-  const G = load(), D = G.Save.data, B = G.Battle;
+  const G = load((G, ctx) => { ctx.heroHitBase = (stage, avgHp) => avgHp; }), D = G.Save.data, B = G.Battle;   // 单个武将上阵战力远低于这一关：敌人打武将的伤害按达标算，不然他先被打死了
   D.heroes = { [id]: { lv: 30, star: 2, shards: 0 } }; D.team = [null, null, id, null, null]; D.auto = false;
   B.start(stage);
   const S = B.state, h = S.heroes[0];

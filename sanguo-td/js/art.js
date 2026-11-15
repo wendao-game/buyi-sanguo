@@ -388,7 +388,8 @@ const Art = (function () {
   function enemySprite(e) {
     const d = e.def, im = (e.spr && Assets.get(e.spr)) || Assets.get('enemy:' + d.id);
     if (im) { const hU = SPRITE.enemy.units, wU = hU * im.width / im.height; return { im, x: -wU * SPRITE.enemy.ax, y: 12.4 - hU * SPRITE.enemy.ay, w: wU, h: hU, k: 1, top: 2.55 }; }
-    const ps = procSprite('enemy:' + d.id, [-20, -30, 44, 54], cc => enemyBody(cc, d));
+    const pd = e.look || d;                                    // 没有立绘的敌将：同一个小人换一套配色
+    const ps = procSprite('enemy:' + d.id + (e.look ? ':' + e.look.key : ''), [-20, -30, 44, 54], cc => enemyBody(cc, pd));
     return { im: ps.im, x: ps.x, y: ps.y, w: ps.w, h: ps.h, k: 1.3, top: 2.35 };
   }
   function enemy(c, e, t) {

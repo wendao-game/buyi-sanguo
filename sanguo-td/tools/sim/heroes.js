@@ -8,7 +8,7 @@ const BASE = ['liaohua', 'zhoucang', 'panfeng', 'guanhai'], SPARE = 'guanping', 
 let K = 0.005, PW = 1000;
 // 敌人血量 = k × 这支队伍的战力；敌人攻击也按这支队伍的战力算（和正式关卡同一个公式），
 // 这样城墙能挨的下数和正式关卡里战力达标时一样，不会因为被测队伍战力低于关卡而「一碰就破」
-const G = load((G, ctx) => { ctx.stageHpMul = (s, wave) => K * PW * (1 + 0.07 * (wave - 1)); ctx.stageAtkMul = () => (400 + 0.62 * PW) / (400 + 0.62 * G.stagePower(1)); });
+const G = load((G, ctx) => { ctx.stageHpMul = (s, wave) => K * PW * (1 + 0.07 * (wave - 1)); ctx.stageAtkMul = () => (400 + 0.62 * PW) / (400 + 0.62 * G.stagePower(1)); ctx.heroHitBase = (stage, avgHp) => avgHp; });   // 敌人打武将的伤害也按「战力刚好达标」算（基准 = 自己的平均血量）
 const D = G.Save.data;
 function setup(id) {
   const base = BASE.map(b => b === id ? SPARE : b), heroes = {};
