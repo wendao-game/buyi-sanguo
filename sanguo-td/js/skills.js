@@ -319,7 +319,7 @@ const SKILLS = (function () {
       ult: { desc: '万箭齐发：三轮箭雨覆盖全场，每轮 20 支并减速（觉醒四轮半）',
         cast(B, h, a, k) {
           const rounds = 3 * k;
-          for (let r = 0; r < Math.ceil(rounds); r++) B.later(r * 1.35, () => { for (let j = 0; j < 5; j++) B.later(j * 0.09, () => B.tex('arrow_rain', 60 + Math.random() * (B.W - 120), B.TOP + 40 + Math.random() * 120, { w: 170, life: 0.55, vy: 760, a: 0.9 })); });   // 专属特效：成片压下来的箭雨
+          for (let r = 0; r < Math.ceil(rounds); r++) B.later(r * 1.35, () => { for (let j = 0; j < 5; j++) B.later(j * 0.07, () => B.tex('arrow_rain', h.x + (j - 2) * 95 + (Math.random() - 0.5) * 40, B.WY - 70 - Math.random() * 30, { w: 170, life: 0.55, vy: -780, vx: (j - 2) * 60, rot: Math.PI + (j - 2) * 0.09, a: 0.9, force: true })); B.ring(h.x, h.y - 30, 10, 120, 0.4, '#ffe19a', 4); });   // 专属特效：成片的箭从城头齐射出去，飞向敌阵
           for (let i = 0; i < Math.round(20 * rounds); i++) B.later(i * 0.05 + Math.floor(i / 20) * 0.35, () => {
             const t = B.rnd(); if (!t) return;
             B.rain(h, t.x + (Math.random() - 0.5) * 24, t.y, a * 0.8, 0.8);
