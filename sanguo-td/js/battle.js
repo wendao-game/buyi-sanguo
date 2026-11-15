@@ -358,7 +358,8 @@ const Battle = (function () {
   /* ---------------- 城防挨打的反馈 ---------------- */
   /* 扣血立刻生效；命中的画面（碎石、白光、震动、音效）等 delay 秒：近战是兵器落下，弓手是箭飞到 */
   function wallHurt(e, x, delay, dmgK) {
-    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite' || e.def.id === 'rare' || !!e.def.siege || !!e.def.boom, dmg = e.atk * (dmgK || 1) * (S.guard.t > 0 ? S.guard.k : 1), ref = S;   // S.guard：高顺的陷阵营，城墙少挨打
+    const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite' || e.def.id === 'rare' || !!e.def.siege || !!e.def.boom, dmg = e.atk * (dmgK || 1) * (S.guard.t > 0 ? S.guard.k : 1) * (S.weak && S.weak.t > 0 ? S.weak.k : 1), ref = S;   // S.guard：高顺的陷阵营，城墙少挨打；S.weak：祢衡把敌人骂得没了力气
+    if (S.thorn && S.thorn.t > 0 && !e.dead) { hit(e, S.thorn.dmg, 'ice', S.thorn.h); if (!e.dead && !isBig(e)) pushBack(e, 26); if (S.fx.length < 120) tex('burst', e.x, WY - 16, { w: 70, life: 0.2, grow: 1.4, rgb: '170,220,255' }); }   // 曹仁的铜墙铁壁：打城墙的自己反挨一下
     S.wall -= dmg;
     S.wallAcc += dmg; S.wallAccX += x * dmg;
     const fx = () => {
@@ -472,7 +473,7 @@ const Battle = (function () {
   /* ---------------- 武将挨打 ---------------- */
   function heroHurt(h, dmg) {
     if (!h || h.dead || S.over) return;
-    dmg = Math.max(1, Math.round(dmg * (S.buffs.heroHurt || 1)));
+    dmg = Math.max(1, Math.round(dmg * (S.buffs.heroHurt || 1) * (S.weak && S.weak.t > 0 ? S.weak.k : 1) * (h.sk && h.sk.passive.hurt ? h.sk.passive.hurt(B, h) : 1)));
     if (h.shieldT > 0 && h.shield > 0) {                        // 护盾先挡
       const ab = Math.min(h.shield, dmg); h.shield -= ab; dmg -= ab;
       if (dmg <= 0) { text(h.x + (rand() - 0.5) * 16, h.y - 62, '挡', '#9fd8ff', 16, 0.7); ring(h.x, h.y - 20, 20, 44, 0.25, '#9fd8ff', 3); return; }
@@ -628,6 +629,13 @@ const Battle = (function () {
       haste(h, t, mul) { h.hasteT = t; h.hasteMul = mul; },
       teamHaste(t, mul) { S.haste.t = t; S.haste.mul = mul; },
       guard(t, k) { S.guard.t = t; S.guard.k = k; },             // t 秒内城墙受到的伤害 × k
+      /* —— v2.3 新武将用到的 —— */
+      weaken(t, k) { S.weak = { t, k }; },                       // t 秒内敌人打城墙、打武将的伤害 × k
+      thorn(t, dmg, h) { S.thorn = { t, dmg, h }; },             // t 秒内打城墙的敌人每打一下自己挨 dmg
+      ampNext(m) { S.nextUlt = Math.max(S.nextUlt || 1, m); },   // 下一个放出来的大招伤害 × m
+      volley(n, mul) {                                           // 全体武将立刻各打出 n 次强化普攻（伤害 × mul）
+        for (let i = 0; i < n; i++) later(i * 0.28, () => { for (const x of S.heroes) if (!x.dead && !(x.stunT > 0)) { const a0 = x.atk; x.atk = a0 * mul; x.anim = 1; attack(x); x.atk = a0; } });
+      },
       /* —— v2.2 新武将用到的 —— */
       rally(t, mul) { S.rally = { t, mul }; },                   // t 秒内全军伤害 × mul
       shield(t, frac) { for (const h of S.heroes) if (!h.dead) { h.shield = Math.round(h.maxHp * frac); h.shieldT = t; tex('circle', h.x, h.y + 29, { w: 104, h: 42, spin: -1.6, life: t, rgb: '120,200,255', a: 0.85, fadeIn: 0.1, force: true }); ring(h.x, h.y - 16, 10, 60, 0.4, '#9fd8ff', 4); } },   // 全体武将的护盾：能挡相当于生命 frac 的伤害
@@ -694,7 +702,8 @@ const Battle = (function () {
     h.rage = 0; h.anim = 1.6;
     Sfx.play('ult');
     if (S.aim === h.slot) S.aim = null;
-    const a = h.atk * S.buffs.atk * S.buffs.ult * h.ultMul, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
+    const amp = S.nextUlt > 1 ? S.nextUlt : 1; if (amp > 1) { S.nextUlt = 1; later(0.3, () => text(h.x, h.y - 104, '玉玺加持', '#ffd24a', 18, 1.2, true)); }   // 孙坚的传国玉玺：下一个放出来的大招更狠
+    const a = h.atk * S.buffs.atk * S.buffs.ult * h.ultMul * amp, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
     text(h.x, h.y - 58, '【' + h.def.ult + '】' + (h.awake ? '·觉醒' : ''), q.color, 21, 1.5, true);
     ring(h.x, h.y + 26, 12, 70, 0.5, q.color, 4);
     tex('pillar', h.x, h.y + 34, { w: 60, h: 260, ay: 1, life: 0.7, fadeIn: 0.12, a: 0.5, rgb: hexRgb(q.color), force: true });
@@ -774,6 +783,8 @@ const Battle = (function () {
     if (S.haste.t > 0) S.haste.t -= dt;
     if (S.guard.t > 0) S.guard.t -= dt;
     if (S.rally && S.rally.t > 0) S.rally.t -= dt;
+    if (S.weak && S.weak.t > 0) S.weak.t -= dt;
+    if (S.thorn && S.thorn.t > 0) S.thorn.t -= dt;
     if (S.comboT > 0 && (S.comboT -= dt) <= 0) S.combo = 0;
     if (S.comboPop > 0) S.comboPop = Math.max(0, S.comboPop - dt * 6);
     if (S.windT > 0) S.windT -= dt;

@@ -458,6 +458,19 @@ const FXGen = (function () {
   const blob = (c, fill, lw, path) => { c.beginPath(); path(); c.fillStyle = fill; c.fill(); c.strokeStyle = OUT; c.lineWidth = lw; c.stroke(); };
   const dust = (c, x, y, n, len) => { for (let i = 0; i < n; i++) { c.strokeStyle = 'rgba(240,225,195,' + (0.55 - i * 0.1) + ')'; c.lineWidth = 5 - i; c.beginPath(); c.moveTo(x, y - (n - 1) * 7 + i * 14); c.lineTo(x - len * (0.6 + (i % 2) * 0.4), y - (n - 1) * 7 + i * 14); c.stroke(); } };
   const SOLID = {
+    /* 木牛（黄月英）：一头木头做的牛，方头方脑，背上驮着粮袋 */
+    woodox: () => mkSolid(176, 176, (c, w, h) => {
+      const x = w / 2;
+      c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(x, h * 0.92, w * 0.36, h * 0.05, 0, 0, TAU); c.fill();
+      [-1, 1].forEach(sg => { blob(c, '#6e4a26', 4, () => c.rect(x + sg * w * 0.2 - w * 0.05, h * 0.62, w * 0.1, h * 0.26)); });                                  // 腿
+      blob(c, '#a8743c', 5, () => { c.moveTo(x - w * 0.3, h * 0.36); c.lineTo(x + w * 0.3, h * 0.36); c.lineTo(x + w * 0.34, h * 0.7); c.lineTo(x - w * 0.34, h * 0.7); c.closePath(); });   // 身子
+      c.strokeStyle = '#6e4a26'; c.lineWidth = 3; [0.46, 0.58].forEach(v => { c.beginPath(); c.moveTo(x - w * 0.31, h * v); c.lineTo(x + w * 0.31, h * v); c.stroke(); });          // 木板缝
+      blob(c, '#e8d9a8', 4, () => c.ellipse(x, h * 0.3, w * 0.22, h * 0.1, 0, 0, TAU));                                                                              // 粮袋
+      blob(c, '#8a5a2c', 4, () => c.rect(x - w * 0.14, h * 0.5, w * 0.28, h * 0.22));                                                                                // 牛头
+      [-1, 1].forEach(sg => blob(c, '#f2ead0', 3, () => { c.moveTo(x + sg * w * 0.14, h * 0.52); c.quadraticCurveTo(x + sg * w * 0.3, h * 0.46, x + sg * w * 0.26, h * 0.36); c.quadraticCurveTo(x + sg * w * 0.2, h * 0.48, x + sg * w * 0.14, h * 0.58); c.closePath(); }));   // 角
+      c.fillStyle = OUT; c.beginPath(); c.arc(x - w * 0.06, h * 0.58, w * 0.022, 0, TAU); c.arc(x + w * 0.06, h * 0.58, w * 0.022, 0, TAU); c.fill();
+      blob(c, '#c8362c', 3, () => c.rect(x - w * 0.05, h * 0.66, w * 0.1, h * 0.04));
+    }),
     /* 雪球（邓艾）：一个滚下山的大雪球，沾着几块碎冰和石子，后面带着雪沫 */
     snowball: () => mkSolid(176, 192, (c, w, h) => {
       const x = w / 2, y = h * 0.6, r = w * 0.36;
