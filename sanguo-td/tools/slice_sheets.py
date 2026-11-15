@@ -33,6 +33,8 @@ SHEETS_ORDER = {
     'enemy_4': ('enemies', ['dengmao', 'zhangliang', 'bocai', 'lijue', 'guosi', 'huaxiong', 'jiling', 'yuanshu', 'zhangxiu']),
     'enemy_5': ('enemies', ['chunyuqiong', 'gaolan', 'yuanshao', 'caimao', 'zhangyun', 'caoren', 'houcheng', 'songxian', 'zangba']),
     'enemy_6': ('enemies', ['zhurong', 'mulu', 'wutugu', 'wangshuang', 'guohuai', 'caozhen', None, None, None]),
+    # 奇遇：四个山贼首领 + 四神兽
+    'enemy_7': ('enemies', ['enc_zhangyan', 'enc_yangfeng', 'enc_heyi', 'enc_yanbaihu', 'enc_qinglong', 'enc_baihu', 'enc_zhuque', 'enc_xuanwu', None]),
 }
 # 头像拼图：顺序和武将拼图一样，切出来存 heroes/<id>_head.png
 HEAD_SHEETS = {'head_' + k[5:]: v[1] for k, v in SHEETS_ORDER.items() if k.startswith('hero_')}
@@ -42,6 +44,7 @@ WEAPON_SHEETS = {
     'weapon_2': ['bailian', 'liannu', 'heyushan', 'huanshou', 'zhemugong', 'changmao', 'tiejian', 'liegong', 'podao'],
     'weapon_3': ['liangyin', 'jiaowei', 'qixing', 'hutou', 'shuangji', 'goulian', 'taiping', 'dunjia', 'liuxing'],
     'weapon_4': ['sanjian', 'wugou', 'guduo', 'duanji', 'tongchui', 'bingshu', 'chaifu', 'zhuqiang', 'pushan'],
+    'weapon_5': ['canglong', 'baihu', 'zhuque', 'xuanwu', None, None, None, None, None],   # 四件神兽兵器
 }
 # 大招里冲出去的兵、马、象（透明底，和武将一样的画风）：切出来存 fx/<名字>.png，游戏里有图就用图，没有就用代码画的
 UNIT_SHEETS = {
@@ -195,6 +198,8 @@ def main():
         w, h = sheet.size
         os.makedirs(os.path.join(DST, 'weapons'), exist_ok=True)
         for i, wid in enumerate(ids):
+            if not wid:
+                continue
             col, row = i % 3, i // 3
             cell = keep_main(sheet.crop((col * w // 3, row * h // 3, (col + 1) * w // 3, (row + 1) * h // 3)))
             box = cell.getchannel('A').point(lambda a: 255 if a > 24 else 0).getbbox()

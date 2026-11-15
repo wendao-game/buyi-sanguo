@@ -64,6 +64,9 @@ const CFG = {
   LOB_AT_HERO: 0.35,       // 投石车每次出手有这么大概率砸向武将
   HERO_WAVE_HEAL: 0.15,    // 每打完一波，活着的武将回这么多血
 
+  /* —— 奇遇（v2.1）：出征时小概率碰上山贼首领或四神兽，在第 3～7 波里突然出现 —— */
+  ENC: { bandit: 0.08, beast: 0.03, pity: 14, flee: 40 },   // 每局碰上山贼首领 / 神兽的概率；连着这么多局没碰上，下一局必出一个；神兽出场这么多秒没被击败就遁走
+
   /* —— 爽感（v1.8）—— */
   HORDE: 1.35,             // 割草：小兵（ENEMIES 里带 horde 的）人数 × 此值，单个的血量、攻击、掉钱概率 ÷ 此值——总量不变，杀得更快更密
   KILL_RAGE: 0.45,         // 每杀一个敌人，全体武将回这么多怒气（校尉、敌将、器械 ×8）：杀得多，大招就放得勤
@@ -248,7 +251,7 @@ const HEROES = [
  * ============================================================ */
 const WEAPON_TYPES = { sword: '剑', blade: '刀', spear: '枪', bow: '弓', fan: '扇', halberd: '戟', axe: '斧', hammer: '锤', relic: '宝物' };
 const WSTATS = { atk: '攻击', spd: '出手速度', crit: '暴击率', rage: '怒气获取', ult: '大招伤害' };
-function Wp(id, name, q, type, eff, owner, desc) { return { id, name, q, type, eff, owner: owner || null, desc: desc || '' }; }
+function Wp(id, name, q, type, eff, owner, desc, lock) { return { id, name, q, type, eff, owner: owner || null, desc: desc || '', lock: lock || null }; }   // lock：要先在「奇遇」里击败这只神兽，这件兵器才会进卡池
 const WEAPONS = [
   Wp('tiejian',    '铁剑',       0, 'sword',   { atk: 0.04 }, null, '军中最常见的佩剑'),
   Wp('liegong',    '猎弓',       0, 'bow',     { spd: 0.04 }, null, '猎户用的短弓，胜在轻快'),
@@ -287,6 +290,11 @@ const WEAPONS = [
   Wp('liangyin',   '龙胆亮银枪', 5, 'spear',   { atk: 0.22, crit: 0.12 }, 'zhaoyun', '七进七出，枪下无一合之将'),
   Wp('jiaowei',    '焦尾琴',     5, 'relic',   { atk: 0.20, rage: 0.30 }, 'zhouyu', '曲有误，周郎顾'),
   Wp('qixing',     '七星宝刀',   5, 'blade',   { atk: 0.22, crit: 0.06, ult: 0.12 }, null, '镶着七颗宝石的短刀，曹操曾拿它去刺董卓'),
+  // —— v2.1 神兽兵器：平时抽不到，在「奇遇」里击败对应的神兽之后才进卡池 ——
+  Wp('canglong',   '苍龙破阵枪', 5, 'spear',   { atk: 0.22, spd: 0.12 }, null, '东方青龙的一片逆鳞所化，枪出如龙吟', 'qinglong'),
+  Wp('baihu',      '白虎啸风刀', 5, 'blade',   { atk: 0.24, crit: 0.10 }, null, '西方白虎的利爪所化，刀过处有虎啸声', 'baihu'),
+  Wp('zhuque',     '朱雀焚天弓', 5, 'bow',     { atk: 0.20, ult: 0.25 }, null, '南方朱雀的尾羽所化，箭出带火', 'zhuque'),
+  Wp('xuanwu',     '玄武镇岳锤', 5, 'hammer',  { atk: 0.20, rage: 0.30 }, null, '北方玄武的甲壳所化，一锤镇山岳', 'xuanwu'),
 ];
 const WEAPON_MAP = {};
 WEAPONS.forEach(w => { WEAPON_MAP[w.id] = w; });
@@ -304,6 +312,7 @@ const ENEMIES = {
   archer: { id: 'archer', horde: true, name: '弓手',   hp: 50,   spd: 34, atk: 7,  r: 12, coin: 2,  body: '#5d8a4c', hat: '#2f4a28', range: 150 },
   elite:  { id: 'elite',  name: '校尉',   hp: 460,  spd: 30, atk: 20, r: 19, coin: 8,  body: '#a83232', hat: '#d8b04a' },
   boss:   { id: 'boss',   name: '敌将',   hp: 2400, spd: 17, atk: 55, r: 34, coin: 50, body: '#3a3140', hat: '#b01f2a' },
+  rare:   { id: 'rare',   name: '奇遇',   hp: 2400, spd: 20, atk: 40, r: 30, coin: 60, body: '#5a4a3a', hat: '#c8a04a', acd: 1.4, push: 0.3, cc: 0.6 },   // 奇遇里的山贼首领、神兽（名字、血量、招式见 ENCOUNTERS）
   /* —— v1.3 新增：每章登场一种新敌人，各有各的打法 ——
    * from 第几关开始出现；tip 第一次出现时横幅上的一句提示
    * boom 冲到城下自爆（一次性伤害 = atk，自己也没了）；acd 攻击间隔（默认 1 秒）；push 击退系数；cc 被控时长系数；
@@ -373,6 +382,21 @@ const CHAPTERS = [
   ] },
 ];
 const ENDLESS_BOSS = { name: '幽冥鬼将', skills: [SK('不死', 0, 'revive', {}, '第一次倒下后以四成血量爬起来再战'), SK('鬼火', 10, 'poison', { t: 5, dps: 0.035 }, '每 10 秒放出鬼火，所有武将中毒 5 秒')] };
+/* 奇遇：山贼首领（击败给赏金）和四神兽（第一次击败解锁对应的兵器进卡池，之后再击败给重赏）。神兽前期不出现：第 4 章起一章多一只。
+ * from 第几关起会碰上；hpK 血量是敌将的几倍；coinK 赏金 = 这一关通关金币 × coinK；weapon 解锁哪件兵器；aura 身上气焰的颜色；
+ * 立绘 assets/enemies/enc_<id>.png，没有图时用代码画的小人（body / hat 配色）。招式写法同上面的敌将 */
+const ENCOUNTERS = [
+  { id: 'zhangyan', kind: 'bandit', name: '黑山贼 · 张燕',   from: 5,  hpK: 0.5,  coinK: 1.5, body: '#3a3a3a', hat: '#8a8a8a', skills: [SK('飞燕', 9, 'summon', { type: 'rider', n: 3, haste: 5 }, '每 9 秒召来 3 骑快马')] },
+  { id: 'yangfeng', kind: 'bandit', name: '白波贼 · 杨奉',   from: 5,  hpK: 0.5,  coinK: 1.5, body: '#d8d8d8', hat: '#7a8a9a', skills: [SK('白波', 9, 'summon', { type: 'grunt', n: 5 }, '每 9 秒喊来 5 个喽啰')] },
+  { id: 'heyi',     kind: 'bandit', name: '黄巾余党 · 何仪', from: 11, hpK: 0.55, coinK: 1.5, body: '#b89a3a', hat: '#f2d24a', skills: [SK('符水', 9, 'heal', { frac: 0.12, r: 240 }, '每 9 秒给身边的敌人回一成多血')] },
+  { id: 'yanbaihu', kind: 'bandit', name: '东吴德王 · 严白虎', from: 21, hpK: 0.6,  coinK: 2,   body: '#e8e0d0', hat: '#c23b3b', skills: [SK('虎扑', 8, 'smash', { dmg: 0.25, stun: 1.2 }, '每 8 秒扑伤一名武将，打晕 1.2 秒')] },
+  { id: 'qinglong', kind: 'beast',  name: '青龙', from: 31, hpK: 0.6, coinK: 4, weapon: 'canglong', aura: '80,230,200', body: '#2a8a7a', hat: '#8ff0d8', skills: [SK('龙息', 8, 'shoot', { n: 3, dmg: 0.09 }, '每 8 秒朝三名武将各吐一口龙息'), SK('腾云', 10, 'charge', {}, '每 10 秒猛冲一段')] },
+  { id: 'baihu',    kind: 'beast',  name: '白虎', from: 41, hpK: 0.6, coinK: 4, weapon: 'baihu',    aura: '235,240,255', body: '#e8ecf2', hat: '#3a3a44', skills: [SK('虎啸', 9, 'smash', { dmg: 0.22, stun: 1.2 }, '每 9 秒扑向一名武将，打晕 1.2 秒'), SK('凶性', 0, 'enrage', {}, '血量掉到一半时暴怒')] },
+  { id: 'zhuque',   kind: 'beast',  name: '朱雀', from: 51, hpK: 0.55, coinK: 4, weapon: 'zhuque',   aura: '255,120,50', body: '#d8402a', hat: '#ffc24a', skills: [SK('焚城', 12, 'burnwall', { t: 3, dps: 0.5 }, '每 12 秒点着城墙，烧 3 秒'), SK('火雨', 10, 'rain', { dmg: 0.06 }, '每 10 秒一阵火雨落在城楼上')] },
+  { id: 'xuanwu',   kind: 'beast',  name: '玄武', from: 61, hpK: 0.7, coinK: 4, weapon: 'xuanwu',   aura: '90,140,255', body: '#2a3a5a', hat: '#4a7a6a', skills: [SK('玄甲', 12, 'guard', { t: 4, mul: 0.4 }, '每 12 秒缩进甲壳 4 秒，受到的伤害只剩四成'), SK('寒潮', 12, 'heal', { frac: 0.05, r: 999 }, '每 12 秒给全场敌人回一点血')] },
+];
+const ENC_MAP = {}; ENCOUNTERS.forEach(e => { ENC_MAP[e.id] = e; });
+
 /* 第 stage 关的敌将：{ id, name（心魔会带前缀）, who 本名, hero, sprite 立绘, look 没图时的配色, skills, hpK 血量系数, final 是不是章节敌将 } */
 function stageBoss(stage) {
   const ci = Math.floor((stage - 1) / 10), c = CHAPTERS[ci], sub = (stage - 1) % 10;

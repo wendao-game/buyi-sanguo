@@ -30,6 +30,8 @@ const Save = {
       soul: 0,             // 将魂（碎片炼化得来，升星时顶碎片用）
       weapons: {},         // 已有的兵器：id → { lv, hero: 装在谁身上 / null }
       tips: {},            // 已经看过的新手提示
+      unlocked: {},        // 奇遇里解锁的神兽兵器：兵器 id → 1（解锁后才会进卡池）
+      enc: { n: 0, kills: {} },   // 奇遇：连着多少局没碰上、各击败过几次
       earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
       at: 0,               // 最后保存时间
       ver: 2,
@@ -371,8 +373,8 @@ function gachaDraw(n) {
   }
   if (n >= 10 && !qs.some(q => q >= CFG.TEN_GUARANTEE_Q)) qs[n - 1] = CFG.TEN_GUARANTEE_Q;
   const res = qs.map(q => {
-    const wp = WEAPON_POOL[q];                              // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将
-    if (wp && Math.random() < CFG.WEAPON_SHARE) return grantWeapon(wp[Math.floor(Math.random() * wp.length)]);
+    const wp = (WEAPON_POOL[q] || []).filter(id => !WEAPON_MAP[id].lock || (S.unlocked && S.unlocked[id]));   // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将（没解锁的神兽兵器不在池子里）
+    if (wp.length && Math.random() < CFG.WEAPON_SHARE) return grantWeapon(wp[Math.floor(Math.random() * wp.length)]);
     const pool = GACHA_POOL[q];
     return grantHero(pool[Math.floor(Math.random() * pool.length)]);
   });
@@ -381,7 +383,7 @@ function gachaDraw(n) {
 }
 
 /* ---------------- 关卡结算 ---------------- */
-function settleBattle(stage, win, wavesCleared, dropped) {
+function settleBattle(stage, win, wavesCleared, dropped, encId) {
   const S = Save.data;
   const base = Math.round(stageWinCoins(stage) * (stage < S.stage ? CFG.REPLAY_COIN : 1));   // 重复打已通关的关：通关金币打折（掉落照常）
   const coins = dropped + (win ? base : Math.floor(base * 0.3 * wavesCleared / CFG.WAVES));
@@ -395,8 +397,36 @@ function settleBattle(stage, win, wavesCleared, dropped) {
   const ironBase = stageIron(stage) * (stage < S.stage && !first ? CFG.REPLAY_COIN : 1);              // 精铁：重复通关同样减半；战败按打过的波数给三成
   const iron = win ? Math.max(1, Math.round(ironBase)) : Math.floor(ironBase * 0.3 * wavesCleared / CFG.WAVES);
   gain(coins, tickets); S.iron = (S.iron || 0) + iron;
+  const enc = encId ? encounterReward(stage, encId) : null;   // 奇遇里击败了山贼首领 / 神兽（输了这一关也算）
   Save.save();
-  return { coins, tickets, first, dropped, iron };
+  return { coins, tickets, first, dropped, iron, enc };
+}
+
+/* ---------------- 奇遇 ---------------- */
+/* 出征时掷一次：这一局会不会碰上山贼首领 / 神兽（没有返回 null）。神兽优先出兵器还没解锁的那几只 */
+function rollEncounter(stage) {
+  const S = Save.data;
+  S.enc = (S.enc && typeof S.enc === 'object') ? S.enc : { n: 0, kills: {} }; S.enc.kills = S.enc.kills || {};
+  S.unlocked = (S.unlocked && typeof S.unlocked === 'object') ? S.unlocked : {};
+  const of = k => ENCOUNTERS.filter(e => e.kind === k && stage >= e.from), beasts = of('beast'), bandits = of('bandit');
+  const r = Math.random();
+  let kind = beasts.length && r < CFG.ENC.beast ? 'beast' : bandits.length && r < CFG.ENC.beast + CFG.ENC.bandit ? 'bandit' : null;
+  if (!kind && bandits.length && S.enc.n >= CFG.ENC.pity) kind = beasts.length && Math.random() < 0.3 ? 'beast' : 'bandit';
+  if (!kind) { S.enc.n++; return null; }
+  S.enc.n = 0;
+  const L = kind === 'beast' ? beasts : bandits, fresh = L.filter(e => e.weapon && !S.unlocked[e.weapon]), list = fresh.length ? fresh : L;
+  return list[Math.floor(Math.random() * list.length)];
+}
+/* 击败之后的奖励：山贼首领给赏金；神兽第一次击败解锁兵器，以后再击败给重赏和精铁 */
+function encounterReward(stage, id) {
+  const e = ENC_MAP[id], S = Save.data; if (!e) return null;
+  S.enc = S.enc || { n: 0, kills: {} }; S.enc.kills = S.enc.kills || {}; S.unlocked = S.unlocked || {};
+  S.enc.kills[id] = (S.enc.kills[id] || 0) + 1;
+  const out = { id, name: e.name, kind: e.kind, coins: 0, iron: 0, unlock: null };
+  if (e.weapon && !S.unlocked[e.weapon]) { S.unlocked[e.weapon] = 1; out.unlock = e.weapon; out.coins = Math.round(stageWinCoins(stage) * 1.5); }
+  else { out.coins = Math.round(stageWinCoins(stage) * e.coinK); if (e.kind === 'beast') out.iron = stageIron(stage) * 3; }
+  gain(out.coins, 0); S.iron = (S.iron || 0) + out.iron;
+  return out;
 }
 
 /* ---------------- 礼包码 ---------------- */

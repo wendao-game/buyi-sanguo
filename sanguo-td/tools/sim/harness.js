@@ -17,6 +17,8 @@ function load(patch) {
   src += '\n;globalThis.G = { COMBOS, STAGE_POWER, stagePower, hpPerPower, CFG, QUALITIES, HEROES, HERO_MAP, ELEMENTS, ENEMIES, BUFFS, Save, Battle, heroStats, teamPower, basePower, teamBonus, levelCost, levelUp, levelReset, levelSpent, WEAPONS, WEAPON_MAP, weaponOwn, heroWeapon, weaponStats, weaponUpCost, weaponUp, weaponEquip, weaponMelt, weaponMeltBack, weaponSpent, stageIron, starSoulCost, starNeed, heroRefine, refineBatch, starUp, buyTickets, gachaDraw, stageRecommend, stageWinCoins, stageHpMul, stageAtkMul, genWave, settleBattle, sweep, sweepLeft, heroOwn };';
   vm.runInContext(src, ctx);
   ctx.G.ctx = ctx;
+  if (!process.env.ENC) ctx.rollEncounter = () => null;      // 模拟默认不掷奇遇；ENC=1 照常掷，ENC=<id> 每局必出这一只（量奇遇难度用）
+  else if (process.env.ENC !== '1') { const e = vm.runInContext('ENC_MAP', ctx)[process.env.ENC]; ctx.rollEncounter = stage => e; }
   if (patch) patch(ctx.G, ctx);
   ctx.G.Save.load();
   ctx.G.Battle.init({ getContext: () => ({}), addEventListener() {} });
@@ -34,7 +36,7 @@ function fight(G, stage, rocks) {
     if (rocks && f % 10 === 0 && S.rock.n > 0 && S.live.length >= 4) { let best = null, bs = -1; for (const e of S.live) { let n = e.y / 300; for (const o of S.live) if (Math.hypot(o.x - e.x, o.y - e.y) < 60) n++; if (n > bs) { bs = n; best = e; } } if (best) B.tapAt(best.x, best.y); }
     B.tick(0.05); f++;
   }
-  const S = B.state, r = { win: S.win, wave: S.wave, t: S.t, kills: S.kills, wall: S.wall / S.wallMax, buffs: (S.picks || []).map(b => b.id) };
+  const S = B.state, r = { win: S.win, wave: S.wave, t: S.t, kills: S.kills, wall: S.wall / S.wallMax, buffs: (S.picks || []).map(b => b.id), enc: S.enc ? (S.enc.killed ? 2 : 1) : 0 };   // enc：0 没碰上奇遇，1 碰上没打掉，2 打掉了
   B.stop(); return r;
 }
 /* 从拥有的武将里挑战力最高的 5 人并排好站位（贪心 + 随机换位），写进 Save.data.team */

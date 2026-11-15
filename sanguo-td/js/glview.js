@@ -186,6 +186,7 @@ const GLView = (function () {
     const lunge = e.atkT > 0 ? Math.sin((1 - e.atkT / 0.24) * Math.PI) * 8 * ds : 0;   // 攻城：往城墙扑一下
     const hitK = Math.max(0, Math.min(1, e.flash * 10));                                  // 挨打的一瞬间：压扁一下、往后（远离城墙）顿一下
     const k = s * q.k, fx = e.x, fy = e.y + bob + lunge + 12.4 * s - hitK * 2.5 * ds, w = q.w * k * (1 + hitK * 0.07), h = q.h * k * (1 - hitK * 0.08), ax = -q.x / q.w, ay = (12.4 - q.y) / q.h;
+    if (e.aura) { img(La, 'el_hit_wind', e.x, e.y - d.r * 0.9, d.r * 4.8 * (1 + Math.sin(t * 2.4) * 0.06), 0, t * 0.8, 0.7, e.aura); light(e.x, e.y - 10, d.r * 4, col(e.aura), 0.5); }   // 神兽：身上一团带颜色的气焰
     if (e.demon) img(La, 'el_hit_dark', e.x, e.y - d.r * 0.9, d.r * 4.6 * (1 + Math.sin(t * 2.4) * 0.06), 0, t * 0.7, 0.75);   // 心魔：身后一团翻涌的黑紫气焰
     const sh = sp(La, tex, fx, fy, w, h * 0.9014, { ax, ay, tint: 0x000000, a: 0.24, flip: e.flip });   // 斜投影：压扁、倒向右下
     sh.scale.y = -sh.scale.y; sh.skew.x = 1.2315; sh._sk = true;
@@ -194,17 +195,17 @@ const GLView = (function () {
     if (e.flash > 0) sp(La, tex, fx, fy, w, h, { ax, ay, rot, flip: e.flip, a: Math.min(1, e.flash * 6) * 0.6, blend: ADD });
     if (e.burn > 0) img(La, 'flame', e.x, e.y - d.r * 0.8, d.r * 1.1, d.r * 1.9, 0, 0.35 + Math.sin(t * 18 + e.ph) * 0.1);
     // 状态
-    const top = e.y - d.r * 2.5 * ds - (d.id === 'boss' ? 30 : 12);
+    const top = e.y - d.r * 2.5 * ds - ((d.id === 'boss' || d.id === 'rare') ? 30 : 12);
     if (e.fear > 0) txt(Lt, numW, '!', e.x, top, 15, '#ffe08a', 'center', 3);
     else if (e.conf > 0) for (let i = 0; i < 3; i++) { const a = t * 6 + i * TAU / 3; ell(La, e.x + Math.cos(a) * 9, top + Math.sin(a) * 3, 2.2, 2.2, 0xe8b0ff, 1); }
     if (e.shieldT > 0 || e.hasteT > 0 || e.auraT > 0 || e.ccImm > 0) ringE(La, e.x, e.y + d.r * 0.9, d.r * 1.25, d.r * 0.5, e.shieldT > 0 ? 0x82c8ff : 0xff6e46, 0.95);   // 盾阵蓝圈；狂奔、鼓舞、暴怒红圈
     if (e.mark > 0 || e.vuln > 0.2) ringE(La, e.x, e.y + d.r * 0.9, d.r * 1.1, d.r * 0.42, e.mark > 0 ? 0xc878ff : 0xffc878, 0.85);
     // 血条
-    if (e.hp < e.max || d.id === 'boss') {
-      const bw = d.id === 'boss' ? 70 : d.r * 2, hy = e.y - d.r * q.top * ds - (d.id === 'boss' ? 14 : 4), bh = d.id === 'boss' ? 5 : 3;
+    if (e.hp < e.max || (d.id === 'boss' || d.id === 'rare')) {
+      const bw = (d.id === 'boss' || d.id === 'rare') ? 70 : d.r * 2, hy = e.y - d.r * q.top * ds - ((d.id === 'boss' || d.id === 'rare') ? 14 : 4), bh = (d.id === 'boss' || d.id === 'rare') ? 5 : 3;
       rect(La, e.x - bw / 2 - 1, hy - 1, bw + 2, bh + 2, 0x000000, 0.6);
-      rect(La, e.x - bw / 2, hy, bw * Math.max(0, e.hp / e.max), bh, d.id === 'boss' ? 0xff5a3a : 0xe8463a, 1);
-      if (d.id === 'boss') txt(Lt, numW, e.name, e.x, hy - 4, 12, '#ffe9a8', 'center', 2.4);
+      rect(La, e.x - bw / 2, hy, bw * Math.max(0, e.hp / e.max), bh, (d.id === 'boss' || d.id === 'rare') ? 0xff5a3a : 0xe8463a, 1);
+      if ((d.id === 'boss' || d.id === 'rare')) txt(Lt, numW, e.name, e.x, hy - 4, 12, '#ffe9a8', 'center', 2.4);
     }
   }
   /* 阵亡的敌人：按被什么打死的，倒下的样子不同 */

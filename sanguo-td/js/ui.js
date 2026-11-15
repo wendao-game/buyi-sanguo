@@ -194,11 +194,11 @@ const UI = (function () {
       return `<div class="card wcard ${own ? '' : 'lock'}" style="--qc:${q.color}" data-act="weapon" data-id="${w.id}">
         <i class="qtag">${q.name}</i>${own && own.hero ? `<img class="whead" src="${P(own.hero)}">` : ''}
         <img src="${WI(w.id)}"><div class="cname">${w.name}</div>
-        <div class="cmeta">${own ? '强化 <b>+' + own.lv + '</b>' : '未获得'}</div>${dot ? '<span class="dot"></span>' : ''}</div>`;
+        <div class="cmeta">${own ? '强化 <b>+' + own.lv + '</b>' : w.lock && !(S.unlocked || {})[w.id] ? '击败' + ENC_MAP[w.lock].name + '解锁' : '未获得'}</div>${dot ? '<span class="dot"></span>' : ''}</div>`;
     }).join('');
     $('#arms').innerHTML = `
       <div class="ahead"><div class="cur"><i class="ico iron"></i><b>${fmt(S.iron)}</b></div>
-        <p>兵器在<b>「招募」</b>里和武将一起抽（已有 ${Object.keys(W).length}/${WEAPONS.length} 件）。<b>精铁</b>用来强化：通关会给，抽到已有的兵器也会熔成精铁。</p></div>
+        <p>兵器在<b>「招募」</b>里和武将一起抽（已有 ${Object.keys(W).length}/${WEAPONS.length} 件）。<b>精铁</b>用来强化：通关会给，抽到已有的兵器也会熔成精铁。<br>四件<b>神兽兵器</b>要先在出征的<b>奇遇</b>里击败对应的神兽，才会进卡池。</p></div>
       <div class="grid agrid">${cards}</div>`;
   }
   /* 兵器详情：强化 / 装给上阵的武将 / 熔掉 */
@@ -214,7 +214,8 @@ const UI = (function () {
       <div class="wstat">${Object.keys(cur).map(k => `<div><b>${pct(cur[k])}</b>${WSTATS[k]}${nxt ? `<br><small>下一级 ${pct(nxt[k])}</small>` : ''}</div>`).join('')}</div>
       ${w.owner ? `<p class="mtext" style="font-size:13px;margin-top:10px">装在<b style="color:var(--gold2)">${HERO_MAP[w.owner].name}</b>身上时，全部加成 ×${CFG.WEAPON_OWNER_MUL}${own && own.hero === w.owner ? '（已生效）' : ''}</p>` : ''}`;
     if (!own) {
-      h += `<p class="mtext" style="margin-top:14px">还没有这件兵器 · 招募有机会获得</p><div class="mrow"><button class="btn red" data-act="nav" data-tab="gacha">去招募</button></div>`;
+      if (w.lock && !(S.unlocked || {})[wid]) h += `<p class="mtext" style="margin-top:14px">神兽兵器 · 现在还抽不到<br>出征时有小概率碰上<b style="color:var(--gold2)">${ENC_MAP[w.lock].name}</b>（第 ${ENC_MAP[w.lock].from} 关起），击败它之后这件兵器就会进卡池</p><div class="mrow"><button class="btn" data-act="close">知道了</button></div>`;
+      else h += `<p class="mtext" style="margin-top:14px">还没有这件兵器 · 招募有机会获得${w.lock ? '（已击败' + ENC_MAP[w.lock].name + '解锁）' : ''}</p><div class="mrow"><button class="btn red" data-act="nav" data-tab="gacha">去招募</button></div>`;
     } else {
       h += `<div class="mrow"><button class="btn gold" data-act="wup" data-id="${wid}">${maxed ? '已强化到顶' : '强化<small>精铁 ' + weaponUpCost(wid) + '（现有 ' + fmt(S.iron) + '）</small>'}</button>
           <button class="btn gray" data-act="wmelt" data-id="${wid}">熔掉<small>返还精铁 ${weaponMeltBack(wid)}</small></button></div>
@@ -305,7 +306,7 @@ const UI = (function () {
   function showRates() {
     const total = QUALITIES.reduce((s, q) => s + q.rate, 0), ws = Math.round(CFG.WEAPON_SHARE * 100);
     const rows = QUALITIES.map(q => {
-      const names = HEROES.filter(h => h.q === q.id).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id).map(w => w.name).join('、');
+      const names = HEROES.filter(h => h.q === q.id).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id).map(w => w.name + (w.lock ? ((Save.data.unlocked || {})[w.id] ? '' : '（击败' + ENC_MAP[w.lock].name + '后加入）') : '')).join('、');
       return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '未开放'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>
@@ -443,7 +444,9 @@ const UI = (function () {
         <li>获得金币（含掉落 ${r.dropped}）<b>+${r.coins}</b></li>
         ${r.iron ? `<li>精铁（强化兵器用）<b>+${r.iron}</b></li>` : ''}
         ${r.tickets ? `<li>首通奖励 · 招募令<b>+${r.tickets}</b></li>` : ''}
+        ${r.enc ? `<li class="enc">奇遇 · 击败${r.enc.name}<b>金币 +${r.enc.coins}${r.enc.iron ? '　精铁 +' + r.enc.iron : ''}</b></li>` : ''}
       </ul>
+      ${r.enc && r.enc.unlock ? `<div class="encw" style="--qc:${QUALITIES[WEAPON_MAP[r.enc.unlock].q].color}"><img src="${WI(r.enc.unlock)}"><p>解锁神兽兵器<b>「${WEAPON_MAP[r.enc.unlock].name}」</b><br>已加入卡池，招募有机会抽到</p></div>` : ''}
       <div class="dmgs">${(() => { const top = Math.max(1, ...r.dmg.map(x => x.dmg)), sum = Math.max(1, r.dmg.reduce((s, x) => s + x.dmg, 0));
         return r.dmg.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join(''); })()}</div>
       ${r.win ? '' : '<p class="mtext" style="font-size:13px;margin-top:8px">试试：凑阵营羁绊和缘分、把武将放到合适的站位、手动瞄准大招、点战场投石</p>'}
