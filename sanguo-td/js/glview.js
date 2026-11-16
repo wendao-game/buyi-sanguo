@@ -233,6 +233,7 @@ const GLView = (function () {
         ell(La, h.x, by, 25 * S, 9.5 * S, 0x0c0806, 0.5);
         sp(La, tex, h.x + 14, by - 6, q.w * S * (q.proc ? q.k : 1), q.h * S * (q.proc ? q.k : 1), { ax: q.ax, ay: q.ay, rot: 1.25, tint: 0x5a5560, a: 0.75 });
         txt(Lt, numW, '阵亡', h.x, h.y - 26, 18, '#ff6a5a', 'center', 4);
+        txt(Lt, numW, d.name, h.x, by + 35, 12, '#8a8078', 'center', 3);
         return;
       }
       ell(La, h.x, by, 25 * S, 9.5 * S, 0x0c0806, 0.66);                                  // 底座
@@ -252,6 +253,7 @@ const GLView = (function () {
       if (a > 0.55) { const ec = col(ELEMENTS[d.el].color); glow(Lf, h.x + 10, h.y - 46, 26 * a, ec, 0.55 * a); sp(Lf, TX.disc, h.x + 10, h.y - 46, 7 * a, 7 * a, { tint: 0xffffff, a: 0.8 * a }); }   // 出手时兵器上一闪
       light(h.x, h.y - 10, 78, 0xfff0d8, 0.5);
       if (h.rage >= 100) light(h.x, by, 95, 0xffd870, 0.55);
+      txt(Lt, numW, d.name, h.x, by + 35, 12, h.dead ? '#8a8078' : QUALITIES[d.q].color, 'center', 3);   // 血条下面的名字
       if (h.maxHp) {                                        // 血条：挨打时闪白；中毒泛绿；被定住头上有个「晕」
         const bw = 56, p = Math.max(0, h.hp / h.maxHp), hy = by + 14;
         rect(Lt, h.x - bw / 2 - 1.5, hy - 1.5, bw + 3, 8, 0x000000, 0.65);

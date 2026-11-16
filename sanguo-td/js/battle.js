@@ -60,7 +60,7 @@ const Battle = (function () {
         crit: m.crit + p.wcrit, critDmg: m.critDmg, rageMul: 1 + m.rage + p.rage + p.wrage, ultMul: 1 + p.wult,
         m: { w: 1 + m.w, r: 1 + m.r, chain: m.chain, life: 1 + m.life, push: 1 + m.push, tspd: 1 + m.tspd, burn: 1 + m.burn, dotCrit: !!m.dotCrit },
         x: SLOTS[i][0], y: SLOTS[i][1], t: first ? 0.4 + rand() * 0.6 : CFG.SWAP_DELAY, rage: 0, anim: 0, n: 0, dmg: S.dmgLog[id] || 0, hasteT: 0, hasteMul: 1, bigT: 0,
-        maxHp: Math.round(CFG.HERO_HP_BASE + st.power * CFG.HERO_HP_K), hp: 0, dead: false, stunT: 0, psnT: 0, psnDps: 0, psnTick: 0, hurtT: 0,
+        maxHp: st.hp, hp: 0, dead: false, stunT: 0, psnT: 0, psnDps: 0, psnTick: 0, hurtT: 0,
       };
       h.hp = h.maxHp;
       if (old) { h.rage = old.rage; h.n = old.n; h.t = old.t; h.hasteT = old.hasteT; h.hasteMul = old.hasteMul; h.bigT = old.bigT; h.anim = old.anim; h.hp = Math.min(h.maxHp, old.hp); h.dead = old.dead; h.stunT = old.stunT; h.psnT = old.psnT; h.psnDps = old.psnDps; }   // 留在场上的人血量、状态都带着
@@ -1359,6 +1359,7 @@ const Battle = (function () {
       if (h.dead) c.globalAlpha = 0.4;
       Art.hero(c, h.def, h.x, h.y, 1.45, t, h.dead ? 0 : h.anim);
       c.globalAlpha = 1;
+      outlined(h.def.name, h.x, h.y + 60, 12, h.dead ? '#8a8078' : QUALITIES[h.def.q].color, 'center', 3);   // 血条下面的名字
       if (h.dead) outlined('阵亡', h.x, h.y - 20, 18, '#ff6a5a', 'center', 4);
       else if (h.maxHp) {                                    // 血条（挨打时闪一下红）
         const bw = 54, p = Math.max(0, h.hp / h.maxHp);

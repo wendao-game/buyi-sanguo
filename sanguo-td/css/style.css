@@ -531,3 +531,9 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 .encrow p { font-size: 12.5px; line-height: 1.5; color: #d9cbb0; margin-top: 3px; }
 .encrow p.rw { color: var(--gold2); }
 .encrow.dim { opacity: .55; }
+
+/* 武将详情四格属性（攻击、生命、出手、战力） */
+.dstat.four { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 6px; }
+.dstat.four b { font-size: 21px; }
+.mbox p.lvgain { margin-top: 10px; font-size: 12.5px; line-height: 1.6; color: #c9b890; text-align: center; }
+.mbox p.lvgain b { color: #8dff8a; font-weight: normal; }
