@@ -93,7 +93,8 @@ function heroStats(id, own) {
   const d = HERO_MAP[id], el = ELEMENTS[d.el], q = QUALITIES[d.q];
   own = own || heroOwn(id) || { lv: 1, star: 0 };
   const mul = q.mult * (1 + 0.08 * (own.lv - 1)) * (1 + 0.2 * own.star);
-  return { atk: Math.round(el.atk * mul), cd: el.cd, power: Math.round(100 * mul * q.pw * (own.star >= CFG.AWAKEN_STAR ? CFG.AWAKEN_POWER : 1)) };
+  const awake = own.star >= CFG.AWAKEN_STAR;
+  return { atk: Math.round(el.atk * mul), cd: el.cd, hp: Math.round(CFG.HERO_HP * mul * (awake ? CFG.HERO_HP_AWAKE : 1)), power: Math.round(100 * mul * q.pw * (awake ? CFG.AWAKEN_POWER : 1)) };   // hp：生命，升级、升星都涨
 }
 function heroSkill(id) { return SKILLS[id] || null; }
 function heroAwake(id, own) { own = own || heroOwn(id); return !!own && own.star >= CFG.AWAKEN_STAR; }

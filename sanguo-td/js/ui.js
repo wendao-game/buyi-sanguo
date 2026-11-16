@@ -148,7 +148,7 @@ const UI = (function () {
         <span class="tag">${q.name}品</span><span class="tag dark">${FACTIONS[d.fac].name}</span><span class="tag dark">${el.name}系</span>
         ${own ? `<p style="margin-top:6px">Lv.${own.lv}　${stars(own.star)}</p>` : ''}
       </div></div>
-      <div class="dstat"><div><b>${st.atk}</b>攻击</div><div><b>${(1 / st.cd).toFixed(2)}</b>每秒出手</div><div><b>${st.power}</b>战力</div></div>
+      <div class="dstat four"><div><b>${st.atk}</b>攻击</div><div><b>${st.hp}</b>生命</div><div><b>${(1 / st.cd).toFixed(2)}</b>每秒出手</div><div><b>${st.power}</b>战力</div></div>
       ${skillHtml(id, own)}`;
     if (own && !picking) {
       const wid = heroWeapon(id), w = wid && WEAPON_MAP[wid];
@@ -162,7 +162,9 @@ const UI = (function () {
         Save.data.team.map((tid, i) => `<button style="--qc:${qc(tid)}" data-act="replace" data-id="${id}" data-i="${i}"><img src="${P(tid)}">${HERO_MAP[tid].name}</button>`).join('') + `</div>`;
     } else {
       const maxLv = own.lv >= CFG.MAX_LEVEL, maxStar = own.star >= CFG.MAX_STAR;
-      h += `<div class="mrow">
+      const nl = maxLv ? null : heroStats(id, { lv: own.lv + 1, star: own.star }), ns = maxStar ? null : heroStats(id, { lv: own.lv, star: own.star + 1 });
+      h += `<p class="lvgain">${nl ? '升一级：攻击 <b>+' + (nl.atk - st.atk) + '</b>　生命 <b>+' + (nl.hp - st.hp) + '</b>' : ''}${nl && ns ? '<br>' : ''}${ns ? '升一星：攻击 <b>+' + (ns.atk - st.atk) + '</b>　生命 <b>+' + (ns.hp - st.hp) + '</b>' : ''}</p>
+        <div class="mrow">
           <button class="btn gold" data-act="lvup" data-id="${id}">${maxLv ? '已满级' : '升级<small>金币 ' + fmt(levelCost(id)) + '</small>'}</button>
           <button class="btn" data-act="starup" data-id="${id}">${maxStar ? '已满星' : '升星<small>碎片 ' + own.shards + '/' + starNeed(id) + (starSoulCost(id) ? ' · 将魂补 ' + starSoulCost(id) : '') + '</small>'}</button>
         </div>
@@ -411,7 +413,7 @@ const UI = (function () {
         <span class="tag">${q.name}品</span><span class="tag dark">${FACTIONS[d.fac].name}</span><span class="tag dark">${el.name}系</span>
         <p style="margin-top:6px">Lv.${own.lv}　${stars(own.star)}</p>
       </div></div>
-      <div class="dstat"><div><b>${st.atk}</b>攻击</div><div><b>${(1 / st.cd).toFixed(2)}</b>每秒出手</div><div><b>${st.power}</b>战力</div></div>
+      <div class="dstat four"><div><b>${st.atk}</b>攻击</div><div><b>${st.hp}</b>生命</div><div><b>${(1 / st.cd).toFixed(2)}</b>每秒出手</div><div><b>${st.power}</b>战力</div></div>
       ${skillHtml(id, own, true)}
       ${w ? `<div class="wrow ro" style="--wq:${QUALITIES[w.q].color}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${weaponOwn(wid).lv}${w.owner === id ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, id))}</div></div>` : ''}
       <p class="mtext lpwhere">${on ? '现在站在「' + role.name + '」' + (fit ? '，位置合适' : '，这个位置对他没有加成（' + role.desc + '）') : '没有上阵 · 适合的位置：' + SLOT_ROLES.filter((r, i) => i <= 2 && (r.leader || r.els.includes(d.el))).map(r => r.name).join('、')}</p>

@@ -727,14 +727,14 @@ const SKILLS = (function () {
         } },
     },
     gaoshun: {
-      passive: { name: '攻无不克', desc: '对刀盾兵、重甲兵、冲车伤害 +50%', dmg(B, h, e) { return e.def.id === 'shield' || e.def.id === 'heavy' || e.def.id === 'ram' ? 1.5 : 1; } },
-      ult: { desc: '陷阵营：城头架起盾阵 6 秒，城墙受到的伤害减半；靠近城墙的敌人被盾撞开，受到 ×3.5 伤害并眩晕 1 秒（觉醒 9 秒）',
+      passive: { name: '攻无不克', desc: '攻击 +15%；对刀盾兵、重甲兵、冲车伤害 +50%', mod: { atk: 0.15 }, dmg(B, h, e) { return e.def.id === 'shield' || e.def.id === 'heavy' || e.def.id === 'ram' ? 1.5 : 1; } },
+      ult: { desc: '陷阵营：城头架起盾阵 7 秒，城墙受到的伤害 -60%；靠近城墙的敌人被盾撞开，受到 ×6 伤害并眩晕 2 秒（觉醒 10.5 秒）',
         cast(B, h, a, k) {
-          const life = 6 * k; B.guard(life, 0.5);
+          const life = 7 * k; B.guard(life, 0.4);
           B.tex('circle', B.W / 2, B.WY - 6, { w: 560, h: 110, life: life, fadeIn: 0.2, rgb: '130,200,255', a: 0.55, spin: 0.4 });
           for (let i = 0; i < 7; i++) B.later(i * 0.04, () => B.tex('pillar', 54 + i * 72, B.WY + 4, { w: 60, h: 150, ay: 1, life: 0.7, fadeIn: 0.08, rgb: '150,210,255', a: 0.8 }));
           B.ring(B.W / 2, B.WY - 10, 40, 300, 0.45, '#9fd6ff', 5); B.shake(0.15);
-          for (const e of B.lives()) if (e.y > B.WY - 260) { B.hit(e, a * 3.5, 'ice', h); B.stun(e, 1); B.push(e, 30); }
+          for (const e of B.lives()) if (e.y > B.WY - 280) { B.hit(e, a * 6, 'ice', h); B.stun(e, 2); B.push(e, 34); }
         } },
     },
     caochun: {
@@ -968,12 +968,12 @@ const SKILLS = (function () {
         } },
     },
     liushan: {
-      passive: { name: '有福之人', desc: '自己受到的伤害减半', hurt() { return 0.5; } },
-      ult: { desc: '乐不思蜀：自己歇 3 秒不出手，其余武将 6 秒内出手速度 +40%（觉醒 +55%）',
+      passive: { name: '有福之人', desc: '自己受到的伤害减半；冰爆范围 +20%', mod: { r: 0.2 }, hurt() { return 0.5; } },
+      ult: { desc: '乐不思蜀：自己歇 2 秒不出手，其余武将 7 秒内出手速度 +50%（觉醒 +65%），城防回复 6%',
         cast(B, h, a, k) {
-          h.stunT = Math.max(h.stunT, 3); B.teamHaste(6, k > 1 ? 1.55 : 1.4);
+          h.stunT = Math.max(h.stunT, 2); B.teamHaste(7, k > 1 ? 1.65 : 1.5); B.heal(0.06);
           B.text(h.x, h.y - 84, '此间乐，不思蜀', '#bfeaff', 17, 1.6);
-          B.heroes().forEach(x => { if (x !== h && !x.dead) { B.ring(x.x, x.y, 8, 56, 0.5, '#bfeaff', 3); B.tex('circle', x.x, x.y + 29, { w: 90, h: 36, spin: 4, life: 6, a: 0.5, fadeIn: 0.1, rgb: '190,235,255' }); } });
+          B.heroes().forEach(x => { if (x !== h && !x.dead) { B.ring(x.x, x.y, 8, 56, 0.5, '#bfeaff', 3); B.tex('circle', x.x, x.y + 29, { w: 90, h: 36, spin: 4, life: 7, a: 0.5, fadeIn: 0.1, rgb: '190,235,255' }); } });
         } },
     },
     xuyou: {

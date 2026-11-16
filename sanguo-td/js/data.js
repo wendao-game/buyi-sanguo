@@ -58,9 +58,9 @@ const CFG = {
   AIM_SLOW: 0.25,          // 手动瞄准大招时的慢动作倍率
   SWAP_DELAY: 1.5,         // 局中换上场的武将过多少秒才第一次出手（怒气从 0 开始）
   /* —— 武将血量（v2.0）：弓手、投石车和敌将的招式会打到台上的武将；阵亡了这一关不能再出手，可以换板凳上的人顶上 —— */
-  HERO_HP_BASE: 80,        // 武将血量 = HERO_HP_BASE + 战力 × HERO_HP_K
-  HERO_HP_K: 0.55,
-  HERO_HIT: { arrow: 0.035, rock: 0.11, rockSplash: 0.05, elite: 0.07, boss: 0.1 },   // 校尉每 5 秒、敌将每 3.5 秒朝一名武将掷一次兵器   // 弓手一箭、投石车一块石头打掉多少（按 heroHitBase 折算）
+  HERO_HP: 240,            // 武将生命 = HERO_HP × 品质倍率 × 等级成长 × 星级成长（和攻击同一套成长：每级 +8%、每星 +20%），觉醒再 × HERO_HP_AWAKE
+  HERO_HP_AWAKE: 1.1,
+  HERO_HIT: { arrow: 0.035, rock: 0.11, rockSplash: 0.05, elite: 0.07, boss: 0.08 },   // 校尉每 5 秒、敌将每 3.5 秒朝一名武将掷一次兵器   // 弓手一箭、投石车一块石头打掉多少（按 heroHitBase 折算）
   ARCHER_AT_HERO: 0.4,    // 弓手每次出手有这么大概率射向武将，其余射城墙
   LOB_AT_HERO: 0.35,       // 投石车每次出手有这么大概率砸向武将
   HERO_WAVE_HEAL: 0.15,    // 每打完一波，活着的武将回这么多血
@@ -391,42 +391,42 @@ function newEnemyAt(stage) { for (const k in ENEMIES) if (ENEMIES[k].from === st
  *   dmg 是武将血量的几成（按 heroHitBase 折算：战力达标时就是上阵武将平均血量的几成） */
 const SK = (name, cd, k, o, desc) => Object.assign({ name, cd, k, desc }, o);
 const CHAPTERS = [
-  { name: '黄巾之乱', boss: '程远志', hero: 'chengyuanzhi', skills: [SK('黄巾聚义', 9, 'summon', { type: 'grunt', n: 4 }, '每 9 秒喊来 4 个黄巾兵')], mid: [
+  { name: '黄巾之乱', boss: '程远志', hero: 'chengyuanzhi', skills: [SK('黄巾聚义', 9, 'summon', { type: 'grunt', n: 4 }, '每 9 秒喊来 4 个黄巾兵'), SK('砍刀', 10, 'smash', { dmg: 0.12, stun: 0.6 }, '每 10 秒一刀劈向一名武将，打晕 0.6 秒')], mid: [
     { id: 'dengmao',    name: '邓茂', body: '#8a5a2a', hat: '#e2b53a', skills: [SK('乱刀', 8, 'smash', { dmg: 0.22, stun: 1 }, '每 8 秒砍伤一名武将，把他打晕 1 秒')] },
     { id: 'zhangliang', name: '张梁', body: '#b89a3a', hat: '#f2d24a', skills: [SK('人公妖法', 9, 'heal', { frac: 0.12, r: 240 }, '每 9 秒给身边的敌人回一成多血')] },
     { id: 'bocai',      name: '波才', body: '#a8452a', hat: '#e2b53a', skills: [SK('火攻', 10, 'burnwall', { t: 4, dps: 0.7 }, '每 10 秒点着城墙，烧 4 秒')] },
   ] },
-  { name: '讨伐董卓', boss: '董卓', hero: 'dongzhuo', skills: [SK('暴虐', 11, 'haste', { t: 3.5 }, '每 11 秒一声怒喝，全场敌人 3.5 秒内走得更快、砍得更勤')], mid: [
+  { name: '讨伐董卓', boss: '董卓', hero: 'dongzhuo', skills: [SK('暴虐', 11, 'haste', { t: 3.5 }, '每 11 秒一声怒喝，全场敌人 3.5 秒内走得更快、砍得更勤'), SK('火烧', 11, 'rain', { dmg: 0.08, fx: 'fire' }, '每 11 秒一阵火雨落在城楼上，所有武将都挨一下')], mid: [
     { id: 'lijue',    name: '李傕', body: '#4a4e5a', hat: '#8a2a2a', skills: [SK('飞熊军', 10, 'summon', { type: 'shield', n: 3 }, '每 10 秒召来 3 个刀盾兵')] },
-    { id: 'guosi',    name: '郭汜', body: '#5a4a3a', hat: '#3a2a1a', skills: [SK('乱箭', 7, 'shoot', { n: 2, dmg: 0.16 }, '每 7 秒朝两名武将各放一箭')] },
+    { id: 'guosi',    name: '郭汜', body: '#5a4a3a', hat: '#3a2a1a', skills: [SK('乱箭', 8, 'shoot', { n: 2, dmg: 0.09 }, '每 8 秒朝两名武将各放一箭')] },
     { id: 'huaxiong', name: '华雄', hero: 'huaxiong', body: '#6a3a2a', hat: '#c8a04a', skills: [SK('骁勇', 0, 'enrage', {}, '血量掉到一半时暴怒：攻击、速度大涨，4 秒内不吃控制')] },
   ] },
-  { name: '群雄割据', boss: '颜良', hero: 'yanliang', skills: [SK('突阵', 9, 'charge', {}, '每 9 秒策马猛冲一段，冲锋时不吃减速和击退')], mid: [
+  { name: '群雄割据', boss: '颜良', hero: 'yanliang', skills: [SK('突阵', 9, 'charge', {}, '每 9 秒策马猛冲一段，冲锋时不吃减速和击退'), SK('斩将', 10, 'smash', { dmg: 0.26, stun: 1.2 }, '每 10 秒一刀斩向一名武将，打晕 1.2 秒')], mid: [
     { id: 'jiling',   name: '纪灵', body: '#7a6a2a', hat: '#d8b04a', skills: [SK('三尖刀', 9, 'smash', { dmg: 0.3, stun: 1.5 }, '每 9 秒重劈一名武将，打晕 1.5 秒')] },
     { id: 'yuanshu',  name: '袁术', body: '#8a6a9a', hat: '#e8c04a', skills: [SK('僭号', 11, 'shield', { r: 999, t: 3 }, '每 11 秒全场敌人架起盾，3 秒内受到的伤害减半')] },
     { id: 'zhangxiu', name: '张绣', body: '#5a6a7a', hat: '#c23b3b', skills: [SK('北地枪王', 8, 'charge', {}, '每 8 秒策马猛冲一段'), SK('回马枪', 12, 'shoot', { n: 1, dmg: 0.22 }, '每 12 秒回身刺伤一名武将')] },
   ] },
-  { name: '官渡之战', boss: '文丑', hero: 'wenchou', skills: [SK('连珠箭', 7, 'shoot', { n: 3, dmg: 0.14 }, '每 7 秒隔着老远朝三名武将各射一箭')], mid: [
+  { name: '官渡之战', boss: '文丑', hero: 'wenchou', skills: [SK('连珠箭', 8, 'shoot', { n: 3, dmg: 0.09 }, '每 8 秒隔着老远朝三名武将各射一箭')], mid: [
     { id: 'chunyuqiong', name: '淳于琼', body: '#6a4a3a', hat: '#9a2a2a', skills: [SK('醉酒', 0, 'regen', { at: 0.4, frac: 0.25 }, '血量掉到四成时灌一口酒，回四分之一的血')] },
     { id: 'gaolan',      name: '高览',   body: '#3a5a7a', hat: '#d8dde4', skills: [SK('破城', 9, 'wallhit', { dmg: 3 }, '每 9 秒猛撞一下城墙，伤害是平时的 3 倍')] },
     { id: 'yuanshao',    name: '袁绍',   hero: 'yuanshao', body: '#9a7a2a', hat: '#f2d24a', skills: [SK('四世三公', 12, 'summon', { type: 'elite', n: 1 }, '每 12 秒召来一名校尉')] },
   ] },
-  { name: '火烧赤壁', boss: '夏侯惇', hero: 'xiahoudun', skills: [SK('拔矢啖睛', 0, 'enrage', {}, '血量掉到一半时暴怒：攻击、速度大涨，4 秒内不吃控制')], mid: [
+  { name: '火烧赤壁', boss: '夏侯惇', hero: 'xiahoudun', skills: [SK('拔矢啖睛', 0, 'enrage', {}, '血量掉到一半时暴怒：攻击、速度大涨，4 秒内不吃控制'), SK('回射', 9, 'shoot', { n: 1, dmg: 0.22 }, '每 9 秒把箭射回来，射中一名武将')], mid: [
     { id: 'caimao',   name: '蔡瑁', body: '#2a5a7a', hat: '#8fc8e8', skills: [SK('水寨箭雨', 10, 'rain', { dmg: 0.1 }, '每 10 秒一阵箭雨落在城楼上，所有武将都挨一下')] },
     { id: 'zhangyun', name: '张允', body: '#3a6a6a', hat: '#c8d0d8', skills: [SK('铁索', 11, 'bind', { n: 2, t: 2.5 }, '每 11 秒用铁索缠住两名武将，2.5 秒不能出手')] },
     { id: 'caoren',   name: '曹仁', hero: 'caoren', body: '#3a4a8a', hat: '#d8b04a', skills: [SK('八门金锁', 12, 'shield', { r: 999, t: 4 }, '每 12 秒全场敌人架起盾，4 秒内受到的伤害减半')] },
   ] },
-  { name: '三分天下', boss: '高顺', hero: 'gaoshun', skills: [SK('陷阵', 10, 'shield', { r: 210, t: 4 }, '每 10 秒给身边的敌人架起盾阵，4 秒内受到的伤害减半')], mid: [
+  { name: '三分天下', boss: '高顺', hero: 'gaoshun', skills: [SK('陷阵', 10, 'shield', { r: 210, t: 4 }, '每 10 秒给身边的敌人架起盾阵，4 秒内受到的伤害减半'), SK('破阵', 11, 'smash', { dmg: 0.2, stun: 1.5 }, '每 11 秒冲上来砸晕一名武将 1.5 秒')], mid: [
     { id: 'houcheng', name: '侯成', body: '#6a5a3a', hat: '#4a3a2a', skills: [SK('盗马', 9, 'summon', { type: 'rider', n: 3, haste: 5 }, '每 9 秒召来 3 骑狂奔的轻骑')] },
-    { id: 'songxian', name: '宋宪', body: '#4a5a4a', hat: '#2a3a2a', skills: [SK('暗箭', 7, 'shoot', { n: 1, dmg: 0.26, low: true }, '每 7 秒朝血最少的武将放一支冷箭')] },
+    { id: 'songxian', name: '宋宪', body: '#4a5a4a', hat: '#2a3a2a', skills: [SK('暗箭', 8, 'shoot', { n: 1, dmg: 0.15, low: true }, '每 8 秒朝血最少的武将放一支冷箭')] },
     { id: 'zangba',   name: '臧霸', body: '#5a4a6a', hat: '#8a8a9a', skills: [SK('泰山寇', 11, 'summon', { type: 'heavy', n: 2 }, '每 11 秒召来 2 个重甲兵')] },
   ] },
-  { name: '七擒孟获', boss: '孟获', hero: 'menghuo', skills: [SK('藤甲军', 10, 'summon', { type: 'rattan', n: 3 }, '每 10 秒召来 3 个藤甲兵')], mid: [
+  { name: '七擒孟获', boss: '孟获', hero: 'menghuo', skills: [SK('藤甲军', 10, 'summon', { type: 'rattan', n: 3 }, '每 10 秒召来 3 个藤甲兵'), SK('毒泉', 12, 'poison', { t: 5, dps: 0.03 }, '每 12 秒放出毒瘴，所有武将中毒 5 秒')], mid: [
     { id: 'zhurong', name: '祝融夫人', hero: 'zhurong', body: '#b8402a', hat: '#f2c230', skills: [SK('飞刀', 8, 'shoot', { n: 3, dmg: 0.13 }, '每 8 秒朝三名武将各掷一把飞刀')] },
-    { id: 'mulu',    name: '木鹿大王', body: '#4a7a3a', hat: '#e8e0c0', skills: [SK('瘴气', 11, 'poison', { t: 5, dps: 0.03 }, '每 11 秒往城楼上放毒瘴，所有武将中毒 5 秒')] },
+    { id: 'mulu',    name: '木鹿大王', body: '#4a7a3a', hat: '#e8e0c0', skills: [SK('瘴气', 12, 'poison', { t: 5, dps: 0.018 }, '每 12 秒往城楼上放毒瘴，所有武将中毒 5 秒')] },
     { id: 'wutugu',  name: '兀突骨',   body: '#b08a3a', hat: '#7a5a22', skills: [SK('藤甲护体', 11, 'guard', { t: 5, mul: 0.4 }, '每 11 秒藤甲护体 5 秒，受到的伤害只剩四成')] },
   ] },
-  { name: '北伐中原', boss: '曹纯', hero: 'caochun', skills: [SK('虎豹骑', 9, 'summon', { type: 'rider', n: 3, haste: 6 }, '每 9 秒召来 3 骑狂奔的虎豹骑')], mid: [
+  { name: '北伐中原', boss: '曹纯', hero: 'caochun', skills: [SK('虎豹骑', 9, 'summon', { type: 'rider', n: 3, haste: 6 }, '每 9 秒召来 3 骑狂奔的虎豹骑'), SK('骑射', 9, 'shoot', { n: 2, dmg: 0.1 }, '每 9 秒朝两名武将各射一箭')], mid: [
     { id: 'wangshuang', name: '王双', body: '#5a3a3a', hat: '#9aa4b2', skills: [SK('流星锤', 9, 'smash', { dmg: 0.36, stun: 2 }, '每 9 秒一锤砸中一名武将，打晕 2 秒')] },
     { id: 'guohuai',    name: '郭淮', body: '#3a5a8a', hat: '#c8d0d8', skills: [SK('方略', 10, 'heal', { frac: 0.1, r: 999 }, '每 10 秒给全场敌人回一成血')] },
     { id: 'caozhen',    name: '曹真', body: '#2a3a7a', hat: '#e8c04a', skills: [SK('大都督', 12, 'summon', { type: 'elite', n: 1 }, '每 12 秒召来一名校尉'), SK('箭阵', 10, 'rain', { dmg: 0.1 }, '每 10 秒一阵箭雨落在城楼上')] },
