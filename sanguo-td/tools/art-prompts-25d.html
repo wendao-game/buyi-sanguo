@@ -61,7 +61,7 @@ section { display: flex; flex-direction: column; gap: 14px; }
 <div class="wrap">
   <header>
     <h1>烽火守城 · <span>国风卡通</span> 出图</h1>
-    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 是所有图的标准：每次把它们一起发给 GPT。<b>还差 1 张：敌人 8</b>（魔·吕布、魔·曹操、神·关羽、神·诸葛亮在无尽关当敌将时的正面图），排在最前面；画的时候附上「敌人 2」和他们四个的武将立绘。画好前他们当敌将时先用武将立绘（背影）顶着。其余 44 张都已经在游戏里了，想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。</p>
+    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 是所有图的标准：每次把它们一起发给 GPT。<b>全部 45 张都已经画好、换进游戏了。</b>想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。</p>
   </header>
 
   <ol class="steps">
@@ -460,7 +460,7 @@ const groups = [
 ];
 
 /* 已经画好并换进游戏的图（要重画也可以，照样复制提示词） */
-const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'hero_7.png', 'head_7.png', 'hero_8.png', 'head_8.png', 'weapon_1.png', 'weapon_2.png', 'weapon_3.png', 'weapon_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'fx_4.png', 'fx_5.png', 'fx_6.png', 'enemy_1.png', 'enemy_2.png', 'enemy_3.png', 'unit_1.png', 'enemy_4.png', 'enemy_5.png', 'enemy_6.png', 'enemy_7.png', 'weapon_5.png', 'weapon_6.png', 'hero_9.png', 'head_9.png', 'hero_10.png', 'head_11.png', 'weapon_7.png', 'hero_11.png', 'head_10.png'];
+const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'hero_7.png', 'head_7.png', 'hero_8.png', 'head_8.png', 'weapon_1.png', 'weapon_2.png', 'weapon_3.png', 'weapon_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'fx_4.png', 'fx_5.png', 'fx_6.png', 'enemy_1.png', 'enemy_2.png', 'enemy_3.png', 'unit_1.png', 'enemy_4.png', 'enemy_5.png', 'enemy_6.png', 'enemy_7.png', 'weapon_5.png', 'weapon_6.png', 'hero_9.png', 'head_9.png', 'hero_10.png', 'head_11.png', 'weapon_7.png', 'hero_11.png', 'head_10.png', 'enemy_8.png'];
 
 /* 页面上的排法：还没画的排最前面（按建议的出图顺序：武将和它的头像挨着），已画好的收在后面 */
 const all = [];
