@@ -117,6 +117,7 @@ const Battle = (function () {
       walk: rand() * 6, ph: rand() * 6, dead: false, ccK: 1, pushK: 1, atkT: 0,
       spr: enemySprite(d.id), flip: d.id !== 'boss' && d.id !== 'rare' && rand() < 0.5,
     });
+    if (isBoss && S.boss.aura) { const e = S.enemies[S.enemies.length - 1]; e.aura = S.boss.aura; S.flash = { color: S.boss.aura, a: 0.35, t: 0.9, max: 0.9 }; S.shake = Math.max(S.shake, 0.5); tex('pillar', e.x, 150, { w: 220, h: 620, ay: 1, life: 1.4, fadeIn: 0.1, rgb: S.boss.aura, force: true }); }   // 神魔登场
     if (d.id === 'rare' && S.enc) {                           // 奇遇：名字、血量、招式、配色都换成这一只的
       const e = S.enemies[S.enemies.length - 1], x = S.enc.def;
       e.rare = x; e.name = x.name; e.aura = x.aura || ''; e.hp = e.max = Math.round(e.max * x.hpK * 0.9);
@@ -134,7 +135,7 @@ const Battle = (function () {
   }
   /* 敌人造型：第 1 章黄巾兵，之后换官军造型；敌将每章不同 */
   function enemySprite(id) {
-    if (id === 'boss') return S.boss.sprite;
+    if (id === 'boss') return S.boss.myth && Assets.get('enemies/' + S.boss.myth) ? 'enemies/' + S.boss.myth : S.boss.sprite;   // 神魔：有正面的敌将图就用，没有先用武将立绘
     if (id === 'rare') return null;                             // 奇遇的立绘在 spawn 里按是哪一只来定
     if (S.ch.index > 1 && Assets.get('enemy:' + id + '_2')) return 'enemy:' + id + '_2';
     return null;
@@ -155,7 +156,7 @@ const Battle = (function () {
     S.banner = { text: win ? '大获全胜' : S.wiped ? '全军覆没' : '城池失守', t: 99, max: 99 };
     const res = settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins), S.enc && S.enc.killed ? S.enc.def.id : null);
     res.win = win; res.kills = S.kills; res.stage = S.stage; res.wave = S.wave; res.combo = S.comboMax; res.wiped = !!S.wiped; res.fallen = Object.keys(S.fallen);
-    res.dmg = damageList();
+    res.dmg = damageList(); res.myth = S.mythNew || null;
     const ref = S;
     setTimeout(() => { if (S === ref) UI.showResult(res); }, 1100);
   }
@@ -319,6 +320,10 @@ const Battle = (function () {
     }
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (e.def.id === 'boss') Sfx.play('bossdie');
+    if (e.def.id === 'boss' && S.boss.myth && !(Save.data.unlocked || {})[S.boss.myth]) {   // 第一次击败神魔：解锁，进卡池
+      (Save.data.unlocked = Save.data.unlocked || {})[S.boss.myth] = 1; S.mythNew = S.boss.myth; Save.save();
+      text(W / 2, 292, e.name + ' 加入卡池', '#ffe9a8', 24, 2.6, true);
+    }
     if (e.demon) { for (let i = 0; i < 3; i++) tex('el_hit_dark', e.x + (rand() - 0.5) * 50, e.y - 20 - i * 26, { w: 150, life: 0.9 + i * 0.2, grow: 1.6, vy: -40, force: true }); text(e.x, e.y - 90, '心魔已散', '#d8b4ff', 22, 1.6, true); }
     const dk = e.def.horde ? 1 / CFG.HORDE : 1;                 // 小兵多了，单个掉东西的概率相应低一些，总量不变
     if (isBig(e) || rand() < CFG.COIN_DROP_RATE * dk) dropCoin(e);
@@ -1462,7 +1467,7 @@ const Battle = (function () {
     const tg = c.createLinearGradient(0, 0, 0, 120); tg.addColorStop(0, 'rgba(10,6,4,.75)'); tg.addColorStop(1, 'rgba(10,6,4,0)');
     c.fillStyle = tg; c.fillRect(0, 0, W, 120);
     c.font = 'bold 27px SGBrush,' + FONT; c.textAlign = 'center'; c.lineJoin = 'round'; c.lineWidth = 5; c.strokeStyle = 'rgba(20,10,6,.9)';
-    const title = '第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关';
+    const title = S.ch.title;
     c.strokeText(title, W / 2, 40); c.fillStyle = '#ffd76a'; c.fillText(title, W / 2, 40);
     const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
     const hp = Math.max(0, S.wall / S.wallMax), lag = Math.min(1, Math.max(hp, S.wallLag / S.wallMax)), hf = Math.min(1, Math.max(0, S.wallFlash) * 6), low = hp < 0.3 && !S.over;

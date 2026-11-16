@@ -266,11 +266,11 @@ const HEROES = [
   H('sunjian',       '孙坚',      4, 'wu',  'fire',    '传国玉玺', '江东猛虎'),
   H('yuanshao',      '袁绍',      4, 'qun', 'arrow',   '号令群雄', '四世三公'),
   H('caoren',        '曹仁',      4, 'wei', 'ice',     '铜墙铁壁', '天人将军'),
-  // —— 黑 / 彩（神将，暂未开放，rate 为 0 不会被抽到）——
-  H('god_guanyu', '神·关羽', 6, 'shu', 'blade', '武神降世', '神将', { locked: true }),
-  H('god_lvbu', '神·吕布', 6, 'qun', 'thunder', '神鬼无前', '神将', { locked: true }),
-  H('god_zhuge', '神·诸葛亮', 7, 'shu', 'wind', '七星坛', '神将', { locked: true }),
-  H('god_caocao', '神·曹操', 7, 'wei', 'poison', '归心', '神将', { locked: true }),
+  // —— 黑 / 彩：魔将是黑、神将是彩。rate 为 0，平时抽不到；在无尽关的高层击败之后进卡池 ——
+  H('god_lvbu',   '魔·吕布',   6, 'qun', 'thunder', '神鬼无前', '魔将', { myth: 10 }),   // myth：在无尽第几层登场；击败后才进卡池（和橙将共用橙品的概率，没有保底）
+  H('god_caocao', '魔·曹操',   6, 'wei', 'poison',  '天下归心', '魔将', { myth: 20 }),
+  H('god_guanyu', '神·关羽',   7, 'shu', 'blade',   '武神降世', '神将', { myth: 30 }),
+  H('god_zhuge',  '神·诸葛亮', 7, 'shu', 'wind',    '七星续命', '神将', { myth: 40 }),
 ];
 /* ============================================================
  * 兵器：每名武将可以装一件。和武将在同一个卡池里用招募令抽；用「精铁」强化（精铁通关给，抽到已有的兵器也会熔成精铁）。
@@ -449,9 +449,31 @@ const ENCOUNTERS = [
 const ENC_MAP = {}; ENCOUNTERS.forEach(e => { ENC_MAP[e.id] = e; });
 
 /* 第 stage 关的敌将：{ id, name（心魔会带前缀）, who 本名, hero, sprite 立绘, look 没图时的配色, skills, hpK 血量系数, final 是不是章节敌将 } */
+/* 神魔当敌将时的血量倍数、气焰颜色和招式（魔是黑紫，神是金、青） */
+const MYTH_BOSS = {
+  god_lvbu:   { hpK: 1.25, aura: '190,70,255', skills: [SK('魔神乱舞', 8, 'smash', { dmg: 0.3, stun: 1.5 }, '每 8 秒砸晕一名武将 1.5 秒'), SK('黑雷', 10, 'rain', { dmg: 0.09 }, '每 10 秒黑雷落在城楼上，所有武将都挨一下'), SK('无双', 0, 'enrage', {}, '血量掉到一半时暴怒')] },
+  god_caocao: { hpK: 1.3,  aura: '130,60,220', skills: [SK('万箭齐发', 8, 'shoot', { n: 3, dmg: 0.11 }, '每 8 秒朝三名武将各射一箭'), SK('奸雄', 11, 'shield', { r: 999, t: 4 }, '每 11 秒全场敌人架起盾，4 秒内受到的伤害减半'), SK('归心', 13, 'heal', { frac: 0.08, r: 999 }, '每 13 秒给全场敌人回血')] },
+  god_guanyu: { hpK: 1.35, aura: '255,215,90', skills: [SK('武神斩', 8, 'smash', { dmg: 0.32, stun: 2 }, '每 8 秒一刀砸晕一名武将 2 秒'), SK('青龙偃月', 10, 'wallhit', { dmg: 3 }, '每 10 秒一刀劈在城墙上，三倍伤害'), SK('显圣', 0, 'revive', {}, '第一次倒下后以四成血量再战')] },
+  god_zhuge:  { hpK: 1.4,  aura: '120,220,255', skills: [SK('七星', 9, 'rain', { dmg: 0.1 }, '每 9 秒星火落在城楼上，所有武将都挨一下'), SK('东风', 11, 'haste', { t: 4 }, '每 11 秒全场敌人狂奔 4 秒'), SK('八阵', 12, 'bind', { n: 3, t: 2.5 }, '每 12 秒定住三名武将 2.5 秒'), SK('续命', 0, 'regen', { at: 0.3, frac: 0.25 }, '血量掉到三成时回四分之一')] },
+};
+/* 无尽关（第 80 关以后）：整十层固定是神魔（见武将表里的 myth），其余每层从八章的 32 个敌将和幽冥鬼将里挑一个（按层数定，同一层每次是同一个） */
+let BOSS_POOL = null;
+function endlessBoss(n) {
+  const myth = HEROES.find(h => h.myth === n);
+  if (myth) { const m = MYTH_BOSS[myth.id]; return { id: myth.id, name: myth.name, who: myth.name, hero: null, myth: myth.id, sprite: 'heroes/' + myth.id, look: null, skills: m.skills, hpK: m.hpK, aura: m.aura, final: true }; }
+  if (!BOSS_POOL) {
+    BOSS_POOL = [{ id: 'boss_9', name: ENDLESS_BOSS.name, who: ENDLESS_BOSS.name, hero: null, sprite: 'enemies/boss_9', look: null, skills: ENDLESS_BOSS.skills }];
+    CHAPTERS.forEach((c, ci) => {
+      BOSS_POOL.push({ id: 'boss_' + (ci + 1), name: (c.hero ? '心魔·' : '') + c.boss, who: c.boss, hero: c.hero || null, sprite: 'enemies/boss_' + (ci + 1), look: null, skills: c.skills });
+      c.mid.forEach(m => BOSS_POOL.push({ id: m.id, name: (m.hero ? '心魔·' : '') + m.name, who: m.name, hero: m.hero || null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills }));
+    });
+  }
+  const b = BOSS_POOL[(Math.imul(n, 2654435761) >>> 8) % BOSS_POOL.length];
+  return Object.assign({ hpK: 1, final: true }, b);
+}
 function stageBoss(stage) {
   const ci = Math.floor((stage - 1) / 10), c = CHAPTERS[ci], sub = (stage - 1) % 10;
-  if (!c) return { id: 'boss_9', name: ENDLESS_BOSS.name, who: ENDLESS_BOSS.name, hero: null, sprite: 'enemies/boss_9', look: null, skills: ENDLESS_BOSS.skills, hpK: 1, final: true };
+  if (!c) return endlessBoss(stage - CHAPTERS.length * 10);
   if (sub === 9) return { id: 'boss_' + (ci + 1), name: (c.hero ? '心魔·' : '') + c.boss, who: c.boss, hero: c.hero || null, sprite: 'enemies/boss_' + (ci + 1), look: null, skills: c.skills, hpK: 1, final: true };
   const m = c.mid[Math.floor(sub / 3)];
   return { id: m.id, name: (m.hero ? '心魔·' : '') + m.name, who: m.name, hero: m.hero || null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills, hpK: 0.75, final: false };
@@ -463,7 +485,8 @@ function chapterOf(stage) {
   const idx = Math.floor((stage - 1) / 10);
   const c = CHAPTERS[idx] || { name: '乱世无尽', boss: '幽冥鬼将' };
   const b = stageBoss(stage);
-  return { index: idx + 1, name: c.name, boss: b.name, who: b.who, hero: b.hero, sub: ((stage - 1) % 10) + 1 };
+  return { index: idx + 1, name: c.name, boss: b.name, who: b.who, hero: b.hero, sub: ((stage - 1) % 10) + 1, endless: CHAPTERS[idx] ? 0 : stage - CHAPTERS.length * 10,
+    title: CHAPTERS[idx] ? '第' + (idx + 1) + '章 ' + c.name + ' · 第' + (((stage - 1) % 10) + 1) + '关' : '乱世无尽 · 第' + (stage - CHAPTERS.length * 10) + '层' };   // endless：无尽第几层（主线是 0）
 }
 
 /* ============================================================

@@ -322,7 +322,7 @@ const SKILLS = (function () {
           for (let r = 0; r < Math.ceil(rounds); r++) B.later(r * 1.35, () => { for (let j = 0; j < 5; j++) B.later(j * 0.07, () => B.tex('arrow_rain', h.x + (j - 2) * 95 + (Math.random() - 0.5) * 40, B.WY - 70 - Math.random() * 30, { w: 170, life: 0.55, vy: -780, vx: (j - 2) * 60, rot: Math.PI + (j - 2) * 0.09, a: 0.9, force: true })); B.ring(h.x, h.y - 30, 10, 120, 0.4, '#ffe19a', 4); });   // 专属特效：成片的箭从城头齐射出去，飞向敌阵
           for (let i = 0; i < Math.round(20 * rounds); i++) B.later(i * 0.05 + Math.floor(i / 20) * 0.35, () => {
             const t = B.rnd(); if (!t) return;
-            B.rain(h, t.x + (Math.random() - 0.5) * 24, t.y, a * 0.8, 0.8);
+            B.rain(h, t.x + (Math.random() - 0.5) * 24, t.y, a * 0.72, 0.8);
           });
         } },
     },
@@ -799,9 +799,9 @@ const SKILLS = (function () {
     },
     xiahoudun: {
       passive: { name: '独眼', desc: '暴击伤害 +50%；城防低于一半时自身伤害 +15%', mod: { critDmg: 0.5 }, dmg(B) { return B.S.wall < B.S.wallMax * 0.5 ? 1.15 : 1; } },
-      ult: { desc: '拔矢啖睛：一声怒吼，朝敌人最密的三处各劈一刀，每刀 ×3 起、城防每损失 10% 再 +0.25，波及一片并吓退 1 秒；之后 4 秒自身必定暴击（觉醒 6 秒）',
+      ult: { desc: '拔矢啖睛：一声怒吼，朝敌人最密的三处各劈一刀，每刀 ×2.7 起、城防每损失 10% 再 +0.25，波及一片并吓退 1 秒；之后 4 秒自身必定暴击（觉醒 6 秒）',
         cast(B, h, a, k) {
-          const lost = 1 - Math.max(0, B.S.wall) / B.S.wallMax, m = 3 + lost * 2.5;
+          const lost = 1 - Math.max(0, B.S.wall) / B.S.wallMax, m = 2.7 + lost * 2.5;
           B.flash('255,60,40', 0.25, 0.4); B.tex('burst', h.x + 6, h.y - 44, { w: 90, life: 0.5, grow: 1.6, rgb: '255,70,50' });     // 眼里冒出的红光
           h.critT = 4 * k;
           B.tex('blood_eye', h.x, h.y - 96, { w: 190, life: 1.1, grow: 1.2, fadeIn: 0.08 });                            // 专属特效：一只血红的独眼
@@ -1142,6 +1142,66 @@ const SKILLS = (function () {
           for (let i = 0; i < 7; i++) B.tex('icespike', 54 + i * 72, B.WY - 2, { w: 46, h: 96, ay: 1, life: 10 * k, fadeIn: 0.15, a: 0.85, rgb: '170,210,255' });   // 城前一排冰刺
           B.tex('circle', B.W / 2, B.WY - 6, { w: 560, h: 90, spin: 0.5, life: 10 * k, a: 0.4, fadeIn: 0.2, rgb: '150,200,255' });
           B.lives().forEach(e => { if (e.y > B.WY - 230) { B.hit(e, a * 6, 'ice', h); B.push(e, 30); B.stun(e, 2); } });
+        } },
+    },
+
+    /* ======================= 神魔（v2.5）：魔是黑、神是彩，在无尽关击败后进卡池 ======================= */
+    god_lvbu: {
+      passive: { name: '魔神降世', desc: '攻击 +15%；每放倒一个敌人，这一局里自己的攻击再 +1%（最多 +30%）', mod: { atk: 0.15 },
+        onKill(B, h) { if ((h.rise || 0) < 30) { h.atk0 = h.atk0 || h.atk; h.rise = (h.rise || 0) + 1; h.atk = h.atk0 * (1 + 0.01 * h.rise); } } },
+      ult: { desc: '神鬼无前：10 道黑雷追着场上最壮的敌人劈，每道炸开一片 ×3.5 并麻痹 0.6 秒；被劈死的敌人化成怨魂再炸一次 ×2（觉醒 15 道）',
+        cast(B, h, a, k) {
+          const n = R(10, k); B.flash('150,60,220', 0.25, 0.5);
+          for (let i = 0; i < n; i++) B.later(i * 0.11, () => {
+            const L = B.lives().filter(e => !e._ml).sort((p, q) => q.hp - p.hp), t = L[0] || B.rnd(); if (!t) return;
+            t._ml = 1; B.later(0.5, () => { t._ml = 0; });
+            const x = t.x, y = t.y;
+            B.bolt(x + (Math.random() - 0.5) * 80, y - 420, x, y, 2.6); B.tex('el_hit_thunder', x, y - 6, { w: 190, life: 0.3, grow: 1.3, rgb: '200,120,255' }); B.ring(x, y, 10, 80, 0.3, '#c890ff', 5); B.shake(0.12);
+            B.area(x, y, 78, e => { B.hit(e, a * 3.5, 'thunder', h); B.stun(e, 0.6); });
+            if (t.dead) { B.tex('el_hit_dark', x, y - 10, { w: 170, life: 0.5, grow: 1.5, a: 0.8, rgb: '170,90,255' }); B.area(x, y, 70, e => B.hit(e, a * 2, 'thunder', h)); }
+          });
+        } },
+    },
+    god_caocao: {
+      passive: { name: '宁我负人', desc: '全军攻击 +12%、怒气获取 +8%', aura(ctx) { ctx.S.buffs.atk *= 1.12; ctx.S.buffs.rage *= 1.08; } },
+      ult: { desc: '天下归心：吸走全场敌人当前生命的 12%（校尉、敌将 4%；每个最多 ×14），吸来的化成城防 +10%、全体武将回两成血；被吸过的敌人减速 3 秒（觉醒吸 18%）',
+        cast(B, h, a, k) {
+          const f = k > 1 ? 0.18 : 0.12; B.flash('120,50,200', 0.25, 0.6);
+          B.tex('circle', B.W / 2, B.WY - 260, { w: 560, h: 420, spin: -1.2, life: 1, a: 0.5, fadeIn: 0.1, rgb: '160,90,255' });
+          B.lives().forEach((e, i) => B.later(Math.min(0.6, i * 0.015), () => {
+            if (e.dead) return;
+            if (i < 40) B.bolt(e.x, e.y - 10, h.x, h.y - 40, 0.7);
+            B.hit(e, Math.min(a * 14, e.hp * (B.isBig(e) || e.def.siege ? f / 3 : f)), 'poison', h); B.slow(e, 3);
+          }));
+          B.later(0.7, () => { B.heal(0.10); B.healHeroes(0.2); });
+        } },
+    },
+    god_guanyu: {
+      passive: { name: '武圣显灵', desc: '攻击 +8%、暴击率 +6%；亲手放倒敌人回 4 点怒气', mod: { atk: 0.08, crit: 0.06 }, onKill(B, h) { B.rage(h, 4); } },
+      ult: { desc: '武神降世：两道金色刀浪接连横扫战场，每道 ×1.6 并把敌人推后；最后朝场上血最多的敌人落下一刀 ×10（觉醒 ×15）',
+        cast(B, h, a, k) {
+          B.flash('255,215,90', 0.25, 0.5); B.tex('pillar', h.x, h.y + 34, { w: 150, h: 520, ay: 1, life: 1.3, fadeIn: 0.1, rgb: '255,215,90' });
+          for (let i = 0; i < 2; i++) B.later(i * 0.4, () => { B.sweep(h, a * 1.6, { push: 16, vy: -520 }); B.shake(0.18); });
+          B.later(1.0, () => {
+            const t = B.strongest(1)[0]; if (!t) return;
+            B.tex('dragon_azure', t.x, t.y - 120, { w: 230, life: 0.45, vy: 260, rot: Math.PI / 2, rgb: '255,220,120' }) || B.tex('slash', t.x, t.y, { w: 320, h: 130, rot: 1.3, life: 0.3, rgb: '255,220,120' });
+            B.later(0.3, () => { B.tex('burst', t.x, t.y, { w: 300, life: 0.4, grow: 1.5, rgb: '255,225,150' }); B.ring(t.x, t.y, 16, 150, 0.4, '#ffe19a', 7); B.shake(0.45); B.shock(t.x, t.y, 320, 1.3);
+              B.area(t.x, t.y, 95, e => { if (e !== t) B.hit(e, a * 3, 'blade', h); }); if (!t.dead) B.hit(t, a * 10 * k, 'blade', h); });
+          });
+        } },
+    },
+    god_zhuge: {
+      passive: { name: '鞠躬尽瘁', desc: '全军出手速度 +10%、大招伤害 +10%', aura(ctx) { ctx.S.buffs.spd *= 1.1; ctx.S.buffs.ult *= 1.1; } },
+      ult: { desc: '七星续命：七盏星灯依次点亮，每亮一盏就有一道星光砸进敌人最密的地方 ×5.5（觉醒 ×8.25）；七盏全亮时，全体武将回四成血、救活一名阵亡的武将、其他武将怒气 +20',
+        cast(B, h, a, k) {
+          B.tex('seven_stars', B.W / 2, B.WY - 420, { w: 420, life: 4.2, fadeIn: 0.3, a: 0.75 });
+          for (let i = 0; i < 7; i++) B.later(0.3 + i * 0.5, () => {
+            B.tex('circle', 70 + i * 66, B.WY - 36, { w: 54, h: 26, spin: 3, life: 4 - i * 0.5, rgb: '170,235,255', a: 0.9 });      // 城头一排星灯
+            const p = B.dense(100) || B.rnd(); if (!p) return;
+            B.bolt(p.x + (i - 3) * 30, p.y - 440, p.x, p.y, 2.2); B.tex('burst', p.x, p.y, { w: 230, life: 0.3, grow: 1.4, rgb: '170,235,255' }); B.ring(p.x, p.y, 12, 110, 0.35, '#aee8ff', 5); B.shake(0.15);
+            B.area(p.x, p.y, 100, e => { B.hit(e, a * 5.5 * k, 'wind', h); B.slow(e, 1.5); });
+          });
+          B.later(3.9, () => { B.flash('170,235,255', 0.25, 0.6); B.healHeroes(0.4); B.revive(0.5); B.teamRage(20, h); });
         } },
     },
   };

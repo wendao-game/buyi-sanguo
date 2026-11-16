@@ -66,10 +66,10 @@ const UI = (function () {
     $('#home').innerHTML = `
       <div class="logo"><b>烽火守城</b><span>三国塔防</span></div>
       <div class="stagecard">
-        <div class="chap">第 ${ch.index} 章 · ${ch.name}</div>
+        <div class="chap">${ch.endless ? ch.name : '第 ' + ch.index + ' 章 · ' + ch.name}</div>
         <div class="stagesel">
           <button data-act="stage" data-d="-1" ${st <= 1 ? 'disabled' : ''}>◀</button>
-          <div class="sname">第 ${ch.sub} 关<small class="${cleared ? '' : 'new'}">${cleared ? '已通关 · 可重复挑战' : (ch.sub === 10 ? '章节决战' : '未通关')}</small></div>
+          <div class="sname">第 ${ch.endless || ch.sub} ${ch.endless ? '层' : '关'}<small class="${cleared ? '' : 'new'}">${cleared ? '已通关 · 可重复挑战' : (ch.endless ? '未通关' : ch.sub === 10 ? '章节决战' : '未通关')}</small></div>
           <button data-act="stage" data-d="1" ${st >= S.stage ? 'disabled' : ''}>▶</button>
         </div>
         <div class="powers"><span>推荐战力 ${rec}</span><span class="${pw >= rec ? 'ok' : 'bad'}">我方战力 ${pw}</span></div>
@@ -118,17 +118,17 @@ const UI = (function () {
     const bonds = bonus.active.length ? bonus.active.map(a => `<span class="bond ${a.type}"><b>${a.name}</b>${a.desc}</span>`).join('') : '<span class="bond none">还没有激活的羁绊</span>';
     let ids;
     if (heroTab === 'mine') ids = Object.keys(S.heroes).sort((a, b) => HERO_MAP[b].q - HERO_MAP[a].q || S.heroes[b].lv - S.heroes[a].lv);
-    else ids = HEROES.slice().sort((a, b) => b.q - a.q).map(h => h.id);
+    else ids = HEROES.filter(mythShown).sort((a, b) => b.q - a.q).map(h => h.id);   // 神魔：击败之前不显示
     const cards = ids.map(id => {
       const d = HERO_MAP[id], own = S.heroes[id], q = QUALITIES[d.q];
       const canStar = own && own.star < CFG.MAX_STAR && own.shards >= CFG.STAR_NEED[own.star];
       return `<div class="card ${own ? '' : 'off'}" style="--qc:${q.color}" data-act="hero" data-id="${id}">
         <i class="qtag">${q.name}</i>${teamIndex(id) >= 0 ? '<i class="badge">阵</i>' : ''}
         <img src="${P(id)}"><div class="cname">${d.name}</div>
-        <div class="cmeta">${own ? 'Lv.' + own.lv + ' ' + stars(own.star) : (d.locked ? '神将·未开放' : '未获得')}</div>
+        <div class="cmeta">${own ? 'Lv.' + own.lv + ' ' + stars(own.star) : '未获得'}</div>
         ${canStar ? '<span class="dot"></span>' : ''}</div>`;
     }).join('');
-    const total = HEROES.filter(h => !h.locked).length;
+    const total = HEROES.filter(mythShown).length;
     $('#heroes').innerHTML = `
       <div class="team">${team}</div>
       <div class="tinfo"><span>${pickSlot >= 0 ? '再点一个位置交换站位 · 点同一位置看详情' : '点位置选中后可交换站位'}</span><span>战力 <b>${teamPower()}</b> <button class="link" data-act="bondHelp">羁绊一览</button></span></div>
@@ -155,7 +155,6 @@ const UI = (function () {
       h += w ? `<div class="wrow" style="--wq:${QUALITIES[w.q].color}" data-act="heroWeapon" data-id="${id}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${weaponOwn(wid).lv}${w.owner === id ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, id))}</div><span class="go">更换 ›</span></div>`
         : `<div class="wrow" data-act="heroWeapon" data-id="${id}"><div class="wi"><b>兵器</b>还没有装备</div><span class="go">选择 ›</span></div>`;
     }
-    if (d.locked) h += `<p class="mtext" style="margin-top:14px">黑、彩品质神将尚未开放，敬请期待</p>`;
     else if (!own) h += `<p class="mtext" style="margin-top:14px">尚未获得 · 可通过招募获得</p>`;
     else if (picking) {
       h += `<p class="mtext" style="margin-top:12px">阵容已满，选择要替换的武将</p><div class="pick">` +
@@ -317,11 +316,14 @@ const UI = (function () {
     modal(`<div class="mbox"><h2>招募结果</h2><div class="pulls ${n === 1 ? 'one' : ''}">${cards}</div>
       <div class="mrow"><button class="btn" data-act="close">确定</button><button class="btn red" data-act="draw" data-n="${n}">再招 ${n} 次</button></div></div>`);
   }
+  /* 神魔（黑、彩）：在无尽关击败之前不出现在武将页和概率公示里；已经有了的照常显示 */
+  const mythShown = h => !h.locked && (!h.myth || (Save.data.unlocked || {})[h.id] || Save.data.heroes[h.id]);
   function showRates() {
     const total = QUALITIES.reduce((s, q) => s + q.rate, 0), ws = Math.round(CFG.WEAPON_SHARE * 100);
-    const rows = QUALITIES.map(q => {
-      const names = HEROES.filter(h => h.q === q.id).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id && (!w.lock || (Save.data.unlocked || {})[w.id])).map(w => w.name).join('、');   // 只列现在抽得到的
-      return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '未开放'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
+    const un = Save.data.unlocked || {};
+    const rows = QUALITIES.filter(q => q.rate || HEROES.some(h => h.q === q.id && h.myth && un[h.id])).map(q => {   // 黑、彩两行：有解锁的神魔才显示
+      const names = HEROES.filter(h => h.q === q.id && !h.locked && (!h.myth || un[h.id])).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id && (!w.lock || (Save.data.unlocked || {})[w.id])).map(w => w.name).join('、');   // 只列现在抽得到的
+      return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '和橙品武将同池'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>
       <p class="mtext" style="font-size:13px;margin-top:10px">每一抽先定品质，再有 ${ws}% 的概率是这个品质的兵器、${100 - ws}% 是武将；同品质里每个概率相同<br>十连必出紫品以上 · 累计 ${CFG.PITY} 抽没出${QUALITIES[CFG.PITY_Q].name}品以上的武将时，下一抽必得${QUALITIES[CFG.PITY_Q].name}品武将<br>以上为单抽基础概率，计入保底后紫、金的实际概率更高<br>重复武将转为碎片用于升星；重复兵器熔成精铁用于强化</p></div>`);
@@ -460,6 +462,7 @@ const UI = (function () {
         ${r.tickets ? `<li>首通奖励 · 招募令<b>+${r.tickets}</b></li>` : ''}
         ${r.enc ? `<li class="enc">奇遇 · 击败${r.enc.name}<b>金币 +${r.enc.coins}${r.enc.iron ? '　精铁 +' + r.enc.iron : ''}</b></li>` : ''}
       </ul>
+      ${r.myth ? `<div class="encw" style="--qc:${QUALITIES[HERO_MAP[r.myth].q].color}"><img src="${P(r.myth)}"><p>击败<b>${HERO_MAP[r.myth].name}</b><br>已加入卡池，招募有机会抽到</p></div>` : ''}
       ${r.enc && r.enc.unlock ? `<div class="encw" style="--qc:${QUALITIES[WEAPON_MAP[r.enc.unlock].q].color}"><img src="${WI(r.enc.unlock)}"><p>解锁神兽兵器<b>「${WEAPON_MAP[r.enc.unlock].name}」</b><br>已加入卡池，招募有机会抽到</p></div>` : ''}
       <div class="dmgs">${(() => { const top = Math.max(1, ...r.dmg.map(x => x.dmg)), sum = Math.max(1, r.dmg.reduce((s, x) => s + x.dmg, 0));
         return r.dmg.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join(''); })()}</div>

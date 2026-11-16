@@ -333,7 +333,7 @@ function sweep(stage) {
 
 /* ---------------- 抽卡 ---------------- */
 const GACHA_POOL = {};
-HEROES.forEach(h => { if (!h.locked) (GACHA_POOL[h.q] = GACHA_POOL[h.q] || []).push(h.id); });
+HEROES.forEach(h => { if (!h.locked && !h.myth) (GACHA_POOL[h.q] = GACHA_POOL[h.q] || []).push(h.id); });   // 神魔不在这里：解锁之后和橙将一起出（见 gachaDraw）
 
 function rollQuality() {
   const qs = QUALITIES.filter(q => q.rate > 0);
@@ -377,7 +377,8 @@ function gachaDraw(n) {
     const wp = (WEAPON_POOL[q] || []).filter(id => !WEAPON_MAP[id].lock || (S.unlocked && S.unlocked[id]));   // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将（没解锁的神兽兵器不在池子里）
     if (!must && wp.length && Math.random() < CFG.WEAPON_SHARE) return grantWeapon(wp[Math.floor(Math.random() * wp.length)]);
     if (q >= CFG.PITY_Q) S.pity = 0;
-    const pool = GACHA_POOL[q];
+    let pool = GACHA_POOL[q];
+    if (q === 5) { const myths = HEROES.filter(h => h.myth && S.unlocked && S.unlocked[h.id]).map(h => h.id); if (myths.length) pool = pool.concat(myths); }   // 已解锁的神魔和橙将共用橙品的概率
     return grantHero(pool[Math.floor(Math.random() * pool.length)]);
   });
   Save.save();
