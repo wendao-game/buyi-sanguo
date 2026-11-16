@@ -541,3 +541,21 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 /* 选关：一次跳 10 关的小按钮（打到第 20 关以后才出现） */
 .stagesel button.jump { width: 34px; height: 34px; font-size: 17px; flex: none; }
 .stagesel .sname { flex: 1; min-width: 0; }
+
+/* 神魔卡的光效：魔（黑）= 一呼一吸的黑紫魔光；神（彩）= 流转的彩色光边 */
+@keyframes mythDark { 0%, 100% { box-shadow: 0 0 0 1.5px #0a0410, 0 0 0 3.5px #5a2a9a, 0 0 10px 2px #8a3cff99, inset 0 0 16px #000c; } 50% { box-shadow: 0 0 0 1.5px #0a0410, 0 0 0 3.5px #b06aff, 0 0 24px 7px #b060ffdd, inset 0 0 16px #000c; } }
+@keyframes mythHue { to { filter: hue-rotate(360deg); } }
+.card[data-q="6"], .pull[data-q="6"] { animation: mythDark 2.2s ease-in-out infinite; background: linear-gradient(#2a1838, #0c0612); }
+.pull[data-q="6"] { opacity: 1; }
+.card[data-q="6"] .cname, .pull[data-q="6"] b { color: #d9b8ff; text-shadow: 0 0 8px #9a4cff; }
+.card[data-q="7"]::before, .pull[data-q="7"]::before, .dhead[data-q="7"] img, .ult[data-q="7"]::before { animation: mythHue 3s linear infinite; }
+.card[data-q="7"]::before, .pull[data-q="7"]::before { content: ""; position: absolute; inset: -5px; border-radius: 13px; z-index: -1; pointer-events: none;
+  background: conic-gradient(from 0deg, #ff5a5a, #ffd24a, #7dff8a, #5ac8ff, #b07aff, #ff5a5a); box-shadow: 0 0 18px 3px #ffffff66; }
+.card[data-q="7"], .pull[data-q="7"] { box-shadow: 0 0 0 1.5px #1a0e08; z-index: 0; }
+.card[data-q="7"] .cname, .pull[data-q="7"] b { color: #fff; text-shadow: 0 0 8px #ffb0f0, 0 0 14px #8ad8ff; }
+.dhead[data-q="6"] img { animation: mythDark 2.2s ease-in-out infinite; }
+.dhead[data-q="7"] img { box-shadow: 0 0 0 1.5px #1a0e08, 0 0 0 4px #ff8ad9, 0 0 26px 4px #ffb0f0; }
+.ult[data-q="6"] img { box-shadow: 0 0 0 2px #7a3ad8, 0 0 14px 3px #8a3cffcc; }
+.ult[data-q="7"] { position: relative; }
+.ult[data-q="7"]::before { content: ""; position: absolute; left: 50%; top: 0; width: 100%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; pointer-events: none; z-index: -1;
+  background: conic-gradient(from 0deg, #ff5a5a, #ffd24a, #7dff8a, #5ac8ff, #b07aff, #ff5a5a); filter: blur(5px); opacity: .85; }

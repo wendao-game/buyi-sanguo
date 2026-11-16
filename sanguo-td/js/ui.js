@@ -124,7 +124,7 @@ const UI = (function () {
     const cards = ids.map(id => {
       const d = HERO_MAP[id], own = S.heroes[id], q = QUALITIES[d.q];
       const canStar = own && own.star < CFG.MAX_STAR && own.shards >= CFG.STAR_NEED[own.star];
-      return `<div class="card ${own ? '' : 'off'}" style="--qc:${q.color}" data-act="hero" data-id="${id}">
+      return `<div class="card ${own ? '' : 'off'}" data-q="${d.q}" style="--qc:${q.color}" data-act="hero" data-id="${id}">
         <i class="qtag">${q.name}</i>${teamIndex(id) >= 0 ? '<i class="badge">阵</i>' : ''}
         <img src="${P(id)}"><div class="cname">${d.name}</div>
         <div class="cmeta">${own ? 'Lv.' + own.lv + ' ' + stars(own.star) : '未获得'}</div>
@@ -145,7 +145,7 @@ const UI = (function () {
   function detail(id, picking) {
     const d = HERO_MAP[id], q = QUALITIES[d.q], el = ELEMENTS[d.el], own = heroOwn(id), st = heroStats(id), ti = teamIndex(id);
     let h = `<div class="mbox" style="--qc:${q.color}"><button class="x" data-act="close">×</button>
-      <div class="dhead"><img src="${P(id, 128)}"><div>
+      <div class="dhead" data-q="${d.q}"><img src="${P(id, 128)}"><div>
         <h3>${d.name}</h3><p>${d.title}</p>
         <span class="tag">${q.name}品</span><span class="tag dark">${FACTIONS[d.fac].name}</span><span class="tag dark">${el.name}系</span>
         ${own ? `<p style="margin-top:6px">Lv.${own.lv}　${stars(own.star)}</p>` : ''}
@@ -312,7 +312,7 @@ const UI = (function () {
       }
       const d = HERO_MAP[r.id], q = QUALITIES[d.q];
       const note = r.isNew ? '新武将' : (r.soul ? '满星 · 将魂+' + r.soul : '碎片 +1');
-      return `<div class="pull ${d.q >= 3 ? 'hi' : ''}" style="--qc:${q.color};animation-delay:${i * 0.11}s">${r.isNew ? '<i>新</i>' : ''}
+      return `<div class="pull ${d.q >= 3 ? 'hi' : ''}" data-q="${d.q}" style="--qc:${q.color};animation-delay:${i * 0.11}s">${r.isNew ? '<i>新</i>' : ''}
         <img src="${P(r.id, n === 1 ? 128 : 64)}"><b>${d.name}</b><small>${q.name}品 · ${note}</small></div>`;
     }).join('');
     modal(`<div class="mbox"><h2>招募结果</h2><div class="pulls ${n === 1 ? 'one' : ''}">${cards}</div>
@@ -359,7 +359,7 @@ const UI = (function () {
     if (hudS !== S || hudVer !== S.teamVer) {
       hudS = S; hudVer = S.teamVer; hudRage = [];
       $('#ultbar').innerHTML = S.heroes.map(h =>
-        `<button class="ult" data-act="ult" data-i="${h.slot}" style="--qc:${QUALITIES[h.def.q].color}"><img src="${P(h.def.id)}"><span>${h.def.ult}</span></button>`).join('');
+        `<button class="ult" data-act="ult" data-i="${h.slot}" data-q="${h.def.q}" style="--qc:${QUALITIES[h.def.q].color}"><img src="${P(h.def.id)}"><span>${h.def.ult}</span></button>`).join('');
       hudRock = ''; hudSec = -1;
     }
     const sec = Math.floor(S.t);
@@ -412,7 +412,7 @@ const UI = (function () {
     }).join('');
     const slot = lpDraft.indexOf(id), role = slot >= 0 ? SLOT_ROLES[slot] : null, fit = role && (role.leader || role.els.includes(d.el));
     modal(`<div class="mbox" style="--qc:${q.color}"><button class="x" data-act="lpBack">×</button>
-      <div class="dhead"><img src="${P(id, 128)}"><div>
+      <div class="dhead" data-q="${d.q}"><img src="${P(id, 128)}"><div>
         <h3>${d.name}</h3><p>${d.title}</p>
         <span class="tag">${q.name}品</span><span class="tag dark">${FACTIONS[d.fac].name}</span><span class="tag dark">${el.name}系</span>
         <p style="margin-top:6px">Lv.${own.lv}　${stars(own.star)}</p>

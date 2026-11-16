@@ -695,3 +695,11 @@ const BUFFS = [
   { id: 'e_poison', el: 'poison',  name: '百毒淬刃', desc: '毒系伤害 +40%',   apply: b => { b.el.poison = (b.el.poison || 1) * 1.4; } },
   { id: 'e_wind',   el: 'wind',    name: '顺风而行', desc: '风系伤害 +40%',   apply: b => { b.el.wind = (b.el.wind || 1) * 1.4; } },
 ];
+
+/* 色相（0～360）转成 [r, g, b]：神将身上流转的彩光用 */
+function hueRgb(h) {
+  h = ((h % 360) + 360) % 360; const x = 1 - Math.abs((h / 60) % 2 - 1), k = Math.floor(h / 60);
+  const c = [[1, x, 0], [x, 1, 0], [0, 1, x], [0, x, 1], [x, 0, 1], [1, 0, x]][k];
+  return [Math.round(90 + c[0] * 165), Math.round(90 + c[1] * 165), Math.round(90 + c[2] * 165)];
+}
+const RAINBOW = ['255,45,60', '255,135,20', '255,220,30', '50,225,80', '30,170,255', '85,85,255', '190,60,255'];   // 七种颜色：神将大招里的彩光

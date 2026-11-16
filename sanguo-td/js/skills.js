@@ -21,6 +21,8 @@
 const SKILLS = (function () {
   const R = (n, k) => Math.max(1, Math.round(n * k));
   const big = e => e.def.id === 'boss' || e.def.id === 'elite';
+  /* 七彩神光（神将用）：七个颜色的光环一圈套一圈地荡开。r0 最里面那圈的半径，step 每圈往外多少，grow 放大几倍 */
+  const rainbow = (B, x, y, r0, step, grow, life) => RAINBOW.forEach((c, i) => B.later(i * 0.06, () => { const r = r0 + i * step; B.tex('halo', x, y, { w: r * 2, h: r * 1.25, life: life, grow: grow, a: 1, rgb: c }); B.tex('halo', x, y, { w: r * 2 - 6, h: r * 1.25 - 4, life: life, grow: grow, a: 0.8, rgb: c }); }));   // 每个颜色画两圈，线粗一点又不发白
 
   return {
     /* ======================= 白 ======================= */
@@ -1145,63 +1147,98 @@ const SKILLS = (function () {
         } },
     },
 
-    /* ======================= 神魔（v2.5）：魔是黑、神是彩，在无尽关击败后进卡池 ======================= */
+    /* ======================= 神魔（v2.5）：魔是黑、神是彩，在无尽关击败后进卡池。v2.6 起每人一套专属大招特效 ======================= */
     god_lvbu: {
       passive: { name: '魔神降世', desc: '攻击 +15%；每放倒一个敌人，这一局里自己的攻击再 +1%（最多 +30%）', mod: { atk: 0.15 },
         onKill(B, h) { if ((h.rise || 0) < 30) { h.atk0 = h.atk0 || h.atk; h.rise = (h.rise || 0) + 1; h.atk = h.atk0 * (1 + 0.01 * h.rise); } } },
-      ult: { desc: '神鬼无前：10 道黑雷追着场上最壮的敌人劈，每道炸开一片 ×3.5 并麻痹 0.6 秒；被劈死的敌人化成怨魂再炸一次 ×2（觉醒 15 道）',
+      ult: { desc: '神鬼无前：天色骤暗，10 杆魔戟追着场上最壮的敌人从天上砸下来，每杆炸开一片 ×3.5 并麻痹 0.6 秒；被砸死的敌人化成怨魂再炸一次 ×2（觉醒 15 杆）',
         cast(B, h, a, k) {
-          const n = R(10, k); B.flash('150,60,220', 0.25, 0.5);
+          const n = R(10, k), P = '185,80,255';
+          B.flash('70,20,120', 0.4, 0.8);
+          B.tex('ghost_mask', h.x, h.y - 120, { w: 300, life: 1.3, grow: 1.25, fadeIn: 0.15, a: 0.75, rgb: P });                 // 身后升起一张魔神的脸
+          B.tex('demon_flame', h.x, h.y + 30, { w: 190, ay: 1, life: 1.2, grow: 1.2, fadeIn: 0.1, rgb: P });
+          for (let i = 0; i < 5; i++) B.tex('el_hit_dark', 60 + i * 105, B.TOP + 30 + (i % 2) * 40, { w: 300, life: 1.6 + n * 0.11, fadeIn: 0.3, a: 0.55, spin: 0.3, rgb: '120,50,200' });   // 压在战场上空的黑云
           for (let i = 0; i < n; i++) B.later(i * 0.11, () => {
             const L = B.lives().filter(e => !e._ml).sort((p, q) => q.hp - p.hp), t = L[0] || B.rnd(); if (!t) return;
             t._ml = 1; B.later(0.5, () => { t._ml = 0; });
             const x = t.x, y = t.y;
-            B.bolt(x + (Math.random() - 0.5) * 80, y - 420, x, y, 2.6); B.tex('el_hit_thunder', x, y - 6, { w: 190, life: 0.3, grow: 1.3, rgb: '200,120,255' }); B.ring(x, y, 10, 80, 0.3, '#c890ff', 5); B.shake(0.12);
-            B.area(x, y, 78, e => { B.hit(e, a * 3.5, 'thunder', h); B.stun(e, 0.6); });
-            if (t.dead) { B.tex('el_hit_dark', x, y - 10, { w: 170, life: 0.5, grow: 1.5, a: 0.8, rgb: '170,90,255' }); B.area(x, y, 70, e => B.hit(e, a * 2, 'thunder', h)); }
+            B.tex('demon_halberd', x, y - 300, { w: 120, ay: 1, life: 0.16, vy: 1900, rgb: '215,140,255' });                                    // 魔戟砸下来
+            B.later(0.15, () => {
+              B.tex('demon_halberd', x, y + 6, { w: 120, ay: 1, life: 0.7, a: 1, rgb: '215,140,255' });                                        // 插在地上
+              B.tex('demon_flame', x, y + 14, { w: 150, ay: 1, life: 0.55, grow: 1.25, fadeIn: 0.05, rgb: P });
+              B.tex('el_hit_thunder', x, y - 6, { w: 200, life: 0.3, grow: 1.3, rgb: '210,140,255' }); B.ring(x, y, 10, 86, 0.3, '#b060ff', 5); B.shake(0.14);
+              B.area(x, y, 78, e => { B.hit(e, a * 3.5, 'thunder', h); B.stun(e, 0.6); });
+              if (t.dead) { B.tex('soul', x, y - 30, { w: 60, life: 0.7, vy: -150, a: 0.9, rgb: P }); B.tex('el_hit_dark', x, y - 10, { w: 170, life: 0.5, grow: 1.5, a: 0.8, rgb: '170,90,255' }); B.area(x, y, 70, e => B.hit(e, a * 2, 'thunder', h)); }
+            });
           });
         } },
     },
     god_caocao: {
       passive: { name: '宁我负人', desc: '全军攻击 +12%、怒气获取 +8%', aura(ctx) { ctx.S.buffs.atk *= 1.12; ctx.S.buffs.rage *= 1.08; } },
-      ult: { desc: '天下归心：吸走全场敌人当前生命的 12%（校尉、敌将 4%；每个最多 ×14），吸来的化成城防 +10%、全体武将回两成血；被吸过的敌人减速 3 秒（觉醒吸 18%）',
+      ult: { desc: '天下归心：战场上空张开一个漩涡，吸走全场敌人当前生命的 12%（校尉、敌将 4%；每个最多 ×14），吸来的怨魂化成城防 +10%、全体武将回两成血；被吸过的敌人减速 3 秒（觉醒吸 18%）',
         cast(B, h, a, k) {
-          const f = k > 1 ? 0.18 : 0.12; B.flash('120,50,200', 0.25, 0.6);
-          B.tex('circle', B.W / 2, B.WY - 260, { w: 560, h: 420, spin: -1.2, life: 1, a: 0.5, fadeIn: 0.1, rgb: '160,90,255' });
+          const f = k > 1 ? 0.18 : 0.12, P = '160,80,255', cx = B.W / 2, cy = B.WY - 300;
+          B.flash('60,20,110', 0.4, 0.9);
+          B.tex('vortex', cx, cy, { w: 520, life: 1.7, spin: -5, fadeIn: 0.15, a: 0.95, rgb: P });                                 // 归心漩涡
+          B.tex('vortex', cx, cy, { w: 330, life: 1.7, spin: 7, fadeIn: 0.15, a: 0.8, rgb: '225,170,255' });
           B.lives().forEach((e, i) => B.later(Math.min(0.6, i * 0.015), () => {
             if (e.dead) return;
-            if (i < 40) B.bolt(e.x, e.y - 10, h.x, h.y - 40, 0.7);
+            if (i < 44) { const T = 0.55, vx = (cx - e.x) / T, vy = (cy - e.y) / T; B.tex('soul', e.x, e.y - 10, { w: 44, life: T, vx, vy, rot: Math.atan2(vy, vx) + Math.PI / 2, a: 0.95, rgb: P }); }   // 怨魂被吸进漩涡
             B.hit(e, Math.min(a * 14, e.hp * (B.isBig(e) || e.def.siege ? f / 3 : f)), 'poison', h); B.slow(e, 3);
           }));
-          B.later(0.7, () => { B.heal(0.10); B.healHeroes(0.2); });
+          B.later(1.2, () => {                                                                                                     // 漩涡里的魂落回城头
+            B.heroes().forEach((x, i) => { if (!x.dead) { const T = 0.4, vx = (x.x - cx) / T, vy = (x.y - 30 - cy) / T; B.tex('soul', cx, cy, { w: 54, life: T, vx, vy, rot: Math.atan2(vy, vx) + Math.PI / 2, rgb: '225,170,255' }); } });
+            B.later(0.4, () => { for (let i = 0; i < 6; i++) B.tex('demon_flame', 60 + i * 84, B.WY + 6, { w: 96, ay: 1, life: 0.9, fadeIn: 0.08, a: 0.85, rgb: P }); B.flash('150,80,255', 0.2, 0.4); B.heal(0.10); B.healHeroes(0.2); });
+          });
         } },
     },
     god_guanyu: {
       passive: { name: '武圣显灵', desc: '攻击 +8%、暴击率 +6%；亲手放倒敌人回 4 点怒气', mod: { atk: 0.08, crit: 0.06 }, onKill(B, h) { B.rage(h, 4); } },
-      ult: { desc: '武神降世：两道金色刀浪接连横扫战场，每道 ×1.6 并把敌人推后；最后朝场上血最多的敌人落下一刀 ×10（觉醒 ×15）',
+      ult: { desc: '武神降世：金光冲天，两道金色刀浪带着青龙接连横扫战场，每道 ×1.6 并把敌人推后；最后一口武神刀从天而降，劈向场上血最多的敌人 ×10（觉醒 ×15），炸开七彩神光',
         cast(B, h, a, k) {
-          B.flash('255,215,90', 0.25, 0.5); B.tex('pillar', h.x, h.y + 34, { w: 150, h: 520, ay: 1, life: 1.3, fadeIn: 0.1, rgb: '255,215,90' });
-          for (let i = 0; i < 2; i++) B.later(i * 0.4, () => { B.sweep(h, a * 1.6, { push: 16, vy: -520 }); B.shake(0.18); });
+          const G = '255,215,110';
+          B.flash('255,225,150', 0.35, 0.6);
+          B.tex('pillar', h.x, h.y + 34, { w: 190, h: 620, ay: 1, life: 1.5, fadeIn: 0.1, rgb: G });
+          rainbow(B, h.x, h.y + 10, 30, 13, 2.4, 0.9);       // 脚下荡开的七彩光环
+          for (let i = 0; i < 2; i++) B.later(i * 0.4, () => {
+            B.sweep(h, a * 1.6, { push: 16, vy: -520, rgb: G }); B.shake(0.18);
+            B.tex('dragon_azure', B.W * (i ? 0.7 : 0.3), B.WY - 60, { w: 250, life: 1.1, vy: -520, rot: -Math.PI / 2, a: 0.9, rgb: G });   // 跟着刀浪往前冲的金龙
+          });
           B.later(1.0, () => {
-            const t = B.strongest(1)[0]; if (!t) return;
-            B.tex('dragon_azure', t.x, t.y - 120, { w: 230, life: 0.45, vy: 260, rot: Math.PI / 2, rgb: '255,220,120' }) || B.tex('slash', t.x, t.y, { w: 320, h: 130, rot: 1.3, life: 0.3, rgb: '255,220,120' });
-            B.later(0.3, () => { B.tex('burst', t.x, t.y, { w: 300, life: 0.4, grow: 1.5, rgb: '255,225,150' }); B.ring(t.x, t.y, 16, 150, 0.4, '#ffe19a', 7); B.shake(0.45); B.shock(t.x, t.y, 320, 1.3);
-              B.area(t.x, t.y, 95, e => { if (e !== t) B.hit(e, a * 3, 'blade', h); }); if (!t.dead) B.hit(t, a * 10 * k, 'blade', h); });
+            const t = B.strongest(1)[0]; if (!t) return; const x = t.x, y = t.y;
+            B.tex('guandao', x, y - 430, { w: 190, ay: 1, life: 0.26, vy: 1690, rgb: G });                                           // 武神刀落下来
+            B.later(0.26, () => {
+              B.tex('guandao', x, y + 10, { w: 190, ay: 1, life: 1.1, a: 1, rgb: '255,235,170' });
+              B.tex('pillar', x, y + 20, { w: 120, h: 640, ay: 1, life: 0.35, fadeIn: 0.05, a: 0.6, rgb: G }); B.tex('cross_slash', x, y - 10, { w: 300, life: 0.4, grow: 1.4, rgb: G }); B.tex('burst', x, y, { w: 240, life: 0.22, grow: 1.4, rgb: '255,235,180' });
+              rainbow(B, x, y, 40, 17, 2.6, 1.0);           // 七彩神光
+              B.flash('255,235,170', 0.2, 0.4); B.shake(0.5); B.shock(x, y, 340, 1.3);
+              B.area(x, y, 95, e => { if (e !== t) B.hit(e, a * 3, 'blade', h); }); if (!t.dead) B.hit(t, a * 10 * k, 'blade', h);
+            });
           });
         } },
     },
     god_zhuge: {
       passive: { name: '鞠躬尽瘁', desc: '全军出手速度 +10%、大招伤害 +10%', aura(ctx) { ctx.S.buffs.spd *= 1.1; ctx.S.buffs.ult *= 1.1; } },
-      ult: { desc: '七星续命：七盏星灯依次点亮，每亮一盏就有一道星光砸进敌人最密的地方 ×5.5（觉醒 ×8.25）；七盏全亮时，全体武将回四成血、救活一名阵亡的武将、其他武将怒气 +20',
+      ult: { desc: '七星续命：战场上铺开八卦阵，城头七盏星灯依次点亮，每亮一盏就有一道那一色的星光砸进敌人最密的地方 ×5.5（觉醒 ×8.25）；七盏全亮时，七彩光华荡开，全体武将回四成血、救活一名阵亡的武将、其他武将怒气 +20',
         cast(B, h, a, k) {
-          B.tex('seven_stars', B.W / 2, B.WY - 420, { w: 420, life: 4.2, fadeIn: 0.3, a: 0.75 });
+          B.flash('190,235,255', 0.3, 0.6);
+          B.tex('bagua', B.W / 2, B.WY - 290, { w: 520, h: 330, life: 4.4, spin: 0.5, fadeIn: 0.3, a: 0.5, rgb: '190,235,255' });      // 铺在战场上的八卦阵
+          B.tex('seven_stars', B.W / 2, B.WY - 440, { w: 440, life: 4.2, fadeIn: 0.3, a: 0.8 });
           for (let i = 0; i < 7; i++) B.later(0.3 + i * 0.5, () => {
-            B.tex('circle', 70 + i * 66, B.WY - 36, { w: 54, h: 26, spin: 3, life: 4 - i * 0.5, rgb: '170,235,255', a: 0.9 });      // 城头一排星灯
+            const c = RAINBOW[i], lx = 72 + i * 66;
+            B.tex('pillar', lx, B.WY - 10, { w: 46, h: 190, ay: 1, life: 4 - i * 0.5, fadeIn: 0.1, rgb: c, a: 0.9 }); B.tex('circle', lx, B.WY - 14, { w: 58, h: 26, spin: 3, life: 4 - i * 0.5, rgb: c, a: 0.95 });   // 城头的一盏星灯
+            B.ring(lx, B.WY - 30, 6, 40, 0.3, 'rgb(' + c + ')', 3);
             const p = B.dense(100) || B.rnd(); if (!p) return;
-            B.bolt(p.x + (i - 3) * 30, p.y - 440, p.x, p.y, 2.2); B.tex('burst', p.x, p.y, { w: 230, life: 0.3, grow: 1.4, rgb: '170,235,255' }); B.ring(p.x, p.y, 12, 110, 0.35, '#aee8ff', 5); B.shake(0.15);
+            B.tex('pillar', p.x, p.y + 16, { w: 120, h: 620, ay: 1, life: 0.5, fadeIn: 0.04, rgb: c }); B.bolt(p.x + (i - 3) * 30, p.y - 440, p.x, p.y, 2.2);                              // 那一色的星光
+            B.tex('bagua', p.x, p.y, { w: 210, h: 130, life: 0.5, spin: 4, grow: 1.2, rgb: c }); B.tex('burst', p.x, p.y, { w: 240, life: 0.3, grow: 1.4, rgb: c }); B.ring(p.x, p.y, 12, 114, 0.35, 'rgb(' + c + ')', 5); B.shake(0.15);
             B.area(p.x, p.y, 100, e => { B.hit(e, a * 5.5 * k, 'wind', h); B.slow(e, 1.5); });
           });
-          B.later(3.9, () => { B.flash('170,235,255', 0.25, 0.6); B.healHeroes(0.4); B.revive(0.5); B.teamRage(20, h); });
+          B.later(3.9, () => {
+            B.flash('255,255,255', 0.2, 0.4);
+            rainbow(B, B.W / 2, B.WY - 30, 70, 26, 2.3, 1.3);
+            RAINBOW.forEach((c, i) => B.tex('pillar', 72 + i * 66, B.WY - 10, { w: 70, h: 520, ay: 1, life: 0.9, fadeIn: 0.05, rgb: c }));   // 七盏灯一起冲天   // 七彩光华
+            B.healHeroes(0.4); B.revive(0.5); B.teamRage(20, h);
+          });
         } },
     },
   };
