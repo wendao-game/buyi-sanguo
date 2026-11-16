@@ -37,6 +37,7 @@ SHEETS_ORDER = {
     'enemy_5': ('enemies', ['chunyuqiong', 'gaolan', 'yuanshao', 'caimao', 'zhangyun', 'caoren', 'houcheng', 'songxian', 'zangba']),
     'enemy_6': ('enemies', ['zhurong', 'mulu', 'wutugu', 'wangshuang', 'guohuai', 'caozhen', None, None, None]),
     # 奇遇：四个山贼首领 + 四神兽
+    'enemy_8': ('enemies', ['god_lvbu', 'god_caocao', 'god_guanyu', 'god_zhuge', None, None, None, None, None]),   # 神魔当敌将时的正面图
     'enemy_7': ('enemies', ['enc_zhangyan', 'enc_yangfeng', 'enc_heyi', 'enc_yanbaihu', 'enc_qinglong', 'enc_baihu', 'enc_zhuque', 'enc_xuanwu', None]),
 }
 # 头像拼图：顺序和武将拼图一样，切出来存 heroes/<id>_head.png

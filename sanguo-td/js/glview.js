@@ -564,7 +564,7 @@ const GLView = (function () {
 
   function drawHud(S, t) {
     sp(Lo, TX.gradV, 0, 0, W, 120, { ax: 0, ay: 0, tint: 0x0a0604, a: 0.75 });
-    txt(Lh, numH, '第' + S.ch.index + '章 ' + S.ch.name + ' · 第' + S.ch.sub + '关', W / 2, 40, 27, '#ffd76a', 'center', 5, 1, -1);
+    txt(Lh, numH, S.ch.title, W / 2, 40, 27, '#ffd76a', 'center', 5, 1, -1);
     const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
     if (S.combo >= 5 && !S.over) {                          // 连斩：快断的时候变淡
       const k = 1 + S.comboPop * 0.35, al = Math.min(1, S.comboT / 0.8), hot = S.combo >= 100 ? '#ff7a3a' : S.combo >= 30 ? '#ffd24a' : '#fff0d0';
