@@ -117,7 +117,7 @@ const Battle = (function () {
       walk: rand() * 6, ph: rand() * 6, dead: false, ccK: 1, pushK: 1, atkT: 0,
       spr: enemySprite(d.id), flip: d.id !== 'boss' && d.id !== 'rare' && rand() < 0.5,
     });
-    if (isBoss && S.boss.aura) { const e = S.enemies[S.enemies.length - 1]; e.aura = S.boss.aura; S.flash = { color: S.boss.aura, a: 0.35, t: 0.9, max: 0.9 }; S.shake = Math.max(S.shake, 0.5); tex('pillar', e.x, 150, { w: 220, h: 620, ay: 1, life: 1.4, fadeIn: 0.1, rgb: S.boss.aura, force: true }); }   // 神魔登场
+    if (isBoss && S.boss.aura) { const e = S.enemies[S.enemies.length - 1]; e.aura = S.boss.aura; e.mythQ = S.boss.myth ? HERO_MAP[S.boss.myth].q : 0; S.flash = { color: S.boss.aura, a: 0.35, t: 0.9, max: 0.9 }; S.shake = Math.max(S.shake, 0.5); tex('pillar', e.x, 150, { w: 220, h: 620, ay: 1, life: 1.4, fadeIn: 0.1, rgb: S.boss.aura, force: true }); }   // 神魔登场
     if (d.id === 'rare' && S.enc) {                           // 奇遇：名字、血量、招式、配色都换成这一只的
       const e = S.enemies[S.enemies.length - 1], x = S.enc.def;
       e.rare = x; e.name = x.name; e.aura = x.aura || ''; e.hp = e.max = Math.round(e.max * x.hpK * 0.9);
@@ -204,7 +204,8 @@ const Battle = (function () {
   }
   function later(t, fn) { const ref = S; S.timers.push({ t, fn: () => { if (S === ref && !S.over) fn(); } }); }
   /* ---------------- 贴图特效（黑底贴图 + 叠加混合） ---------------- */
-  const hexRgb = h => { if (!h || h[0] !== '#') return '255,255,255'; const n = parseInt(h.slice(1), 16); return h.length === 4 ? [((n >> 8) & 15) * 17, ((n >> 4) & 15) * 17, (n & 15) * 17].join(',') : [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); };
+  const hexRgb = h => { if (h && h[0] !== '#') { const m = String(h).match(/[\d.]+/g); if (m && m.length >= 3) return [Math.round(+m[0]), Math.round(+m[1]), Math.round(+m[2])].join(','); }   // 也认 'rgb(r,g,b)' 和 'r,g,b'
+    if (!h || h[0] !== '#') return '255,255,255'; const n = parseInt(h.slice(1), 16); return h.length === 4 ? [((n >> 8) & 15) * 17, ((n >> 4) & 15) * 17, (n & 15) * 17].join(',') : [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); };
   /* o: w 宽, h 高（默认按图片比例）, rot, spin 转速, life, grow 结束时放大倍数, a 透明度, fadeIn, ax/ay 锚点, vx/vy, rgb 染色 */
   function tex(name, x, y, o) {
     o = o || {};
@@ -620,7 +621,7 @@ const Battle = (function () {
         shotLob(h, 'arrow', x0, y0, tx, ty, { dur: 0.16 + d / 2600, arc: Math.min(46, d * 0.1), r: 26, dmg, slow: slowT });
       },
       /* 一道横贯战场、从城下推向远处的波。o: slow 减速秒数, push 击退距离, burn [秒, 每跳伤害], el 伤害类型, look 样子（'' 刀浪 / 'petal' 花雨 / 'fire' 火墙）, vy 速度 */
-      sweep(h, dmg, o) { o = o || {}; S.shots.push({ k: 'sweep', h, y: WY - 20, vy: o.vy || -420, dmg, hit: new Set(), slow: o.slow || 0, push: o.push || 0, burn: o.burn || null, el: o.el || 'blade', look: o.look || '' }); },
+      sweep(h, dmg, o) { o = o || {}; S.shots.push({ k: 'sweep', h, rgb: o.rgb || '', y: WY - 20, vy: o.vy || -420, dmg, hit: new Set(), slow: o.slow || 0, push: o.push || 0, burn: o.burn || null, el: o.el || 'blade', look: o.look || '' }); },
       ship(h, x, a) { S.shots.push({ k: 'ship', h, x, y: WY - 34, vy: -250, a, hit: new Set(), trail: 0.25 }); },   // 火船从城下出发，冲向敌阵深处
       zone(o) { o.max = o.life; o.tick = o.tick || 0; o.t = 0; if (o.k === 'icewall') o.hit = new Set(); S.zones.push(o); },
       slash(x, y) { S.slashes.push({ x, y, a: rand() * TAU, life: 0.22, max: 0.22 }); burst(x, y, 6, '#ffffff', 160, 3, 0.25); },
@@ -1212,11 +1213,11 @@ const Battle = (function () {
       for (let i = 0; i < 9; i++) { const x = (i * 67 + s.y * 0.7) % W; img('petal', x, s.y + 14 + Math.sin(S.t * 5 + i) * 12, 26, 26, S.t * 3 + i, 0.95); }
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     } else if (s.k === 'sweep') {
-      const g = c.createLinearGradient(0, s.y - 10, 0, s.y + 50); g.addColorStop(0, 'rgba(230,220,255,.85)'); g.addColorStop(1, 'rgba(160,110,255,0)');
+      const g = c.createLinearGradient(0, s.y - 10, 0, s.y + 50); g.addColorStop(0, s.rgb ? 'rgba(' + s.rgb + ',.9)' : 'rgba(230,220,255,.85)'); g.addColorStop(1, s.rgb ? 'rgba(' + s.rgb + ',0)' : 'rgba(160,110,255,0)');
       c.fillStyle = g; c.fillRect(0, s.y - 6, W, 56);
       c.fillStyle = '#ffffff'; c.fillRect(0, s.y - 7, W, 3);
       c.globalCompositeOperation = 'lighter';
-      for (let x = 30; x < W; x += 80) img('slash', x, s.y + 4, 110, 40, 0, 0.8, '225,210,255');
+      for (let x = 30; x < W; x += 80) img('slash', x, s.y + 4, s.rgb ? 150 : 110, s.rgb ? 54 : 40, 0, 0.8, s.rgb || '225,210,255');
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     } else if (s.k === 'ship') {
       // 火船：贴图画成拖着火尾往敌阵冲的火流星（火尾在后面，也就是下方）；没有贴图时退回画一条小船
@@ -1340,7 +1341,8 @@ const Battle = (function () {
     else if (e.conf > 0) {
       for (let i = 0; i < 3; i++) { const a = S.t * 6 + i * TAU / 3; c.fillStyle = '#e8b0ff'; Art.circ(c, e.x + Math.cos(a) * 9, top + Math.sin(a) * 3, 2.2); }
     }
-    if (e.aura && Assets.get('fx:el_hit_wind')) {             // 神兽：身上一团带颜色的气焰
+    if (e.mythQ) mythAura(e.x, e.y + e.def.r * 0.9, e.mythQ, S.t, e.ph, e.def.r / 22);
+    else if (e.aura && Assets.get('fx:el_hit_wind')) {             // 神兽：身上一团带颜色的气焰
       c.globalCompositeOperation = 'lighter';
       img('el_hit_wind', e.x, e.y - e.def.r * 0.9, e.def.r * 4.4 * (1 + Math.sin(S.t * 2.4) * 0.06), 0, S.t * 0.8, 0.5, e.aura);
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
@@ -1359,8 +1361,27 @@ const Battle = (function () {
       c.beginPath(); c.ellipse(e.x, e.y + e.def.r * 0.9, e.def.r * 1.1, e.def.r * 0.42, 0, 0, TAU); c.stroke();
     }
   }
+  /* 神魔身上的光效（2D 画法，和 glview.js 的 mythAura 对应）：魔 = 黑烟 + 紫光，神 = 流转的彩光和头后的光轮 */
+  function mythAura(x, by, q, t, seed, k) {
+    if (q === 6) {
+      c.globalCompositeOperation = 'lighter'; img('demon_flame', x, by - 40 * k, 104 * k, 0, 0, 0.5, '170,70,255'); glow(x, by - 30 * k, 46 * k, '122,40,216', 0.35);
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+      for (let i = 0; i < 6; i++) { const p = (t * 0.42 + i / 6 + seed * 0.13) % 1, sx = Math.sin(i * 2.4 + t * 1.3 + seed) * 20 * k * (0.5 + p); c.fillStyle = 'rgba(10,3,18,' + ((1 - p) * 0.5).toFixed(2) + ')'; Art.circ(c, x + sx, by - 10 * k - p * 82 * k, (24 - p * 11) * k); }
+      c.strokeStyle = 'rgba(154,60,255,.8)'; c.lineWidth = 3; c.beginPath(); c.ellipse(x, by, 31 * k, 11.5 * k, 0, 0, TAU); c.stroke();
+    } else {
+      const h0 = t * 70 + seed * 40, rgb = h => hueRgb(h).join(',');
+      c.globalCompositeOperation = 'lighter';
+      glow(x, by - 36 * k, 52 * k, rgb(h0 + 60), 0.35);
+      c.lineWidth = 3.5 * k; c.strokeStyle = 'rgba(' + rgb(h0) + ',.9)'; c.beginPath(); c.arc(x, by - 62 * k, 27 * k, 0, TAU); c.stroke();
+      c.lineWidth = 2 * k; c.strokeStyle = 'rgba(' + rgb(h0 + 120) + ',.5)'; c.beginPath(); c.arc(x, by - 62 * k, 33 * k, 0, TAU); c.stroke();
+      for (let i = 0; i < 5; i++) { const p = (t * 0.6 + i / 5) % 1, gx = x + (i - 2) * 13 * k, gy = by - p * 26 * k, g = c.createLinearGradient(0, gy - 92 * k, 0, gy); g.addColorStop(0, 'rgba(' + rgb(h0 + i * 72) + ',' + ((1 - p) * 0.55).toFixed(2) + ')'); g.addColorStop(1, 'rgba(' + rgb(h0 + i * 72) + ',0)'); c.fillStyle = g; c.fillRect(gx - 3.5 * k, gy - 92 * k, 7 * k, 92 * k); }
+      c.lineWidth = 3; c.strokeStyle = 'rgba(' + rgb(h0 + 200) + ',.85)'; c.beginPath(); c.ellipse(x, by, 31 * k, 11.5 * k, 0, 0, TAU); c.stroke();
+      c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+    }
+  }
   function drawHeroes(list, t) {
     list.slice().sort((a, b) => a.y - b.y).forEach(h => {
+      if (!h.dead && h.def.q >= 6) mythAura(h.x, h.y + 29, h.def.q, t, h.def.seed || 0, 1.2);
       if (h.dead) c.globalAlpha = 0.4;
       Art.hero(c, h.def, h.x, h.y, 1.45, t, h.dead ? 0 : h.anim);
       c.globalAlpha = 1;

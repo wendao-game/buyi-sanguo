@@ -381,6 +381,74 @@ const FXGen = (function () {
       }
       radial(c, x, x, w * 0.12, [[0, 'rgba(255,255,235,1)'], [1, 'rgba(255,220,150,0)']]);
     }),
+    /* —— 神魔的专属特效（v2.6）。都是白色画在黑底上，游戏里再染色 —— */
+    /* 魔戟（魔·吕布）：一杆从天上砸下来的方天画戟，戟尖朝下，两边各一片月牙刃，后面拖着光 */
+    demon_halberd: () => mk(220, 480, (c, w, h) => {
+      const x = w / 2;
+      const g = c.createLinearGradient(0, 0, 0, h * 0.6); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.45)'); c.fillStyle = g; c.fillRect(x - 34, 0, 68, h * 0.6);
+      c.shadowColor = 'rgba(255,255,255,.9)'; c.shadowBlur = 16; c.lineCap = 'round';
+      c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = 9; c.beginPath(); c.moveTo(x, 12); c.lineTo(x, h * 0.72); c.stroke();
+      c.fillStyle = '#fff'; c.beginPath(); c.moveTo(x - 17, h * 0.7); c.lineTo(x + 17, h * 0.7); c.lineTo(x, h * 0.985); c.closePath(); c.fill();          // 戟尖
+      [-1, 1].forEach(sg => { c.beginPath(); c.moveTo(x + sg * 12, h * 0.6); c.quadraticCurveTo(x + sg * 96, h * 0.56, x + sg * 78, h * 0.83); c.quadraticCurveTo(x + sg * 52, h * 0.7, x + sg * 12, h * 0.74); c.closePath(); c.fill(); });   // 月牙刃
+      c.fillRect(x - 30, h * 0.585, 60, 10);
+    }),
+    /* 怨魂（魔·曹操）：一团拖着尾巴的魂，头朝上，两个黑洞洞的眼睛 */
+    soul: () => mk(110, 200, (c, w, h) => {
+      const x = w / 2;
+      const g = c.createLinearGradient(0, h * 0.25, 0, h); g.addColorStop(0, 'rgba(255,255,255,.9)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = g; c.beginPath(); c.moveTo(x - 30, h * 0.24); c.quadraticCurveTo(x - 26, h * 0.6, x - 6, h * 0.98); c.quadraticCurveTo(x + 18, h * 0.6, x + 30, h * 0.24); c.closePath(); c.fill();
+      radial(c, x, h * 0.2, w * 0.36, [[0, 'rgba(255,255,255,1)'], [0.7, 'rgba(255,255,255,.85)'], [1, 'rgba(255,255,255,0)']]);
+      c.globalCompositeOperation = 'source-over'; c.fillStyle = '#000';
+      c.beginPath(); c.ellipse(x - 12, h * 0.19, 7, 10, 0.2, 0, TAU); c.ellipse(x + 12, h * 0.19, 7, 10, -0.2, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(x, h * 0.3, 6, 9, 0, 0, TAU); c.fill();
+      c.globalCompositeOperation = 'lighter';
+    }),
+    /* 归心漩涡（魔·曹操）：一个往里吸的漩涡，中间是黑的 */
+    vortex: () => mk(400, 400, (c, w) => {
+      const x = w / 2;
+      c.lineCap = 'round';
+      for (let arm = 0; arm < 5; arm++) for (let i = 0; i < 46; i++) {
+        const u = i / 46, a = arm * TAU / 5 + u * 4.6, r = w * (0.07 + u * 0.4);
+        c.fillStyle = 'rgba(255,255,255,' + (0.5 * (1 - u) + 0.08).toFixed(2) + ')'; c.beginPath(); c.arc(x + Math.cos(a) * r, x + Math.sin(a) * r, 3 + u * 9, 0, TAU); c.fill();
+      }
+      c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = 5; c.beginPath(); c.arc(x, x, w * 0.075, 0, TAU); c.stroke();
+      c.globalCompositeOperation = 'source-over'; c.fillStyle = '#000'; c.beginPath(); c.arc(x, x, w * 0.066, 0, TAU); c.fill(); c.globalCompositeOperation = 'lighter';
+    }),
+    /* 武神刀（神·关羽）：一口从天而降的青龙偃月刀，刀头朝下，后面拖着光 */
+    guandao: () => mk(240, 520, (c, w, h) => {
+      const x = w / 2;
+      const g = c.createLinearGradient(0, 0, 0, h * 0.55); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.5)'); c.fillStyle = g; c.fillRect(x - 46, 0, 92, h * 0.55);
+      c.shadowColor = 'rgba(255,255,255,.9)'; c.shadowBlur = 18; c.lineCap = 'round';
+      c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = 10; c.beginPath(); c.moveTo(x, 12); c.lineTo(x, h * 0.52); c.stroke();
+      c.fillStyle = '#fff'; c.fillRect(x - 26, h * 0.5, 52, 12);                                                                                   // 护手
+      c.beginPath(); c.moveTo(x - 14, h * 0.52); c.quadraticCurveTo(x - 92, h * 0.64, x - 62, h * 0.86); c.quadraticCurveTo(x - 30, h * 0.97, x + 10, h * 0.99);
+      c.quadraticCurveTo(x + 46, h * 0.8, x + 20, h * 0.52); c.closePath(); c.fill();                                                               // 刀身
+      c.beginPath(); c.moveTo(x + 22, h * 0.58); c.lineTo(x + 70, h * 0.62); c.lineTo(x + 28, h * 0.69); c.closePath(); c.fill();                   // 刀背的钩
+      c.shadowBlur = 0; c.globalCompositeOperation = 'source-over'; c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(x - 6, h * 0.58); c.quadraticCurveTo(x - 58, h * 0.68, x - 40, h * 0.86); c.stroke(); c.globalCompositeOperation = 'lighter';   // 血槽
+    }),
+    /* 光环（神将的七彩神光）：一圈细的白环，带一点晕。原来的 ring 贴图是金色的，染不出别的颜色 */
+    halo: () => mk(256, 256, (c, w) => {
+      const x = w / 2;
+      c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 9; c.beginPath(); c.arc(x, x, w * 0.45, 0, TAU); c.stroke();   // 很淡的一圈晕（粗了几个颜色会叠成白的）
+      c.strokeStyle = 'rgba(255,255,255,1)'; c.lineWidth = 3.5; c.beginPath(); c.arc(x, x, w * 0.45, 0, TAU); c.stroke();
+    }),
+    /* 八卦阵（神·诸葛亮）：外圈八个卦象，中间一个太极 */
+    bagua: () => mk(440, 440, (c, w) => {
+      const x = w / 2;
+      c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 5; c.beginPath(); c.arc(x, x, w * 0.47, 0, TAU); c.stroke();
+      c.lineWidth = 2.5; c.beginPath(); c.arc(x, x, w * 0.3, 0, TAU); c.stroke();
+      const TRI = [7, 3, 5, 1, 0, 4, 2, 6];
+      for (let i = 0; i < 8; i++) {
+        c.save(); c.translate(x, x); c.rotate(i * TAU / 8); c.fillStyle = 'rgba(255,255,255,.92)';
+        for (let b = 0; b < 3; b++) { const yy = -w * 0.44 + b * 15, solid = (TRI[i] >> b) & 1; if (solid) c.fillRect(-27, yy, 54, 9); else { c.fillRect(-27, yy, 22, 9); c.fillRect(5, yy, 22, 9); } }
+        c.restore();
+      }
+      c.fillStyle = 'rgba(255,255,255,.9)'; c.beginPath(); c.arc(x, x, w * 0.16, -Math.PI / 2, Math.PI / 2); c.arc(x, x + w * 0.08, w * 0.08, Math.PI / 2, -Math.PI / 2, true); c.arc(x, x - w * 0.08, w * 0.08, Math.PI / 2, -Math.PI / 2); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 3; c.beginPath(); c.arc(x, x, w * 0.16, 0, TAU); c.stroke();
+      c.beginPath(); c.arc(x, x + w * 0.08, w * 0.022, 0, TAU); c.fill();
+      c.globalCompositeOperation = 'source-over'; c.fillStyle = '#000'; c.beginPath(); c.arc(x, x - w * 0.08, w * 0.022, 0, TAU); c.fill(); c.globalCompositeOperation = 'lighter';
+    }),
     /* 冰锥（李典）：一根从地里戳出来的尖冰，底宽顶尖 */
     icespike: () => mk(96, 192, (c, w, h) => {
       [[0.5, 0.04, 0.3, '150,215,255', 0.55], [0.36, 0.34, 0.2, '200,235,255', 0.7], [0.66, 0.42, 0.18, '200,235,255', 0.7], [0.5, 0.1, 0.12, '245,252,255', 0.95]].forEach(S => {
