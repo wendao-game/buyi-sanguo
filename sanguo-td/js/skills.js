@@ -322,7 +322,7 @@ const SKILLS = (function () {
           for (let r = 0; r < Math.ceil(rounds); r++) B.later(r * 1.35, () => { for (let j = 0; j < 5; j++) B.later(j * 0.07, () => B.tex('arrow_rain', h.x + (j - 2) * 95 + (Math.random() - 0.5) * 40, B.WY - 70 - Math.random() * 30, { w: 170, life: 0.55, vy: -780, vx: (j - 2) * 60, rot: Math.PI + (j - 2) * 0.09, a: 0.9, force: true })); B.ring(h.x, h.y - 30, 10, 120, 0.4, '#ffe19a', 4); });   // 专属特效：成片的箭从城头齐射出去，飞向敌阵
           for (let i = 0; i < Math.round(20 * rounds); i++) B.later(i * 0.05 + Math.floor(i / 20) * 0.35, () => {
             const t = B.rnd(); if (!t) return;
-            B.rain(h, t.x + (Math.random() - 0.5) * 24, t.y, a * 0.72, 0.8);
+            B.rain(h, t.x + (Math.random() - 0.5) * 24, t.y, a * 0.8, 0.8);
           });
         } },
     },
@@ -727,14 +727,14 @@ const SKILLS = (function () {
         } },
     },
     gaoshun: {
-      passive: { name: '攻无不克', desc: '攻击 +15%；对刀盾兵、重甲兵、冲车伤害 +50%', mod: { atk: 0.15 }, dmg(B, h, e) { return e.def.id === 'shield' || e.def.id === 'heavy' || e.def.id === 'ram' ? 1.5 : 1; } },
-      ult: { desc: '陷阵营：城头架起盾阵 7 秒，城墙受到的伤害 -60%；靠近城墙的敌人被盾撞开，受到 ×6 伤害并眩晕 2 秒（觉醒 10.5 秒）',
+      passive: { name: '攻无不克', desc: '对刀盾兵、重甲兵、冲车伤害 +50%', dmg(B, h, e) { return e.def.id === 'shield' || e.def.id === 'heavy' || e.def.id === 'ram' ? 1.5 : 1; } },
+      ult: { desc: '陷阵营：城头架起盾阵 6 秒，城墙受到的伤害减半；靠近城墙的敌人被盾撞开，受到 ×3.5 伤害并眩晕 1 秒（觉醒 9 秒）',
         cast(B, h, a, k) {
-          const life = 7 * k; B.guard(life, 0.4);
+          const life = 6 * k; B.guard(life, 0.5);
           B.tex('circle', B.W / 2, B.WY - 6, { w: 560, h: 110, life: life, fadeIn: 0.2, rgb: '130,200,255', a: 0.55, spin: 0.4 });
           for (let i = 0; i < 7; i++) B.later(i * 0.04, () => B.tex('pillar', 54 + i * 72, B.WY + 4, { w: 60, h: 150, ay: 1, life: 0.7, fadeIn: 0.08, rgb: '150,210,255', a: 0.8 }));
           B.ring(B.W / 2, B.WY - 10, 40, 300, 0.45, '#9fd6ff', 5); B.shake(0.15);
-          for (const e of B.lives()) if (e.y > B.WY - 280) { B.hit(e, a * 6, 'ice', h); B.stun(e, 2); B.push(e, 34); }
+          for (const e of B.lives()) if (e.y > B.WY - 260) { B.hit(e, a * 3.5, 'ice', h); B.stun(e, 1); B.push(e, 30); }
         } },
     },
     caochun: {
@@ -799,9 +799,9 @@ const SKILLS = (function () {
     },
     xiahoudun: {
       passive: { name: '独眼', desc: '暴击伤害 +50%；城防低于一半时自身伤害 +15%', mod: { critDmg: 0.5 }, dmg(B) { return B.S.wall < B.S.wallMax * 0.5 ? 1.15 : 1; } },
-      ult: { desc: '拔矢啖睛：一声怒吼，朝敌人最密的三处各劈一刀，每刀 ×2.7 起、城防每损失 10% 再 +0.25，波及一片并吓退 1 秒；之后 4 秒自身必定暴击（觉醒 6 秒）',
+      ult: { desc: '拔矢啖睛：一声怒吼，朝敌人最密的三处各劈一刀，每刀 ×3 起、城防每损失 10% 再 +0.25，波及一片并吓退 1 秒；之后 4 秒自身必定暴击（觉醒 6 秒）',
         cast(B, h, a, k) {
-          const lost = 1 - Math.max(0, B.S.wall) / B.S.wallMax, m = 2.7 + lost * 2.5;
+          const lost = 1 - Math.max(0, B.S.wall) / B.S.wallMax, m = 3 + lost * 2.5;
           B.flash('255,60,40', 0.25, 0.4); B.tex('burst', h.x + 6, h.y - 44, { w: 90, life: 0.5, grow: 1.6, rgb: '255,70,50' });     // 眼里冒出的红光
           h.critT = 4 * k;
           B.tex('blood_eye', h.x, h.y - 96, { w: 190, life: 1.1, grow: 1.2, fadeIn: 0.08 });                            // 专属特效：一只血红的独眼
@@ -968,12 +968,12 @@ const SKILLS = (function () {
         } },
     },
     liushan: {
-      passive: { name: '有福之人', desc: '自己受到的伤害减半；冰爆范围 +20%', mod: { r: 0.2 }, hurt() { return 0.5; } },
-      ult: { desc: '乐不思蜀：自己歇 2 秒不出手，其余武将 7 秒内出手速度 +50%（觉醒 +65%），城防回复 6%',
+      passive: { name: '有福之人', desc: '自己受到的伤害减半', hurt() { return 0.5; } },
+      ult: { desc: '乐不思蜀：自己歇 3 秒不出手，其余武将 6 秒内出手速度 +40%（觉醒 +55%）',
         cast(B, h, a, k) {
-          h.stunT = Math.max(h.stunT, 2); B.teamHaste(7, k > 1 ? 1.65 : 1.5); B.heal(0.06);
+          h.stunT = Math.max(h.stunT, 3); B.teamHaste(6, k > 1 ? 1.55 : 1.4);
           B.text(h.x, h.y - 84, '此间乐，不思蜀', '#bfeaff', 17, 1.6);
-          B.heroes().forEach(x => { if (x !== h && !x.dead) { B.ring(x.x, x.y, 8, 56, 0.5, '#bfeaff', 3); B.tex('circle', x.x, x.y + 29, { w: 90, h: 36, spin: 4, life: 7, a: 0.5, fadeIn: 0.1, rgb: '190,235,255' }); } });
+          B.heroes().forEach(x => { if (x !== h && !x.dead) { B.ring(x.x, x.y, 8, 56, 0.5, '#bfeaff', 3); B.tex('circle', x.x, x.y + 29, { w: 90, h: 36, spin: 4, life: 6, a: 0.5, fadeIn: 0.1, rgb: '190,235,255' }); } });
         } },
     },
     xuyou: {
