@@ -31,6 +31,10 @@ window.ASSET_LIST = [
   'enemies/enc_zhangyan.png',
   'enemies/enc_zhuque.png',
   'enemies/gaolan.png',
+  'enemies/god_caocao.png',
+  'enemies/god_guanyu.png',
+  'enemies/god_lvbu.png',
+  'enemies/god_zhuge.png',
   'enemies/grunt.png',
   'enemies/grunt_2.png',
   'enemies/guohuai.png',
@@ -361,4 +365,4 @@ window.ASSET_LIST = [
   'weapons/zhuque.png',
   'weapons/zidian.png',
 ];
-window.ASSET_VER = '33fe011216';
+window.ASSET_VER = 'f4fd1afbc9';
