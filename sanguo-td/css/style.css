@@ -537,3 +537,7 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 .dstat.four b { font-size: 21px; }
 .mbox p.lvgain { margin-top: 10px; font-size: 12.5px; line-height: 1.6; color: #c9b890; text-align: center; }
 .mbox p.lvgain b { color: #8dff8a; font-weight: normal; }
+
+/* 选关：一次跳 10 关的小按钮（打到第 20 关以后才出现） */
+.stagesel button.jump { width: 34px; height: 34px; font-size: 17px; flex: none; }
+.stagesel .sname { flex: 1; min-width: 0; }
