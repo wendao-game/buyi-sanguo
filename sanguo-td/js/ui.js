@@ -68,9 +68,11 @@ const UI = (function () {
       <div class="stagecard">
         <div class="chap">${ch.endless ? ch.name : '第 ' + ch.index + ' 章 · ' + ch.name}</div>
         <div class="stagesel">
+          ${S.stage > 20 ? `<button class="jump" data-act="stage" data-d="-10" ${st <= 1 ? 'disabled' : ''}>«</button>` : ''}
           <button data-act="stage" data-d="-1" ${st <= 1 ? 'disabled' : ''}>◀</button>
           <div class="sname">第 ${ch.endless || ch.sub} ${ch.endless ? '层' : '关'}<small class="${cleared ? '' : 'new'}">${cleared ? '已通关 · 可重复挑战' : (ch.endless ? '未通关' : ch.sub === 10 ? '章节决战' : '未通关')}</small></div>
           <button data-act="stage" data-d="1" ${st >= S.stage ? 'disabled' : ''}>▶</button>
+          ${S.stage > 20 ? `<button class="jump" data-act="stage" data-d="10" ${st >= S.stage ? 'disabled' : ''}>»</button>` : ''}
         </div>
         <div class="powers"><span>推荐战力 ${rec}</span><span class="${pw >= rec ? 'ok' : 'bad'}">我方战力 ${pw}</span></div>
         <div class="reward">通关奖励：金币 ×${Math.round(stageWinCoins(st) * (cleared ? CFG.REPLAY_COIN : 1))}、精铁 ×${Math.max(1, Math.round(stageIron(st) * (cleared ? CFG.REPLAY_COIN : 1)))} + 战场掉落${cleared ? '（已通关，奖励减半）' : '<br>首通再得：招募令 ×' + (st % 10 === 0 ? 5 : 1)}</div>
