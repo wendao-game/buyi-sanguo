@@ -365,4 +365,4 @@ window.ASSET_LIST = [
   'weapons/zhuque.png',
   'weapons/zidian.png',
 ];
-window.ASSET_VER = 'f4fd1afbc9';
+window.ASSET_VER = 'a913c903bb';
