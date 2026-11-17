@@ -15,7 +15,11 @@ const Sfx = (function () {
   const last = {};
   const MAX_VOICES = 30;
   const FILES = {};                                          // 名字 → 解码好的音频文件（assets/sfx/ 里放了才有）
-  const FILE_VOL = 0.9;
+  /* 音频文件的音量：导入时峰值都拉到了 -2 dB，这里按每个文件的响度各乘一个数（算法：让平均响度落在合成音效的两倍半左右，爆炸、落雷、冰碎这种会连着响的再轻一点）。
+   * 新放进来的文件没列在这里就用 FILE_VOL_DEF；觉得哪个太响 / 太轻，改这里 */
+  const FILE_VOL = { boom: 0.2, thunder: 0.27, freeze: 0.37, boss_smash: 0.2, boss_roar: 0.28, myth_dark: 0.2, myth_holy: 0.33,
+    ult_thunder: 0.27, ult_fire: 0.31, ult_ice: 0.25, ult_wind: 0.24, ult_poison: 0.34, ult_blade: 0.3 };
+  const FILE_VOL_DEF = 0.28;
   let filesAsked = false;
 
   /* 接线：所有声音 → master → 压缩器 → 输出；另外分一路进混响，听起来有点空间感、不发干 */
@@ -302,7 +306,7 @@ const Sfx = (function () {
     last[name] = now;
     try {
       if (fb) {                                              // 放了音频文件：播文件
-        const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = fb; g.gain.value = FILE_VOL;
+        const s = ac.createBufferSource(), g = ac.createGain(); s.buffer = fb; g.gain.value = FILE_VOL[name] || FILE_VOL_DEF;
         voices++; s.connect(g); g.connect(master); s.start(); s.onended = () => { voices--; try { g.disconnect(); } catch (e) { /* 已断开 */ } };
       } else b[1]();
     } catch (e) { /* 个别浏览器不支持某种节点时忽略 */ }
