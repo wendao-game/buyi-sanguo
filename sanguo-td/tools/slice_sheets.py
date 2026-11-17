@@ -1,9 +1,9 @@
 """把 GPT 画的九宫格拼图切开，处理成游戏用的规格（新的 2.5D 画风，提示词见 tools/art-prompts-25d.html）。
 
 拼图放在 sanguo-td/assets/_sheets/：
-  hero_1.png … hero_11.png    武将（每张 3×3，顺序见下面的 SHEETS）
+  hero_1.png … hero_12.png    武将（每张 3×3，顺序见下面的 SHEETS）
   enemy_1.png … enemy_6.png 敌人和各章敌将（enemy_3 是 v1.3 的新敌兵，enemy_4 … 6 是 v2.0 每章前 9 关的敌将）
-  head_1.png … head_11.png    武将正面头像（顺序同 hero_1 … hero_8）
+  head_1.png … head_12.png    武将正面头像（顺序同 hero_1 … hero_8）
   weapon_1.png、weapon_2.png 兵器图标（透明底）
   fx_1.png … fx_7.png        技能特效（黑底；fx_4 … fx_6 是金、橙武将的专属大招特效，fx_7 是神魔的）
   battle.png                 战场背景（竖版，会裁成 9:16 缩到 1080×1920）
@@ -29,6 +29,7 @@ SHEETS_ORDER = {
     'hero_9': ('heroes', ['masu', 'pangde', 'dengai', 'huatuo', 'jiangwei', 'lvmeng', 'xiahouyuan', 'xunyu', 'sunquan']),   # v2.2 新加的 9 名
     'hero_10': ('heroes', ['jianggan', 'mizhu', 'panzhang', 'liushan', 'xuyou', 'kongrong', 'manchong', 'guanxing', 'zhangbao2']),   # v2.3 新加的 18 名
     'hero_11': ('heroes', ['dingfeng', 'miheng', 'huangyueying', 'zhurong', 'caozhang', 'yuji', 'sunjian', 'yuanshao', 'caoren']),
+    'hero_12': ('heroes', ['chenlin', 'wuguotai', 'zhangsong', 'feiyi', 'xunyou', 'xusheng', 'xinxianying', 'lusu', 'simahui']),   # v2.9 新加的 9 名辅助武将
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
     'enemy_3': ('enemies', ['sapper', 'ram', 'drummer', 'heavy', 'catapult', 'rattan', 'shaman', None, None]),
