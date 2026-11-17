@@ -64,7 +64,7 @@ const Battle = (function () {
       };
       h.hp = h.maxHp;
       if (old) { h.rage = old.rage; h.n = old.n; h.t = old.t; h.hasteT = old.hasteT; h.hasteMul = old.hasteMul; h.bigT = old.bigT; h.anim = old.anim; h.hp = Math.min(h.maxHp, old.hp); h.dead = old.dead; h.stunT = old.stunT; h.psnT = old.psnT; h.psnDps = old.psnDps; h.immuneT = old.immuneT || 0; if (old.boostT > 0) { h.boostT = old.boostT; h.boostK = old.boostK; h.atk *= old.boostK; } }   // 留在场上的人血量、状态都带着
-      else if (!first) { tex('pillar', h.x, h.y + 34, { w: 70, h: 240, ay: 1, life: 0.7, fadeIn: 0.1, a: 0.7, force: true }); ring(h.x, h.y + 26, 10, 60, 0.4, QUALITIES[d.q].color, 3); }
+      else if (!first) { Sfx.play('swap'); tex('pillar', h.x, h.y + 34, { w: 70, h: 240, ay: 1, life: 0.7, fadeIn: 0.1, a: 0.7, force: true }); ring(h.x, h.y + 26, 10, 60, 0.4, QUALITIES[d.q].color, 3); }
       S.heroes.push(h);
     });
     const has = id => S.heroes.some(h => h.def.id === id);
@@ -96,7 +96,7 @@ const Battle = (function () {
     S.queue = w.list; S.waveDur = w.dur; S.waveT = 0; S.spawned = 0; S.waveSize = w.list.length;
     const ne = S.wave === 1 ? newEnemyAt(S.stage) : null;
     S.banner = ne ? { text: '新敌人 · ' + ne.name, sub: ne.tip, t: 4, max: 4 } : { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', sub: S.wave === CFG.WAVES ? S.boss.skills.map(k => k.name + '：' + k.desc).join('；') : '', t: S.wave === CFG.WAVES ? 3.2 : 1.8, max: S.wave === CFG.WAVES ? 3.2 : 1.8 };
-    if (S.enc && S.wave === S.enc.wave) { const e = S.enc.def; S.banner = { text: '奇遇 · ' + e.name, t: 4, max: 4 }; Sfx.play('horn'); }
+    if (S.enc && S.wave === S.enc.wave) { const e = S.enc.def; S.banner = { text: '奇遇 · ' + e.name, t: 4, max: 4 }; Sfx.play('enc'); }
     Sfx.play(S.wave === CFG.WAVES ? 'horn' : 'wave');
     if (S.wave === CFG.WAVES) Sfx.music('boss');             // 最后一波：音乐换成更急的一段
   }
@@ -117,7 +117,7 @@ const Battle = (function () {
       walk: rand() * 6, ph: rand() * 6, dead: false, ccK: 1, pushK: 1, atkT: 0, pose: null, pz: null, combo: 0, stepN: 0, seen: false, trailT: 0,
       spr: enemySprite(d.id), flip: d.id !== 'boss' && d.id !== 'rare' && rand() < 0.5,
     });
-    if (isBoss && S.boss.aura) { const e = S.enemies[S.enemies.length - 1]; e.aura = S.boss.aura; e.mythQ = S.boss.myth ? HERO_MAP[S.boss.myth].q : 0; S.flash = { color: S.boss.aura, a: 0.35, t: 0.9, max: 0.9 }; S.shake = Math.max(S.shake, 0.5); tex('pillar', e.x, 150, { w: 220, h: 620, ay: 1, life: 1.4, fadeIn: 0.1, rgb: S.boss.aura, force: true }); }   // 神魔登场
+    if (isBoss && S.boss.aura) { const e = S.enemies[S.enemies.length - 1]; e.aura = S.boss.aura; e.mythQ = S.boss.myth ? HERO_MAP[S.boss.myth].q : 0; S.flash = { color: S.boss.aura, a: 0.35, t: 0.9, max: 0.9 }; S.shake = Math.max(S.shake, 0.5); tex('pillar', e.x, 150, { w: 220, h: 620, ay: 1, life: 1.4, fadeIn: 0.1, rgb: S.boss.aura, force: true }); Sfx.play(e.mythQ === 7 ? 'myth_holy' : 'myth_dark'); }   // 神魔登场
     if (d.id === 'rare' && S.enc) {                           // 奇遇：名字、血量、招式、配色都换成这一只的
       const e = S.enemies[S.enemies.length - 1], x = S.enc.def;
       e.rare = x; e.name = x.name; e.aura = x.aura || ''; e.hp = e.max = Math.round(e.max * x.hpK * 0.9);
@@ -291,16 +291,16 @@ const Battle = (function () {
     const rv = e.sk && e.sk.find(x => x.k.k === 'revive');
     if (rv && !e.revived) {          // 幽冥鬼将：第一次倒下爬起来再战
       e.revived = true; e.hp = Math.round(e.max * 0.4); e.frozen = 0; e.fear = 0; e.conf = 0; e.ccImm = 2.5;
-      bossShout(e, rv.k.name); pose(e, 'roar', 0.9); e.pose.rgb = e.aura || '170,120,255'; ring(e.x, e.y, 10, 170, 0.6, '#b48cff', 6); tex('pillar', e.x, e.y + 20, { w: 120, h: 420, ay: 1, life: 0.9, fadeIn: 0.1, rgb: '170,120,255', force: true }); S.shake = Math.max(S.shake, 0.3);
+      bossShout(e, rv.k.name, 'myth_dark'); pose(e, 'roar', 0.9); e.pose.rgb = e.aura || '170,120,255'; ring(e.x, e.y, 10, 170, 0.6, '#b48cff', 6); tex('pillar', e.x, e.y + 20, { w: 120, h: 420, ay: 1, life: 0.9, fadeIn: 0.1, rgb: '170,120,255', force: true }); S.shake = Math.max(S.shake, 0.3);
       return;
     }
-    e.dead = true; S.kills++;
+    e.dead = true; S.kills++; Sfx.play('kill');
     // 连斩和击杀回怒：杀得越快越密，大招放得越勤
     const big2 = isBig(e) || !!e.def.siege, kr = CFG.KILL_RAGE * (big2 ? 8 : 1);
     for (const h of S.heroes) if (!h.dead) h.rage = Math.min(100, h.rage + kr);
     S.combo = S.comboT > 0 ? S.combo + 1 : 1; S.comboT = CFG.COMBO_GAP; S.comboPop = 1; if (S.combo > S.comboMax) S.comboMax = S.combo;
     for (const st of CFG.COMBO_STEPS) if (S.combo === st[0]) {
-      text(W / 2, 236, st[1], '#ffd24a', 34, 1.8, true); Sfx.play('ult');
+      text(W / 2, 236, st[1], '#ffd24a', 34, 1.8, true); Sfx.play('combo');
       S.flash = { color: '255,220,120', a: 0.22, t: 0.35, max: 0.35 };
       for (const h of S.heroes) if (!h.dead) { h.rage = Math.min(100, h.rage + CFG.COMBO_RAGE); ring(h.x, h.y + 20, 10, 46, 0.4, '#ffd24a', 3); }
     }
@@ -411,7 +411,7 @@ const Battle = (function () {
     tex('circle', e.x, by, { w: 200, h: 80, life: WINDUP + 0.2, spin: 5, rgb, a: 0.9, fadeIn: 0.1, force: true });
     S.rings.push({ x: e.x, y: e.y - 16, r0: 130, r1: 24, life: WINDUP - 0.05, max: WINDUP - 0.05, color: c, w: 4, fill: false });   // 往里收的一圈
     for (let i = 0; i < 16; i++) { const a = rand() * TAU, r = 80 + rand() * 60, x = Math.cos(a) * r, y = Math.sin(a) * r * 0.7; part(e.x + x, e.y - 20 + y, -x / 0.5, -y / 0.5, 0.48, c, 4 + rand() * 2); }
-    Sfx.play('buff');
+    Sfx.play('boss_wind');
   }
   function bossPz(e, dt) {
     const z = e.pz || (e.pz = { dy: 0, rot: 0, sc: 1, glow: 0, rgb: '255,120,80' });
@@ -452,6 +452,7 @@ const Battle = (function () {
     wallHurt(e, x, delay);
     S.timers.push({ t: delay - 0.1, fn: () => {
       if (S !== ref || S.over || e.dead) return;
+      Sfx.play(heavy ? 'boss_smash' : 'boss_slash');
       if (heavy) {
         tex('cross_slash', x, y - 14, { w: 240, life: 0.32, grow: 1.25, rgb, force: true });
         tex('fissure', x, y + 6, { w: 210, h: 92, life: 0.9, fadeIn: 0.04, a: 0.9, force: true });
@@ -463,7 +464,8 @@ const Battle = (function () {
       }
     } });
   }
-  function bossShout(e, name) { text(e.x, e.y - e.def.r * 2.6 - 34, name, e.aura ? 'rgb(' + e.aura + ')' : '#ff6a4a', 24, 1.4, true); Sfx.play('horn'); }
+  const CAST_SFX = { summon: 'summon', haste: 'boss_roar', charge: 'gallop', shield: 'e_shield', heal: 'e_heal', guard: 'e_shield', burnwall: 'ult_fire', poison: 'ult_poison', bind: 'chain' };   // 敌将各招放出来时的声音，没列的用 boss_cast
+  function bossShout(e, name, snd) { text(e.x, e.y - e.def.r * 2.6 - 34, name, e.aura ? 'rgb(' + e.aura + ')' : '#ff6a4a', 24, 1.4, true); Sfx.play(snd || 'horn'); }
   function summon(e, type, n, o) {
     if (S.enemies.length > 90) return;                          // 场上人太多就不再叫人
     for (let i = 0; i < n; i++) {
@@ -497,10 +499,10 @@ const Battle = (function () {
   function bossCast(e, k) {
     const rgb = castRgb(e, k), c = 'rgb(' + rgb + ')';
     if (S.block > 0) {                                           // 辛宪英「料事如神」：这一招被识破，放不出来
-      S.block--; text(e.x, e.y - e.def.r * 2.6 - 34, k.name + ' 被识破', '#9fe8ff', 22, 1.4, true); ring(e.x, e.y, 20, 120, 0.4, '#9fe8ff', 5); tex('burst', e.x, e.y - 24, { w: 130, life: 0.25, grow: 1.4, rgb: '160,230,255', force: true }); Sfx.play('deny');
+      S.block--; text(e.x, e.y - e.def.r * 2.6 - 34, k.name + ' 被识破', '#9fe8ff', 22, 1.4, true); ring(e.x, e.y, 20, 120, 0.4, '#9fe8ff', 5); tex('burst', e.x, e.y - 24, { w: 130, life: 0.25, grow: 1.4, rgb: '160,230,255', force: true }); Sfx.play('block');
       return;
     }
-    bossShout(e, k.name);
+    bossShout(e, k.name, CAST_SFX[k.k] || 'boss_cast');
     tex('burst', e.x, e.y - 24, { w: 110, life: 0.2, grow: 1.6, a: 0.45, rgb, force: true }); ring(e.x, e.y + e.def.r * 0.6, 24, 150, 0.4, c, 5); S.shake = Math.max(S.shake, 0.18);   // 蓄满了，放出来的一下
     pose(e, k.k === 'smash' || k.k === 'wallhit' ? 'smash' : k.k === 'shoot' || k.k === 'burnwall' || k.k === 'bind' ? 'throw' : k.k === 'charge' || k.k === 'guard' ? 'release' : 'roar', k.k === 'smash' || k.k === 'wallhit' ? 0.6 : 0.5);
     if (e.pose.k === 'roar') e.pose.rgb = rgb;
@@ -535,7 +537,7 @@ const Battle = (function () {
         wallHurt(e, x, 0.38, k.dmg);
         S.timers.push({ t: 0.36, fn: () => {
           if (S !== ref || S.over) return;
-          tex('cross_slash', x, y - 16, { w: 300, life: 0.36, grow: 1.3, rgb, force: true }); tex('fissure', x, y + 6, { w: 300, h: 130, life: 1.2, fadeIn: 0.04, force: true });
+          Sfx.play('boss_smash'); tex('cross_slash', x, y - 16, { w: 300, life: 0.36, grow: 1.3, rgb, force: true }); tex('fissure', x, y + 6, { w: 300, h: 130, life: 1.2, fadeIn: 0.04, force: true });
           tex('pillar', x, y + 10, { w: 150, h: 420, ay: 1, life: 0.6, fadeIn: 0.05, rgb, force: true });
           ring(x, y, 10, 220, 0.5, c, 6); shockwave(x, y, 300, 1.3); dust(x, y, 18, 220); S.shake = Math.max(S.shake, 0.6); S.flash = { color: rgb, a: 0.2, t: 0.3, max: 0.3 };
         } });
@@ -563,7 +565,7 @@ const Battle = (function () {
           if (k.fx === 'tiger') { tex('tiger', h.x, h.y - 30, { w: 210, life: 0.45, grow: 1.25, fadeIn: 0.05, rgb: k.rgb, force: true }); tex('cross_slash', h.x, h.y - 24, { w: 170, life: 0.3, grow: 1.3, rgb: k.rgb, force: true }); }   // 白虎：一道虎影扑下来
           else { streak(e.x, e.y - 30, h.x, h.y - 20, rgb, 70, 0.2); tex('slash', h.x, h.y - 34, { w: 210, life: 0.28, grow: 1.2, rot: Math.PI + 0.35, rgb, force: true }); tex('fissure', h.x, h.y + 26, { w: 170, h: 70, life: 0.8, fadeIn: 0.04, a: 0.9, force: true }); }   // 一道刀光从敌将那边劈到武将身上
           tex('burst', h.x, h.y - 20, { w: 150, life: 0.25, grow: 1.4, rgb: k.fx === 'tiger' ? k.rgb : '255,160,120', force: true }); shockwave(h.x, h.y, 120, 0.6); S.shake = Math.max(S.shake, 0.3);
-          heroHurt(h, k.dmg * S.heroHit); if (!h.dead) h.stunT = Math.max(h.stunT, k.stun);
+          Sfx.play('boss_smash'); heroHurt(h, k.dmg * S.heroHit); if (!h.dead) h.stunT = Math.max(h.stunT, k.stun);
         } });
         break;
       }
@@ -596,14 +598,14 @@ const Battle = (function () {
       const ab = Math.min(h.shield, dmg); h.shield -= ab; dmg -= ab;
       if (dmg <= 0) { text(h.x + (rand() - 0.5) * 16, h.y - 62, '挡', '#9fd8ff', 16, 0.7); ring(h.x, h.y - 20, 20, 44, 0.25, '#9fd8ff', 3); return; }
     }
-    h.hp -= dmg; h.hurtT = 0.3;
+    h.hp -= dmg; h.hurtT = 0.3; Sfx.play('hero_hurt');
     text(h.x + (rand() - 0.5) * 16, h.y - 62, '-' + dmg, '#ff6a5a', 17, 0.8);
     if (S.fx.length < 140) tex('burst', h.x, h.y - 24, { w: 70, life: 0.16, grow: 1.3, rgb: '255,120,100' });
     if (h.hp > 0) return;
     h.hp = 0; h.dead = true; h.rage = 0; S.fallen[h.def.id] = 1; S.teamVer++;
     if (S.aim === h.slot) S.aim = null;
     text(h.x, h.y - 84, h.def.name + ' 阵亡', '#ff5a4a', 22, 1.8, true); ring(h.x, h.y + 20, 10, 90, 0.6, '#ff5a4a', 5); burst(h.x, h.y - 20, 14, '#c8b8a0', 200, 4, 0.6, 300);
-    S.shake = Math.max(S.shake, 0.3); S.flash = { color: '255,60,40', a: 0.22, t: 0.4, max: 0.4 }; Sfx.play('lose');
+    S.shake = Math.max(S.shake, 0.3); S.flash = { color: '255,60,40', a: 0.22, t: 0.4, max: 0.4 }; Sfx.play('hero_down');
     if (!livingHeroes().length) { S.wiped = true; finish(false); }               // 台上的人全倒了：这一关输了
   }
   function heroHeal(frac) { for (const h of S.heroes) if (!h.dead && h.hp < h.maxHp) h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * frac)); }
@@ -620,7 +622,7 @@ const Battle = (function () {
       S.wallAcc = 0; S.wallAccX = 0; S.wallAccT = 0.4;
     }
     const hp = S.wall / S.wallMax;
-    if (!S.alarm && hp < 0.3 && hp > 0) { S.alarm = true; text(W / 2, WY - 70, '城防告急', '#ff5a48', 30, 1.8, true); Sfx.play('horn'); S.shake = Math.max(S.shake, 0.2); }
+    if (!S.alarm && hp < 0.3 && hp > 0) { S.alarm = true; text(W / 2, WY - 70, '城防告急', '#ff5a48', 30, 1.8, true); Sfx.play('alarm'); S.shake = Math.max(S.shake, 0.2); }
     else if (S.alarm && hp > 0.5) S.alarm = false;
     if (hp < 0.5 && rand() < dt * (hp < 0.25 ? 9 : 4)) {     // 城墙破损处冒烟，越残越多
       const p = WALL_CRACKS[Math.floor(rand() * (hp < 0.25 ? 4 : 2))];
@@ -745,7 +747,7 @@ const Battle = (function () {
       rage(h, n) { if (!h.dead) h.rage = Math.min(100, h.rage + n); },
       teamRage(n, except) { for (const h of S.heroes) if (h !== except && !h.dead) h.rage = Math.min(100, h.rage + n); },
       haste(h, t, mul) { h.hasteT = t; h.hasteMul = mul; },
-      teamHaste(t, mul) { S.haste.t = t; S.haste.mul = mul; },
+      teamHaste(t, mul) { S.haste.t = t; S.haste.mul = mul; Sfx.play('buff_team'); },
       guard(t, k) { S.guard.t = t; S.guard.k = k; },             // t 秒内城墙受到的伤害 × k
       /* —— v2.3 新武将用到的 —— */
       weaken(t, k) { S.weak = { t, k }; },                       // t 秒内敌人打城墙、打武将的伤害 × k
@@ -755,40 +757,42 @@ const Battle = (function () {
         for (let i = 0; i < n; i++) later(i * 0.28, () => { for (const x of S.heroes) if (!x.dead && !(x.stunT > 0)) { const a0 = x.atk; x.atk = a0 * mul; x.anim = 1; attack(x); x.atk = a0; } });
       },
       /* —— v2.9 辅助武将用到的 —— */
-      leech(t, k, cap) { S.leech = { t, k, cap: S.wallMax * cap, got: 0 }; },   // t 秒内全军伤害的 k 倍补回城防，最多补城防上限的 cap
-      refund(t, k, h) { S.refund = { t, k, h }; },                // t 秒内别的武将放完大招，怒气留下 k 点
-      critUp(t, rate, dmg) { S.critUp = { t, rate, dmg }; },      // t 秒内全军暴击率 + rate、暴击伤害 + dmg
+      sfx: name => Sfx.play(name),
+      leech(t, k, cap) { S.leech = { t, k, cap: S.wallMax * cap, got: 0 }; Sfx.play('buff_team'); },   // t 秒内全军伤害的 k 倍补回城防，最多补城防上限的 cap
+      refund(t, k, h) { S.refund = { t, k, h }; Sfx.play('buff_team'); },                // t 秒内别的武将放完大招，怒气留下 k 点
+      critUp(t, rate, dmg) { S.critUp = { t, rate, dmg }; Sfx.play('buff_team'); },      // t 秒内全军暴击率 + rate、暴击伤害 + dmg
       boost(h2, t, k) {                                           // 一名武将 t 秒内攻击 × k（已经有的话只续时间）
-        if (!h2 || h2.dead) return; if (!(h2.boostT > 0)) { h2.boostK = k; h2.atk *= k; } h2.boostT = t;
+        if (!h2 || h2.dead) return; if (!(h2.boostT > 0)) { h2.boostK = k; h2.atk *= k; } h2.boostT = t; Sfx.play('buff_team');
         tex('pillar', h2.x, h2.y + 34, { w: 80, h: 300, ay: 1, life: 0.9, fadeIn: 0.1, a: 0.75, rgb: '255,225,140', force: true }); tex('circle', h2.x, h2.y + 29, { w: 110, h: 44, spin: 2.4, life: t, rgb: '255,215,110', a: 0.85, fadeIn: 0.1, force: true });
       },
-      immune(h2, t) { if (!h2 || h2.dead) return; h2.immuneT = Math.max(h2.immuneT || 0, t); tex('ring', h2.x, h2.y - 20, { w: 110, h: 130, life: t, a: 0.8, fadeIn: 0.1, rgb: '255,235,170', force: true }); },   // t 秒内不受伤害
-      ward(t) { S.ward = { t }; for (const h of S.heroes) if (!h.dead) { h.stunT = 0; h.psnT = 0; tex('circle', h.x, h.y + 29, { w: 100, h: 40, spin: -2, life: t, rgb: '160,230,255', a: 0.8, fadeIn: 0.1, force: true }); } },   // t 秒内全体武将不吃眩晕、定身、中毒
+      immune(h2, t) { if (!h2 || h2.dead) return; Sfx.play('shield'); h2.immuneT = Math.max(h2.immuneT || 0, t); tex('ring', h2.x, h2.y - 20, { w: 110, h: 130, life: t, a: 0.8, fadeIn: 0.1, rgb: '255,235,170', force: true }); },   // t 秒内不受伤害
+      ward(t) { Sfx.play('shield'); S.ward = { t }; for (const h of S.heroes) if (!h.dead) { h.stunT = 0; h.psnT = 0; tex('circle', h.x, h.y + 29, { w: 100, h: 40, spin: -2, life: t, rgb: '160,230,255', a: 0.8, fadeIn: 0.1, force: true }); } },   // t 秒内全体武将不吃眩晕、定身、中毒
       block(n) { S.block = Math.max(S.block || 0, n); },          // 敌将接下来的 n 招放不出来
-      silence(t) {                                                // 打断：敌将的招式全部推迟 t 秒（正在蓄力的也断掉），全场敌人身上的狂奔、盾阵、护体、鼓舞都驱散
+      silence(t) { Sfx.play('silence');                           // 打断：敌将的招式全部推迟 t 秒（正在蓄力的也断掉），全场敌人身上的狂奔、盾阵、护体、鼓舞都驱散
         for (const e of S.enemies) { if (e.dead) continue;
           if (e.sk) { for (const x of e.sk) if (x.k.cd > 0) { x.t = Math.max(x.t, 0.5) + t; x.warn = false; } e.chargeT = 0; text(e.x, e.y - e.def.r * 2.6 - 34, '被打断', '#ffb070', 20, 1.2, true); }
           if (isBig(e)) e.heroT += t;
           e.hasteT = 0; e.shieldT = 0; e.auraT = 0; e.guardT = 0; }
       },
-      wallShield(t, frac) { S.wallShield = { t, hp: S.wallMax * frac, max: S.wallMax * frac }; },   // 城墙外多一层只挨打的假城墙
+      wallShield(t, frac) { S.wallShield = { t, hp: S.wallMax * frac, max: S.wallMax * frac }; Sfx.play('build'); },   // 城墙外多一层只挨打的假城墙
       evenHp(frac) {                                              // 全体武将的血量拉平到平均值，再各回 frac
         const L = S.heroes.filter(h => !h.dead); if (!L.length) return;
         const avg = L.reduce((a, h) => a + h.hp / h.maxHp, 0) / L.length;
+        Sfx.play('heal');
         for (const h of L) { h.hp = Math.min(h.maxHp, Math.round(h.maxHp * Math.min(1, avg + frac))); text(h.x, h.y - 70, Math.round(h.hp / h.maxHp * 100) + '%', '#8dff8a', 15, 0.9); tex('el_hit_wind', h.x, h.y - 24, { w: 90, life: 0.5, grow: 1.3, rgb: '150,255,170', force: true }); }
       },
       /* —— v2.2 新武将用到的 —— */
-      rally(t, mul) { S.rally = { t, mul }; },                   // t 秒内全军伤害 × mul
-      shield(t, frac) { for (const h of S.heroes) if (!h.dead) { h.shield = Math.round(h.maxHp * frac); h.shieldT = t; tex('circle', h.x, h.y + 29, { w: 104, h: 42, spin: -1.6, life: t, rgb: '120,200,255', a: 0.85, fadeIn: 0.1, force: true }); ring(h.x, h.y - 16, 10, 60, 0.4, '#9fd8ff', 4); } },   // 全体武将的护盾：能挡相当于生命 frac 的伤害
+      rally(t, mul) { S.rally = { t, mul }; Sfx.play('buff_team'); },                   // t 秒内全军伤害 × mul
+      shield(t, frac) { Sfx.play('shield'); for (const h of S.heroes) if (!h.dead) { h.shield = Math.round(h.maxHp * frac); h.shieldT = t; tex('circle', h.x, h.y + 29, { w: 104, h: 42, spin: -1.6, life: t, rgb: '120,200,255', a: 0.85, fadeIn: 0.1, force: true }); ring(h.x, h.y - 16, 10, 60, 0.4, '#9fd8ff', 4); } },   // 全体武将的护盾：能挡相当于生命 frac 的伤害
       heroHp(h, frac) {                                          // 武将自己加血（frac > 0）或者耗血（frac < 0，不会耗死）
         if (h.dead) return; const v = Math.round(h.maxHp * frac);
         h.hp = Math.max(1, Math.min(h.maxHp, h.hp + v)); if (v > 0) text(h.x, h.y - 70, '+' + v, '#8dff8a', 15, 0.8);
       },
-      healHeroes(frac) { for (const h of S.heroes) if (!h.dead) { const v = Math.round(h.maxHp * frac); h.hp = Math.min(h.maxHp, h.hp + v); h.stunT = 0; h.psnT = 0; text(h.x, h.y - 70, '+' + v, '#8dff8a', 16, 1); tex('el_hit_wind', h.x, h.y - 24, { w: 96, life: 0.7, grow: 1.4, rgb: '140,255,150', force: true }); } },
+      healHeroes(frac) { Sfx.play('heal'); for (const h of S.heroes) if (!h.dead) { const v = Math.round(h.maxHp * frac); h.hp = Math.min(h.maxHp, h.hp + v); h.stunT = 0; h.psnT = 0; text(h.x, h.y - 70, '+' + v, '#8dff8a', 16, 1); tex('el_hit_wind', h.x, h.y - 24, { w: 96, life: 0.7, grow: 1.4, rgb: '140,255,150', force: true }); } },
       revive(frac) {                                             // 救活一名阵亡的武将（每局次数有限），返回救活的是谁
         if ((S.revives || 0) >= CFG.REVIVE_MAX) return null;
         const h = S.heroes.find(x => x.dead); if (!h) return null;
-        S.revives = (S.revives || 0) + 1; h.dead = false; h.hp = Math.round(h.maxHp * frac); h.stunT = 0; h.psnT = 0; delete S.fallen[h.def.id]; S.teamVer++;
+        S.revives = (S.revives || 0) + 1; Sfx.play('revive'); h.dead = false; h.hp = Math.round(h.maxHp * frac); h.stunT = 0; h.psnT = 0; delete S.fallen[h.def.id]; S.teamVer++;
         text(h.x, h.y - 88, h.def.name + ' 被救活了', '#8dff8a', 22, 1.8, true); tex('pillar', h.x, h.y + 34, { w: 90, h: 320, ay: 1, life: 1, fadeIn: 0.1, rgb: '140,255,150', force: true }); ring(h.x, h.y + 20, 10, 100, 0.6, '#8dff8a', 5);
         return h;
       },
@@ -801,7 +805,7 @@ const Battle = (function () {
       isBig,
       execute(e, h) { if (e.dead) return; hit(e, e.hp * 1.5 + 1, 'thunder', h, { execute: true }); },   // 斩杀（按它剩下的血量记伤害）
       /* 技能回复城防：同一局里每回复一次，之后的回复量 × CFG.HEAL_DECAY（最低 CFG.HEAL_MIN），几个会回血的武将轮着放也不至于城墙永远打不破 */
-      heal(frac) { heroHeal(frac * S.healK * 1.5); const v = Math.round(S.wallMax * frac * S.healK); S.healK = Math.max(CFG.HEAL_MIN, S.healK * CFG.HEAL_DECAY); S.wall = Math.min(S.wallMax, S.wall + v); text(W / 2, WY - 10, '城防 +' + v, '#8dff8a', 18, 1.2, true); },
+      heal(frac) { Sfx.play('heal'); heroHeal(frac * S.healK * 1.5); const v = Math.round(S.wallMax * frac * S.healK); S.healK = Math.max(CFG.HEAL_MIN, S.healK * CFG.HEAL_DECAY); S.wall = Math.min(S.wallMax, S.wall + v); text(W / 2, WY - 10, '城防 +' + v, '#8dff8a', 18, 1.2, true); },
       ring, burst, bolt, later,
       tex: (name, x, y, o) => tex(name, x, y, Object.assign({ force: true }, o)),
       has: name => !!Assets.get('fx:' + name),                 // 有没有这张特效图（金、橙武将的专属特效是手绘的，没放图时退回原来的画法）
@@ -842,7 +846,7 @@ const Battle = (function () {
     if (!S.live.some(e => !e.dead)) return false;
     h.rage = 0; h.anim = 1.6;
     if (S.refund && S.refund.t > 0 && S.refund.h !== h) { h.rage = S.refund.k; later(0.5, () => { if (!h.dead) text(h.x, h.y - 104, '奇策 · 怒气 +' + S.refund.k, '#c8b4ff', 16, 1.1, true); }); }   // 荀攸「奇策连环」：这几秒里别人放完大招，怒气还回来一部分
-    Sfx.play('ult');
+    Sfx.play('ult'); Sfx.play(h.def.myth ? (h.def.q === 6 ? 'myth_dark' : 'myth_holy') : 'ult_' + h.def.el);   // 一串拨弦，再叠一层这个攻击类型自己的声音（神魔另有一套）
     if (S.aim === h.slot) S.aim = null;
     const amp = S.nextUlt > 1 ? S.nextUlt : 1; if (amp > 1) { S.nextUlt = 1; later(0.3, () => text(h.x, h.y - 104, '玉玺加持', '#ffd24a', 18, 1.2, true)); }   // 孙坚的传国玉玺：下一个放出来的大招更狠
     const a = h.atk * S.buffs.atk * S.buffs.ult * h.ultMul * amp, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
@@ -906,7 +910,7 @@ const Battle = (function () {
     }
     if (y < RANGE_Y - 10) return;
     if (S.rock.n <= 0) { text(x, y, '礌石未备好', '#d8c8a8', 14, 0.7, true); return; }
-    S.rock.n--;
+    S.rock.n--; Sfx.play('rock_throw');
     // 伤害跟着关卡走（黄巾兵当前血量的 CFG.ROCK_DMG 倍）：操作的价值不随战力变化，专门对付扎堆的小兵，对敌将只是刮痧
     const dmg = ENEMIES.grunt.hp * stageHpMul(S.stage, S.wave) * CFG.ROCK_DMG * S.rock.dmg;
     shotLob(null, 'rock', x + 40, -30, clampX(x), Math.min(WY - 20, y), { dur: 0.35, r: CFG.ROCK_R, dmg });
@@ -955,6 +959,7 @@ const Battle = (function () {
       if (h.bigT > 0) h.bigT -= dt;
       const rg = S.buffs.rage * h.rageMul;
       h.rage = Math.min(100, h.rage + dt * 2.5 * rg);            // 怒气：随时间 + 每次出手（按出手间隔折算，快慢武将充能速度一致）
+      if (h.rage >= 100) { if (!h.full) { h.full = true; if (!Save.data.auto) Sfx.play('rage_full'); } } else h.full = false;   // 怒气攒满：手动放大招时提醒一声
       h.t -= dt * S.buffs.spd * (h.hasteT > 0 ? h.hasteMul : 1) * (S.haste.t > 0 ? S.haste.mul : 1);
       if (h.t <= 0) {
         if (attack(h)) { h.t = h.cd; h.anim = Math.max(h.anim, 1); h.rage = Math.min(100, h.rage + 2.5 * h.cd * rg); }
@@ -981,11 +986,11 @@ const Battle = (function () {
       if (e.sk) for (const x of e.sk) {                          // 敌将的被动招式
         if (x.k.k === 'enrage' && !e.enraged && e.hp < e.max * 0.5) {     // 半血暴怒
           e.enraged = true; e.atk *= 1.5; e.spd *= 1.6; e.frozen = 0; e.fear = 0; e.conf = 0; e.slow = 0; e.ccImm = 4;
-          bossShout(e, x.k.name); ring(e.x, e.y, 10, 150, 0.5, '#ff5a3a', 6); S.shake = Math.max(S.shake, 0.45); S.flash = { color: '255,80,50', a: 0.25, t: 0.4, max: 0.4 };
+          bossShout(e, x.k.name, 'boss_roar'); ring(e.x, e.y, 10, 150, 0.5, '#ff5a3a', 6); S.shake = Math.max(S.shake, 0.45); S.flash = { color: '255,80,50', a: 0.25, t: 0.4, max: 0.4 };
           pose(e, 'roar', 0.9); e.pose.rgb = '255,80,50'; roarFx(e, '255,90,60', 380); tex('pillar', e.x, e.y + 24, { w: 170, h: 520, ay: 1, life: 1, fadeIn: 0.08, a: 0.55, rgb: '255,80,50', force: true }); shockwave(e.x, e.y, 320, 1.2); dust(e.x, e.y + 20, 14, 200);
         } else if (x.k.k === 'regen' && !e.regenUsed && e.hp < e.max * x.k.at) {   // 残血回一口
           e.regenUsed = true; const v = Math.round(e.max * x.k.frac); e.hp = Math.min(e.max, e.hp + v);
-          bossShout(e, x.k.name); text(e.x, e.y - e.def.r - 20, '+' + v, '#8dff8a', 22, 1, true); ring(e.x, e.y, 10, 120, 0.5, '#8dff8a', 5); burst(e.x, e.y - 20, 12, '#a8ffa0', 160, 3, 0.6);
+          bossShout(e, x.k.name, 'e_heal'); text(e.x, e.y - e.def.r - 20, '+' + v, '#8dff8a', 22, 1, true); ring(e.x, e.y, 10, 120, 0.5, '#8dff8a', 5); burst(e.x, e.y - 20, 12, '#a8ffa0', 160, 3, 0.6);
           pose(e, 'roar', 0.7); e.pose.rgb = '140,255,140'; tex('pillar', e.x, e.y + 24, { w: 130, h: 400, ay: 1, life: 0.8, fadeIn: 0.08, a: 0.55, rgb: '140,255,140', force: true });
         }
       }
@@ -1014,7 +1019,7 @@ const Battle = (function () {
       if (e.fleeT > 0 && e.fleeT < 10 && e.fleeT + dt >= 10) text(e.x, e.y - 70, e.name + '就要遁走了', '#cfe8ff', 20, 1.6);
       if (e.sk && !e.seen && e.y > 150) {                        // 敌将露面：仰天一吼
         e.seen = true; pose(e, 'roar', 0.9); roarFx(e, foeRgb(e), 340); ring(e.x, e.y, 20, 340, 0.7, 'rgb(' + foeRgb(e) + ')', 6); shockwave(e.x, e.y, 300, 1); dust(e.x, e.y + 20, 12, 180);
-        S.shake = Math.max(S.shake, 0.4); Sfx.play('horn');
+        S.shake = Math.max(S.shake, 0.4); Sfx.play('boss_roar');
       }
       if (e.sk && e.y > RANGE_Y + 20) for (const x of e.sk) if (x.k.cd > 0) {
         x.t -= dt;

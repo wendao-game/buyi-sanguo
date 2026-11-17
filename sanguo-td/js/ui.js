@@ -508,20 +508,20 @@ const UI = (function () {
     sweep: () => {
       const r = sweep(Save.data.pick);
       if (typeof r === 'string') return toast(r);
-      render(); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(Save.data.pick));
+      Sfx.play('sweep'); render(); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(Save.data.pick));
     },
     bondHelp: () => bondHelp(),
     weapon: d => weaponDetail(d.id),
     heroWeapon: d => { lastPickHero = d.id; weaponPick(d.id); },
-    wup: d => { const e = weaponUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('up'); render(); weaponDetail(d.id); },
-    wequip: d => { const e = weaponEquip(d.id, d.h || null); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('click'); render(); weaponDetail(d.id); },
-    wpick: d => { const e = weaponEquip(d.id, d.h || null); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('click'); render(); const hid = d.h || lastPickHero; if (hid) detail(hid); else closeModal(); },
+    wup: d => { const e = weaponUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('forge'); render(); weaponDetail(d.id); },
+    wequip: d => { const e = weaponEquip(d.id, d.h || null); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('equip'); render(); weaponDetail(d.id); },
+    wpick: d => { const e = weaponEquip(d.id, d.h || null); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('equip'); render(); const hid = d.h || lastPickHero; if (hid) detail(hid); else closeModal(); },
     wmelt: d => {
       const w = WEAPON_MAP[d.id];
       modal(`<div class="mbox"><h3>熔掉兵器</h3><p class="mtext">${w.name} 会消失，返还 <b>${weaponMeltBack(d.id)}</b> 精铁<br>（强化花的全额返还，兵器本身折 ${CFG.WEAPON_MELT_VAL[w.q]}）<br>以后想要得重新抽</p>
         <div class="mrow"><button class="btn gray" data-act="weapon" data-id="${d.id}">再想想</button><button class="btn gold" data-act="wmeltok" data-id="${d.id}">确定熔掉</button></div></div>`);
     },
-    wmeltok: d => { const r = weaponMelt(d.id); if (typeof r === 'string') { Sfx.play('deny'); return toast(r); } Sfx.play('coin'); closeModal(); render(); toast('返还精铁 ' + r); },
+    wmeltok: d => { const r = weaponMelt(d.id); if (typeof r === 'string') { Sfx.play('deny'); return toast(r); } Sfx.play('melt'); closeModal(); render(); toast('返还精铁 ' + r); },
     resetAsk: () => modal(`<div class="mbox"><h2>重置存档</h2><p class="mtext">将清空所有武将、金币与关卡进度，确定吗？</p>
       <div class="mrow"><button class="btn" data-act="close">取消</button><button class="btn red" data-act="reset">确定重置</button></div></div>`),
     reset: () => { Save.reset(); closeModal(); show('home'); toast('存档已重置'); },
@@ -532,7 +532,7 @@ const UI = (function () {
       const i = Number(d.i), t = Save.data.team;
       if (pickSlot < 0) { pickSlot = i; if (!t[i]) toast('再点另一个位置交换；或点下方武将 → 上阵'); return render(); }
       if (pickSlot === i) { pickSlot = -1; render(); if (t[i]) detail(t[i]); return; }
-      teamSwap(pickSlot, i); pickSlot = -1; render(); toast('已交换站位');
+      teamSwap(pickSlot, i); pickSlot = -1; Sfx.play('swap'); render(); toast('已交换站位');
     },
     lvup: d => { const e = levelUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('up'); render(); detail(d.id); },
     lvreset: d => {
@@ -555,23 +555,25 @@ const UI = (function () {
         <table class="rates wrap" style="margin-top:12px"><tr><td>一片碎片值</td><td>${QUALITIES.slice(0, 6).map((q, i) => q.name + ' ' + CFG.SOUL_VALUE[i]).join('、')}</td></tr><tr><td>顶一片要</td><td>${QUALITIES.slice(0, 6).map((q, i) => q.name + ' ' + CFG.SOUL_COST[i]).join('、')}</td></tr></table></div>`);
     },
     refineBatch: d => { const r = refineBatch(Number(d.q)); if (!r.soul) { Sfx.play('deny'); return toast('没有可炼化的碎片'); } Sfx.play('coin'); closeModal(); render(); toast('炼化 ' + r.n + ' 片碎片：将魂 +' + r.soul); },
-    starup: d => { const e = starUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('rare'); render(); detail(d.id); toast('升星成功'); },
-    deploy: d => { const i = Save.data.team.indexOf(null); if (i < 0) return detail(d.id, true); teamSet(i, d.id); render(); detail(d.id); },
+    starup: d => { const e = starUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play(heroAwake(d.id) ? 'awake' : 'star'); render(); detail(d.id); toast('升星成功'); },
+    deploy: d => { const i = Save.data.team.indexOf(null); if (i < 0) return detail(d.id, true); teamSet(i, d.id); Sfx.play('swap'); render(); detail(d.id); },
     undeploy: d => { const e = teamRemove(d.id); if (e) return toast(e); render(); detail(d.id); },
-    replace: d => { teamSet(Number(d.i), d.id); render(); detail(d.id); },
+    replace: d => { teamSet(Number(d.i), d.id); Sfx.play('swap'); render(); detail(d.id); },
 
     draw: d => {
       const n = Number(d.n), res = gachaDraw(n);
       if (!res) { closeModal(); render(); return toast('招募令不足，可用金币兑换或观看广告'); }
       render(); showPulls(res);
-      Sfx.play(res.some(r => (r.wid ? WEAPON_MAP[r.wid] : HERO_MAP[r.id]).q >= 4) ? 'rare' : 'pull');
+      const topQ = Math.max.apply(null, res.map(r => (r.wid ? WEAPON_MAP[r.wid] : HERO_MAP[r.id]).q));   // 这一抽里最好的品质决定响哪一声
+      if (n >= 10) Sfx.play('draw10');
+      Sfx.play(topQ >= 7 ? 'myth_holy' : topQ === 6 ? 'myth_dark' : topQ === 5 ? 'pull5' : topQ === 4 ? 'rare' : topQ === 3 ? 'pull3' : 'pull');
       if (res.some(r => r.wid)) tip('arms2', '抽到了<b>兵器</b>：去<b>「兵器」</b>页装给武将。重复的兵器会自动熔成精铁，拿去强化好兵器', 9000);
       tip('gacha1', '抽到的武将在<b>「武将」</b>页上阵。同阵营、有缘分的武将一起上阵有加成，点<b>羁绊一览</b>可以看全部组合', 9000);
     },
     buy: d => {
       const n = d.n === 'all' ? Math.floor(Save.data.coins / CFG.TICKET_PRICE) : Number(d.n);
       const e = buyTickets(n); if (e) return toast(e);
-      render(); toast('兑换成功：招募令 +' + n);
+      Sfx.play('coin'); render(); toast('兑换成功：招募令 +' + n);
     },
     ad: () => {
       if (adLeft() <= 0) return toast('今日广告次数已用完，明天再来');
@@ -657,7 +659,7 @@ const UI = (function () {
   function init() {
     $('#app').addEventListener('click', e => {
       const t = e.target.closest('[data-act]');
-      if (t) { if (!t.disabled && ACT[t.dataset.act]) { if (t.dataset.act !== 'ult' && t.dataset.act !== 'tipClose') Sfx.play('click'); ACT[t.dataset.act](t.dataset, t); } return; }
+      if (t) { if (!t.disabled && ACT[t.dataset.act]) { if (t.dataset.act !== 'ult' && t.dataset.act !== 'tipClose') Sfx.play(t.dataset.act === 'nav' || t.dataset.act === 'htab' ? 'tab' : 'click'); ACT[t.dataset.act](t.dataset, t); } return; }
       if (e.target.id === 'modal' && closable) ACT.close();
     });
     show('home');
