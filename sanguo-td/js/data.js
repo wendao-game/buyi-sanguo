@@ -182,7 +182,7 @@ const HEROES = [
   H('chengyuanzhi',  '程远志',     1, 'qun', 'blade',   '黄巾聚义', '黄巾渠帅'),
   // —— 蓝 ——
   H('fazheng',       '法正',      2, 'shu', 'poison',  '睚眦毒计', '蜀汉谋主'),
-  H('caiwenji',      '蔡文姬',     2, 'qun', 'ice',     '悲歌凝霜', '胡笳才女'),
+  H('caiwenji',      '蔡文姬',     2, 'qun', 'ice',     '胡笳十八拍', '胡笳才女'),
   H('liru',          '李儒',      2, 'qun', 'poison',  '鸩毒', '魔王之智'),
   H('guanping',      '关平',      2, 'shu', 'blade',   '承父志', '少年将军'),
   H('caohong',       '曹洪',      2, 'wei', 'arrow',   '疾射', '宗族悍将'),
