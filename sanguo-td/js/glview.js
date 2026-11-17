@@ -183,17 +183,21 @@ const GLView = (function () {
     const moving = e.frozen <= 0 && e.y < e.stopY;
     const bob = moving ? -Math.abs(Math.sin(e.walk)) * 2.4 : (e.frozen > 0 ? 0 : Math.sin(t * 9 + e.ph) * 1.2);
     ell(La, e.x, e.y + d.r * 0.95 * ds, d.r * 1.05 * ds, d.r * 0.4 * ds, 0x000000, 0.35);
-    const lunge = e.atkT > 0 ? Math.sin((1 - e.atkT / 0.24) * Math.PI) * 8 * ds : 0;   // 攻城：往城墙扑一下
+    const pz = e.pz, psc = pz ? pz.sc : 1;                                                // 敌将的出手姿势（battle.js 的 bossPz）
+    const lunge = pz ? pz.dy * ds : e.atkT > 0 ? Math.sin((1 - e.atkT / 0.24) * Math.PI) * 8 * ds : 0;   // 攻城：往城墙扑一下
     const hitK = Math.max(0, Math.min(1, e.flash * 10));                                  // 挨打的一瞬间：压扁一下、往后（远离城墙）顿一下
-    const k = s * q.k, fx = e.x, fy = e.y + bob + lunge + 12.4 * s - hitK * 2.5 * ds, w = q.w * k * (1 + hitK * 0.07), h = q.h * k * (1 - hitK * 0.08), ax = -q.x / q.w, ay = (12.4 - q.y) / q.h;
+    const k = s * q.k, fx = e.x, fy = e.y + bob + lunge + 12.4 * s - hitK * 2.5 * ds, w = q.w * k * psc * (1 + hitK * 0.07), h = q.h * k * psc * (1 - hitK * 0.08), ax = -q.x / q.w, ay = (12.4 - q.y) / q.h;
     if (e.mythQ) mythAura(e.x, e.y + d.r * 0.9 * ds, e.mythQ, t, e.ph, d.r / 22 * ds, { im: q.im, x: fx, y: fy, w, h, ax, ay, flip: e.flip });   // 神魔当敌将：和城楼上一样的光效，更大
     else if (e.aura) { img(La, 'el_hit_wind', e.x, e.y - d.r * 0.9, d.r * 4.8 * (1 + Math.sin(t * 2.4) * 0.06), 0, t * 0.8, 0.7, e.aura); light(e.x, e.y - 10, d.r * 4, col(e.aura), 0.5); }   // 神兽：身上一团带颜色的气焰
     if (e.demon) img(La, 'el_hit_dark', e.x, e.y - d.r * 0.9, d.r * 4.6 * (1 + Math.sin(t * 2.4) * 0.06), 0, t * 0.7, 0.75);   // 心魔：身后一团翻涌的黑紫气焰
     const sh = sp(La, tex, fx, fy, w, h * 0.9014, { ax, ay, tint: 0x000000, a: 0.24, flip: e.flip });   // 斜投影：压扁、倒向右下
     sh.scale.y = -sh.scale.y; sh.skew.x = 1.2315; sh._sk = true;
-    const rot = moving ? Math.sin(e.walk) * 0.05 : lunge * 0.018 * (e.flip ? -1 : 1);
+    const rot = pz ? (moving ? Math.sin(e.walk) * 0.05 : 0) + pz.rot : moving ? Math.sin(e.walk) * 0.05 : lunge * 0.018 * (e.flip ? -1 : 1);
+    if (e.enraged) { img(La, 'flame', e.x, e.y - d.r * 1.3 * ds, d.r * 3.4 * ds, d.r * 4.6 * ds, 0, 0.5 + Math.sin(t * 14 + e.ph) * 0.1, '255,90,60'); light(e.x, e.y - 10, d.r * 3.4, 0xff5a3c, 0.45); }   // 暴怒：身后一团红焰
+    if (pz && pz.glow > 0.02) { glow(La, e.x, e.y - d.r * ds, d.r * 3.2 * ds * (0.6 + pz.glow * 0.4), col(pz.rgb), 0.4 * pz.glow); light(e.x, e.y - 10, d.r * 4, col(pz.rgb), 0.6 * pz.glow); }   // 蓄力：身后亮起来
     sp(La, tex, fx, fy, w, h, { ax, ay, rot, flip: e.flip, tint: e.frozen > 0 ? 0x8fd0ff : e.psn > 0 ? 0xb4f08c : e.demon ? 0x8a66d6 : e.slow > 0 ? 0xcfe4ff : 0xffffff });   // 心魔整个人染成黑紫
     if (e.flash > 0) sp(La, tex, fx, fy, w, h, { ax, ay, rot, flip: e.flip, a: Math.min(1, e.flash * 6) * 0.6, blend: ADD });
+    if (pz && pz.glow > 0.02) sp(La, T(Art.spriteTint(q.im, '255,255,255')), fx, fy, w, h, { ax, ay, rot, flip: e.flip, a: pz.glow * 0.3, tint: col(pz.rgb), blend: ADD });   // 蓄力：整个人罩一层这一招的颜色
     if (e.burn > 0) img(La, 'flame', e.x, e.y - d.r * 0.8, d.r * 1.1, d.r * 1.9, 0, 0.35 + Math.sin(t * 18 + e.ph) * 0.1);
     // 状态
     const top = e.y - d.r * 2.5 * ds - ((d.id === 'boss' || d.id === 'rare') ? 30 : 12);
@@ -214,6 +218,7 @@ const GLView = (function () {
     const p = 1 - g.life / g.max, d = g.def, ds = Art.depth(g.y), s = d.r / 13 * ds, q = Art.enemySprite(g), tex = T(q.im), k = s * q.k, e2 = p * p;
     const o = { ax: -q.x / q.w, ay: (12.4 - q.y) / q.h, flip: g.flip, a: 1 - e2 };
     let x = g.x, y = g.y + 12.4 * s, w = q.w * k, h = q.h * k, glowC = 0xffffff, add = (1 - p) * 0.6;
+    if (g.after) { sp(La, T(Art.spriteTint(q.im, '255,255,255')), x, y, w, h, { ax: o.ax, ay: o.ay, flip: g.flip, a: (1 - p) * 0.5, tint: col(g.rgb), blend: ADD }); return; }   // 冲锋拖的残影：站着不动，淡掉
     switch (g.el) {
       case 'fire':    o.tint = lerpC(0xffb070, 0x2a1a12, Math.min(1, p * 1.5)); h *= 1 - e2 * 0.55; w *= 1 - e2 * 0.2; glowC = 0xff8030; break;   // 烧黑、缩成一堆灰
       case 'ice':     o.tint = 0xbfe6ff; o.a = p < 0.3 ? 1 : (1 - p) * 1.2; w *= 1 + p * 0.1; glowC = 0xcfefff; add = p < 0.3 ? 0.8 : 0; break;      // 冻成冰雕，然后碎掉
@@ -312,6 +317,10 @@ const GLView = (function () {
         sp(Lf, TX.gradV, s.x, s.y, 16, 90, { ax: 0.5, ay: 0, rot: Math.atan2(-ay, -ax) - Math.PI / 2, tint: col(s.rgb), a: 0.7 });
         if (!img(Lf, s.orb, s.x, s.y, 58, 0, t * 7, 1, s.rgb)) glow(Lf, s.x, s.y, 16, col(s.rgb), 0.8);
         light(s.x, s.y, 70, col(s.rgb), 0.7); return;
+      }
+      if (s.wave) {                                         // 敌将劈出来的刀气：一弯月牙朝武将飞过去
+        sp(Lf, TX.gradV, s.x, s.y, 30, 80, { ax: 0.5, ay: 0, rot: Math.atan2(-ay, -ax) - Math.PI / 2, tint: col(s.rgb), a: 0.55 });
+        img(Lf, 'slash', s.x, s.y, 82, 0, Math.atan2(ay, ax) + Math.PI / 2, 1, s.rgb); light(s.x, s.y, 70, col(s.rgb), 0.6); return;
       }
       if (s.knife) { line(La, s.x - ax * 14, s.y - ay * 14, s.x, s.y, 3.4, 0xe8edf2, 1); glow(Lf, s.x, s.y, 9, 0xffffff, 0.5); return; }
       if (s.k === 'earrow' && s.big) { line(La, s.x - ax * 18, s.y - ay * 18, s.x, s.y, 2.8, 0x2a1d14, 1); sp(Lf, TX.gradV, s.x, s.y, 5, 44, { ax: 0.5, ay: 0, rot: Math.atan2(-ay, -ax) - Math.PI / 2, tint: 0xff8a5a, a: 0.7 }); return; }   // 敌将射向武将的箭：粗一些、拖一道红尾

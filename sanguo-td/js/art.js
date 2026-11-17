@@ -399,8 +399,11 @@ const Art = (function () {
     c.fillStyle = 'rgba(0,0,0,.35)'; ell(c, 0, d.r * 0.95 * ds, d.r * 1.05 * ds, d.r * 0.4 * ds);
     const moving = e.frozen <= 0 && e.y < e.stopY;
     c.translate(0, moving ? -Math.abs(Math.sin(e.walk)) * 2.4 : (e.frozen > 0 ? 0 : Math.sin(t * 9 + e.ph) * 1.2));
+    const pz = e.pz;                                          // 敌将的出手姿势（battle.js 的 bossPz）
+    if (pz) c.translate(0, pz.dy * ds);
     c.scale(s, s);
     if (sp.k !== 1) { c.translate(0, 12); c.scale(sp.k, sp.k); c.translate(0, -12); }
+    if (pz) { c.translate(0, 12.4); c.scale(pz.sc, pz.sc); c.rotate(pz.rot); c.translate(0, -12.4); }
     if (moving) c.rotate(Math.sin(e.walk) * 0.05);            // 走路时左右晃
     castShadow(c, sp.im, sp.x, sp.y, sp.w, sp.h, 12.4, 0.26);
     if (e.flip) c.scale(-1, 1);
@@ -411,6 +414,7 @@ const Art = (function () {
       c.drawImage(sp.im, sp.x, sp.y, sp.w, sp.h);
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     }
+    if (pz && pz.glow > 0.02) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = pz.glow * 0.32; c.drawImage(spriteTint(sp.im, pz.rgb), sp.x, sp.y, sp.w, sp.h); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; }   // 蓄力：罩一层这一招的颜色
     if (e.frozen > 0) { c.globalAlpha = 0.7; c.drawImage(spriteTint(sp.im, '150,215,255'), sp.x, sp.y, sp.w, sp.h); }
     else if (e.psn > 0) { c.globalAlpha = 0.35; c.drawImage(spriteTint(sp.im, '120,230,70'), sp.x, sp.y, sp.w, sp.h); }
     else if (e.slow > 0) { c.globalAlpha = 0.3; c.drawImage(spriteTint(sp.im, '150,215,255'), sp.x, sp.y, sp.w, sp.h); }
@@ -421,6 +425,10 @@ const Art = (function () {
   /* 阵亡：原地发白、往上飘着淡出（p 0→1） */
   function enemyGhost(c, g, p) {
     const d = g.def, ds = depth(g.y), s = d.r / 13 * ds, sp = enemySprite(g);
+    if (g.after) {                                            // 冲锋拖的残影
+      c.save(); c.translate(g.x, g.y); c.scale(s, s); if (sp.k !== 1) { c.translate(0, 12); c.scale(sp.k, sp.k); c.translate(0, -12); } if (g.flip) c.scale(-1, 1);
+      c.globalCompositeOperation = 'lighter'; c.globalAlpha = (1 - p) * 0.45; c.drawImage(spriteTint(sp.im, g.rgb), sp.x, sp.y, sp.w, sp.h); c.restore(); return;
+    }
     c.save(); c.translate(g.x, g.y - p * 12 * ds); c.scale(s * (1 + p * 0.12), s * (1 - p * 0.2));
     if (sp.k !== 1) { c.translate(0, 12); c.scale(sp.k, sp.k); c.translate(0, -12); }
     if (g.flip) c.scale(-1, 1);
