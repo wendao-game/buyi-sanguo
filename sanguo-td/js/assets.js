@@ -54,7 +54,7 @@ const Assets = (function () {
    * 没下完的在后台接着下，到了以后界面会自动换上（onLate） */
   function load(onProgress) {
     const rank = f => f.indexOf('bg/') === 0 ? 0 : f.indexOf('ui/') === 0 ? 1 : f.indexOf('fx/') === 0 ? 2 : f.indexOf('enemies/') === 0 ? 3 : /_head\./.test(f) ? 4 : f.indexOf('heroes/') === 0 ? 5 : 6;
-    const list = (Array.isArray(window.ASSET_LIST) ? window.ASSET_LIST : []).slice().sort((a, b) => rank(a) - rank(b));
+    const list = (Array.isArray(window.ASSET_LIST) ? window.ASSET_LIST : []).filter(f => f.indexOf('sfx/') !== 0).sort((a, b) => rank(a) - rank(b));   // sfx/ 里是音频，归 sfx.js 管
     total = list.length;
     let next = 0, done = 0;
     const all = new Promise(resolve => {
