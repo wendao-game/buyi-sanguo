@@ -1147,6 +1147,123 @@ const SKILLS = (function () {
         } },
     },
 
+    /* ======================= 辅助武将（v2.9）：九个人九种帮法，伤害都不高 ======================= */
+    lusu: {
+      passive: { name: '联盟', desc: '阵中每多一个不同的阵营，全体武将受到的伤害 -4%',
+        aura(ctx) { const f = new Set(); ctx.heroes.forEach(x => f.add(x.def.fac)); ctx.S.buffs.heroHurt = (ctx.S.buffs.heroHurt || 1) * (1 - 0.04 * Math.max(0, f.size - 1)); } },
+      ult: { desc: '缔盟：10 秒内（觉醒 14 秒）全军打出的伤害有 5% 补回城防（一次最多补城防上限的 16%），全体武将每秒回 2% 生命；江风从城下刮起，离城最近的 12 个敌人 ×3 并被吹退',
+        cast(B, h, a, k) {
+          const t = k > 1 ? 14 : 10;
+          B.leech(t, 0.05, 0.16);
+          for (let i = 1; i <= t; i++) B.later(i, () => B.heroes().forEach(x => { if (!x.dead) x.hp = Math.min(x.maxHp, x.hp + Math.round(x.maxHp * 0.02)); }));
+          B.flash('130,230,210', 0.16, 0.5);
+          B.tex('circle', B.W / 2, B.WY + 60, { w: 520, h: 150, spin: 0.6, life: t, a: 0.45, fadeIn: 0.2, rgb: '130,230,210' });   // 城楼上一圈盟约的光
+          const L = B.heroes().filter(x => !x.dead);
+          for (let i = 0; i + 1 < L.length; i++) B.bolt(L[i].x, L[i].y - 30, L[i + 1].x, L[i + 1].y - 30, 1.2);                  // 武将之间连成一线
+          for (let i = 0; i < 4; i++) B.tex('el_hit_wind', 90 + i * 120, B.WY - 110 - (i % 2) * 30, { w: 130, life: 0.7, grow: 1.4, spin: 2, a: 0.45, rgb: '150,235,215' });
+          B.lives().sort((x, y) => y.y - x.y).slice(0, 12).forEach(e => { B.hit(e, a * 3, 'wind', h); B.push(e, 44); });
+        } },
+    },
+    simahui: {
+      passive: { name: '好好先生', desc: '全军大招伤害 +6%；诸葛亮或庞统在阵时再 +6%',
+        aura(ctx) { ctx.S.buffs.ult += ctx.has('zhugeliang') || ctx.has('pangtong') ? 0.12 : 0.06; } },
+      ult: { desc: '水镜荐贤：举荐攻击最高的另一名武将——10 秒内（觉醒 14 秒）他的攻击 +50%，并立刻得到 30 点怒气（台上没有别人时举荐自己）；一阵清风卷过敌人最密的地方 ×3，把他们卷退',
+        cast(B, h, a, k) {
+          const t2 = B.heroes().filter(x => x !== h && !x.dead).sort((x, y) => y.atk / (y.boostK || 1) - x.atk / (x.boostK || 1))[0] || h;
+          B.boost(t2, k > 1 ? 14 : 10, 1.5); B.rage(t2, 30);
+          if (t2 !== h) B.bolt(h.x, h.y - 40, t2.x, t2.y - 40, 1.6);
+          B.text(t2.x, t2.y - 96, '荐贤 · ' + t2.def.name, '#ffe08a', 18, 1.6);
+          const p = B.at(110); if (!p) return;
+          B.tex('whirl', p.x, p.y, { w: 300, h: 190, life: 0.8, spin: 5, a: 0.8, rgb: '190,255,235' });
+          B.area(p.x, p.y, 125, e => { B.hit(e, a * 3, 'wind', h); B.push(e, 50); });
+        } },
+    },
+    xunyou: {
+      passive: { name: '十二奇策', desc: '怒气获取 +10%；荀彧在阵时全军怒气获取再 +5%', mod: { rage: 0.1 }, aura(ctx) { if (ctx.has('xunyu')) ctx.S.buffs.rage *= 1.05; } },
+      ult: { desc: '奇策连环：10 秒内（觉醒 14 秒）其他武将放完大招，怒气留下 35 点；十二道落雷劈向场上最壮的十二个敌人，每道 ×2.2 并麻痹 0.6 秒',
+        cast(B, h, a, k) {
+          B.refund(k > 1 ? 14 : 10, 35, h);
+          B.heroes().forEach(x => { if (x !== h && !x.dead) B.tex('seven_stars', x.x, x.y - 70, { w: 70, life: 1.4, fadeIn: 0.15, a: 0.85, rgb: '200,180,255' }); });   // 每人头顶亮起一道策
+          B.flash('170,140,255', 0.14, 0.4);
+          B.strongest(12).forEach((e, i) => B.later(i * 0.06, () => { if (e.dead) return; B.bolt(e.x + 24, e.y - 260, e.x, e.y - 6, 1.6); B.hit(e, a * 2.2, 'thunder', h); B.stun(e, 0.6); }));
+        } },
+    },
+    xusheng: {
+      passive: { name: '江表之虎', desc: '城防上限 +8%', aura(ctx) { ctx.S.wallBonus += 0.08; } },
+      ult: { desc: '疑城：一夜之间沿城立起一道假城墙，12 秒内替城墙吸收相当于城防上限 18% 的伤害（觉醒 27%）；假城后面乱箭齐发，离城最近的 14 个敌人各中一箭 ×3 并减速 2 秒',
+        cast(B, h, a, k) {
+          B.wallShield(12, k > 1 ? 0.27 : 0.18);
+          for (let i = 0; i < 9; i++) B.tex('icespike', 46 + i * 56, B.WY - 4, { w: 50, h: 70, ay: 1, life: 12, fadeIn: 0.12, a: 0.9, rgb: '215,190,130' });      // 一排芦苇扎的假城垛
+          B.tex('circle', B.W / 2, B.WY - 10, { w: 560, h: 70, spin: 0.4, life: 12, a: 0.35, fadeIn: 0.2, rgb: '230,205,140' });
+          B.text(B.W / 2, B.WY - 96, '疑城', '#f0dca0', 26, 1.4);
+          B.lives().sort((x, y) => y.y - x.y).slice(0, 14).forEach((e, i) => B.later(i * 0.04, () => { if (!e.dead) B.rain(h, e.x, e.y, a * 3, 2); }));
+        } },
+    },
+    xinxianying: {
+      passive: { name: '明鉴', desc: '怒气获取 +10%；自己不会被眩晕、定身', noStun: true, mod: { rage: 0.1 } },
+      ult: { desc: '料事如神：识破敌将接下来的 1 招（觉醒 2 招），让他放不出来；8 秒内全体武将不吃眩晕、定身、中毒，并各回 12% 生命；寒气罩住校尉和敌将 ×5、冻住 1.2 秒，其余敌人 ×1.2 并减速 3 秒',
+        cast(B, h, a, k) {
+          B.block(k > 1 ? 2 : 1); B.ward(8);
+          B.heroes().forEach(x => B.heroHp(x, 0.12));
+          B.flash('160,230,255', 0.16, 0.5);
+          B.tex('blood_eye', B.W / 2, 250, { w: 300, life: 1.1, fadeIn: 0.15, grow: 1.15, a: 0.8, rgb: '170,235,255' });       // 一只看穿战场的眼
+          B.lives().forEach(e => {
+            if (B.isBig(e)) { B.hit(e, a * 5, 'ice', h); B.stun(e, 1.2); B.tex('snowflake', e.x, e.y - 20, { w: 150, life: 0.8, grow: 1.4, spin: 1, rgb: '190,235,255' }); }
+            else { B.hit(e, a * 1.2, 'ice', h); B.slow(e, 3); }
+          });
+        } },
+    },
+    wuguotai: {
+      passive: { name: '慈训', desc: '全体武将每 4 秒回复 1.5% 生命', aura(ctx) { ctx.S.regenK += 0.015; } },
+      ult: { desc: '甘露寺：血最少的武将回复一半生命，5 秒内不受伤害（觉醒两名武将）；其余武将回复 10%；香风拂过城下，离城最近的 12 个敌人 ×3 并被吹退',
+        cast(B, h, a, k) {
+          const L = B.heroes().filter(x => !x.dead).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp), n = k > 1 ? 2 : 1;
+          L.forEach((x, i) => { if (i < n) { B.heroHp(x, 0.5); B.immune(x, 5); B.tex('pillar', x.x, x.y + 34, { w: 84, h: 300, ay: 1, life: 0.9, fadeIn: 0.1, a: 0.7, rgb: '255,235,170' }); } else B.heroHp(x, 0.1); });
+          B.flash('255,235,180', 0.14, 0.4);
+          for (let i = 0; i < 5; i++) B.tex('moon', 70 + i * 100, B.WY - 100 - (i % 2) * 40, { w: 120, life: 0.9, grow: 1.3, spin: 1.5, a: 0.6, rgb: '255,220,235' });   // 一阵带着花瓣的香风
+          B.lives().sort((x, y) => y.y - x.y).slice(0, 12).forEach(e => { B.hit(e, a * 3, 'wind', h); B.push(e, 40); });
+        } },
+    },
+    zhangsong: {
+      passive: { name: '过目不忘', desc: '法正在阵时全军毒系伤害 +12%，否则自身攻击 +8%',
+        aura(ctx) { if (ctx.has('fazheng')) ctx.S.buffs.el.poison = (ctx.S.buffs.el.poison || 1) * 1.12; else ctx.self.atk *= 1.08; } },
+      ult: { desc: '献西川图：把敌阵的虚实画给全军看——10 秒内（觉醒 14 秒）全军暴击率 +15%、暴击伤害 +30%；图上圈出来的那一片敌人 ×2、中毒 4 秒，6 秒内受到的伤害 +20%',
+        cast(B, h, a, k) {
+          B.critUp(k > 1 ? 14 : 10, 0.15, 0.3);
+          B.heroes().forEach(x => { if (!x.dead) B.tex('circle', x.x, x.y + 29, { w: 96, h: 38, spin: 3, life: k > 1 ? 14 : 10, a: 0.6, fadeIn: 0.1, rgb: '255,150,120' }); });
+          const p = B.at(120); if (!p) return;
+          B.tex('circle', p.x, p.y, { w: 270, h: 190, life: 1.2, spin: -1.2, fadeIn: 0.1, a: 0.9, rgb: '170,240,110' });                 // 图上圈出来的地方
+          B.tex('ring', p.x, p.y, { w: 120, h: 84, life: 0.6, grow: 2.3, rgb: '200,255,140' });
+          B.pool(h, p.x, p.y, 110, 4, a * 0.5, 'poison');
+          B.area(p.x, p.y, 125, e => { B.hit(e, a * 2, 'poison', h); B.vuln(e, 6, 0.2); B.mark(e, 6); });
+        } },
+    },
+    feiyi: {
+      passive: { name: '识悟过人', desc: '全军出手速度 +4%', aura(ctx) { ctx.S.buffs.spd += 0.04; } },
+      ult: { desc: '和衷共济：全体武将把血量匀成一样多，再各回 18%（觉醒 27%），眩晕、中毒一并解掉；一轮齐射落在离城最近的十个敌人身上，每支箭 ×1.8 并减速 2 秒',
+        cast(B, h, a, k) {
+          B.heroes().forEach(x => { if (!x.dead) { x.stunT = 0; x.psnT = 0; } });
+          B.evenHp(k > 1 ? 0.27 : 0.18);
+          const L = B.heroes().filter(x => !x.dead);
+          for (let i = 0; i + 1 < L.length; i++) B.bolt(L[i].x, L[i].y - 20, L[i + 1].x, L[i + 1].y - 20, 1);
+          B.flash('150,255,170', 0.12, 0.4);
+          B.lives().sort((x, y) => y.y - x.y).slice(0, 10).forEach((e, i) => B.later(i * 0.05, () => { if (!e.dead) B.rain(h, e.x, e.y, a * 1.8, 2); }));
+        } },
+    },
+    chenlin: {
+      passive: { name: '笔锋如刀', desc: '对校尉、敌将的伤害 +15%', dmg(B, h, e) { return B.isBig(e) ? 1.15 : 1; } },
+      ult: { desc: '讨贼檄文：一纸檄文念得敌将头风发作——他的招式全部推迟 5 秒（觉醒 7 秒），正在蓄力的也被打断；全场敌人身上的狂奔、盾阵、护体一并驱散；檄文化成火雨落下，校尉和敌将 ×5 且 6 秒内受到的伤害 +20%，其余敌人 ×1.4',
+        cast(B, h, a, k) {
+          B.silence(k > 1 ? 7 : 5);
+          B.flash('255,150,80', 0.16, 0.4);
+          B.text(B.W / 2, 230, '讨贼檄文', '#ffb070', 28, 1.5);
+          B.lives().forEach((e, i) => {
+            if (B.isBig(e)) { B.tex('pillar', e.x, e.y + 20, { w: 110, h: 420, ay: 1, life: 0.7, fadeIn: 0.05, rgb: '255,140,70' }); B.tex('el_hit_fire', e.x, e.y - 20, { w: 170, life: 0.5, grow: 1.5 }); B.hit(e, a * 5, 'fire', h); B.vuln(e, 6, 0.2); }
+            else { if (i % 3 === 0) B.tex('el_hit_fire', e.x, e.y - 8, { w: 70, life: 0.35, grow: 1.4, force: false }); B.hit(e, a * 1.4, 'fire', h); }
+          });
+        } },
+    },
+
     /* ======================= 神魔（v2.5）：魔是黑、神是彩，在无尽关击败后进卡池。v2.6 起每人一套专属大招特效 ======================= */
     god_lvbu: {
       passive: { name: '魔神降世', desc: '攻击 +15%；每放倒一个敌人，这一局里自己的攻击再 +1%（最多 +30%）', mod: { atk: 0.15 },

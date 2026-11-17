@@ -266,6 +266,16 @@ const HEROES = [
   H('sunjian',       '孙坚',      4, 'wu',  'fire',    '传国玉玺', '江东猛虎'),
   H('yuanshao',      '袁绍',      4, 'qun', 'arrow',   '号令群雄', '四世三公'),
   H('caoren',        '曹仁',      4, 'wei', 'ice',     '铜墙铁壁', '天人将军'),
+  // ---- v2.9：九名辅助武将 ----
+  H('chenlin',       '陈琳',      1, 'qun', 'fire',    '讨贼檄文', '建安七子'),
+  H('wuguotai',      '吴国太',     2, 'wu',  'wind',    '甘露寺', '江东国母'),
+  H('zhangsong',     '张松',      2, 'shu', 'poison',  '献西川图', '益州别驾'),
+  H('feiyi',         '费祎',      2, 'shu', 'arrow',   '和衷共济', '蜀汉四相'),
+  H('xunyou',        '荀攸',      3, 'wei', 'thunder', '奇策连环', '谋主'),
+  H('xusheng',       '徐盛',      3, 'wu',  'arrow',   '疑城', '江表虎臣'),
+  H('xinxianying',   '辛宪英',     3, 'wei', 'ice',     '料事如神', '魏国才女'),
+  H('lusu',          '鲁肃',      4, 'wu',  'wind',    '缔盟', '江东长者'),
+  H('simahui',       '司马徽',     4, 'qun', 'wind',    '水镜荐贤', '水镜先生'),
   // —— 黑 / 彩：魔将是黑、神将是彩。rate 为 0，平时抽不到；在无尽关的高层击败之后进卡池 ——
   H('god_lvbu',   '魔·吕布',   6, 'qun', 'thunder', '神鬼无前', '魔将', { myth: 10 }),   // myth：在无尽第几层登场；击败后才进卡池（和橙将共用橙品的概率，没有保底）
   H('god_caocao', '魔·曹操',   6, 'wei', 'poison',  '天下归心', '魔将', { myth: 20 }),
@@ -394,7 +404,7 @@ const CHAPTERS = [
   { name: '黄巾之乱', boss: '程远志', hero: 'chengyuanzhi', skills: [SK('黄巾聚义', 9, 'summon', { type: 'grunt', n: 4 }, '每 9 秒喊来 4 个黄巾兵'), SK('砍刀', 10, 'smash', { dmg: 0.12, stun: 0.6 }, '每 10 秒一刀劈向一名武将，打晕 0.6 秒')], mid: [
     { id: 'dengmao',    name: '邓茂', body: '#8a5a2a', hat: '#e2b53a', skills: [SK('乱刀', 8, 'smash', { dmg: 0.22, stun: 1 }, '每 8 秒砍伤一名武将，把他打晕 1 秒')] },
     { id: 'zhangliang', name: '张梁', body: '#b89a3a', hat: '#f2d24a', skills: [SK('人公妖法', 9, 'heal', { frac: 0.12, r: 240 }, '每 9 秒给身边的敌人回一成多血')] },
-    { id: 'bocai',      name: '波才', body: '#a8452a', hat: '#e2b53a', skills: [SK('火攻', 10, 'burnwall', { t: 4, dps: 0.7 }, '每 10 秒点着城墙，烧 4 秒')] },
+    { id: 'bocai',      name: '波才', body: '#a8452a', hat: '#e2b53a', skills: [SK('火攻', 10, 'burnwall', { t: 4, dps: 0.6 }, '每 10 秒点着城墙，烧 4 秒')] },
   ] },
   { name: '讨伐董卓', boss: '董卓', hero: 'dongzhuo', skills: [SK('暴虐', 11, 'haste', { t: 3.5 }, '每 11 秒一声怒喝，全场敌人 3.5 秒内走得更快、砍得更勤'), SK('火烧', 11, 'rain', { dmg: 0.08, fx: 'fire' }, '每 11 秒一阵火雨落在城楼上，所有武将都挨一下')], mid: [
     { id: 'lijue',    name: '李傕', body: '#4a4e5a', hat: '#8a2a2a', skills: [SK('飞熊军', 10, 'summon', { type: 'shield', n: 3 }, '每 10 秒召来 3 个刀盾兵')] },
@@ -402,7 +412,7 @@ const CHAPTERS = [
     { id: 'huaxiong', name: '华雄', hero: 'huaxiong', body: '#6a3a2a', hat: '#c8a04a', skills: [SK('骁勇', 0, 'enrage', {}, '血量掉到一半时暴怒：攻击、速度大涨，4 秒内不吃控制')] },
   ] },
   { name: '群雄割据', boss: '颜良', hero: 'yanliang', skills: [SK('突阵', 9, 'charge', {}, '每 9 秒策马猛冲一段，冲锋时不吃减速和击退'), SK('斩将', 10, 'smash', { dmg: 0.26, stun: 1.2 }, '每 10 秒一刀斩向一名武将，打晕 1.2 秒')], mid: [
-    { id: 'jiling',   name: '纪灵', body: '#7a6a2a', hat: '#d8b04a', skills: [SK('三尖刀', 9, 'smash', { dmg: 0.3, stun: 1.5 }, '每 9 秒重劈一名武将，打晕 1.5 秒')] },
+    { id: 'jiling',   name: '纪灵', body: '#7a6a2a', hat: '#d8b04a', skills: [SK('三尖刀', 9, 'smash', { dmg: 0.25, stun: 1.5 }, '每 9 秒重劈一名武将，打晕 1.5 秒')] },
     { id: 'yuanshu',  name: '袁术', body: '#8a6a9a', hat: '#e8c04a', skills: [SK('僭号', 11, 'shield', { r: 999, t: 3 }, '每 11 秒全场敌人架起盾，3 秒内受到的伤害减半')] },
     { id: 'zhangxiu', name: '张绣', body: '#5a6a7a', hat: '#c23b3b', skills: [SK('北地枪王', 8, 'charge', {}, '每 8 秒策马猛冲一段'), SK('回马枪', 12, 'shoot', { n: 1, dmg: 0.22 }, '每 12 秒回身刺伤一名武将')] },
   ] },
@@ -504,7 +514,7 @@ function stagePower(stage) {
 }
 /* 敌人血量 ÷ 战力预算：模拟器校准出来的系数（第 1 … 80 关取 12 个点），中间按对数插值。
  * 重新校准：node tools/sim/calibrate.js，把输出的这一行贴回来 */
-const HP_PER_POWER = [[1, 0.0060], [10, 0.0050], [20, 0.0046], [30, 0.0040], [40, 0.0042], [50, 0.0040], [60, 0.0039], [70, 0.0041], [80, 0.0041]];   // v2.0 加了每章三个新敌将、武将血量之后重新校准，目标：战力达标时挂机胜率七成半
+const HP_PER_POWER = [[1, 0.0060], [10, 0.0048], [20, 0.0046], [25, 0.0047], [30, 0.0042], [40, 0.0044], [50, 0.0039], [60, 0.0038], [70, 0.0040], [80, 0.0042]];   // v2.9 加了 9 名辅助武将后重新校准（多了第 25 关这一档：第 3 章中段原来几乎必胜）；目标：战力达标时挂机胜率七成半
 function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];
@@ -580,13 +590,13 @@ const COMBOS = [
   { name: '荆襄名士', ids: ['zhugeliang', 'xushu'], need: 2, desc: '风系伤害 +35%', eff: { el: { wind: 0.35 } } },
   { name: '赤壁之盟', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +15%、怒气获取 +8%', eff: { ult: 0.15, rage: 0.08 } },
   { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +28%', eff: { el: { fire: 0.28 } } },
-  { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu', 'huanggai', 'lingtong', 'jiangqin', 'zhoutai', 'handang', 'panzhang', 'dingfeng'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
+  { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu', 'huanggai', 'lingtong', 'jiangqin', 'zhoutai', 'handang', 'panzhang', 'dingfeng', 'xusheng'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
   { name: '魏之谋主', ids: ['caocao', 'simayi', 'jiaxu', 'guojia'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
   { name: '曹氏宗亲', ids: ['caocao', 'caohong', 'xiahoudun', 'caochun', 'xiahouyuan', 'caoren', 'caozhang'], need: 2, desc: '城防上限 +25%', eff: { wall: 0.25 } },
   { name: '五子良将', ids: ['zhangliao', 'xuhuang', 'yujin', 'yuejin', 'zhanghe'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
   { name: '并州旧部', ids: ['lvbu', 'zhangliao', 'gaoshun'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
   { name: '西凉董营', ids: ['huaxiong', 'liru', 'lvbu', 'jiaxu', 'dongzhuo'], need: 2, desc: '毒、风系伤害 +30%', eff: { el: { poison: 0.30, wind: 0.30 } } },
-  { name: '乱世才女', ids: ['caiwenji', 'zhenji'], need: 2, desc: '冰系伤害 +25%、怒气获取 +10%', eff: { el: { ice: 0.25 }, rage: 0.10 } },
+  { name: '乱世才女', ids: ['caiwenji', 'zhenji', 'xinxianying'], need: 2, desc: '冰系伤害 +25%、怒气获取 +10%', eff: { el: { ice: 0.25 }, rage: 0.10 } },
   { name: '天公地公', ids: ['zhangjiao', 'zhangbao', 'panfeng'], need: 2, desc: '雷系伤害 +30%', eff: { el: { thunder: 0.30 } } },
   // —— v1.0 新增 ——
   { name: '桃园结义', ids: ['liubei', 'guanyu', 'zhangfei'], need: 3, desc: '全军攻击 +15%、怒气获取 +15%', eff: { atk: 0.15, rage: 0.15 } },
@@ -673,6 +683,14 @@ const COMBOS = [
   { name: '群英会', ids: ['jianggan', 'zhouyu'], need: 2, desc: '怒气获取 +10%', eff: { rage: 0.10 } },
   { name: '北海名士', ids: ['kongrong', 'taishici', 'miheng'], need: 2, desc: '全军暴击率 +8%', eff: { crit: 0.08 } },
   { name: '击鼓骂曹', ids: ['miheng', 'caocao'], need: 2, desc: '怒气获取 +10%', eff: { rage: 0.10 } },
+  // v2.9 辅助武将的缘分
+  { name: '荀氏叔侄', ids: ['xunyu', 'xunyou'], need: 2, desc: '怒气获取 +12%', eff: { rage: 0.12 } },
+  { name: '水镜门下', ids: ['simahui', 'zhugeliang', 'pangtong', 'xushu'], need: 2, must: 'simahui', desc: '大招伤害 +12%', eff: { ult: 0.12 } },
+  { name: '孙刘联盟', ids: ['lusu', 'zhouyu', 'zhugeliang', 'liubei', 'sunquan'], need: 3, must: 'lusu', desc: '全军攻击 +12%、城防上限 +10%', eff: { atk: 0.12, wall: 0.10 } },
+  { name: '甘露寺',   ids: ['wuguotai', 'sunshangxiang', 'sunquan', 'liubei'], need: 2, must: 'wuguotai', desc: '城防上限 +18%', eff: { wall: 0.18 } },
+  { name: '献图入蜀', ids: ['zhangsong', 'fazheng', 'liubei'], need: 2, must: 'zhangsong', desc: '毒系伤害 +20%、全军暴击率 +5%', eff: { el: { poison: 0.20 }, crit: 0.05 } },
+  { name: '蜀汉贤相', ids: ['feiyi', 'zhugeliang', 'jiangwei', 'liushan'], need: 2, must: 'feiyi', desc: '全军出手速度 +8%', eff: { spd: 0.08 } },
+  { name: '讨曹檄文', ids: ['chenlin', 'yuanshao'], need: 2, desc: '火、弓系伤害 +20%', eff: { el: { fire: 0.20, arrow: 0.20 } } },
 ];
 
 /* 局内三选一军令 */
