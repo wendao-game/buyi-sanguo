@@ -157,7 +157,7 @@ const UI = (function () {
       h += w ? `<div class="wrow" style="--wq:${QUALITIES[w.q].color}" data-act="heroWeapon" data-id="${id}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${weaponOwn(wid).lv}${w.owner === id ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, id))}</div><span class="go">更换 ›</span></div>`
         : `<div class="wrow" data-act="heroWeapon" data-id="${id}"><div class="wi"><b>兵器</b>还没有装备</div><span class="go">选择 ›</span></div>`;
     }
-    else if (!own) h += `<p class="mtext" style="margin-top:14px">尚未获得 · 可通过招募获得</p>`;
+    if (!own) h += `<p class="mtext" style="margin-top:14px">尚未获得 · 可通过招募获得</p>`;   // 这里要另起一个 if：接成 else 的话，上面画了兵器那一行，下面升级、升星、上阵就都不画了
     else if (picking) {
       h += `<p class="mtext" style="margin-top:12px">阵容已满，选择要替换的武将</p><div class="pick">` +
         Save.data.team.map((tid, i) => `<button style="--qc:${qc(tid)}" data-act="replace" data-id="${id}" data-i="${i}"><img src="${P(tid)}">${HERO_MAP[tid].name}</button>`).join('') + `</div>`;

@@ -1362,26 +1362,30 @@ const Battle = (function () {
     }
   }
   /* 神魔身上的光效（2D 画法，和 glview.js 的 mythAura 对应）：魔 = 黑烟 + 紫光，神 = 流转的彩光和头后的光轮 */
-  function mythAura(x, by, q, t, seed, k) {
+  function mythRim(spr, k, rgbAt, a) {                       // 沿着人物轮廓描一圈光（剪影往四周错开几个像素画在身后）
+    c.globalCompositeOperation = 'lighter'; c.globalAlpha = a;
+    for (let i = 0; i < 8; i++) { const g = i * TAU / 8, off = 3.4 * k; c.drawImage(Art.spriteTint(spr.im, rgbAt(i)), spr.x - spr.w * spr.ax + Math.cos(g) * off, spr.y - spr.h * spr.ay + Math.sin(g) * off, spr.w, spr.h); }
+    c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  }
+  function mythAura(x, by, q, t, seed, k, spr) {
     if (q === 6) {
-      c.globalCompositeOperation = 'lighter'; img('demon_flame', x, by - 40 * k, 104 * k, 0, 0, 0.5, '170,70,255'); glow(x, by - 30 * k, 46 * k, '122,40,216', 0.35);
+      c.globalCompositeOperation = 'lighter'; img('demon_flame', x, by - 46 * k, 128 * k, 0, 0, 0.6, '190,90,255'); glow(x, by - 30 * k, 46 * k, '122,40,216', 0.35);
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
-      for (let i = 0; i < 6; i++) { const p = (t * 0.42 + i / 6 + seed * 0.13) % 1, sx = Math.sin(i * 2.4 + t * 1.3 + seed) * 20 * k * (0.5 + p); c.fillStyle = 'rgba(10,3,18,' + ((1 - p) * 0.5).toFixed(2) + ')'; Art.circ(c, x + sx, by - 10 * k - p * 82 * k, (24 - p * 11) * k); }
+      for (let i = 0; i < 9; i++) { const p = (t * 0.42 + i / 9 + seed * 0.13) % 1, sx = Math.sin(i * 2.4 + t * 1.3 + seed) * 20 * k * (0.5 + p); c.fillStyle = 'rgba(10,3,18,' + ((1 - p) * 0.55).toFixed(2) + ')'; Art.circ(c, x + sx, by - 10 * k - p * 82 * k, (24 - p * 11) * k); }
+      if (spr) mythRim(spr, k, () => '154,60,255', 0.6);
       c.strokeStyle = 'rgba(154,60,255,.8)'; c.lineWidth = 3; c.beginPath(); c.ellipse(x, by, 31 * k, 11.5 * k, 0, 0, TAU); c.stroke();
     } else {
-      const h0 = t * 70 + seed * 40, rgb = h => hueRgb(h).join(',');
+      const h0 = t * 80 + seed * 40, rgb = h => hueRgb(Math.round(h / 30) * 30, 0).join(',');   // 色相取整到 30 度一档：剪影按颜色缓存，不取整会越存越多
+      c.globalCompositeOperation = 'lighter'; glow(x, by - 34 * k, 52 * k, rgb(h0 + 60), 0.3); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+      if (spr) mythRim(spr, k, i => rgb(h0 + i * 45), 0.6);
       c.globalCompositeOperation = 'lighter';
-      glow(x, by - 36 * k, 52 * k, rgb(h0 + 60), 0.35);
-      c.lineWidth = 3.5 * k; c.strokeStyle = 'rgba(' + rgb(h0) + ',.9)'; c.beginPath(); c.arc(x, by - 62 * k, 27 * k, 0, TAU); c.stroke();
-      c.lineWidth = 2 * k; c.strokeStyle = 'rgba(' + rgb(h0 + 120) + ',.5)'; c.beginPath(); c.arc(x, by - 62 * k, 33 * k, 0, TAU); c.stroke();
-      for (let i = 0; i < 5; i++) { const p = (t * 0.6 + i / 5) % 1, gx = x + (i - 2) * 13 * k, gy = by - p * 26 * k, g = c.createLinearGradient(0, gy - 92 * k, 0, gy); g.addColorStop(0, 'rgba(' + rgb(h0 + i * 72) + ',' + ((1 - p) * 0.55).toFixed(2) + ')'); g.addColorStop(1, 'rgba(' + rgb(h0 + i * 72) + ',0)'); c.fillStyle = g; c.fillRect(gx - 3.5 * k, gy - 92 * k, 7 * k, 92 * k); }
       c.lineWidth = 3; c.strokeStyle = 'rgba(' + rgb(h0 + 200) + ',.85)'; c.beginPath(); c.ellipse(x, by, 31 * k, 11.5 * k, 0, 0, TAU); c.stroke();
       c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
     }
   }
   function drawHeroes(list, t) {
     list.slice().sort((a, b) => a.y - b.y).forEach(h => {
-      if (!h.dead && h.def.q >= 6) mythAura(h.x, h.y + 29, h.def.q, t, h.def.seed || 0, 1.2);
+      if (!h.dead && h.def.q >= 6) { const q = Art.heroSprite(h.def); mythAura(h.x, h.y + 29, h.def.q, t, h.def.seed || 0, 1.2, q.proc ? null : { im: q.im, x: h.x, y: h.y + 29, w: q.w * 1.45, h: q.h * 1.45, ax: q.ax, ay: q.ay }); }
       if (h.dead) c.globalAlpha = 0.4;
       Art.hero(c, h.def, h.x, h.y, 1.45, t, h.dead ? 0 : h.anim);
       c.globalAlpha = 1;

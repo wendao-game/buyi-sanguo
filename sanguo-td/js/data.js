@@ -697,9 +697,9 @@ const BUFFS = [
 ];
 
 /* 色相（0～360）转成 [r, g, b]：神将身上流转的彩光用 */
-function hueRgb(h) {
-  h = ((h % 360) + 360) % 360; const x = 1 - Math.abs((h / 60) % 2 - 1), k = Math.floor(h / 60);
+function hueRgb(h, lo) {                                    // lo：最暗的那个分量（默认 90，偏柔和；传 0 是最鲜艳的纯色）
+  lo = lo == null ? 90 : lo; h = ((h % 360) + 360) % 360; const x = 1 - Math.abs((h / 60) % 2 - 1), k = Math.floor(h / 60);
   const c = [[1, x, 0], [x, 1, 0], [0, 1, x], [0, x, 1], [x, 0, 1], [1, 0, x]][k];
-  return [Math.round(90 + c[0] * 165), Math.round(90 + c[1] * 165), Math.round(90 + c[2] * 165)];
+  return [Math.round(lo + c[0] * (255 - lo)), Math.round(lo + c[1] * (255 - lo)), Math.round(lo + c[2] * (255 - lo))];
 }
 const RAINBOW = ['255,45,60', '255,135,20', '255,220,30', '50,225,80', '30,170,255', '85,85,255', '190,60,255'];   // 七种颜色：神将大招里的彩光
