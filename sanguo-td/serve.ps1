@@ -12,7 +12,7 @@ Write-Host "Serving $root at http://localhost:$Port/"
 # 重写 assets/manifest.js：游戏只加载清单里的图片（发布前也要跑一次，或手动编辑）
 $adir0 = Join-Path $root 'assets'
 if (Test-Path -LiteralPath $adir0) {
-  $imgs = @(Get-ChildItem -LiteralPath $adir0 -Recurse -File | Where-Object { $_.Extension -match '^\.(png|jpg|jpeg|webp)$' -and $_.FullName -notmatch '[\\/]_sheets[\\/]' } | ForEach-Object {
+  $imgs = @(Get-ChildItem -LiteralPath $adir0 -Recurse -File | Where-Object { ($_.Extension -match '^\.(png|jpg|jpeg|webp)$' -or ($_.Extension -match '^\.(mp3|ogg|wav|m4a)$' -and $_.FullName -match '[\\/]sfx[\\/]')) -and $_.FullName -notmatch '[\\/]_sheets[\\/]' } | ForEach-Object {
     "'" + $_.FullName.Substring($adir0.Length + 1).Replace('\', '/').Replace("'", '') + "'"
   })
   $ver = (Get-ChildItem -LiteralPath $adir0 -Recurse -File | Measure-Object -Property LastWriteTime -Maximum).Maximum.ToString('yyyyMMddHHmmss')
@@ -32,6 +32,8 @@ $mime = @{
   '.svg'  = 'image/svg+xml'
   '.mp3'  = 'audio/mpeg'
   '.ogg'  = 'audio/ogg'
+  '.wav'  = 'audio/wav'
+  '.m4a'  = 'audio/mp4'
 }
 
 try {

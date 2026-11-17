@@ -277,7 +277,7 @@ def main():
         if os.path.basename(dp) == '_sheets':
             continue
         for f in fs:
-            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')) or (os.path.basename(dp) == 'sfx' and f.lower().endswith(('.mp3', '.ogg', '.wav', '.m4a'))):   # assets/sfx/ 里的音频也列进去（js/sfx.js 读）
                 files.append(os.path.relpath(os.path.join(dp, f), DST).replace(os.sep, '/'))
     files.sort()
     with open(os.path.join(DST, 'manifest.js'), 'w', encoding='utf8') as fp:

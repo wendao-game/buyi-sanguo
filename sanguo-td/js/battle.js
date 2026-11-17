@@ -276,6 +276,7 @@ const Battle = (function () {
     const cu = S.critUp && S.critUp.t > 0 ? S.critUp : null;      // 张松「献西川图」：一段时间内全军暴击率、暴击伤害提高
     const crit = canCrit && rand() < 0.08 + S.buffs.crit + (src ? src.crit + (src.critT > 0 ? 1 : 0) : 0) + (o.crit || 0) + (cu ? cu.rate : 0);   // critT：夏侯惇放完大招后的几秒必定暴击
     dmg = Math.max(1, Math.round(dmg * m * (0.9 + rand() * 0.2) * (crit ? 2 + (src ? src.critDmg : 0) + (cu ? cu.dmg : 0) : 1)));
+    if (src && !o.basic && !o.dot) Sfx.play('hit_' + el);         // 大招、技能打中人：这个攻击类型命中的声音（普攻和持续伤害不响，太密）
     if (src && S.leech && S.leech.t > 0 && S.leech.got < S.leech.cap) { const v = Math.min(dmg * S.leech.k, S.leech.cap - S.leech.got, e.hp * S.leech.k); S.leech.got += v; S.wall = Math.min(S.wallMax, S.wall + v); }   // 鲁肃「缔盟」：全军打出的伤害有一小部分补回城防（有上限）
     if (o.execute) dmg = Math.max(dmg, Math.ceil(e.hp));         // 斩杀：不管有没有盾，这一下一定打死
     if (src) src.dmg += Math.min(dmg, Math.max(0, e.hp));

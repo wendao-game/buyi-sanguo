@@ -499,10 +499,31 @@ const pageGroups = [];
 if (todo.length) pageGroups.push({ title: '还没画', note: '按这个顺序画：画武将时附上已画好的「武将 1」，画头像时附上「头像 1」，让 GPT 保持同一画风。每画好一张就可以发给 Claude，不用等全部画完。', items: todo });
 if (finished.length) pageGroups.push({ title: '已画好', note: '这些已经在游戏里了。想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。', items: finished });
 
+/* ---------------- 音效（v2.12）：可选。游戏里的音效本来是代码合成的；想要更真的，按这里的提示词生成，文件名照抄，放进 assets/sfx/ 就会自动顶替 ---------------- */
+const SFX_TAIL = '\n\n要求：纯音效，没有音乐、没有人声、没有环境底噪；一次完整的声音，开头不留空白，结尾自然收掉；声音干净、有冲击力、偏写实，适合手机游戏里的技能音效。';
+const SFX = [
+  ['ult_thunder', '雷系大招', '1.5 秒', '先是两三下很短的电火花「噼、噼」，紧接着一声巨大的炸雷劈下来，开头极其尖锐响亮，然后是低沉的滚雷向远处滚去、逐渐消失。', 'A few quick electric sparks, then a massive close lightning strike with a sharp loud crack, followed by deep rolling thunder fading away. 1.5 seconds.'],
+  ['ult_fire', '火系大招', '1.3 秒', '一股火焰「呼」地窜起来（由低到高的呼啸，约 0.3 秒），然后「轰」的一声猛烈爆炸，带厚实的低频冲击，最后是余火燃烧的噼啪声。', 'A fast rising fire whoosh, then a powerful fiery explosion with a heavy low-end boom, ending with crackling embers. 1.3 seconds.'],
+  ['ult_ice', '冰系大招', '1.1 秒', '寒气迅速凝结的清脆「咔咔」声（约 0.3 秒），然后一大块冰「哗啦」一声猛地碎裂，冰碴四散落地的细碎声。', 'Ice rapidly freezing with crisp crackling, then a large block of ice shattering violently, small ice shards scattering. 1.1 seconds.'],
+  ['ult_wind', '风系大招', '1.0 秒', '狂风骤起，带着尖锐的哨音越刮越急（约 0.4 秒），然后「呼」的一下像一堵气墙猛地拍过去，带一点低频冲击。', 'A sudden violent gust of wind with a whistling edge building up fast, then a heavy whoosh impact like a wall of air slamming forward. 1 second.'],
+  ['ult_poison', '毒系大招', '1.0 秒', '毒液「嘶嘶」冒气、咕嘟咕嘟冒泡（约 0.3 秒），然后「噗」的一声黏稠的液体猛地泼溅开，带腐蚀的嘶嘶声。', 'Toxic liquid hissing and bubbling, then a thick wet splash bursting outward with a corrosive sizzle. 1 second.'],
+  ['ult_blade', '刃系大招', '0.8 秒', '长刀出鞘的金属「锵」声（清亮、带余音，约 0.25 秒），然后一刀狠狠劈下：尖锐的破空声加一声沉重的斩击。', 'A sword being drawn with a bright metallic ring, then one powerful slash: a sharp whoosh ending in a heavy cutting impact. 0.8 seconds.'],
+  ['ult_arrow', '弓系大招', '1.0 秒', '弓弦「嘣」的一声弹响，一排箭矢「嗖嗖嗖」密集地破空飞出，最后是一串箭扎进目标的短促闷响「笃笃笃」。', 'A bowstring twang, a volley of arrows whistling through the air in quick succession, then a rapid series of arrows thudding into targets. 1 second.'],
+  ['boom', '爆炸（火球炸开）', '0.6 秒', '一次中等大小的爆炸：「砰」的一声，开头有力，带低频冲击和一点碎屑飞溅的声音，很快收掉。会连着响很多次，所以要短。', 'A single medium explosion, punchy attack with a low boom and a little debris, short tail. 0.6 seconds.'],
+  ['thunder', '落雷（一道闪电）', '0.8 秒', '一道闪电劈中地面：尖锐的「啪」一声电击，后面跟一小段低沉的雷声余音。会连着响，所以要短。', 'A single lightning bolt hitting the ground: a sharp electric crack with a short low thunder tail. 0.8 seconds.'],
+  ['freeze', '冰冻（冰碎）', '0.5 秒', '一小块冰「咔嚓」一声碎掉，清脆的冰碴声，很短。', 'A small piece of ice cracking and shattering, crisp and short. 0.5 seconds.'],
+  ['boss_smash', '敌将重砸', '0.7 秒', '一件沉重的兵器狠狠砸在石头城墙上：「咚」的一声沉重闷响，带石头碎裂、碎石掉落的声音。', 'A heavy weapon smashing into a stone wall: a deep heavy thud with cracking stone and falling rubble. 0.7 seconds.'],
+  ['boss_roar', '敌将怒吼', '1.0 秒', '一名魁梧武将的战吼（低沉、粗犷、带回响的一声怒喝，不要说话的内容，只是吼声）。', 'A deep, rough battle roar from a huge warrior, with slight reverb, no words. 1 second.'],
+  ['myth_dark', '魔将登场 / 放大招', '1.6 秒', '黑暗的力量涌出：一声非常低沉、压抑的轰鸣向下沉，夹着诡异的低语般的气声和一声发暗的钟响，阴森、有压迫感。', 'Dark power surging: a very deep ominous downward drone with eerie whisper-like air and a dark bell toll, menacing. 1.6 seconds.'],
+  ['myth_holy', '神将登场 / 放大招', '1.6 秒', '神圣的光降临：一串清亮上行的钟铃声，底下是明亮宏大的合唱般的长音（没有歌词），庄严、通透。', 'Holy light descending: a bright ascending chime cascade over a grand, airy choir-like pad without words, majestic. 1.6 seconds.'],
+].map(x => ({ file: x[0] + '.mp3', name: x[1], who: '时长约 ' + x[2] + ' · 文件名 ' + x[0] + '（mp3 / wav / ogg / m4a 都行；生成的是视频也行，把 mp4 发来我抽音轨）',
+  text: '游戏技能音效：' + x[1] + '，时长约 ' + x[2] + '。\n\n' + x[3] + SFX_TAIL + '\n\n（英文版，生成工具更认英文时用这段）\n' + x[4] + ' Pure sound effect, no music, no voice, no background noise, clean and punchy, for a mobile game.' }));
+pageGroups.push({ title: '音效（可选）', note: '游戏里的音效是代码合成的，大招已经做了有打击感的一版；想要更真的，用这里的提示词去生成（即梦或者别的能出音效的工具都行）。<b>前 7 个是七种攻击类型的大招，最值得换</b>；后面的是爆炸、落雷、冰碎和敌将、神魔的声音。生成得比写的时长长也没关系，导入时会自动裁掉头尾的空白、统一音量。<br>用法：文件名照上面的写（比如 <code>ult_thunder.mp3</code>），放进 <code>sanguo-td/assets/sfx/</code>；本地用 serve.ps1 启动会自动认；要上网站就发给 Claude 或者推到分支上。没放文件的音效照旧用合成的。', items: SFX });
+
 const root = document.getElementById('groups');
 pageGroups.forEach(g => {
   const sec = document.createElement('section');
-  sec.innerHTML = `<h2>${g.title}<small>${g.items.length} 张</small></h2><p class="note">${g.note}</p>`;
+  sec.innerHTML = `<h2>${g.title}<small>${g.items.length} ${/音效/.test(g.title) ? '个' : '张'}</small></h2><p class="note">${g.note}</p>`;
   g.items.forEach((it, idx) => {
     const id = 'p-' + it.file.replace(/\W/g, '');
     const div = document.createElement('div');
