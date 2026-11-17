@@ -382,15 +382,32 @@ const FXGen = (function () {
       radial(c, x, x, w * 0.12, [[0, 'rgba(255,255,235,1)'], [1, 'rgba(255,220,150,0)']]);
     }),
     /* —— 神魔的专属特效（v2.6）。都是白色画在黑底上，游戏里再染色 —— */
-    /* 魔戟（魔·吕布）：一杆从天上砸下来的方天画戟，戟尖朝下，两边各一片月牙刃，后面拖着光 */
-    demon_halberd: () => mk(220, 480, (c, w, h) => {
+    /* 天火柱（神·诸葛亮）：从地缝里往上喷的一柱火，底宽顶尖 */
+    skyfire: () => mk(220, 480, (c, w, h) => {
       const x = w / 2;
-      const g = c.createLinearGradient(0, 0, 0, h * 0.6); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.45)'); c.fillStyle = g; c.fillRect(x - 34, 0, 68, h * 0.6);
-      c.shadowColor = 'rgba(255,255,255,.9)'; c.shadowBlur = 16; c.lineCap = 'round';
-      c.strokeStyle = 'rgba(255,255,255,.95)'; c.lineWidth = 9; c.beginPath(); c.moveTo(x, 12); c.lineTo(x, h * 0.72); c.stroke();
-      c.fillStyle = '#fff'; c.beginPath(); c.moveTo(x - 17, h * 0.7); c.lineTo(x + 17, h * 0.7); c.lineTo(x, h * 0.985); c.closePath(); c.fill();          // 戟尖
-      [-1, 1].forEach(sg => { c.beginPath(); c.moveTo(x + sg * 12, h * 0.6); c.quadraticCurveTo(x + sg * 96, h * 0.56, x + sg * 78, h * 0.83); c.quadraticCurveTo(x + sg * 52, h * 0.7, x + sg * 12, h * 0.74); c.closePath(); c.fill(); });   // 月牙刃
-      c.fillRect(x - 30, h * 0.585, 60, 10);
+      [[0.44, 'rgba(255,70,10,.5)'], [0.31, 'rgba(255,150,30,.75)'], [0.17, 'rgba(255,245,200,.95)']].forEach(L => {
+        const r = w * L[0]; c.fillStyle = L[1]; c.beginPath(); c.moveTo(x - r, h * 0.98);
+        c.bezierCurveTo(x - r * 1.15, h * 0.62, x - r * 0.45, h * 0.3, x - r * 0.12, h * 0.02);
+        c.bezierCurveTo(x + r * 0.35, h * 0.26, x + r * 1.15, h * 0.62, x + r, h * 0.98); c.closePath(); c.fill();
+      });
+      for (let i = 0; i < 7; i++) { const sg = i % 2 ? 1 : -1, yy = h * (0.25 + i * 0.1); c.fillStyle = 'rgba(255,170,50,.6)'; c.beginPath(); c.moveTo(x + sg * w * 0.2, yy + 40); c.quadraticCurveTo(x + sg * w * 0.5, yy + 10, x + sg * w * 0.34, yy - 46); c.quadraticCurveTo(x + sg * w * 0.3, yy, x + sg * w * 0.12, yy + 30); c.closePath(); c.fill(); }
+      radial(c, x, h * 0.95, w * 0.5, [[0, 'rgba(255,255,220,.9)'], [1, 'rgba(255,120,20,0)']]);
+    }),
+    /* 地裂（神·诸葛亮）：地面崩开的几道裂缝，缝里透着火光（俯视） */
+    fissure: () => mk(380, 240, (c, w, h) => {
+      const x = w / 2, y = h / 2; c.lineCap = 'round'; c.lineJoin = 'round';
+      radial(c, x, y, w * 0.3, [[0, 'rgba(255,200,90,.7)'], [1, 'rgba(255,90,20,0)']]);
+      for (let k = 0; k < 6; k++) {
+        const a0 = k * TAU / 6 + 0.3, pts = [[x, y]]; let px = x, py = y;
+        for (let i = 1; i <= 5; i++) { const a = a0 + Math.sin(k * 3.1 + i * 1.7) * 0.45, d = w * 0.085; px += Math.cos(a) * d; py += Math.sin(a) * d * 0.6; pts.push([px, py]); }
+        [[11, 'rgba(255,80,10,.45)'], [5, 'rgba(255,190,60,.9)'], [1.8, 'rgba(255,255,230,1)']].forEach(L => { c.strokeStyle = L[1]; c.lineWidth = L[0]; c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.stroke(); });
+      }
+    }),
+    /* 天火流星（神·诸葛亮）：一团从天上砸下来的火球，头朝下，尾巴朝上 */
+    meteor: () => mk(150, 320, (c, w, h) => {
+      const x = w / 2, g = c.createLinearGradient(0, 0, 0, h * 0.85); g.addColorStop(0, 'rgba(255,90,10,0)'); g.addColorStop(1, 'rgba(255,170,40,.9)');
+      c.fillStyle = g; c.beginPath(); c.moveTo(x, 0); c.quadraticCurveTo(x - w * 0.42, h * 0.5, x - w * 0.3, h * 0.84); c.lineTo(x + w * 0.3, h * 0.84); c.quadraticCurveTo(x + w * 0.42, h * 0.5, x, 0); c.fill();
+      radial(c, x, h * 0.82, w * 0.36, [[0, 'rgba(255,255,235,1)'], [0.5, 'rgba(255,200,80,.95)'], [1, 'rgba(255,90,10,0)']]);
     }),
     /* 怨魂（魔·曹操）：一团拖着尾巴的魂，头朝上，两个黑洞洞的眼睛 */
     soul: () => mk(110, 200, (c, w, h) => {
@@ -525,7 +542,40 @@ const FXGen = (function () {
   const OUT = '#1a100a';
   const blob = (c, fill, lw, path) => { c.beginPath(); path(); c.fillStyle = fill; c.fill(); c.strokeStyle = OUT; c.lineWidth = lw; c.stroke(); };
   const dust = (c, x, y, n, len) => { for (let i = 0; i < n; i++) { c.strokeStyle = 'rgba(240,225,195,' + (0.55 - i * 0.1) + ')'; c.lineWidth = 5 - i; c.beginPath(); c.moveTo(x, y - (n - 1) * 7 + i * 14); c.lineTo(x - len * (0.6 + (i % 2) * 0.4), y - (n - 1) * 7 + i * 14); c.stroke(); } };
+  /* 黑色的雷电：先画一道发紫光的粗线，再在上面压一道黑芯 */
+  const zig = (c, pts, wGlow, wCore) => {
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    const path = () => { c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); };
+    c.shadowColor = 'rgba(190,90,255,.95)'; c.shadowBlur = 12; c.strokeStyle = 'rgba(190,100,255,.95)'; c.lineWidth = wGlow; path(); c.stroke();
+    c.shadowBlur = 0; c.strokeStyle = '#08030f'; c.lineWidth = wCore; path(); c.stroke();
+  };
   const SOLID = {
+    /* 魔戟（魔·吕布）：插在地上的方天画戟，戟尖朝下，通体漆黑、镶紫边，戟身上缠着黑色的雷电 */
+    demon_halberd: () => mkSolid(260, 520, (c, w, h) => {
+      const x = w / 2;
+      c.shadowColor = 'rgba(180,80,255,.95)'; c.shadowBlur = 16; c.fillStyle = '#140a20'; c.strokeStyle = '#b468ff'; c.lineWidth = 3; c.lineJoin = 'round';
+      const shape = f => { c.beginPath(); f(); c.closePath(); c.fill(); c.stroke(); };
+      shape(() => c.rect(x - 9, 16, 18, h * 0.6));                                                                                  // 戟杆
+      [-1, 1].forEach(sg => shape(() => { c.moveTo(x + sg * 10, h * 0.6); c.quadraticCurveTo(x + sg * 104, h * 0.56, x + sg * 84, h * 0.84); c.quadraticCurveTo(x + sg * 56, h * 0.7, x + sg * 10, h * 0.75); }));   // 月牙刃
+      shape(() => { c.moveTo(x - 18, h * 0.7); c.lineTo(x + 18, h * 0.7); c.lineTo(x, h * 0.985); });                                 // 戟尖
+      shape(() => c.rect(x - 32, h * 0.585, 64, 12));
+      c.shadowBlur = 0; c.fillStyle = '#d58cff'; c.beginPath(); c.arc(x, h * 0.61, 7, 0, TAU); c.fill();                              // 戟上的紫晶
+      const pts = []; for (let i = 0; i <= 16; i++) pts.push([x + Math.sin(i * 1.9) * (30 + (i % 3) * 12), 22 + i * h * 0.036]);
+      zig(c, pts, 9, 4);                                                                                                          // 缠在戟身上的黑雷
+    }),
+    /* 黑雷（魔·吕布）：一道竖着的黑色闪电，黑芯紫边 */
+    black_bolt: () => mkSolid(120, 360, (c, w, h) => {
+      const x = w / 2, pts = [[x, 6]]; for (let i = 1; i <= 9; i++) pts.push([x + Math.sin(i * 2.3) * w * 0.3, 6 + i * (h - 12) / 9]);
+      zig(c, pts, 15, 7);
+      zig(c, [pts[3], [pts[3][0] + 34, pts[3][1] + 46], [pts[3][0] + 26, pts[3][1] + 84]], 8, 3.4); zig(c, [pts[6], [pts[6][0] - 36, pts[6][1] + 40]], 8, 3.4);   // 分叉
+    }),
+    /* 黑雷环（魔·吕布）：地上一圈黑色的雷电（俯视） */
+    black_ring: () => mkSolid(400, 400, (c, w) => {
+      const x = w / 2, ringPts = (r, jit, ph) => { const p = []; for (let i = 0; i <= 44; i++) { const a = i * TAU / 44; p.push([x + Math.cos(a) * (r + Math.sin(i * 2.7 + ph) * jit), x + Math.sin(a) * (r + Math.sin(i * 2.7 + ph) * jit)]); } return p; };
+      c.fillStyle = 'rgba(12,4,22,.16)'; c.beginPath(); c.arc(x, x, w * 0.44, 0, TAU); c.fill();
+      zig(c, ringPts(w * 0.44, 9, 0), 10, 4.6); zig(c, ringPts(w * 0.3, 8, 2), 7, 3);
+      for (let k = 0; k < 6; k++) { const a = k * TAU / 6 + 0.4; zig(c, [[x + Math.cos(a) * w * 0.08, x + Math.sin(a) * w * 0.08], [x + Math.cos(a + 0.25) * w * 0.2, x + Math.sin(a + 0.25) * w * 0.2], [x + Math.cos(a - 0.1) * w * 0.3, x + Math.sin(a - 0.1) * w * 0.3], [x + Math.cos(a + 0.12) * w * 0.43, x + Math.sin(a + 0.12) * w * 0.43]], 6, 2.6); }
+    }),
     /* 木牛（黄月英）：一头木头做的牛，方头方脑，背上驮着粮袋 */
     woodox: () => mkSolid(176, 176, (c, w, h) => {
       const x = w / 2;

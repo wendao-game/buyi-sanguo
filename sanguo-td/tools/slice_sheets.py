@@ -5,7 +5,7 @@
   enemy_1.png … enemy_6.png 敌人和各章敌将（enemy_3 是 v1.3 的新敌兵，enemy_4 … 6 是 v2.0 每章前 9 关的敌将）
   head_1.png … head_11.png    武将正面头像（顺序同 hero_1 … hero_8）
   weapon_1.png、weapon_2.png 兵器图标（透明底）
-  fx_1.png … fx_6.png        技能特效（黑底；fx_4 … fx_6 是金、橙武将的专属大招特效）
+  fx_1.png … fx_7.png        技能特效（黑底；fx_4 … fx_6 是金、橙武将的专属大招特效，fx_7 是神魔的）
   battle.png                 战场背景（竖版，会裁成 9:16 缩到 1080×1920）
 用法（在仓库根目录）：python3 sanguo-td/tools/slice_sheets.py
 缺的拼图跳过；切出来的图覆盖同名旧图，最后重写 assets/manifest.js。
@@ -55,6 +55,7 @@ WEAPON_SHEETS = {
 # 大招里冲出去的兵、马、象（透明底，和武将一样的画风）：切出来存 fx/<名字>.png，游戏里有图就用图，没有就用代码画的
 UNIT_SHEETS = {
     'unit_1': ['soldier', 'horse', 'horse_side', 'elephant', None, None, None, None, None],
+    'unit_2': ['demon_halberd', 'black_bolt', 'black_ring', None, None, None, None, None, None],   # 魔·吕布的大招：黑色的东西要透明底、按实体画
 }
 # 特效拼图（黑底）：名字 -> 最长边
 FX_SHEETS = {
@@ -65,6 +66,7 @@ FX_SHEETS = {
     'fx_4': ['seven_stars', 'roar', 'twin_swords', 'arrow_rain', 'halberd_slash', 'fire_ship', 'ghost_mask', 'thunder_lance', 'gold_arrow'],
     'fx_5': ['thunder_ring', 'moon', 'halberd', 'tiger', 'wolf', 'chain', 'snowflake', 'cross_slash', 'red_arrow'],
     'fx_6': ['demon_flame', 'blood_eye', None, None, None, None, None, None, None],
+    'fx_7': ['skyfire', 'fissure', 'meteor', 'vortex', 'soul', 'guandao', 'god_phantom', None, None],   # 神魔的专属大招
 }
 FX_SIZE = {'slash': 384, 'bolt': 384, 'pillar': 384, 'thrust': 384, 'circle': 320, 'whirl': 256, 'flame': 256,
            'el_orb_fire': 128, 'el_orb_wind': 160, 'dragon_azure': 512, 'dragon_white': 512, 'phoenix': 512}
@@ -233,7 +235,7 @@ def main():
             if not box:
                 continue
             cell = cell.crop(box)
-            k = 256 / max(cell.size)                           # 贴着轮廓裁，最长边 256
+            k = (420 if name == 'unit_2' else 256) / max(cell.size)   # 贴着轮廓裁，最长边 256（魔戟、黑雷在游戏里画得大，留 420）
             save_png(cell.resize((max(1, round(cell.width * k)), max(1, round(cell.height * k))), Image.LANCZOS), os.path.join(DST, 'fx', uid + '.png'))
             done += 1
     for name, ids in FX_SHEETS.items():
