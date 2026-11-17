@@ -166,7 +166,7 @@ const SKILLS = (function () {
           B.tex('circle', h.x, h.y + 29, { w: 130, h: 52, spin: 1.5, life: 5.3, a: 0.8, fadeIn: 0.1, rgb: '170,225,255' });
           for (let i = 0; i < N; i++) B.later(0.3 + i * 0.5, () => {
             if (h.dead) return;
-            h.anim = Math.max(h.anim, 0.9);                                                                              // 拨一下弦
+            h.anim = Math.max(h.anim, 0.9); B.sfx('qin');                                                                // 拨一下弦
             B.tex('halo', h.x, h.y - 30, { w: 50, h: 34, grow: 7, life: 0.8, a: 0.8, rgb: '90,200,255' });          // 一圈琴音从她身上荡开
             B.heroes().forEach(x => {
               if (x.dead) return; x.hp = Math.min(x.maxHp, x.hp + Math.round(x.maxHp * heal));
