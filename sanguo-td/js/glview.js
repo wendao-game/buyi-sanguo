@@ -186,7 +186,7 @@ const GLView = (function () {
     const lunge = e.atkT > 0 ? Math.sin((1 - e.atkT / 0.24) * Math.PI) * 8 * ds : 0;   // 攻城：往城墙扑一下
     const hitK = Math.max(0, Math.min(1, e.flash * 10));                                  // 挨打的一瞬间：压扁一下、往后（远离城墙）顿一下
     const k = s * q.k, fx = e.x, fy = e.y + bob + lunge + 12.4 * s - hitK * 2.5 * ds, w = q.w * k * (1 + hitK * 0.07), h = q.h * k * (1 - hitK * 0.08), ax = -q.x / q.w, ay = (12.4 - q.y) / q.h;
-    if (e.mythQ) mythAura(e.x, e.y + d.r * 0.9 * ds, e.mythQ, t, e.ph, d.r / 22 * ds);   // 神魔当敌将：和城楼上一样的光效，更大
+    if (e.mythQ) mythAura(e.x, e.y + d.r * 0.9 * ds, e.mythQ, t, e.ph, d.r / 22 * ds, { im: q.im, x: fx, y: fy, w, h, ax, ay, flip: e.flip });   // 神魔当敌将：和城楼上一样的光效，更大
     else if (e.aura) { img(La, 'el_hit_wind', e.x, e.y - d.r * 0.9, d.r * 4.8 * (1 + Math.sin(t * 2.4) * 0.06), 0, t * 0.8, 0.7, e.aura); light(e.x, e.y - 10, d.r * 4, col(e.aura), 0.5); }   // 神兽：身上一团带颜色的气焰
     if (e.demon) img(La, 'el_hit_dark', e.x, e.y - d.r * 0.9, d.r * 4.6 * (1 + Math.sin(t * 2.4) * 0.06), 0, t * 0.7, 0.75);   // 心魔：身后一团翻涌的黑紫气焰
     const sh = sp(La, tex, fx, fy, w, h * 0.9014, { ax, ay, tint: 0x000000, a: 0.24, flip: e.flip });   // 斜投影：压扁、倒向右下
@@ -230,23 +230,34 @@ const GLView = (function () {
   /* 神魔身上的光效（武将在城楼上、当敌将时都用）。q = 6 魔：往上冒的黑烟、黑紫魔焰、脚下紫环；q = 7 神：头后的光轮、上升的彩色光柱、绕着转的星，颜色一直在流转。
    * by 脚下的 y；k 体型倍数（城楼上的武将是 1） */
   const hueC = h => { const c = hueRgb(h); return (c[0] << 16) | (c[1] << 8) | c[2]; };
-  function mythAura(x, by, q, t, seed, k) {
+  /* spr：{ im, x, y, w, h, ax, ay, flip } 人物这一帧画在哪。有它就沿着人物的轮廓描一圈光（把人物的剪影往四周错开几个像素画在身后） */
+  function mythRim(spr, k, colorAt, a) {
+    const sil = T(Art.spriteTint(spr.im, '255,255,255'));
+    for (let ring = 0; ring < 2; ring++) for (let i = 0; i < 8; i++) {
+      const g = i * TAU / 8 + ring * 0.39, off = (ring ? 7 : 3.4) * k;
+      sp(La, sil, spr.x + Math.cos(g) * off, spr.y + Math.sin(g) * off, spr.w, spr.h, { ax: spr.ax, ay: spr.ay, flip: spr.flip, tint: colorAt(i), a: ring ? a * 0.55 : a, blend: ADD });
+    }
+  }
+  function mythAura(x, by, q, t, seed, k, spr) {
     if (q === 6) {
       img(La, 'demon_flame', x, by - 46 * k, 128 * k * (1 + Math.sin(t * 5 + seed) * 0.06), 0, 0, 0.8 + Math.sin(t * 4 + seed) * 0.15, '190,90,255');   // 身后的黑紫魔焰
       for (let i = 0; i < 9; i++) {                           // 往上冒的黑烟（普通混合才画得出黑色）
         const p = (t * 0.42 + i / 9 + seed * 0.13) % 1, sx = Math.sin(i * 2.4 + t * 1.3 + seed) * 20 * k * (0.5 + p);
         sp(La, TX.soft, x + sx, by - 10 * k - p * 82 * k, (50 - p * 24) * k, (56 - p * 22) * k, { tint: 0x0a0312, a: (1 - p) * 0.82, blend: 0 });
       }
+      if (spr) mythRim(spr, k, () => 0x9a3cff, 0.55 + Math.sin(t * 5 + seed) * 0.2);   // 贴着轮廓的一圈紫光
       ringE(La, x, by, 31 * k, 11.5 * k, 0x9a3cff, 0.55 + Math.sin(t * 6) * 0.2, ADD);
       glow(La, x, by - 30 * k, 46 * k, 0x7a28d8, 0.3);
       light(x, by - 20 * k, 70 * k, 0x8a40ff, 0.4);
     } else {
-      const h0 = t * 70 + seed * 40;
-      glow(La, x, by - 36 * k, 56 * k, hueC(h0 + 60), 0.36);
-      ringE(La, x, by - 62 * k, 27 * k, 27 * k, hueC(h0), 0.9, ADD); ringE(La, x, by - 62 * k, 33 * k, 33 * k, hueC(h0 + 120), 0.45, ADD);   // 头后的光轮
-      for (let i = 0; i < 5; i++) { const p = (t * 0.6 + i / 5) % 1; sp(La, TX.gradV, x + (i - 2) * 13 * k, by - p * 26 * k, 9 * k, 104 * k, { ax: 0.5, ay: 1, tint: hueC(h0 + i * 72), a: (1 - p) * 0.8, blend: ADD }); }   // 上升的彩色光柱
+      const h0 = t * 80 + seed * 40;
+      glow(La, x, by - 34 * k, 52 * k, hueC(h0 + 60), 0.22);
+      if (spr) mythRim(spr, k, i => { const c = hueRgb(h0 + i * 45, 0); return (c[0] << 16) | (c[1] << 8) | c[2]; }, 0.62);   // 贴着轮廓流转的一圈彩光（用纯色、叠得淡一些，不然几个颜色叠在一起就白了）
       ringE(La, x, by, 31 * k, 11.5 * k, hueC(h0 + 200), 0.85, ADD);
-      for (let i = 0; i < 3; i++) { const g = t * 2.2 + i * TAU / 3; sp(Lf, TX.star, x + Math.cos(g) * 31 * k, by - 40 * k + Math.sin(g) * 12 * k, 15 * k, 15 * k, { tint: hueC(h0 + i * 120), a: 0.95, rot: g }); }   // 绕着转的星
+      for (let i = 0; i < 4; i++) {                           // 绕着身体转的星（转到身后的小一点、暗一点）
+        const g = t * 1.9 + i * TAU / 4, back = Math.sin(g) < 0, yy = by - (26 + i * 9) * k + Math.sin(g) * 9 * k;
+        sp(back ? La : Lf, TX.star, x + Math.cos(g) * 30 * k, yy, (back ? 10 : 15) * k, (back ? 10 : 15) * k, { tint: hueC(h0 + i * 90), a: back ? 0.6 : 0.95, rot: g, blend: ADD });
+      }
       light(x, by - 20 * k, 76 * k, hueC(h0), 0.45);
     }
   }
@@ -264,7 +275,7 @@ const GLView = (function () {
       if (d.q >= 3) glow(La, h.x, h.y + 14 * S, 34 * S, qc, 0.3);
       ringE(La, h.x, by, 26 * S, 10 * S, 0x000000, 0.45);
       ringE(La, h.x, by, 25 * S, 9.4 * S, qc, 0.95);
-      if (d.q >= 6) mythAura(h.x, by, d.q, t, d.seed || 0, 1.2);   // 神魔：身上的光效
+      if (d.q >= 6) mythAura(h.x, by, d.q, t, d.seed || 0, 1.2, { im: q.im, x: h.x, y: by - a * 7 * S, w: q.w * S * q.k, h: q.h * S * q.k, ax: q.ax, ay: q.ay });   // 神魔：身上的光效，贴着人物轮廓
       if (h.rage >= 100) { ringE(La, h.x, by, 31, 12, 0xffdc6e, 0.55 + Math.sin(t * 8) * 0.3, ADD); glow(La, h.x, by - 6, 42, 0xffd060, 0.22 + Math.sin(t * 8) * 0.08); }
       if (h.hasteT > 0 || h.bigT > 0) ringE(La, h.x, by, 26 + Math.sin(t * 12) * 2, 9, 0xfff0b4, 0.7);
       const breathe = 1 + Math.sin(t * 2.4 + d.seed) * 0.012;
