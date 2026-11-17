@@ -206,7 +206,8 @@ const Battle = (function () {
   /* ---------------- 贴图特效（黑底贴图 + 叠加混合） ---------------- */
   const hexRgb = h => { if (h && h[0] !== '#') { const m = String(h).match(/[\d.]+/g); if (m && m.length >= 3) return [Math.round(+m[0]), Math.round(+m[1]), Math.round(+m[2])].join(','); }   // 也认 'rgb(r,g,b)' 和 'r,g,b'
     if (!h || h[0] !== '#') return '255,255,255'; const n = parseInt(h.slice(1), 16); return h.length === 4 ? [((n >> 8) & 15) * 17, ((n >> 4) & 15) * 17, (n & 15) * 17].join(',') : [(n >> 16) & 255, (n >> 8) & 255, n & 255].join(','); };
-  /* o: w 宽, h 高（默认按图片比例）, rot, spin 转速, life, grow 结束时放大倍数, a 透明度, fadeIn, ax/ay 锚点, vx/vy, rgb 染色 */
+  /* o: w 宽, h 高（默认按图片比例）, rot, spin 转速, life, grow 结束时放大倍数, a 透明度, fadeIn, ax/ay 锚点, vx/vy, rgb 染色,
+   *    solid 按实体画（普通混合，透明底的图）：黑色的雷电、魔戟这类暗色的东西，叠加混合画不出来 */
   function tex(name, x, y, o) {
     o = o || {};
     const im = o.rgb ? Assets.tinted(name, o.rgb) : Assets.get('fx:' + name);
@@ -214,7 +215,7 @@ const Battle = (function () {
     if (S.fx.length > 180 && !o.force) return true;
     const w = o.w || 64;
     S.fx.push({ im, x, y, w, h: o.h || w * im.height / im.width, rot: o.rot || 0, spin: o.spin || 0, life: o.life || 0.4, max: o.life || 0.4,
-      grow: o.grow || 1, a: o.a == null ? 1 : o.a, fadeIn: o.fadeIn || 0, ax: o.ax == null ? 0.5 : o.ax, ay: o.ay == null ? 0.5 : o.ay, vx: o.vx || 0, vy: o.vy || 0, flip: !!o.flip });   // flip：左右镜像（朝左扑的老虎）
+      grow: o.grow || 1, a: o.a == null ? 1 : o.a, fadeIn: o.fadeIn || 0, ax: o.ax == null ? 0.5 : o.ax, ay: o.ay == null ? 0.5 : o.ay, vx: o.vx || 0, vy: o.vy || 0, flip: !!o.flip, solid: !!o.solid });   // flip：左右镜像（朝左扑的老虎）
     return true;
   }
   const glowCache = {};
@@ -1448,6 +1449,7 @@ const Battle = (function () {
     for (const f of S.fx) {
       const p = 1 - f.life / f.max, k = 1 + (f.grow - 1) * p;
       c.globalAlpha = Math.max(0, Math.min(1, f.a * Math.min(1, f.life / f.max * 2.5) * (f.fadeIn ? Math.min(1, p / f.fadeIn) : 1)));
+      c.globalCompositeOperation = f.solid ? 'source-over' : 'lighter';
       c.save(); c.translate(f.x, f.y); if (f.rot) c.rotate(f.rot); c.scale(f.flip ? -k : k, k);
       c.drawImage(f.im, -f.w * f.ax, -f.h * f.ay, f.w, f.h); c.restore();
     }

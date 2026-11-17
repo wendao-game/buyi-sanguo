@@ -521,8 +521,8 @@ const GLView = (function () {
       let nl = 0;
       for (const f of S.fx) {
         const p = 1 - f.life / f.max, k = 1 + (f.grow - 1) * p, a = f.a * Math.min(1, f.life / f.max * 2.5) * (f.fadeIn ? Math.min(1, p / f.fadeIn) : 1);
-        sp(Lf, T(f.im), f.x, f.y, f.w * k, f.h * k, { ax: f.ax, ay: f.ay, rot: f.rot, a, flip: f.flip });
-        if (nl++ < 36) light(f.x, f.y - (f.ay === 1 ? f.h * 0.35 : 0), Math.min(220, Math.max(f.w, f.h) * 0.75 * k), 0xfff0d0, Math.min(1, a) * 0.75);
+        sp(Lf, T(f.im), f.x, f.y, f.w * k, f.h * k, { ax: f.ax, ay: f.ay, rot: f.rot, a, flip: f.flip, blend: f.solid ? 0 : undefined });
+        if (!f.solid && nl++ < 36) light(f.x, f.y - (f.ay === 1 ? f.h * 0.35 : 0), Math.min(220, Math.max(f.w, f.h) * 0.75 * k), 0xfff0d0, Math.min(1, a) * 0.75);
       }
       for (const r of S.rings) {
         const p = 1 - r.life / r.max, rad = r.r0 + (r.r1 - r.r0) * p;

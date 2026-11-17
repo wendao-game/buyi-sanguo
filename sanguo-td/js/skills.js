@@ -1151,24 +1151,29 @@ const SKILLS = (function () {
     god_lvbu: {
       passive: { name: '魔神降世', desc: '攻击 +15%；每放倒一个敌人，这一局里自己的攻击再 +1%（最多 +30%）', mod: { atk: 0.15 },
         onKill(B, h) { if ((h.rise || 0) < 30) { h.atk0 = h.atk0 || h.atk; h.rise = (h.rise || 0) + 1; h.atk = h.atk0 * (1 + 0.01 * h.rise); } } },
-      ult: { desc: '神鬼无前：天色骤暗，10 杆魔戟追着场上最壮的敌人从天上砸下来，每杆炸开一片 ×3.5 并麻痹 0.6 秒；被砸死的敌人化成怨魂再炸一次 ×2（觉醒 15 杆）',
+      ult: { desc: '神鬼无前：天色骤暗，一杆缠着黑雷的魔戟砸进战场正中，周围一大片敌人受到 ×6 伤害并麻痹 0.8 秒；魔戟插在场中央 3 秒，黑雷每 0.3 秒劈一次圈里所有敌人 ×0.9（觉醒 4.5 秒）',
         cast(B, h, a, k) {
-          const n = R(10, k), P = '185,80,255';
-          B.flash('70,20,120', 0.4, 0.8);
+          const T = 3 * k, x = B.W / 2, y = (B.TOP + B.WY) / 2 + 20, R = 215, P = '185,80,255';
+          B.flash('50,15,90', 0.45, 0.9);
           B.tex('ghost_mask', h.x, h.y - 120, { w: 300, life: 1.3, grow: 1.25, fadeIn: 0.15, a: 0.75, rgb: P });                 // 身后升起一张魔神的脸
-          B.tex('demon_flame', h.x, h.y + 30, { w: 190, ay: 1, life: 1.2, grow: 1.2, fadeIn: 0.1, rgb: P });
-          for (let i = 0; i < 5; i++) B.tex('el_hit_dark', 60 + i * 105, B.TOP + 30 + (i % 2) * 40, { w: 300, life: 1.6 + n * 0.11, fadeIn: 0.3, a: 0.55, spin: 0.3, rgb: '120,50,200' });   // 压在战场上空的黑云
-          for (let i = 0; i < n; i++) B.later(i * 0.11, () => {
-            const L = B.lives().filter(e => !e._ml).sort((p, q) => q.hp - p.hp), t = L[0] || B.rnd(); if (!t) return;
-            t._ml = 1; B.later(0.5, () => { t._ml = 0; });
-            const x = t.x, y = t.y;
-            B.tex('demon_halberd', x, y - 300, { w: 120, ay: 1, life: 0.16, vy: 1900, rgb: '215,140,255' });                                    // 魔戟砸下来
-            B.later(0.15, () => {
-              B.tex('demon_halberd', x, y + 6, { w: 120, ay: 1, life: 0.7, a: 1, rgb: '215,140,255' });                                        // 插在地上
-              B.tex('demon_flame', x, y + 14, { w: 150, ay: 1, life: 0.55, grow: 1.25, fadeIn: 0.05, rgb: P });
-              B.tex('el_hit_thunder', x, y - 6, { w: 200, life: 0.3, grow: 1.3, rgb: '210,140,255' }); B.ring(x, y, 10, 86, 0.3, '#b060ff', 5); B.shake(0.14);
-              B.area(x, y, 78, e => { B.hit(e, a * 3.5, 'thunder', h); B.stun(e, 0.6); });
-              if (t.dead) { B.tex('soul', x, y - 30, { w: 60, life: 0.7, vy: -150, a: 0.9, rgb: P }); B.tex('el_hit_dark', x, y - 10, { w: 170, life: 0.5, grow: 1.5, a: 0.8, rgb: '170,90,255' }); B.area(x, y, 70, e => B.hit(e, a * 2, 'thunder', h)); }
+          for (let i = 0; i < 5; i++) B.tex('el_hit_dark', 60 + i * 105, B.TOP + 30 + (i % 2) * 40, { w: 300, life: T + 0.8, fadeIn: 0.3, a: 0.55, spin: 0.3, rgb: '120,50,200' });   // 压在战场上空的黑云
+          B.tex('demon_halberd', x, y - 560, { w: 250, ay: 1, life: 0.2, vy: 2800, solid: true });                               // 魔戟从天上砸下来
+          B.later(0.2, () => {
+            B.tex('black_ring', x, y, { w: R * 2.15, h: R * 1.35, life: T + 0.2, spin: 1.1, fadeIn: 0.08, solid: true });          // 地上一圈黑雷（先画，魔戟压在它上面）
+            B.tex('demon_halberd', x, y + 16, { w: 250, ay: 1, life: T + 0.25, solid: true });                                   // 插在场中央
+            B.tex('demon_flame', x, y + 12, { w: 260, ay: 1, life: 0.9, grow: 1.3, fadeIn: 0.05, rgb: P }); B.tex('el_hit_thunder', x, y - 6, { w: 420, life: 0.4, grow: 1.4, rgb: '210,140,255' });
+            B.ring(x, y, 20, R, 0.45, '#b060ff', 7); B.shake(0.55); B.shock(x, y, 380, 1.4);
+            B.area(x, y, R, e => { B.hit(e, a * 6, 'thunder', h); B.stun(e, 0.8); });                                              // 砸下来的那一下
+            const n = Math.round(T / 0.3);
+            for (let i = 0; i < n; i++) B.later(0.3 + i * 0.3, () => {                                                            // 黑雷一下下劈圈里的敌人
+              const L = []; B.area(x, y, R, e => L.push(e)); if (!L.length) return;
+              L.forEach(e => B.hit(e, a * 0.9, 'thunder', h, { dot: true }));
+              L.sort(() => Math.random() - 0.5).slice(0, 4).forEach(e => {
+                const d = Math.hypot(e.x - x, e.y - (y - 150));
+                B.tex('black_bolt', e.x, e.y + 6, { w: 50, h: d + 20, ay: 1, life: 0.22, rot: Math.atan2(x - e.x, e.y - (y - 150)), solid: true });
+                B.tex('el_hit_thunder', e.x, e.y - 6, { w: 90, life: 0.22, grow: 1.3, rgb: '200,120,255' });
+              });
+              if (i % 3 === 0) B.shake(0.1);
             });
           });
         } },
@@ -1199,6 +1204,7 @@ const SKILLS = (function () {
           const G = '255,215,110';
           B.flash('255,225,150', 0.35, 0.6);
           B.tex('pillar', h.x, h.y + 34, { w: 190, h: 620, ay: 1, life: 1.5, fadeIn: 0.1, rgb: G });
+          if (B.has('god_phantom')) B.tex('god_phantom', h.x, h.y - 170, { w: 340, life: 1.7, grow: 1.12, fadeIn: 0.15, a: 0.85 });   // 身后升起的武神法相（手绘图，有图才画）
           rainbow(B, h.x, h.y + 10, 30, 13, 2.4, 0.9);       // 脚下荡开的七彩光环
           for (let i = 0; i < 2; i++) B.later(i * 0.4, () => {
             B.sweep(h, a * 1.6, { push: 16, vy: -520, rgb: G }); B.shake(0.18);
@@ -1219,24 +1225,26 @@ const SKILLS = (function () {
     },
     god_zhuge: {
       passive: { name: '鞠躬尽瘁', desc: '全军出手速度 +10%、大招伤害 +10%', aura(ctx) { ctx.S.buffs.spd *= 1.1; ctx.S.buffs.ult *= 1.1; } },
-      ult: { desc: '七星续命：战场上铺开八卦阵，城头七盏星灯依次点亮，每亮一盏就有一道那一色的星光砸进敌人最密的地方 ×5.5（觉醒 ×8.25）；七盏全亮时，七彩光华荡开，全体武将回四成血、救活一名阵亡的武将、其他武将怒气 +20',
+      ult: { desc: '七星天火：大地崩开七道裂口，天火一处接一处从裂口里喷出来，每处 ×4.5 并留下一片火 2.5 秒（觉醒 ×6.75）；第七处喷完，漫天流火落下，全体武将回四成血、救活一名阵亡的武将、其他武将怒气 +20',
         cast(B, h, a, k) {
-          B.flash('190,235,255', 0.3, 0.6);
-          B.tex('bagua', B.W / 2, B.WY - 290, { w: 520, h: 330, life: 4.4, spin: 0.5, fadeIn: 0.3, a: 0.5, rgb: '190,235,255' });      // 铺在战场上的八卦阵
-          B.tex('seven_stars', B.W / 2, B.WY - 440, { w: 440, life: 4.2, fadeIn: 0.3, a: 0.8 });
+          B.flash('255,150,60', 0.3, 0.6);
+          B.tex('seven_stars', B.W / 2, B.WY - 440, { w: 440, life: 4, fadeIn: 0.3, a: 0.8, rgb: '255,190,110' });
           for (let i = 0; i < 7; i++) B.later(0.3 + i * 0.5, () => {
-            const c = RAINBOW[i], lx = 72 + i * 66;
-            B.tex('pillar', lx, B.WY - 10, { w: 46, h: 190, ay: 1, life: 4 - i * 0.5, fadeIn: 0.1, rgb: c, a: 0.9 }); B.tex('circle', lx, B.WY - 14, { w: 58, h: 26, spin: 3, life: 4 - i * 0.5, rgb: c, a: 0.95 });   // 城头的一盏星灯
-            B.ring(lx, B.WY - 30, 6, 40, 0.3, 'rgb(' + c + ')', 3);
-            const p = B.dense(100) || B.rnd(); if (!p) return;
-            B.tex('pillar', p.x, p.y + 16, { w: 120, h: 620, ay: 1, life: 0.5, fadeIn: 0.04, rgb: c }); B.bolt(p.x + (i - 3) * 30, p.y - 440, p.x, p.y, 2.2);                              // 那一色的星光
-            B.tex('bagua', p.x, p.y, { w: 210, h: 130, life: 0.5, spin: 4, grow: 1.2, rgb: c }); B.tex('burst', p.x, p.y, { w: 240, life: 0.3, grow: 1.4, rgb: c }); B.ring(p.x, p.y, 12, 114, 0.35, 'rgb(' + c + ')', 5); B.shake(0.15);
-            B.area(p.x, p.y, 100, e => { B.hit(e, a * 5.5 * k, 'wind', h); B.slow(e, 1.5); });
+            const p = B.dense(100) || B.rnd(); if (!p) return; const x = p.x, y = p.y;
+            B.tex('fissure', x, y + 8, { w: 250, h: 150, life: 1.7, fadeIn: 0.04 });                                               // 地面崩开
+            B.shake(0.12);
+            B.later(0.16, () => {
+              B.tex('skyfire', x, y + 18, { w: 170, h: 430, ay: 1, life: 0.6, grow: 1.12, fadeIn: 0.04 });                          // 天火从裂口里喷出来
+              B.tex('el_hit_fire', x, y - 4, { w: 260, life: 0.45, grow: 1.4 }); B.ring(x, y, 12, 118, 0.35, '#ffb060', 6);
+              for (let j = 0; j < 4; j++) B.tex('flame', x + (j - 1.5) * 34, y + 14, { w: 54, h: 96, ay: 1, life: 1.2, fadeIn: 0.08, a: 0.85 });
+              B.shake(0.22); B.shock(x, y, 240, 0.9);
+              B.area(x, y, 100, e => B.hit(e, a * 4.5 * k, 'fire', h)); B.pool(h, x, y, 70, 2.5, a * 0.35, 'fire');
+            });
           });
           B.later(3.9, () => {
-            B.flash('255,255,255', 0.2, 0.4);
+            B.flash('255,210,150', 0.3, 0.6);
+            for (let i = 0; i < 14; i++) B.later(i * 0.04, () => { const mx = 40 + Math.random() * (B.W - 80), my = B.TOP + 20 + Math.random() * (B.WY - B.TOP - 120); B.tex('meteor', mx - 40, my - 300, { w: 70, ay: 1, life: 0.26, vx: 150, vy: 1150, rot: -0.13 }); B.later(0.26, () => B.tex('el_hit_fire', mx, my, { w: 120, life: 0.3, grow: 1.3 })); });   // 漫天流火（只是演出）
             rainbow(B, B.W / 2, B.WY - 30, 70, 26, 2.3, 1.3);
-            RAINBOW.forEach((c, i) => B.tex('pillar', 72 + i * 66, B.WY - 10, { w: 70, h: 520, ay: 1, life: 0.9, fadeIn: 0.05, rgb: c }));   // 七盏灯一起冲天   // 七彩光华
             B.healHeroes(0.4); B.revive(0.5); B.teamRage(20, h);
           });
         } },
