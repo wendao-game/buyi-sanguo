@@ -450,6 +450,15 @@ const FXGen = (function () {
       c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 9; c.beginPath(); c.arc(x, x, w * 0.45, 0, TAU); c.stroke();   // 很淡的一圈晕（粗了几个颜色会叠成白的）
       c.strokeStyle = 'rgba(255,255,255,1)'; c.lineWidth = 3.5; c.beginPath(); c.arc(x, x, w * 0.45, 0, TAU); c.stroke();
     }),
+    /* 音符（蔡文姬的琴音）：一个带符尾的八分音符，白的，用的时候再染色 */
+    note: () => mk(120, 150, (c, w, h) => {
+      const g = c.createRadialGradient(w * 0.46, h * 0.56, 4, w * 0.46, h * 0.56, w * 0.5);
+      g.addColorStop(0, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h);   // 一团晕
+      c.fillStyle = '#fff'; c.strokeStyle = '#fff'; c.lineCap = 'round';
+      c.save(); c.translate(w * 0.36, h * 0.74); c.rotate(-0.42); c.beginPath(); c.ellipse(0, 0, 21, 15, 0, 0, TAU); c.fill(); c.restore();   // 符头
+      c.lineWidth = 7; c.beginPath(); c.moveTo(w * 0.52, h * 0.7); c.lineTo(w * 0.52, h * 0.16); c.stroke();                                  // 符干
+      c.lineWidth = 8; c.beginPath(); c.moveTo(w * 0.52, h * 0.16); c.quadraticCurveTo(w * 0.86, h * 0.26, w * 0.74, h * 0.5); c.stroke();   // 符尾
+    }),
     /* 八卦阵（神·诸葛亮）：外圈八个卦象，中间一个太极 */
     bagua: () => mk(440, 440, (c, w) => {
       const x = w / 2;

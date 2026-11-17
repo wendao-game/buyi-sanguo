@@ -149,12 +149,40 @@ const SKILLS = (function () {
         } },
     },
     caiwenji: {
-      passive: { name: '胡笳', desc: '全军怒气获取 +8%', aura(ctx) { ctx.S.buffs.rage *= 1.08; } },
-      ult: { desc: '悲歌：其他武将怒气 +25，全场敌人减速 4 秒（觉醒怒气 +38）',
+      /* v2.10 重做：从「加怒气」改成抚琴的奶妈——回血是一拍一拍给的，琴音在敌人之间弹跳 */
+      passive: { name: '胡笳余音', desc: '全军怒气获取 +8%；自己每出手 4 次，一缕琴音飘到血最少的武将身上，给他回复 4% 生命',
+        aura(ctx) { ctx.S.buffs.rage *= 1.08; },
+        onAttack(B, h) {
+          h.cwj = (h.cwj || 0) + 1; if (h.cwj % 4) return;
+          const t = B.heroes().filter(x => !x.dead && x.hp < x.maxHp).sort((x, y) => x.hp / x.maxHp - y.hp / y.maxHp)[0]; if (!t) return;
+          t.hp = Math.min(t.maxHp, t.hp + Math.round(t.maxHp * 0.04));
+          B.tex('note', h.x, h.y - 60, { w: 24, life: 0.45, vx: (t.x - h.x) / 0.45, vy: (t.y - h.y) / 0.45, rgb: '170,230,255', force: false });
+          B.later(0.45, () => B.tex('el_hit_wind', t.x, t.y - 24, { w: 56, life: 0.4, grow: 1.3, a: 0.7, rgb: '150,255,190', force: false }));
+        } },
+      ult: { desc: '胡笳十八拍：抚琴 5 秒，每半秒一拍——每一拍全体武将回复 3% 生命（共 30%，觉醒 45%）；同时一道琴音在敌人之间来回弹跳，每拍弹到一个敌人身上 ×2 并眩晕 0.6 秒；曲终时其他武将怒气 +15',
         cast(B, h, a, k) {
-          B.teamRage(R(25, k), h); B.flash('170,220,255', 0.3, 0.6);
-          for (const e of B.lives()) { B.slow(e, 4); B.hit(e, a * 1.5, 'ice', h); }
-          B.heroes().forEach(x => { if (x !== h) B.ring(x.x, x.y, 8, 50, 0.5, '#bfeaff', 3); });
+          const N = 10, heal = 0.03 * (k > 1 ? 1.5 : 1); let cur = null, last = null;
+          B.flash('170,220,255', 0.18, 0.5);
+          B.tex('circle', h.x, h.y + 29, { w: 130, h: 52, spin: 1.5, life: 5.3, a: 0.8, fadeIn: 0.1, rgb: '170,225,255' });
+          for (let i = 0; i < N; i++) B.later(0.3 + i * 0.5, () => {
+            if (h.dead) return;
+            h.anim = Math.max(h.anim, 0.9);                                                                              // 拨一下弦
+            B.tex('halo', h.x, h.y - 30, { w: 50, h: 34, grow: 7, life: 0.8, a: 0.8, rgb: '90,200,255' });          // 一圈琴音从她身上荡开
+            B.heroes().forEach(x => {
+              if (x.dead) return; x.hp = Math.min(x.maxHp, x.hp + Math.round(x.maxHp * heal));
+              B.tex('note', x.x + (Math.random() - 0.5) * 34, x.y - 34, { w: 34, life: 0.9, vy: -50, a: 1, rgb: '120,255,170', force: false });
+            });
+            const L = B.lives(); if (!L.length) return;                                                                 // 琴音弹到下一个敌人身上（不弹回刚弹过的两个）
+            let t = null, bd = 1e9; const from = cur && !cur.dead ? cur : null;
+            if (!from) t = B.front();
+            else for (const e of L) { if (e === cur || e === last) continue; const d = Math.hypot(e.x - from.x, e.y - from.y); if (d < bd) { bd = d; t = e; } }
+            if (!t) t = from || L[0];
+            const x0 = from ? from.x : h.x, y0 = from ? from.y - 10 : h.y - 50, tt = t;
+            B.tex('note', x0, y0, { w: 58, life: 0.18, vx: (t.x - x0) / 0.18, vy: (t.y - 10 - y0) / 0.18, rgb: '190,235,255' });
+            B.later(0.18, () => { if (tt.dead) return; B.hit(tt, a * 2, 'ice', h); B.stun(tt, 0.6); B.tex('halo', tt.x, tt.y - 6, { w: 40, h: 28, grow: 3.4, life: 0.4, rgb: '190,235,255' }); B.tex('el_hit_ice', tt.x, tt.y - 10, { w: 60, life: 0.3, grow: 1.3, force: false }); });
+            last = cur; cur = t;
+          });
+          B.later(0.3 + N * 0.5, () => { if (h.dead) return; B.teamRage(15, h); B.text(h.x, h.y - 96, '曲终', '#bfeaff', 18, 1.2); B.heroes().forEach(x => { if (x !== h && !x.dead) B.ring(x.x, x.y, 8, 50, 0.5, '#bfeaff', 3); }); });
         } },
     },
     liru: {
