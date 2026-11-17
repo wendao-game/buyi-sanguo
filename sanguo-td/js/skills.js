@@ -1157,10 +1157,10 @@ const SKILLS = (function () {
           B.flash('50,15,90', 0.45, 0.9);
           B.tex('ghost_mask', h.x, h.y - 120, { w: 300, life: 1.3, grow: 1.25, fadeIn: 0.15, a: 0.75, rgb: P });                 // 身后升起一张魔神的脸
           for (let i = 0; i < 5; i++) B.tex('el_hit_dark', 60 + i * 105, B.TOP + 30 + (i % 2) * 40, { w: 300, life: T + 0.8, fadeIn: 0.3, a: 0.55, spin: 0.3, rgb: '120,50,200' });   // 压在战场上空的黑云
-          B.tex('demon_halberd', x, y - 560, { w: 250, ay: 1, life: 0.2, vy: 2800, solid: true });                               // 魔戟从天上砸下来
+          B.tex('demon_halberd', x, y - 560, { w: 176, ay: 1, life: 0.2, vy: 2800, solid: true });                               // 魔戟从天上砸下来
           B.later(0.2, () => {
-            B.tex('black_ring', x, y, { w: R * 2.15, h: R * 1.35, life: T + 0.2, spin: 1.1, fadeIn: 0.08, solid: true });          // 地上一圈黑雷（先画，魔戟压在它上面）
-            B.tex('demon_halberd', x, y + 16, { w: 250, ay: 1, life: T + 0.25, solid: true });                                   // 插在场中央
+            B.tex('black_ring', x, y, { w: R * 2.15, h: R * 1.35, life: T + 0.2, grow: 1.06, fadeIn: 0.08, solid: true });          // 地上一圈黑雷（先画，魔戟压在它上面）
+            B.tex('demon_halberd', x, y + 16, { w: 176, ay: 1, life: T + 0.25, solid: true });                                   // 插在场中央
             B.tex('demon_flame', x, y + 12, { w: 260, ay: 1, life: 0.9, grow: 1.3, fadeIn: 0.05, rgb: P }); B.tex('el_hit_thunder', x, y - 6, { w: 420, life: 0.4, grow: 1.4, rgb: '210,140,255' });
             B.ring(x, y, 20, R, 0.45, '#b060ff', 7); B.shake(0.55); B.shock(x, y, 380, 1.4);
             B.area(x, y, R, e => { B.hit(e, a * 6, 'thunder', h); B.stun(e, 0.8); });                                              // 砸下来的那一下
@@ -1170,7 +1170,7 @@ const SKILLS = (function () {
               L.forEach(e => B.hit(e, a * 0.9, 'thunder', h, { dot: true }));
               L.sort(() => Math.random() - 0.5).slice(0, 4).forEach(e => {
                 const d = Math.hypot(e.x - x, e.y - (y - 150));
-                B.tex('black_bolt', e.x, e.y + 6, { w: 50, h: d + 20, ay: 1, life: 0.22, rot: Math.atan2(x - e.x, e.y - (y - 150)), solid: true });
+                B.tex('black_bolt', e.x, e.y + 6, { w: 76, h: d + 20, ay: 1, life: 0.22, rot: Math.atan2(x - e.x, e.y - (y - 150)), solid: true });
                 B.tex('el_hit_thunder', e.x, e.y - 6, { w: 90, life: 0.22, grow: 1.3, rgb: '200,120,255' });
               });
               if (i % 3 === 0) B.shake(0.1);
@@ -1184,15 +1184,15 @@ const SKILLS = (function () {
         cast(B, h, a, k) {
           const f = k > 1 ? 0.18 : 0.12, P = '160,80,255', cx = B.W / 2, cy = B.WY - 300;
           B.flash('60,20,110', 0.4, 0.9);
-          B.tex('vortex', cx, cy, { w: 520, life: 1.7, spin: -5, fadeIn: 0.15, a: 0.95, rgb: P });                                 // 归心漩涡
-          B.tex('vortex', cx, cy, { w: 330, life: 1.7, spin: 7, fadeIn: 0.15, a: 0.8, rgb: '225,170,255' });
+          B.tex('vortex', cx, cy, { w: 520, life: 1.7, spin: -5, fadeIn: 0.15, a: 0.95 });                                 // 归心漩涡
+          B.tex('vortex', cx, cy, { w: 300, life: 1.7, spin: -9, fadeIn: 0.15, a: 0.7 });
           B.lives().forEach((e, i) => B.later(Math.min(0.6, i * 0.015), () => {
             if (e.dead) return;
-            if (i < 44) { const T = 0.55, vx = (cx - e.x) / T, vy = (cy - e.y) / T; B.tex('soul', e.x, e.y - 10, { w: 44, life: T, vx, vy, rot: Math.atan2(vy, vx) + Math.PI / 2, a: 0.95, rgb: P }); }   // 怨魂被吸进漩涡
+            if (i < 44) { const T = 0.55, vx = (cx - e.x) / T, vy = (cy - e.y) / T; B.tex('soul', e.x, e.y - 10, { w: 46, life: T, vx, vy, rot: Math.atan2(vy, vx) + Math.PI / 2, a: 0.95 }); }   // 怨魂被吸进漩涡
             B.hit(e, Math.min(a * 14, e.hp * (B.isBig(e) || e.def.siege ? f / 3 : f)), 'poison', h); B.slow(e, 3);
           }));
           B.later(1.2, () => {                                                                                                     // 漩涡里的魂落回城头
-            B.heroes().forEach((x, i) => { if (!x.dead) { const T = 0.4, vx = (x.x - cx) / T, vy = (x.y - 30 - cy) / T; B.tex('soul', cx, cy, { w: 54, life: T, vx, vy, rot: Math.atan2(vy, vx) + Math.PI / 2, rgb: '225,170,255' }); } });
+            B.heroes().forEach((x, i) => { if (!x.dead) { const T = 0.4, vx = (x.x - cx) / T, vy = (x.y - 30 - cy) / T; B.tex('soul', cx, cy, { w: 60, life: T, vx, vy, rot: Math.atan2(vy, vx) + Math.PI / 2 }); } });
             B.later(0.4, () => { for (let i = 0; i < 6; i++) B.tex('demon_flame', 60 + i * 84, B.WY + 6, { w: 96, ay: 1, life: 0.9, fadeIn: 0.08, a: 0.85, rgb: P }); B.flash('150,80,255', 0.2, 0.4); B.heal(0.10); B.healHeroes(0.2); });
           });
         } },
@@ -1204,7 +1204,7 @@ const SKILLS = (function () {
           const G = '255,215,110';
           B.flash('255,225,150', 0.35, 0.6);
           B.tex('pillar', h.x, h.y + 34, { w: 190, h: 620, ay: 1, life: 1.5, fadeIn: 0.1, rgb: G });
-          if (B.has('god_phantom')) B.tex('god_phantom', h.x, h.y - 170, { w: 340, life: 1.7, grow: 1.12, fadeIn: 0.15, a: 0.85 });   // 身后升起的武神法相（手绘图，有图才画）
+          if (B.has('god_phantom')) B.tex('god_phantom', Math.max(180, Math.min(B.W - 180, h.x)), h.y - 190, { w: 360, life: 1.9, grow: 1.1, fadeIn: 0.15, a: 0.9 });   // 身后升起的武神法相（手绘图，有图才画）
           rainbow(B, h.x, h.y + 10, 30, 13, 2.4, 0.9);       // 脚下荡开的七彩光环
           for (let i = 0; i < 2; i++) B.later(i * 0.4, () => {
             B.sweep(h, a * 1.6, { push: 16, vy: -520, rgb: G }); B.shake(0.18);
@@ -1212,9 +1212,9 @@ const SKILLS = (function () {
           });
           B.later(1.0, () => {
             const t = B.strongest(1)[0]; if (!t) return; const x = t.x, y = t.y;
-            B.tex('guandao', x, y - 430, { w: 190, ay: 1, life: 0.26, vy: 1690, rgb: G });                                           // 武神刀落下来
+            B.tex('guandao', x, y - 430, { w: 150, ay: 1, life: 0.26, vy: 1690 });                                           // 武神刀落下来
             B.later(0.26, () => {
-              B.tex('guandao', x, y + 10, { w: 190, ay: 1, life: 1.1, a: 1, rgb: '255,235,170' });
+              B.tex('guandao', x, y + 10, { w: 150, ay: 1, life: 1.1, a: 1 });
               B.tex('pillar', x, y + 20, { w: 120, h: 640, ay: 1, life: 0.35, fadeIn: 0.05, a: 0.6, rgb: G }); B.tex('cross_slash', x, y - 10, { w: 300, life: 0.4, grow: 1.4, rgb: G }); B.tex('burst', x, y, { w: 240, life: 0.22, grow: 1.4, rgb: '255,235,180' });
               rainbow(B, x, y, 40, 17, 2.6, 1.0);           // 七彩神光
               B.flash('255,235,170', 0.2, 0.4); B.shake(0.5); B.shock(x, y, 340, 1.3);
@@ -1231,10 +1231,10 @@ const SKILLS = (function () {
           B.tex('seven_stars', B.W / 2, B.WY - 440, { w: 440, life: 4, fadeIn: 0.3, a: 0.8, rgb: '255,190,110' });
           for (let i = 0; i < 7; i++) B.later(0.3 + i * 0.5, () => {
             const p = B.dense(100) || B.rnd(); if (!p) return; const x = p.x, y = p.y;
-            B.tex('fissure', x, y + 8, { w: 250, h: 150, life: 1.7, fadeIn: 0.04 });                                               // 地面崩开
+            B.tex('fissure', x, y + 8, { w: 260, h: 165, life: 1.7, fadeIn: 0.04 });                                               // 地面崩开
             B.shake(0.12);
             B.later(0.16, () => {
-              B.tex('skyfire', x, y + 18, { w: 170, h: 430, ay: 1, life: 0.6, grow: 1.12, fadeIn: 0.04 });                          // 天火从裂口里喷出来
+              B.tex('skyfire', x, y + 18, { w: 250, ay: 1, life: 0.65, grow: 1.12, fadeIn: 0.04 });                          // 天火从裂口里喷出来
               B.tex('el_hit_fire', x, y - 4, { w: 260, life: 0.45, grow: 1.4 }); B.ring(x, y, 12, 118, 0.35, '#ffb060', 6);
               for (let j = 0; j < 4; j++) B.tex('flame', x + (j - 1.5) * 34, y + 14, { w: 54, h: 96, ay: 1, life: 1.2, fadeIn: 0.08, a: 0.85 });
               B.shake(0.22); B.shock(x, y, 240, 0.9);
@@ -1243,7 +1243,7 @@ const SKILLS = (function () {
           });
           B.later(3.9, () => {
             B.flash('255,210,150', 0.3, 0.6);
-            for (let i = 0; i < 14; i++) B.later(i * 0.04, () => { const mx = 40 + Math.random() * (B.W - 80), my = B.TOP + 20 + Math.random() * (B.WY - B.TOP - 120); B.tex('meteor', mx - 40, my - 300, { w: 70, ay: 1, life: 0.26, vx: 150, vy: 1150, rot: -0.13 }); B.later(0.26, () => B.tex('el_hit_fire', mx, my, { w: 120, life: 0.3, grow: 1.3 })); });   // 漫天流火（只是演出）
+            for (let i = 0; i < 14; i++) B.later(i * 0.04, () => { const mx = 40 + Math.random() * (B.W - 80), my = B.TOP + 20 + Math.random() * (B.WY - B.TOP - 120); B.tex('meteor', mx - 40, my - 300, { w: 78, ay: 1, life: 0.26, vx: 150, vy: 1150, rot: -0.13 }); B.later(0.26, () => B.tex('el_hit_fire', mx, my, { w: 120, life: 0.3, grow: 1.3 })); });   // 漫天流火（只是演出）
             rainbow(B, B.W / 2, B.WY - 30, 70, 26, 2.3, 1.3);
             B.healHeroes(0.4); B.revive(0.5); B.teamRage(20, h);
           });

@@ -69,7 +69,8 @@ FX_SHEETS = {
     'fx_7': ['skyfire', 'fissure', 'meteor', 'vortex', 'soul', 'guandao', 'god_phantom', None, None],   # 神魔的专属大招
 }
 FX_SIZE = {'slash': 384, 'bolt': 384, 'pillar': 384, 'thrust': 384, 'circle': 320, 'whirl': 256, 'flame': 256,
-           'el_orb_fire': 128, 'el_orb_wind': 160, 'dragon_azure': 512, 'dragon_white': 512, 'phoenix': 512}
+           'el_orb_fire': 128, 'el_orb_wind': 160, 'dragon_azure': 512, 'dragon_white': 512, 'phoenix': 512,
+           'skyfire': 448, 'fissure': 384, 'vortex': 448, 'guandao': 448, 'god_phantom': 448, 'meteor': 320}
 
 
 def clear_bg(im, tol=24):

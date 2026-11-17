@@ -61,7 +61,7 @@ section { display: flex; flex-direction: column; gap: 14px; }
 <div class="wrap">
   <header>
     <h1>烽火守城 · <span>国风卡通</span> 出图</h1>
-    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 是所有图的标准：每次把它们一起发给 GPT。<b>还差 2 张：特效 7</b>（神魔的专属大招：天火柱、地裂、天火流星、归心漩涡、怨魂、武神刀、武神法相，黑底）和<b>单位 2</b>（魔·吕布的黑雷魔戟、黑雷、黑雷环，透明底），排在最前面；画特效 7 时附上已画好的「特效 3」，画单位 2 时附上魔·吕布的立绘。画好前游戏里先用代码画的贴图顶着。其余 45 张都已经在游戏里了，想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。</p>
+    <p class="lede">烽火守城的画风：国风 Q 版卡通（粗黑描边、平涂加简单阴影、颜色鲜艳），高俯视角、背身守城，场景比角色暗。武将 1 和头像 1 是所有图的标准：每次把它们一起发给 GPT。<b>全部 47 张都已经画好、换进游戏了。</b>想重画哪张，照样复制提示词，画好后用同一个文件名发过来就会替换。</p>
   </header>
 
   <ol class="steps">
@@ -476,7 +476,7 @@ const groups = [
 ];
 
 /* 已经画好并换进游戏的图（要重画也可以，照样复制提示词） */
-const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'hero_7.png', 'head_7.png', 'hero_8.png', 'head_8.png', 'weapon_1.png', 'weapon_2.png', 'weapon_3.png', 'weapon_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'fx_4.png', 'fx_5.png', 'fx_6.png', 'enemy_1.png', 'enemy_2.png', 'enemy_3.png', 'unit_1.png', 'enemy_4.png', 'enemy_5.png', 'enemy_6.png', 'enemy_7.png', 'weapon_5.png', 'weapon_6.png', 'hero_9.png', 'head_9.png', 'hero_10.png', 'head_11.png', 'weapon_7.png', 'hero_11.png', 'head_10.png', 'enemy_8.png'];
+const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'hero_7.png', 'head_7.png', 'hero_8.png', 'head_8.png', 'weapon_1.png', 'weapon_2.png', 'weapon_3.png', 'weapon_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'fx_4.png', 'fx_5.png', 'fx_6.png', 'enemy_1.png', 'enemy_2.png', 'enemy_3.png', 'unit_1.png', 'enemy_4.png', 'enemy_5.png', 'enemy_6.png', 'enemy_7.png', 'weapon_5.png', 'weapon_6.png', 'hero_9.png', 'head_9.png', 'hero_10.png', 'head_11.png', 'weapon_7.png', 'hero_11.png', 'head_10.png', 'enemy_8.png', 'fx_7.png', 'unit_2.png'];
 
 /* 页面上的排法：还没画的排最前面（按建议的出图顺序：武将和它的头像挨着），已画好的收在后面 */
 const all = [];
