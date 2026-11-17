@@ -487,7 +487,7 @@ const groups = [
 ];
 
 /* 已经画好并换进游戏的图（要重画也可以，照样复制提示词） */
-const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'hero_7.png', 'head_7.png', 'hero_8.png', 'head_8.png', 'weapon_1.png', 'weapon_2.png', 'weapon_3.png', 'weapon_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'fx_4.png', 'fx_5.png', 'fx_6.png', 'enemy_1.png', 'enemy_2.png', 'enemy_3.png', 'unit_1.png', 'enemy_4.png', 'enemy_5.png', 'enemy_6.png', 'enemy_7.png', 'weapon_5.png', 'weapon_6.png', 'hero_9.png', 'head_9.png', 'hero_10.png', 'head_11.png', 'weapon_7.png', 'hero_11.png', 'head_10.png', 'enemy_8.png', 'fx_7.png', 'unit_2.png', 'hero_12.png', 'head_12.png'];
+const DONE = ['hero_1.png', 'head_1.png', 'hero_2.png', 'head_2.png', 'hero_3.png', 'head_3.png', 'hero_4.png', 'head_4.png', 'hero_5.png', 'head_5.png', 'hero_6.png', 'head_6.png', 'hero_7.png', 'head_7.png', 'hero_8.png', 'head_8.png', 'weapon_1.png', 'weapon_2.png', 'weapon_3.png', 'weapon_4.png', 'battle.png', 'fx_1.png', 'fx_2.png', 'fx_3.png', 'fx_4.png', 'fx_5.png', 'fx_6.png', 'enemy_1.png', 'enemy_2.png', 'enemy_3.png', 'unit_1.png', 'enemy_4.png', 'enemy_5.png', 'enemy_6.png', 'enemy_7.png', 'weapon_5.png', 'weapon_6.png', 'hero_9.png', 'head_9.png', 'hero_10.png', 'head_11.png', 'weapon_7.png', 'hero_11.png', 'head_10.png', 'enemy_8.png', 'fx_7.png', 'unit_2.png', 'hero_12.png', 'head_12.png', 'ult_thunder.mp3', 'ult_fire.mp3', 'ult_ice.mp3', 'ult_wind.mp3', 'ult_poison.mp3', 'ult_blade.mp3', 'boom.mp3', 'thunder.mp3', 'freeze.mp3', 'boss_smash.mp3', 'boss_roar.mp3', 'myth_dark.mp3', 'myth_holy.mp3'];
 
 /* 页面上的排法：还没画的排最前面（按建议的出图顺序：武将和它的头像挨着），已画好的收在后面 */
 const all = [];
@@ -518,7 +518,7 @@ const SFX = [
   ['myth_holy', '神将登场 / 放大招', '1.6 秒', '神圣的光降临：一串清亮上行的钟铃声，底下是明亮宏大的合唱般的长音（没有歌词），庄严、通透。', 'Holy light descending: a bright ascending chime cascade over a grand, airy choir-like pad without words, majestic. 1.6 seconds.'],
 ].map(x => ({ file: x[0] + '.mp3', name: x[1], who: '时长约 ' + x[2] + ' · 文件名 ' + x[0] + '（mp3 / wav / ogg / m4a 都行；生成的是视频也行，把 mp4 发来我抽音轨）',
   text: '游戏技能音效：' + x[1] + '，时长约 ' + x[2] + '。\n\n' + x[3] + SFX_TAIL + '\n\n（英文版，生成工具更认英文时用这段）\n' + x[4] + ' Pure sound effect, no music, no voice, no background noise, clean and punchy, for a mobile game.' }));
-pageGroups.push({ title: '音效（可选）', note: '游戏里的音效是代码合成的，大招已经做了有打击感的一版；想要更真的，用这里的提示词去生成（即梦或者别的能出音效的工具都行）。<b>前 7 个是七种攻击类型的大招，最值得换</b>；后面的是爆炸、落雷、冰碎和敌将、神魔的声音。生成得比写的时长长也没关系，导入时会自动裁掉头尾的空白、统一音量。<br>用法：文件名照上面的写（比如 <code>ult_thunder.mp3</code>），放进 <code>sanguo-td/assets/sfx/</code>；本地用 serve.ps1 启动会自动认；要上网站就发给 Claude 或者推到分支上。没放文件的音效照旧用合成的。', items: SFX });
+pageGroups.push({ title: '音效（可选）', note: '<b>14 个里已经生成并换进游戏 13 个，只剩「弓系大招」还是代码合成的。</b>想重做哪个，照样复制提示词，生成后用同一个文件名发过来就会替换。<b>前 7 个是七种攻击类型的大招，最值得换</b>；后面的是爆炸、落雷、冰碎和敌将、神魔的声音。生成得比写的时长长也没关系，导入时会自动裁掉头尾的空白、统一音量。<br>用法：文件名照上面的写（比如 <code>ult_thunder.mp3</code>），放进 <code>sanguo-td/assets/sfx/</code>；本地用 serve.ps1 启动会自动认；要上网站就发给 Claude 或者推到分支上。没放文件的音效照旧用合成的。', items: SFX });
 
 const root = document.getElementById('groups');
 pageGroups.forEach(g => {
@@ -529,7 +529,7 @@ pageGroups.forEach(g => {
     const div = document.createElement('div');
     const isDone = DONE.includes(it.file);
     div.className = 'slip' + (isDone ? ' done' : '');
-    div.innerHTML = `<header><h3>${it.name}</h3><span class="file">${it.file}</span>${isDone ? '<span class="tag-done">已画好 · 已在游戏里</span>' : ''}<button type="button" id="b-${id}">复制</button><span class="who">${it.who}</span></header>
+    div.innerHTML = `<header><h3>${it.name}</h3><span class="file">${it.file}</span>${isDone ? '<span class="tag-done">' + (/\.mp3$/.test(it.file) ? '已生成' : '已画好') + ' · 已在游戏里</span>' : ''}<button type="button" id="b-${id}">复制</button><span class="who">${it.who}</span></header>
       <pre id="${id}"></pre><button type="button" class="more" aria-controls="${id}">展开全文</button>`;
     div.querySelector('pre').textContent = it.text;
     const btn = div.querySelector('#b-' + id), pre = div.querySelector('pre'), more = div.querySelector('.more');

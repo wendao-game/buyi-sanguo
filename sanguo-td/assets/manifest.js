@@ -330,6 +330,19 @@ window.ASSET_LIST = [
   'heroes/zhurong_head.png',
   'heroes/zuoci.png',
   'heroes/zuoci_head.png',
+  'sfx/boom.mp3',
+  'sfx/boss_roar.mp3',
+  'sfx/boss_smash.mp3',
+  'sfx/freeze.mp3',
+  'sfx/myth_dark.mp3',
+  'sfx/myth_holy.mp3',
+  'sfx/thunder.mp3',
+  'sfx/ult_blade.mp3',
+  'sfx/ult_fire.mp3',
+  'sfx/ult_ice.mp3',
+  'sfx/ult_poison.mp3',
+  'sfx/ult_thunder.mp3',
+  'sfx/ult_wind.mp3',
   'ui/corner_bl.png',
   'ui/corner_br.png',
   'ui/corner_tl.png',
@@ -393,4 +406,4 @@ window.ASSET_LIST = [
   'weapons/zhuque.png',
   'weapons/zidian.png',
 ];
-window.ASSET_VER = '0a2c50009f';
+window.ASSET_VER = 'b797e3b7c7';
