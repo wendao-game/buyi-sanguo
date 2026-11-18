@@ -51,6 +51,7 @@ const CFG = {
   WEAPON_UP: [1, 1.5, 2, 3, 4.5, 6],            // 强化到下一级 = 此值 × 当前等级
 
   // —— 局内操作 ——
+  BOND_SKILL_POWER: 0.10,  // 彩色缘分的合击大招折算成多少战力（模拟器量出来它让队伍强 8%～17%）
   ROCK_MAX: 3,             // 滚木礌石最多存几块
   ROCK_CD: 6,              // 每块恢复秒数
   ROCK_R: 60,              // 落点半径
@@ -637,10 +638,10 @@ const COMBOS = [
   { name: '蜀汉旧将', ids: ['liaohua', 'zhoucang', 'guanping'], need: 2, desc: '全军攻击 +8%', eff: { atk: 0.08 } },
   { name: '黄巾起义', ids: ['zhangjiao', 'zhangbao', 'guanhai', 'peiyuan', 'chengyuanzhi'], need: 3, desc: '全军攻击 +18%', eff: { atk: 0.18 } },
   { name: '关氏父子', ids: ['guanyu', 'guanping', 'zhoucang', 'guanxing'], need: 2, desc: '刃系伤害 +25%', eff: { el: { blade: 0.25 } } },
-  { name: '五虎上将', skill: 'wuhu', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong', 'machao'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
+  { name: '五虎上将', skill: 'wuhu', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong', 'machao'], need: 3, desc: '全军攻击 +12%、暴击率 +10%', eff: { atk: 0.12, crit: 0.10 } },
   { name: '长沙旧部', ids: ['huangzhong', 'weiyan'], need: 2, desc: '弓、火系伤害 +25%', eff: { el: { arrow: 0.25, fire: 0.25 } } },
   { name: '荆襄名士', ids: ['zhugeliang', 'xushu'], need: 2, desc: '风系伤害 +35%', eff: { el: { wind: 0.35 } } },
-  { name: '赤壁之盟', skill: 'chibi', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +15%、怒气获取 +8%', eff: { ult: 0.15, rage: 0.08 } },
+  { name: '赤壁之盟', skill: 'chibi', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +10%、怒气获取 +12%、城防上限 +10%', eff: { ult: 0.10, rage: 0.12, wall: 0.10 } },
   { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +18%', eff: { el: { fire: 0.18 } } },
   { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu', 'huanggai', 'lingtong', 'jiangqin', 'zhoutai', 'handang', 'panzhang', 'dingfeng', 'xusheng'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
   { name: '魏之谋主', skill: 'mouzhu', ids: ['caocao', 'simayi', 'jiaxu', 'guojia'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
@@ -651,7 +652,7 @@ const COMBOS = [
   { name: '乱世才女', ids: ['caiwenji', 'zhenji', 'xinxianying'], need: 2, desc: '冰系伤害 +25%、怒气获取 +10%', eff: { el: { ice: 0.25 }, rage: 0.10 } },
   { name: '天公地公', ids: ['zhangjiao', 'zhangbao', 'panfeng'], need: 2, desc: '雷系伤害 +30%', eff: { el: { thunder: 0.30 } } },
   // —— v1.0 新增 ——
-  { name: '桃园结义', skill: 'taoyuan', ids: ['liubei', 'guanyu', 'zhangfei'], need: 3, desc: '全军攻击 +15%、怒气获取 +15%', eff: { atk: 0.15, rage: 0.15 } },
+  { name: '桃园结义', skill: 'taoyuan', ids: ['liubei', 'guanyu', 'zhangfei'], need: 3, desc: '全军攻击 +20%、怒气获取 +20%', eff: { atk: 0.20, rage: 0.20 } },
   { name: '卧龙凤雏', skill: 'wolong', ids: ['zhugeliang', 'pangtong'], need: 2, desc: '大招伤害 +20%', eff: { ult: 0.20 } },
   { name: '长坂救主', ids: ['liubei', 'zhaoyun', 'liushan'], need: 2, desc: '冰系伤害 +25%、城防上限 +10%', eff: { el: { ice: 0.25 }, wall: 0.10 } },
   { name: '定军山',   ids: ['fazheng', 'huangzhong'], need: 2, desc: '弓、毒系伤害 +25%', eff: { el: { arrow: 0.25, poison: 0.25 } } },
@@ -697,12 +698,12 @@ const COMBOS = [
   { name: '街亭',     ids: ['zhanghe', 'simayi', 'wangping'], need: 2, desc: '风、毒、弓系伤害 +20%', eff: { el: { wind: 0.20, poison: 0.20, arrow: 0.20 } } },
   // —— v1.4 新增：收服来的敌将 ——
   { name: '河北双雄', ids: ['yanliang', 'wenchou', 'yuanshao'], need: 2, desc: '刃、弓系伤害 +25%', eff: { el: { blade: 0.25, arrow: 0.25 } } },
-  { name: '连环计', skill: 'lianhuan',   ids: ['dongzhuo', 'diaochan', 'lvbu'], need: 2, must: 'dongzhuo', desc: '火、毒系伤害 +20%、全军暴击率 +6%', eff: { el: { fire: 0.20, poison: 0.20 }, crit: 0.06 } },
+  { name: '连环计', skill: 'lianhuan',   ids: ['dongzhuo', 'diaochan', 'lvbu'], need: 2, must: 'dongzhuo', desc: '火、毒系伤害 +22%、全军暴击率 +12%', eff: { el: { fire: 0.22, poison: 0.22 }, crit: 0.12 } },
   { name: '七擒七纵', ids: ['menghuo', 'zhugeliang'], need: 2, desc: '毒、风系伤害 +25%', eff: { el: { poison: 0.25, wind: 0.25 } } },
   { name: '斩将夺旗', ids: ['guanyu', 'yanliang', 'wenchou'], need: 2, must: 'guanyu', desc: '刃系伤害 +20%、全军暴击率 +6%', eff: { el: { blade: 0.20 }, crit: 0.06 } },
   { name: '虎豹骑',   ids: ['caochun', 'xiahoudun', 'caocao'], need: 2, must: 'caochun', desc: '风、刃系伤害 +20%', eff: { el: { wind: 0.20, blade: 0.20 } } },
   // —— v2.2 新武将的缘分 ——
-  { name: '江东之主', skill: 'jiangdong', ids: ['sunquan', 'zhouyu', 'luxun', 'lvmeng'], need: 2, desc: '全军攻击 +10%、怒气获取 +10%', eff: { atk: 0.10, rage: 0.10 } },
+  { name: '江东之主', skill: 'jiangdong', ids: ['sunquan', 'zhouyu', 'luxun', 'lvmeng'], need: 2, desc: '全军攻击 +18%、怒气获取 +15%、城防上限 +10%', eff: { atk: 0.18, rage: 0.15, wall: 0.10 } },
   { name: '孙氏三杰', ids: ['sunquan', 'sunce', 'sunshangxiang', 'sunjian'], need: 2, desc: '雷、弓系伤害 +20%', eff: { el: { thunder: 0.20, arrow: 0.20 } } },
   { name: '白衣渡江', ids: ['lvmeng', 'luxun'], need: 2, desc: '全军暴击率 +10%', eff: { crit: 0.10 } },
   { name: '夏侯兄弟', ids: ['xiahoudun', 'xiahouyuan'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },

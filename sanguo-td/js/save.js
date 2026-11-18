@@ -119,12 +119,18 @@ function teamBonus(team) {
     out.el[e] = (out.el[e] || 0) + v;
     out.active.push({ type: 'elem', q: Math.min(5, n), name: ELEMENTS[e].name + '系共鸣（' + n + '）', desc: ELEMENTS[e].name + '系伤害 +' + Math.round(v * 100) + '%', who: ids.filter(id => HERO_MAP[id].el === e) });
   });
+  let rbPick = '';                                           // 彩色缘分一支队伍只生效一组：不然三组叠在一起，别的阵容都不用玩了
   COMBOS.forEach(c => {
     const n = c.ids.filter(id => ids.includes(id)).length;
     if (n < c.need || (c.must && !ids.includes(c.must))) return;
+    const who = c.ids.filter(id => ids.includes(id));
+    if (c.skill) {                                           // 凑齐了几组彩色：用玩家在羁绊一览里挑的那组（Save.data.rb），没挑就用表里排在前面的
+      if (!rbPick) { const ok = COMBOS.filter(x => x.skill && x.ids.filter(id => ids.includes(id)).length >= x.need && (!x.must || ids.includes(x.must))); rbPick = (ok.find(x => x.name === (Save.data && Save.data.rb)) || ok[0]).name; }
+      if (c.name !== rbPick) { out.active.push({ type: 'combo', q: 0, off: true, name: c.name, desc: '没有生效：一支队伍只生效一组彩色缘分（现在是「' + rbPick + '」）', who }); return; }
+    }
     ['atk', 'spd', 'crit', 'rage', 'ult', 'wall'].forEach(k => add(c.eff, k));
     if (c.eff.el) for (const e in c.eff.el) out.el[e] = (out.el[e] || 0) + c.eff.el[e];
-    out.active.push({ type: 'combo', q: c.q, skill: c.skill || '', name: c.name, desc: c.desc, who: c.ids.filter(id => ids.includes(id)) });
+    out.active.push({ type: 'combo', q: c.q, skill: c.skill || '', name: c.name, desc: c.desc, who });
   });
   team.forEach((id, i) => {
     if (!id) return;
@@ -151,6 +157,7 @@ function teamPower(team) {
     sum += heroStats(id).power * (1 + (m.atk || 0)) * (1 + (m.spd || 0)) * (1 + b.atk + p.atk) * (1 + b.spd + p.spd) * (1 + b.crit + (m.crit || 0)) * (1 + (b.el[d.el] || 0) * 0.6) * (1 + b.ult * 0.3 + b.rage * 0.35 + p.rage * 0.35)   // 怒气获取 +10% ≈ 战力 +3.5%（模拟器量出来的：原来按 2% 算，怒气叠得多的阵容实际比战力数字强一截）
       * (1 + p.watk) * (1 + p.wspd) * (1 + p.wcrit) * (1 + p.wult * 0.3 + p.wrage * 0.35);   // 兵器
   });
+  if (b.active.some(a => a.skill)) sum *= 1 + CFG.BOND_SKILL_POWER;   // 彩色缘分的合击大招也算战力（不算的话，带彩色缘分的队伍实际比战力数字能打一截，推荐战力就不准了）
   return Math.round(sum);
 }
 function basePower(team) { return (team || Save.data.team).reduce((s, id) => s + (id ? heroStats(id).power : 0), 0); }

@@ -144,7 +144,7 @@ const UI = (function () {
         : `<div class="tslot ${pickSlot === i ? 'pick' : ''}" data-act="slot" data-i="${i}"><em>${role.name}</em>空位</div>`;
     }).join('');
     const bonus = teamBonus();
-    const bonds = bonus.active.length ? bonus.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<span class="bond ${a.type}" data-bq="${a.q || 0}"><b>${a.name}</b>${a.desc}${a.skill ? ' · 合击「' + BOND_SKILLS[a.skill].name + '」' : ''}</span>`).join('') : '<span class="bond none">还没有激活的羁绊</span>';
+    const bonds = bonus.active.length ? bonus.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<span class="bond ${a.type}${a.off ? ' off' : ''}" data-bq="${a.q || 0}"><b>${a.name}</b>${a.desc}${a.skill ? ' · 合击「' + BOND_SKILLS[a.skill].name + '」' : ''}</span>`).join('') : '<span class="bond none">还没有激活的羁绊</span>';
     let ids;
     if (heroTab === 'mine') ids = Object.keys(S.heroes).sort((a, b) => HERO_MAP[b].q - HERO_MAP[a].q || S.heroes[b].lv - S.heroes[a].lv);
     else ids = HEROES.filter(mythShown).sort((a, b) => b.q - a.q).map(h => h.id);   // 神魔：击败之前不显示
@@ -216,8 +216,8 @@ const UI = (function () {
     const fac = Object.keys(FACTION_BONDS).map(f => { const b = FACTION_BONDS[f]; return `<tr><td>${FACTIONS[f].name} · ${b.name}</td><td>${b.fmt(0).replace(/\s*\+0%$/, '')}：2 人 +${Math.round(b.vals[0] * 100)}% / 3 人 +${Math.round(b.vals[1] * 100)}% / 4 人以上 +${Math.round(b.vals[2] * 100)}%</td></tr>`; }).join('');
     const own = Save.data.heroes;
     const team = lpDraft || Save.data.team, b = teamBonus(team), on = {};          // 局中换将时按面板里调整后的阵容算
-    b.active.forEach(a => { on[a.name] = 1; });
-    const act = b.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<tr class="on"><td data-bq="${a.q || 0}">${a.name}</td><td>${a.desc}${a.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[a.skill].name}」：${BOND_SKILLS[a.skill].desc}</span>` : ''}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
+    b.active.forEach(a => { if (!a.off) on[a.name] = 1; });
+    const act = b.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<tr class="${a.off ? 'offrow' : 'on'}"><td data-bq="${a.q || 0}">${a.name}</td><td>${a.desc}${a.off && !lpDraft ? ` <button class="mini" data-act="rbPick" data-n="${a.name}">换成这组</button>` : ''}${a.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[a.skill].name}」：${BOND_SKILLS[a.skill].desc}</span>` : ''}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
     const combo = COMBOS.slice().sort((x, y) => y.q - x.q).map(c => `<tr class="${on[c.name] ? 'on' : ''}"><td data-bq="${c.q}">${c.name}${on[c.name] ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${own[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}${c.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[c.skill].name}」（顶替礌石）：${BOND_SKILLS[c.skill].desc}</span>` : ''}</td></tr>`).join('');
     const roles = SLOT_ROLES.filter((r, i) => i <= 2).map(r => `<tr><td>${r.name}</td><td>${r.desc}</td></tr>`).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>羁绊一览</h2>
@@ -457,7 +457,7 @@ const UI = (function () {
   /* 换将面板里看羁绊：草稿阵容已经激活的、差一个人就能激活的 */
   function lpBonds() {
     const b = teamBonus(lpDraft), has = Save.data.heroes;
-    const act = b.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<tr class="on"><td data-bq="${a.q || 0}">${a.name}</td><td>${a.desc}${a.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[a.skill].name}」：${BOND_SKILLS[a.skill].desc}</span>` : ''}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
+    const act = b.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<tr class="${a.off ? 'offrow' : 'on'}"><td data-bq="${a.q || 0}">${a.name}</td><td>${a.desc}${a.off && !lpDraft ? ` <button class="mini" data-act="rbPick" data-n="${a.name}">换成这组</button>` : ''}${a.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[a.skill].name}」：${BOND_SKILLS[a.skill].desc}</span>` : ''}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
     const near = COMBOS.map(c => {
       const inn = c.ids.filter(x => lpDraft.includes(x)), ok = inn.length >= c.need && (!c.must || lpDraft.includes(c.must));
       if (ok || !inn.length) return '';
@@ -540,6 +540,7 @@ const UI = (function () {
       Sfx.play('sweep'); render(); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(Save.data.pick));
     },
     bondHelp: () => bondHelp(),
+    rbPick: d => { Save.data.rb = d.n; Save.save(); render(); bondHelp(); toast('彩色缘分换成「' + d.n + '」'); },
     weapon: d => weaponDetail(d.id),
     heroWeapon: d => { lastPickHero = d.id; weaponPick(d.id); },
     wup: d => { const e = weaponUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('forge'); render(); weaponDetail(d.id); },
