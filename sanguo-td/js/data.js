@@ -61,7 +61,7 @@ const CFG = {
     { id: 'ult',  name: '军械', cur: 'soul',  curName: '将魂', base: 40,   grow: 1.03, per: 0.01,  what: '大招伤害' },
   ],
   /* 每日军饷：每天领一次，按打到过的最高关算（金币 = 那一关通关金币 × coinK，精铁同理），外加几张招募令 */
-  DAILY: { coinK: 5, ironK: 5, tickets: 2 },
+  DAILY: { coinK: 2, ironK: 2, tickets: 1 },   // 每日军饷：金币、精铁 = 最高通关那一关的通关奖励 × 倍数（相当于白送两场胜仗），外加招募令
   BOND_SKILL_POWER: 0.10,  // 彩色缘分的合击大招折算成多少战力（模拟器量出来它让队伍强 8%～17%）
   ROCK_MAX: 3,             // 滚木礌石最多存几块
   ROCK_CD: 6,              // 每块恢复秒数
