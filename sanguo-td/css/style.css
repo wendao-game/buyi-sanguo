@@ -576,3 +576,6 @@ td[data-bq="7"], .bqn[data-bq="7"] { animation: bqHue 4s linear infinite; text-s
 #bRock.bondbtn.ready { animation: bqHue 3s linear infinite, bondPulse 1s ease-in-out infinite; }
 @keyframes bondPulse { 50% { transform: scale(1.1); box-shadow: inset 0 1.5px 0 #ffffff60, 0 0 0 2px #ff9ad8, 0 0 16px #ff6ec7; } }
 .intel .res { display: inline-block; margin: 0 6px; padding: 0 7px; border-radius: 8px; font-style: normal; font-size: 12px; color: #bfe4ff; background: #1c2c40; box-shadow: inset 0 0 0 1px #4a7aa8; }
+.bond.off { opacity: 0.55; } .bond.off b { color: #a89880; text-decoration: line-through; }
+.offrow td { color: #8a7a68; } .offrow td:first-child { text-decoration: line-through; }
+button.mini { margin-left: 6px; padding: 2px 9px; border-radius: 8px; border: 0; font-size: 12px; color: #2a1608; background: linear-gradient(#ffe9a8, #e9b53c); }

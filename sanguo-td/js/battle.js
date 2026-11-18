@@ -268,7 +268,7 @@ const Battle = (function () {
     o = o || {};
     let m = 1 + (e.vuln || 0) + ((e.psn > 0 || e.psnMark > 0) ? S.psnVuln : 0);
     m *= S.buffs.el[el] || 1;
-    if (el === 'fire' && S.windT > 0) m *= 1.2;
+    if (el === 'fire' && S.windT > 0) m *= 1.1;                    // 诸葛亮的东风助火势（v2.14：1.2 → 1.1，和火系武将、孙权叠起来太狠）
     if (isBig(e)) m *= S.buffs.boss;
     if (e.def.res && e.def.res[el]) m *= e.def.res[el];          // 藤甲、重甲：有的系打折，有的系加倍
     if (e.def.id === 'boss' && S.boss.res && S.boss.res[el]) {    // 无尽关的敌将：有的攻击类型打不动，有的特别疼

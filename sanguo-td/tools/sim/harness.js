@@ -19,6 +19,7 @@ function load(patch) {
   ctx.G.ctx = ctx;
   if (!process.env.ENC) ctx.rollEncounter = () => null;      // 模拟默认不掷奇遇；ENC=1 照常掷，ENC=<id> 每局必出这一只（量奇遇难度用）
   else if (process.env.ENC !== '1') { const e = vm.runInContext('ENC_MAP', ctx)[process.env.ENC]; ctx.rollEncounter = stage => e; }
+  if (process.env.NO_RAINBOW) vm.runInContext('COMBOS.forEach(c => { if (c.skill) c.need = 99; });', ctx);   // NO_RAINBOW=1：彩色缘分整组不生效（量一组彩色缘分连属性带合击大招一共值多少强度）
   if (process.env.NO_BOND) vm.runInContext('for (const k in BOND_SKILLS) delete BOND_SKILLS[k];', ctx);   // NO_BOND=1：关掉彩色缘分的合击大招（量它值多少强度时用）
   if (patch) patch(ctx.G, ctx);
   ctx.G.Save.load();
