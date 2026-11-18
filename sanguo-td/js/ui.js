@@ -214,6 +214,7 @@ const UI = (function () {
           <button class="btn gold" data-act="lvup" data-id="${id}">${maxLv ? '已满级' : '升级<small>金币 ' + fmt(levelCost(id)) + '</small>'}</button>
           <button class="btn" data-act="starup" data-id="${id}">${maxStar ? '已满星' : '升星<small>碎片 ' + own.shards + '/' + starNeed(id) + (starSoulCost(id) ? ' · 将魂补 ' + starSoulCost(id) : '') + '</small>'}</button>
         </div>
+        ${maxLv ? '' : `<p class="soulrow"><button class="link" data-act="lvup10" data-id="${id}">连升 10 级 · 金币 ${fmt(levelCostMany(id, 10))}</button></p>`}
         <p class="soulrow">将魂 <b>${fmt(Save.data.soul)}</b>${own.shards > 0 ? `<button class="link" data-act="refine" data-id="${id}">把 ${own.shards} 片碎片炼化成将魂 +${heroRefineGain(id)}</button>` : '<span>碎片不够升星时可以用将魂补</span>'}</p>
         <div class="mrow"><button class="btn ${ti >= 0 ? 'gray' : 'red'}" data-act="${ti >= 0 ? 'undeploy' : 'deploy'}" data-id="${id}">${ti >= 0 ? '下阵' : '上阵'}</button>
           ${own.lv > 1 ? `<button class="btn gray" data-act="lvreset" data-id="${id}">重置等级<small>返还 ${fmt(Math.floor(levelSpent(id) * CFG.LEVEL_REFUND))}</small></button>` : ''}</div>`;
@@ -585,6 +586,7 @@ const UI = (function () {
       if (pickSlot === i) { pickSlot = -1; render(); if (t[i]) detail(t[i]); return; }
       teamSwap(pickSlot, i); pickSlot = -1; Sfx.play('swap'); render(); toast('已交换站位');
     },
+    lvup10: d => { const n = levelUpMany(d.id, 10); if (!n) { Sfx.play('deny'); return toast('金币不足'); } Sfx.play('up'); render(); detail(d.id); if (n < 10) toast('金币只够升 ' + n + ' 级'); },
     lvup: d => { const e = levelUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('up'); render(); detail(d.id); },
     lvreset: d => {
       const n = HERO_MAP[d.id].name, back = Math.floor(levelSpent(d.id) * CFG.LEVEL_REFUND);
