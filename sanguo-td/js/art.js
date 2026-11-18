@@ -585,7 +585,7 @@ const Art = (function () {
       const w = (d.id === 'boss' || d.id === 'rare') ? 70 : d.r * 2, hy = e.y - d.r * (k || 2.1) - ((d.id === 'boss' || d.id === 'rare') ? 14 : 4);
       c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(e.x - w / 2 - 1, hy - 1, w + 2, (d.id === 'boss' || d.id === 'rare') ? 7 : 5);
       c.fillStyle = (d.id === 'boss' || d.id === 'rare') ? '#ff5a3a' : '#e8463a'; c.fillRect(e.x - w / 2, hy, w * Math.max(0, e.hp / e.max), (d.id === 'boss' || d.id === 'rare') ? 5 : 3);
-      if ((d.id === 'boss' || d.id === 'rare')) { c.fillStyle = '#ffe9a8'; c.font = 'bold 12px "Microsoft YaHei",sans-serif'; c.textAlign = 'center'; c.fillText(e.name, e.x, hy - 4); }
+      if ((d.id === 'boss' || d.id === 'rare')) { c.fillStyle = '#ffe9a8'; c.font = 'bold 12px "Microsoft YaHei",sans-serif'; c.textAlign = 'center'; c.fillText(e.name, e.x, hy - 4); if (e.resTxt) { c.fillStyle = '#bfe4ff'; c.font = 'bold 10px "Microsoft YaHei",sans-serif'; c.fillText(e.resTxt, e.x, hy - 17); } }
     }
   }
 

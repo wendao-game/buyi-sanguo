@@ -210,7 +210,7 @@ const GLView = (function () {
       const bw = (d.id === 'boss' || d.id === 'rare') ? 70 : d.r * 2, hy = e.y - d.r * q.top * ds - ((d.id === 'boss' || d.id === 'rare') ? 14 : 4), bh = (d.id === 'boss' || d.id === 'rare') ? 5 : 3;
       rect(La, e.x - bw / 2 - 1, hy - 1, bw + 2, bh + 2, 0x000000, 0.6);
       rect(La, e.x - bw / 2, hy, bw * Math.max(0, e.hp / e.max), bh, (d.id === 'boss' || d.id === 'rare') ? 0xff5a3a : 0xe8463a, 1);
-      if ((d.id === 'boss' || d.id === 'rare')) txt(Lt, numW, e.name, e.x, hy - 4, 12, '#ffe9a8', 'center', 2.4);
+      if ((d.id === 'boss' || d.id === 'rare')) { txt(Lt, numW, e.name, e.x, hy - 4, 12, '#ffe9a8', 'center', 2.4); if (e.resTxt) txt(Lt, numW, e.resTxt, e.x, hy - 18, 10, '#bfe4ff', 'center', 2.2); }   // 无尽关：名字上面一行小字写抗什么、怕什么
     }
   }
   /* 阵亡的敌人：按被什么打死的，倒下的样子不同 */

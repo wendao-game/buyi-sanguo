@@ -1396,3 +1396,66 @@ const SKILLS = (function () {
     },
   };
 })();
+
+/* ============================================================
+ * 彩色缘分的合击大招（v2.13）：凑齐 data.js 里带 skill 的那八组缘分，左边的礌石按钮换成这一招。
+ * cd 冷却秒数（开局先攒好一半）；short 按钮上的字；cast(B, a, L)：a = 场上武将的平均攻击（已乘全军攻击、大招伤害加成），L = 活着的武将。
+ * 伤害不记在任何一名武将头上（src 传 null）。八招各不一样：横扫、点杀、连环火、火船、鼓舞、离间、蓄势、火海
+ * ============================================================ */
+const BOND_SKILLS = {
+  taoyuan: { name: '桃园三英', short: '义', cd: 24, desc: '刘关张三人合击：一道青龙刀气横扫全场 ×3；蛇矛引雷，劈向 12 个敌人各 ×3.5 并麻痹 1 秒；雌雄剑的金光让全体武将回 15% 生命、怒气 +20',
+    cast(B, a, L) {
+      B.sweep(null, a * 3, { push: 30, rgb: '120,255,170' });
+      B.later(0.35, () => B.strongest(12).forEach((e, i) => B.later(i * 0.05, () => { if (e.dead) return; B.bolt(e.x + 20, e.y - 250, e.x, e.y - 6, 1.8); B.hit(e, a * 3.5, 'thunder', null); B.stun(e, 1); })));
+      B.later(0.8, () => { B.healHeroes(0.15); B.teamRage(20); B.flash('255,225,140', 0.2, 0.5); });
+    } },
+  wuhu: { name: '五虎破阵', short: '虎', cd: 24, desc: '五道虎影扑向血最多的五个敌人：每个 ×9 并震晕 1.5 秒，身边一圈的敌人 ×4',
+    cast(B, a, L) {
+      B.strongest(5).forEach((e, i) => B.later(i * 0.16, () => {
+        if (e.dead) { const o = B.rnd(); if (!o) return; e = o; }
+        B.tex('tiger', e.x, e.y - 40, { w: 240, life: 0.5, grow: 1.25, fadeIn: 0.05, flip: i % 2 === 1 }); B.tex('cross_slash', e.x, e.y - 20, { w: 190, life: 0.3, grow: 1.3 });
+        B.shock(e.x, e.y, 150, 0.7); B.shake(0.25); B.sfx('boss_slash');
+        B.hit(e, a * 9, 'blade', null); B.stun(e, 1.5);
+        B.area(e.x, e.y, 90, o => { if (o !== e) { B.hit(o, a * 4, 'blade', null); B.stun(o, 0.6); } });
+      }));
+    } },
+  wolong: { name: '卧龙凤雏', short: '龙', cd: 26, desc: '凤雏的铁索把全场敌人连成一串：减速 4 秒、6 秒内受到的伤害 +15%；卧龙借来东风点火，八处火头顺着铁索炸开，每处 ×3 并点燃',
+    cast(B, a, L) {
+      B.lives().forEach(e => { B.slow(e, 4); B.vuln(e, 6, 0.15); B.tex('chain', e.x, e.y - 4, { w: 60, h: 18, life: 1.2, a: 0.9, force: false }); });
+      B.sfx('chain');
+      for (let i = 0; i < 8; i++) B.later(0.4 + i * 0.12, () => { const e = B.rnd(); if (e) B.explode('fire', e.x, e.y, 76, a * 3, true, null); });
+    } },
+  chibi: { name: '赤壁东风', short: '火', cd: 26, desc: '东风起：一阵大风把全场敌人往后吹；五条火船趁风冲进敌阵，沿路 ×2.5 并留下火',
+    cast(B, a, L) {
+      B.sweep(null, a * 1.2, { push: 70, el: 'wind', rgb: '170,245,225' }); B.S.windT = Math.max(B.S.windT, 6);
+      [70, 170, 270, 370, 470].forEach((x, i) => B.later(0.2 + i * 0.1, () => B.ship(null, x, a * 0.62)));
+    } },
+  hulao: { name: '三英战吕布', short: '战', cd: 28, desc: '虎牢关前一场大战：全体武将怒气 +35，8 秒内全军伤害 +25%；杀气冲得全场敌人 ×2、吓退 1.5 秒',
+    cast(B, a, L) {
+      B.teamRage(35); if (!(B.S.rally && B.S.rally.t > 0 && B.S.rally.mul > 1.25)) B.rally(8, 1.25);
+      L.forEach(h => B.tex('circle', h.x, h.y + 29, { w: 104, h: 42, spin: 3, life: 8, a: 0.7, fadeIn: 0.1, rgb: '255,120,90' }));
+      B.tex('roar', B.W / 2, B.WY - 200, { w: 520, life: 0.7, grow: 1.4, a: 0.8, rgb: '255,130,90' });
+      B.lives().forEach(e => { B.hit(e, a * 2, 'blade', null); B.fear(e, 1.5); });
+    } },
+  lianhuan: { name: '连环计', short: '计', cd: 26, desc: '离间：血最多的 8 个敌人倒戈 4 秒，转头砍自己人；全场敌人中毒 5 秒，校尉和敌将 6 秒内受到的伤害 +20%',
+    cast(B, a, L) {
+      B.strongest(8).forEach(e => { B.confuse(e, 4, null); B.tex('el_hit_dark', e.x, e.y - 14, { w: 90, life: 0.8, grow: 1.4, rgb: '255,130,200' }); });
+      B.lives().forEach(e => { B.poison(e, 5, a * 0.5, null); if (B.isBig(e)) B.vuln(e, 6, 0.2); B.hit(e, a * 1.2, 'poison', null); });
+      B.tex('moon', B.W / 2, B.TOP + 170, { w: 240, life: 1.4, fadeIn: 0.2, grow: 1.1, a: 0.8 }); B.flash('255,150,210', 0.18, 0.5);
+    } },
+  mouzhu: { name: '运筹帷幄', short: '谋', cd: 28, desc: '谋主定计：全体武将怒气 +30，下一个放出来的大招伤害 +50%；一场寒雾罩住全场，敌人 ×2 并减速 3 秒',
+    cast(B, a, L) {
+      B.teamRage(30); B.ampNext(1.5);
+      L.forEach(h => B.tex('seven_stars', h.x, h.y - 74, { w: 76, life: 1.6, fadeIn: 0.15, a: 0.9, rgb: '190,170,255' }));
+      B.lives().forEach(e => { B.hit(e, a * 2, 'ice', null); B.slow(e, 3); });
+      B.flash('180,160,255', 0.18, 0.5);
+    } },
+  jiangdong: { name: '火烧连营', short: '吴', cd: 26, desc: '从城下一路烧出去：三排火头依次炸开，每处 ×2.6，烧过的地方留下一片火 4 秒',
+    cast(B, a, L) {
+      for (let r = 0; r < 3; r++) for (let i = 0; i < 6; i++) B.later(r * 0.3 + i * 0.04, () => {
+        const x = 50 + i * 88 + (r % 2) * 30, y = B.WY - 90 - r * 130;
+        B.explode('fire', x, y, 70, a * 2.6, r === 1, null); B.pool(null, x, y, 54, 4, a * 0.4, 'fire');
+      });
+    } },
+};
+

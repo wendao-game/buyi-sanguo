@@ -72,6 +72,8 @@ const Battle = (function () {
     for (const b of S.picks) b.apply(S.buffs, S);           // 已选的军令（加成类）重新生效
     const oldMax = S.wallMax;
     S.wallMax = Math.round((400 + basePower()) * (1 + S.wallBonus));
+    const bs = bonus.active.find(a => a.skill && BOND_SKILLS[a.skill]), bd = bs ? BOND_SKILLS[bs.skill] : null;   // 彩色缘分：礌石换成合击大招（凑齐了几组就用排在前面的那组）
+    S.bond = bd ? { id: bs.skill, def: bd, bond: bs.name, cd: bd.cd, t: S.bond && S.bond.id === bs.skill ? S.bond.t : bd.cd * 0.5 } : null;
     S.wall = first || !oldMax ? S.wallMax : Math.max(1, Math.round(S.wallMax * S.wall / oldMax));   // 换将后城防按原来的比例折算
     S.wallLag = S.wall;
     S.aim = null; S.teamVer++;
@@ -95,7 +97,7 @@ const Battle = (function () {
     if (S.enc && S.wave === S.enc.wave) { w.list.push({ t: Math.min(3, w.dur * 0.4), type: 'rare', x: 270 }); w.list.sort((a, b) => a.t - b.t); }
     S.queue = w.list; S.waveDur = w.dur; S.waveT = 0; S.spawned = 0; S.waveSize = w.list.length;
     const ne = S.wave === 1 ? newEnemyAt(S.stage) : null;
-    S.banner = ne ? { text: '新敌人 · ' + ne.name, sub: ne.tip, t: 4, max: 4 } : { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', sub: S.wave === CFG.WAVES ? S.boss.skills.map(k => k.name + '：' + k.desc).join('；') : '', t: S.wave === CFG.WAVES ? 3.2 : 1.8, max: S.wave === CFG.WAVES ? 3.2 : 1.8 };
+    S.banner = ne ? { text: '新敌人 · ' + ne.name, sub: ne.tip, t: 4, max: 4 } : { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', sub: S.wave === CFG.WAVES ? (S.boss.res ? '【' + resText(S.boss.res) + '】' : '') + S.boss.skills.map(k => k.name + '：' + k.desc).join('；') : '', t: S.wave === CFG.WAVES ? 3.2 : 1.8, max: S.wave === CFG.WAVES ? 3.2 : 1.8 };
     if (S.enc && S.wave === S.enc.wave) { const e = S.enc.def; S.banner = { text: '奇遇 · ' + e.name, t: 4, max: 4 }; Sfx.play('enc'); }
     Sfx.play(S.wave === CFG.WAVES ? 'horn' : 'wave');
     if (S.wave === CFG.WAVES) Sfx.music('boss');             // 最后一波：音乐换成更急的一段
@@ -117,6 +119,7 @@ const Battle = (function () {
       walk: rand() * 6, ph: rand() * 6, dead: false, ccK: 1, pushK: 1, atkT: 0, pose: null, pz: null, combo: 0, stepN: 0, seen: false, trailT: 0,
       spr: enemySprite(d.id), flip: d.id !== 'boss' && d.id !== 'rare' && rand() < 0.5,
     });
+    if (isBoss && S.boss.res) S.enemies[S.enemies.length - 1].resTxt = resText(S.boss.res);
     if (isBoss && S.boss.aura) { const e = S.enemies[S.enemies.length - 1]; e.aura = S.boss.aura; e.mythQ = S.boss.myth ? HERO_MAP[S.boss.myth].q : 0; S.flash = { color: S.boss.aura, a: 0.35, t: 0.9, max: 0.9 }; S.shake = Math.max(S.shake, 0.5); tex('pillar', e.x, 150, { w: 220, h: 620, ay: 1, life: 1.4, fadeIn: 0.1, rgb: S.boss.aura, force: true }); Sfx.play(e.mythQ === 7 ? 'myth_holy' : 'myth_dark'); }   // 神魔登场
     if (d.id === 'rare' && S.enc) {                           // 奇遇：名字、血量、招式、配色都换成这一只的
       const e = S.enemies[S.enemies.length - 1], x = S.enc.def;
@@ -268,6 +271,10 @@ const Battle = (function () {
     if (el === 'fire' && S.windT > 0) m *= 1.2;
     if (isBig(e)) m *= S.buffs.boss;
     if (e.def.res && e.def.res[el]) m *= e.def.res[el];          // 藤甲、重甲：有的系打折，有的系加倍
+    if (e.def.id === 'boss' && S.boss.res && S.boss.res[el]) {    // 无尽关的敌将：有的攻击类型打不动，有的特别疼
+      const r = S.boss.res[el]; m *= r;
+      if (!o.dot && S.t - (e.resT || -9) > 0.7) { e.resT = S.t; text(e.x + (rand() - 0.5) * 30, e.y - e.def.r * 2.2, r < 1 ? '抵抗' : '克制', r < 1 ? '#9aa4b2' : '#ffd24a', r < 1 ? 14 : 17, 0.7); }
+    }
     if (e.shieldT > 0) m *= 0.5;                                   // 盾阵
     if (e.guardT > 0) m *= e.guardK;                               // 敌将自己的护体
     if (src && src.sk && src.sk.passive.dmg) m *= src.sk.passive.dmg(B, src, e);
@@ -402,7 +409,7 @@ const Battle = (function () {
    * 姿势 e.pose = { k, t, max }：slashL / slashR 左右挥砍，smash 跳起来砸，throw 掷兵器，roar 仰天一吼，release 放招的一顿；
    * 每帧算成 e.pz = { dy 上下挪多少, rot 歪多少, sc 放大多少, glow 发光 0~1, rgb 光的颜色 }，两个渲染器照着画 */
   const WINDUP = 0.6;
-  const CAST_RGB = { summon: '255,200,110', haste: '255,90,60', charge: '255,220,160', shield: '130,200,255', heal: '140,255,140', guard: '240,200,90', wallhit: '255,150,90', burnwall: '255,130,50', shoot: '255,170,110', smash: '255,90,70', rain: '255,180,120', poison: '120,220,70', bind: '255,190,120', enrage: '255,80,50', revive: '170,120,255', regen: '140,255,140' };
+  const CAST_RGB = { summon: '255,200,110', haste: '255,90,60', charge: '255,220,160', shield: '130,200,255', heal: '140,255,140', guard: '240,200,90', wallhit: '255,150,90', burnwall: '255,130,50', shoot: '255,170,110', smash: '255,90,70', rain: '255,180,120', poison: '120,220,70', bind: '255,190,120', drain: '190,130,255', chill: '150,210,255', enrage: '255,80,50', revive: '170,120,255', regen: '140,255,140' };
   const castRgb = (e, k) => k.rgb || (k.fx === 'fire' ? '255,130,50' : '') || e.aura || CAST_RGB[k.k] || '255,120,80';
   const foeRgb = e => e.aura || (e.demon ? '190,120,255' : '255,150,110');       // 这个敌将兵器上的光：神魔、神兽用自己的气焰色，心魔紫，其余橙红
   function pose(e, k, max) { e.pose = { k, t: max, max }; }
@@ -584,6 +591,15 @@ const Battle = (function () {
         for (let i = 0; i < 5; i++) tex('el_hit_dark', 90 + i * 90, WY + 70 + (i % 2) * 40, { w: 190, life: k.t, fadeIn: 0.1, a: 0.5, spin: 0.4, rgb: '110,220,70', force: true });
         S.flash = { color: '110,200,70', a: 0.18, t: 0.4, max: 0.4 };
         roarFx(e, '120,220,70', 300); tex('el_hit_dark', e.x, e.y - 20, { w: 220, life: 0.6, grow: 1.6, spin: 1, rgb: '110,220,70', force: true });
+        break;
+      case 'drain':                                           // 谗言、蛊惑：全体武将的怒气掉一截
+        for (const h of livingHeroes()) { h.rage = Math.max(0, h.rage - k.n); streak(h.x, h.y - 30, e.x, e.y - 20, rgb, 18, 0.35); text(h.x, h.y - 70, '怒气 -' + k.n, '#c8a0ff', 15, 1); tex('el_hit_dark', h.x, h.y - 24, { w: 80, life: 0.5, grow: 1.3, a: 0.7, rgb, force: true }); }
+        roarFx(e, rgb, 280); S.flash = { color: rgb, a: 0.14, t: 0.35, max: 0.35 };
+        break;
+      case 'chill':                                           // 坐谈、惊弓：全体武将一段时间出手变慢
+        S.heroSlow = { t: k.t, k: k.mul };
+        for (const h of livingHeroes()) { tex('snowflake', h.x, h.y - 30, { w: 70, life: k.t, spin: 0.6, a: 0.55, fadeIn: 0.1, rgb, force: true }); text(h.x, h.y - 70, '迟缓', '#bfe4ff', 15, 1); }
+        roarFx(e, rgb, 280); S.flash = { color: rgb, a: 0.14, t: 0.35, max: 0.35 };
         break;
       case 'bind':
         pickHeroes(k.n).forEach(h => { streak(e.x, e.y - 20, h.x, h.y - 10, '220,210,200', 26, 0.3); h.stunT = Math.max(h.stunT, k.t); tex('chain', h.x, h.y - 6, { w: 96, h: 30, life: k.t, a: 0.95, force: true }); tex('chain', h.x, h.y + 12, { w: 96, h: 30, rot: 0.5, life: k.t, a: 0.85, force: true }); text(h.x, h.y - 70, '定身', '#ffb070', 16, 1); });
@@ -900,6 +916,21 @@ const Battle = (function () {
     const r = ev.currentTarget.getBoundingClientRect();
     tapAt((ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * H);
   }
+  /* 彩色缘分的合击大招（左边原来放礌石的那个按钮）。威力按场上活着的武将的平均攻击算，吃全军攻击和大招伤害的加成 */
+  function castBond() {
+    const b = S && S.bond;
+    if (!b || S.over || S.choosing || S.paused || b.t < b.cd) return false;
+    if (!S.live.some(e => !e.dead)) return false;
+    const L = S.heroes.filter(h => !h.dead); if (!L.length) return false;
+    b.t = 0;
+    const a = L.reduce((s, h) => s + h.atk / (h.boostK || 1), 0) / L.length * S.buffs.atk * S.buffs.ult;
+    Sfx.play('ult'); Sfx.play('awake');
+    S.dim = { t: 0.6, max: 0.6 }; S.flash = { color: '255,235,180', a: 0.22, t: 0.5, max: 0.5 }; S.shake = Math.max(S.shake, 0.3);
+    S.banner = { text: b.def.name, sub: '缘分 · ' + b.bond, t: 1.6, max: 1.6 };
+    for (const h of L) { h.anim = 1.6; ring(h.x, h.y + 26, 12, 80, 0.6, 'rgb(' + hueRgb(h.slot * 70 + 20).join(',') + ')', 4); tex('pillar', h.x, h.y + 34, { w: 64, h: 280, ay: 1, life: 0.8, fadeIn: 0.1, a: 0.6, rgb: hueRgb(h.slot * 70 + 20).join(','), force: true }); }
+    b.def.cast(B, a, L);
+    return true;
+  }
   function tapAt(x, y) {
     if (!S || S.over || S.choosing || S.paused) return;
     if (y > WY + 20 || y < 40) return;
@@ -910,6 +941,7 @@ const Battle = (function () {
       return;
     }
     if (y < RANGE_Y - 10) return;
+    if (S.bond) return;                                        // 有合击大招的队伍没有礌石
     if (S.rock.n <= 0) { text(x, y, '礌石未备好', '#d8c8a8', 14, 0.7, true); return; }
     S.rock.n--; Sfx.play('rock_throw');
     // 伤害跟着关卡走（黄巾兵当前血量的 CFG.ROCK_DMG 倍）：操作的价值不随战力变化，专门对付扎堆的小兵，对敌将只是刮痧
@@ -937,6 +969,12 @@ const Battle = (function () {
     if (S.critUp && S.critUp.t > 0) S.critUp.t -= dt;
     if (S.ward && S.ward.t > 0) S.ward.t -= dt;
     if (S.wallShield && S.wallShield.t > 0) S.wallShield.t -= dt;
+    if (S.heroSlow && S.heroSlow.t > 0) S.heroSlow.t -= dt;
+    if (S.bond) {                                              // 彩色缘分的合击大招：攒满了，开着自动就自己放
+      if (S.bond.t < S.bond.cd) S.bond.t = Math.min(S.bond.cd, S.bond.t + dt);
+      else if (Save.data.auto && (S.live.length >= 3 || S.live.some(e => isBig(e)))) castBond();
+      if (S.over) return;
+    }
     if (S.regenK > 0 && (S.regenT = (S.regenT || 0) + dt) >= 4) { S.regenT = 0; for (const h of S.heroes) if (!h.dead && h.hp < h.maxHp) { h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * S.regenK)); if (S.fx.length < 120) tex('el_hit_wind', h.x, h.y - 20, { w: 60, life: 0.5, grow: 1.3, a: 0.6, rgb: '150,255,170' }); } }   // 吴国太的被动：每 4 秒给全体武将回一点血
     if (S.comboT > 0 && (S.comboT -= dt) <= 0) S.combo = 0;
     if (S.comboPop > 0) S.comboPop = Math.max(0, S.comboPop - dt * 6);
@@ -961,7 +999,7 @@ const Battle = (function () {
       const rg = S.buffs.rage * h.rageMul;
       h.rage = Math.min(100, h.rage + dt * 2.5 * rg);            // 怒气：随时间 + 每次出手（按出手间隔折算，快慢武将充能速度一致）
       if (h.rage >= 100) { if (!h.full) { h.full = true; if (!Save.data.auto) Sfx.play('rage_full'); } } else h.full = false;   // 怒气攒满：手动放大招时提醒一声
-      h.t -= dt * S.buffs.spd * (h.hasteT > 0 ? h.hasteMul : 1) * (S.haste.t > 0 ? S.haste.mul : 1);
+      h.t -= dt * S.buffs.spd * (h.hasteT > 0 ? h.hasteMul : 1) * (S.haste.t > 0 ? S.haste.mul : 1) * (S.heroSlow && S.heroSlow.t > 0 ? S.heroSlow.k : 1);
       if (h.t <= 0) {
         if (attack(h)) { h.t = h.cd; h.anim = Math.max(h.anim, 1); h.rage = Math.min(100, h.rage + 2.5 * h.cd * rg); }
         else h.t = 0.12;
@@ -1813,5 +1851,5 @@ const Battle = (function () {
   /* 只跑逻辑不画（自动化测试 / 数值模拟用） */
   function tick(dt) { if (S && !S.paused && !S.choosing) step(Math.min(dt, 0.05)); }
 
-  return { init, start, stop, frame, tick, tapAt, ult, cancelAim, lineup, damageList, get state() { return S; }, SLOTS, CRACKS: WALL_CRACKS };
+  return { init, start, stop, frame, tick, tapAt, ult, bond: castBond, cancelAim, lineup, damageList, get state() { return S; }, SLOTS, CRACKS: WALL_CRACKS };
 })();

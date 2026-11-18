@@ -559,3 +559,20 @@ input.gift { font-family: var(--fr); height: 50px; border: 0; box-shadow: inset 
 .ult[data-q="7"] { position: relative; }
 .ult[data-q="7"]::before { content: ""; position: absolute; left: 50%; top: 0; width: 100%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; pointer-events: none; z-index: -1;
   background: conic-gradient(from 0deg, #ff5a5a, #ffd24a, #7dff8a, #5ac8ff, #b07aff, #ff5a5a); filter: blur(5px); opacity: .85; }
+
+/* ---------------- v2.13 缘分的品质颜色（data-bq = 1 绿 2 蓝 3 紫 4 金 5 橙 7 彩）、彩色缘分的合击大招按钮、无尽关敌将的抗性 ---------------- */
+[data-bq="1"] { --bq: #6fd06f; } [data-bq="2"] { --bq: #58b0ff; } [data-bq="3"] { --bq: #c07aff; } [data-bq="4"] { --bq: #f2c94c; } [data-bq="5"] { --bq: #ff8f3c; } [data-bq="7"] { --bq: #ff6ec7; }
+.bond[data-bq]:not([data-bq="0"]) { box-shadow: inset 0 0 0 1.5px var(--bq); }
+.bond[data-bq]:not([data-bq="0"]) b { color: var(--bq); }
+.bond[data-bq="7"] { box-shadow: inset 0 0 0 2px var(--bq), 0 0 9px #ff6ec7a0; animation: bqHue 4s linear infinite; }
+td[data-bq]:not([data-bq="0"]), .bqn[data-bq] { color: var(--bq); }
+.lpc tr.on td[data-bq]:not([data-bq="0"]):first-child { color: var(--bq); }   /* 已激活的也用品质色（原来统一是绿的），靠后面的 ✓ 区分 */
+td[data-bq="7"], .bqn[data-bq="7"] { animation: bqHue 4s linear infinite; text-shadow: 0 0 6px #ff6ec780; }
+.bqn { font-weight: normal; }
+.bskill { color: #ffd9f0; font-size: 12px; }
+@keyframes bqHue { to { filter: hue-rotate(360deg); } }
+#bRock.bondbtn { font-size: 21px; color: #fff; background: conic-gradient(#ff6ec7 var(--p), #00000000 0), radial-gradient(circle at 50% 28%, #5a2a6a, #24102e 72%); box-shadow: inset 0 1.5px 0 #ffffff50, 0 0 0 2px #ff6ec7, 0 2px 8px #000a; }
+#bRock.bondbtn.empty { color: #c8b0d0; }
+#bRock.bondbtn.ready { animation: bqHue 3s linear infinite, bondPulse 1s ease-in-out infinite; }
+@keyframes bondPulse { 50% { transform: scale(1.1); box-shadow: inset 0 1.5px 0 #ffffff60, 0 0 0 2px #ff9ad8, 0 0 16px #ff6ec7; } }
+.intel .res { display: inline-block; margin: 0 6px; padding: 0 7px; border-radius: 8px; font-style: normal; font-size: 12px; color: #bfe4ff; background: #1c2c40; box-shadow: inset 0 0 0 1px #4a7aa8; }

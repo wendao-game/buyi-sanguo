@@ -128,7 +128,8 @@ const UI = (function () {
   function intel(st) {
     const ch = chapterOf(st), sk = bossSkill(st);
     const sp = Object.keys(ENEMIES).map(k => ENEMIES[k]).filter(d => d.from && d.from <= st);
-    return `<b>敌将 ${ch.boss}</b>` + stageBoss(st).skills.map(k => `「${k.name}」${k.desc}`).join('；') + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
+    const sb = stageBoss(st);
+    return `<b>敌将 ${ch.boss}</b>` + (sb.res ? `<i class="res">${resText(sb.res)}</i>` : '') + sb.skills.map(k => `「${k.name}」${k.desc}`).join('；') + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
   }
 
   /* ---------------- 武将 ---------------- */
@@ -143,7 +144,7 @@ const UI = (function () {
         : `<div class="tslot ${pickSlot === i ? 'pick' : ''}" data-act="slot" data-i="${i}"><em>${role.name}</em>空位</div>`;
     }).join('');
     const bonus = teamBonus();
-    const bonds = bonus.active.length ? bonus.active.map(a => `<span class="bond ${a.type}"><b>${a.name}</b>${a.desc}</span>`).join('') : '<span class="bond none">还没有激活的羁绊</span>';
+    const bonds = bonus.active.length ? bonus.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<span class="bond ${a.type}" data-bq="${a.q || 0}"><b>${a.name}</b>${a.desc}${a.skill ? ' · 合击「' + BOND_SKILLS[a.skill].name + '」' : ''}</span>`).join('') : '<span class="bond none">还没有激活的羁绊</span>';
     let ids;
     if (heroTab === 'mine') ids = Object.keys(S.heroes).sort((a, b) => HERO_MAP[b].q - HERO_MAP[a].q || S.heroes[b].lv - S.heroes[a].lv);
     else ids = HEROES.filter(mythShown).sort((a, b) => b.q - a.q).map(h => h.id);   // 神魔：击败之前不显示
@@ -204,7 +205,7 @@ const UI = (function () {
 
   function skillHtml(id, own, noCombo) {
     const d = HERO_MAP[id], el = ELEMENTS[d.el], sk = heroSkill(id), awake = heroAwake(id, own);
-    const combos = COMBOS.filter(c => c.ids.includes(id)).map(c => c.name + '（' + c.ids.map(x => HERO_MAP[x].name).join('、') + (c.need < c.ids.length ? ' 中 ' + c.need + ' 人' : '') + (c.must ? '，须有' + HERO_MAP[c.must].name : '') + '）：' + c.desc).join('<br>');
+    const combos = COMBOS.filter(c => c.ids.includes(id)).sort((x, y) => y.q - x.q).map(c => `<b class="bqn" data-bq="${c.q}">${c.name}</b>` + '（' + c.ids.map(x => HERO_MAP[x].name).join('、') + (c.need < c.ids.length ? ' 中 ' + c.need + ' 人' : '') + (c.must ? '，须有' + HERO_MAP[c.must].name : '') + '）：' + c.desc + (c.skill ? '；合击大招「' + BOND_SKILLS[c.skill].name + '」' : '')).join('<br>');
     return `<div class="dskill"><b>普攻 · ${el.name}</b>：${el.desc}
       ${sk ? `<br><b>被动 · ${sk.passive.name}</b>：${sk.passive.desc}
       <br><b>大招 · ${d.ult}</b>：${sk.ult.desc.replace(d.ult + '：', '')}${sk.ult.aim ? '<i class="aimtag">可瞄准</i>' : ''}
@@ -216,15 +217,15 @@ const UI = (function () {
     const own = Save.data.heroes;
     const team = lpDraft || Save.data.team, b = teamBonus(team), on = {};          // 局中换将时按面板里调整后的阵容算
     b.active.forEach(a => { on[a.name] = 1; });
-    const act = b.active.map(a => `<tr class="on"><td>${a.name}</td><td>${a.desc}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
-    const combo = COMBOS.map(c => `<tr class="${on[c.name] ? 'on' : ''}"><td>${c.name}${on[c.name] ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${own[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}</td></tr>`).join('');
+    const act = b.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<tr class="on"><td data-bq="${a.q || 0}">${a.name}</td><td>${a.desc}${a.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[a.skill].name}」：${BOND_SKILLS[a.skill].desc}</span>` : ''}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
+    const combo = COMBOS.slice().sort((x, y) => y.q - x.q).map(c => `<tr class="${on[c.name] ? 'on' : ''}"><td data-bq="${c.q}">${c.name}${on[c.name] ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${own[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}${c.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[c.skill].name}」（顶替礌石）：${BOND_SKILLS[c.skill].desc}</span>` : ''}</td></tr>`).join('');
     const roles = SLOT_ROLES.filter((r, i) => i <= 2).map(r => `<tr><td>${r.name}</td><td>${r.desc}</td></tr>`).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>羁绊一览</h2>
       <h4 class="sub">当前阵容已激活（${b.active.length}）</h4>${act ? `<table class="rates wrap lpc">${act}</table>` : '<p class="mtext">还没有激活的羁绊</p>'}
       <h4 class="sub">站位</h4><table class="rates wrap">${roles}</table>
       <h4 class="sub">阵营羁绊</h4><table class="rates wrap">${fac}</table>
       <h4 class="sub">属性共鸣</h4><table class="rates wrap"><tr><td>同系上阵</td><td>同一种攻击类型（弓 刃 火 冰 雷 毒 风）上阵 3 / 4 / 5 人：该系伤害 +${Math.round(ELEMENT_BOND[3] * 100)}% / +${Math.round(ELEMENT_BOND[4] * 100)}% / +${Math.round(ELEMENT_BOND[5] * 100)}%</td></tr></table>
-      <h4 class="sub">缘分（灰色 = 还没获得，绿色打勾 = 已激活）</h4><table class="rates wrap lpc">${combo}</table></div>`);
+      <h4 class="sub">缘分（名字的颜色 = 品质：彩 橙 金 紫 蓝 绿，越靠前越强；灰色的人 = 还没获得，打勾 = 已激活）</h4><table class="rates wrap lpc">${combo}</table></div>`);
   }
   /* ---------------- 兵器 ---------------- */
   function renderArms() {
@@ -390,13 +391,15 @@ const UI = (function () {
     }
     const sec = Math.floor(S.t);
     if (sec !== hudSec) { hudSec = sec; $('#bTime').textContent = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
-    const rk = S.rock.n + '/' + S.rock.max + '/' + (S.rock.n < S.rock.max ? Math.floor(S.rock.t / CFG.ROCK_CD * 20) : 20);
+    const bd = S.bond;                                        // 彩色缘分：礌石的按钮换成合击大招（转一圈 = 冷却好了）
+    const rk = bd ? 'b' + bd.id + '/' + Math.floor(bd.t / bd.cd * 40) : S.rock.n + '/' + S.rock.max + '/' + (S.rock.n < S.rock.max ? Math.floor(S.rock.t / CFG.ROCK_CD * 20) : 20);
     if (rk !== hudRock) {
       hudRock = rk;
-      const b = $('#bRock'), p = S.rock.n < S.rock.max ? S.rock.t / CFG.ROCK_CD * 100 : 100;
-      b.innerHTML = '石<small>' + S.rock.n + '</small>'; b.style.setProperty('--p', p + '%'); b.classList.toggle('empty', S.rock.n <= 0);
+      const b = $('#bRock'), p = bd ? bd.t / bd.cd * 100 : S.rock.n < S.rock.max ? S.rock.t / CFG.ROCK_CD * 100 : 100;
+      b.innerHTML = bd ? bd.def.short : '石<small>' + S.rock.n + '</small>'; b.style.setProperty('--p', p + '%');
+      b.classList.toggle('empty', bd ? bd.t < bd.cd : S.rock.n <= 0); b.classList.toggle('bondbtn', !!bd); b.classList.toggle('ready', !!bd && bd.t >= bd.cd);
     }
-    if (S.t > 4 && S.live.length >= 4 && !tipShown()) tip('rock1', '<b>点战场</b>任意位置可以投下礌石，砸晕扎堆的敌人（左边「石」是剩余块数）', 8000);
+    if (!bd && S.t > 4 && S.live.length >= 4 && !tipShown()) tip('rock1', '<b>点战场</b>任意位置可以投下礌石，砸晕扎堆的敌人（左边「石」是剩余块数）', 8000);
     if (S.t > 16 && !tipShown() && S.heroes.some(h => h.rage >= 60)) tip('ult1', '怒气满了会<b>自动放大招</b>。关掉左边的「自动」，可以自己点右边头像选时机，带「可瞄准」的还能选落点', 9000);
     if (S.wave >= 3 && S.t > 40 && !tipShown() && Object.keys(Save.data.heroes).length > 5) tip('swap1', '打不动的时候点左边<b>「阵」</b>：战斗中可以随时<b>换武将、换站位</b>，留在场上的人怒气不变', 8000);
     const btns = $('#ultbar').children;
@@ -434,7 +437,7 @@ const UI = (function () {
     const wid = heroWeapon(id), w = wid && WEAPON_MAP[wid], on = lpDraft.includes(id);
     const combos = COMBOS.filter(c => c.ids.includes(id)).map(c => {
       const n = c.ids.filter(x => lpDraft.includes(x)).length, ok = n >= c.need && (!c.must || lpDraft.includes(c.must));
-      return `<tr class="${ok ? 'on' : ''}"><td>${c.name}${ok ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${lpDraft.includes(x) ? 'in' : has[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}</td></tr>`;
+      return `<tr class="${ok ? 'on' : ''}"><td data-bq="${c.q}">${c.name}${ok ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${lpDraft.includes(x) ? 'in' : has[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}</td></tr>`;
     }).join('');
     const slot = lpDraft.indexOf(id), role = slot >= 0 ? SLOT_ROLES[slot] : null, fit = role && (role.leader || role.els.includes(d.el));
     modal(`<div class="mbox" style="--qc:${q.color}"><button class="x" data-act="lpBack">×</button>
@@ -454,7 +457,7 @@ const UI = (function () {
   /* 换将面板里看羁绊：草稿阵容已经激活的、差一个人就能激活的 */
   function lpBonds() {
     const b = teamBonus(lpDraft), has = Save.data.heroes;
-    const act = b.active.map(a => `<tr class="on"><td>${a.name}</td><td>${a.desc}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
+    const act = b.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<tr class="on"><td data-bq="${a.q || 0}">${a.name}</td><td>${a.desc}${a.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[a.skill].name}」：${BOND_SKILLS[a.skill].desc}</span>` : ''}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
     const near = COMBOS.map(c => {
       const inn = c.ids.filter(x => lpDraft.includes(x)), ok = inn.length >= c.need && (!c.must || lpDraft.includes(c.must));
       if (ok || !inn.length) return '';
@@ -672,7 +675,7 @@ const UI = (function () {
         <div class="dmgs statlist">${list.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join('')}</div>
         <div class="mrow"><button class="btn red" data-act="resume">继续战斗</button></div></div>`, false);
     },
-    rock: () => toast('点击战场任意位置投下礌石：伤害并眩晕敌人'),
+    rock: () => { const S = Battle.state; if (S && S.bond) { if (!Battle.bond()) toast('「' + S.bond.def.name + '」还没准备好'); } else toast('点击战场任意位置投下礌石：伤害并眩晕敌人'); },
     tipClose: () => hideTip(),
     musicsw: () => { Save.data.music = Save.data.music === false; Save.save(); settings(); },
     sound: () => { Save.data.sound = Save.data.sound === false; Save.save(); settings(); if (Save.data.sound) Sfx.play('up'); },

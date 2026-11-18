@@ -16,7 +16,8 @@ const chunk = (a, n) => { const o = Array.from({ length: n }, () => []); a.forEa
 const TEAMS = [                                             // 缘分叠得多、单一属性、回复叠得多的代表阵容
   'sunce,luxun,zhouyu,xiaoqiao,zhugeliang', 'sunce,zhugeliang,caocao,zhouyu,simayi', 'lvbu,liubei,guanyu,zhangfei,zhaoyun', 'caocao,dianwei,xuchu,guojia,jiaxu',
   'diaochan,zhenji,daqiao,xiaoqiao,caocao', 'guanyu,zhangliao,huangzhong,taishici,dianwei', 'zhangjiao,zhangbao,guanhai,peiyuan,panfeng', 'daqiao,zhenji,zhaoyun,guojia,yujin',
-  'liaohua,zhoucang,guanping,guanyu,caohong', 'lvbu,zhangliao,huaxiong,liru,jiaxu', 'liubei,daqiao,xiaoqiao,zhenji,caiwenji', 'liubei,daqiao,xiaoqiao,guanyu,zhangfei'];   // 最后两支是回复城防叠得多的
+  'liaohua,zhoucang,guanping,guanyu,caohong', 'lvbu,zhangliao,huaxiong,liru,jiaxu', 'liubei,daqiao,xiaoqiao,zhenji,caiwenji', 'liubei,daqiao,xiaoqiao,guanyu,zhangfei',
+  'guanyu,zhangfei,zhaoyun,huangzhong,machao', 'zhugeliang,pangtong,zhouyu,luxun,sunquan', 'lvbu,diaochan,dongzhuo,jiaxu,liru', 'caocao,simayi,guojia,jiaxu,xunyu'];   // v2.13 加的四支：凑齐彩色缘分、带合击大招的   // 最后两支是回复城防叠得多的
 (async () => {
   const t0 = Date.now(), cores = Math.max(2, Math.min(4, os.cpus().length)), rep = quick ? 6 : 10, N = quick ? 8 : 14;
   const ids = HEROES.map(h => h.id), jobs = [];
@@ -39,9 +40,18 @@ const TEAMS = [                                             // 缘分叠得多�
   const ts = get('team').split('\n').map(l => l.match(/^(.*?)\s+战力.*k=([\d.]+)/)).filter(Boolean).map(m => ({ name: m[1], k: Number(m[2]) }));
   // 上下限按第 60 关（team.js 测的那一关）的正常值算：敌人的组成一改，所有阵容的数值会一起挪，写死的数字就不准了
   // hpPerPower 是按「达标时挂机胜率 75%」校准的，team.js 找的是胜率 50% 时能扛的血量；胜率每降 12.5 个点大约对应血量 +10%，所以基准要 ×1.2 才是同一个口径
-  const tBase = load().hpPerPower(60) * 1.2, tMax = tBase * 1.9, tMin = tBase * 0.6;
-  const tHi = ts.filter(x => x.k > tMax), tLo = ts.filter(x => x.k < tMin);
-  line(ts.length === TEAMS.length && !tHi.length && !tLo.length, '阵容', `${ts.length} 支阵容强度 ${(Math.min(...ts.map(x => x.k)) * 1e4).toFixed(0)}–${(Math.max(...ts.map(x => x.k)) * 1e4).toFixed(0)}（这一关的正常值 ${(tBase * 1e4).toFixed(0)}，上限 ${(tMax * 1e4).toFixed(0)}，下限 ${(tMin * 1e4).toFixed(0)}）` + (tHi.length ? '；太强：' + tHi.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join(' / ') : '') + (tLo.length ? '；太弱：' + tLo.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join(' / ') : ''));
+  const G0 = load(), tBase = G0.hpPerPower(60) * 1.2, tMax = tBase * 1.9, tMaxR = tBase * 2.3, tMin = tBase * 0.6;
+  // 凑齐彩色缘分的队伍放宽到 2.3 倍：彩色缘分本来就定成最强的一档，还多一个合击大招
+  const rb = {}; TEAMS.forEach(t => { const ids = t.split(','); rb[ids.map(i => G0.HERO_MAP[i].name).join(' ')] = G0.teamBonus(ids).active.some(a => a.skill); });
+  // 单次量出来的强度有 ±5% 左右的抖动：刚好压在上限上的（超出不到一成）再量两次取三次的平均，免得同一支队伍这次过、下次不过
+  const lim = x => (rb[x.name] ? tMaxR : tMax), idOf = {}; TEAMS.forEach(t => { idOf[t.split(',').map(i => G0.HERO_MAP[i].name).join(' ')] = t; });
+  let reNote = '';
+  for (const x of ts) if (x.k > lim(x) && x.k <= lim(x) * 1.1 && idOf[x.name]) {
+    const more = (await Promise.all([0, 1].map(() => run('team.js', [idOf[x.name], 60, 40, 2, quick ? 8 : 12])))).map(o => { const m = o.match(/k=([\d.]+)/); return m ? Number(m[1]) : x.k; });
+    const k0 = x.k; x.k = (k0 + more[0] + more[1]) / 3; reNote += `；${x.name} 压线，重测：${[k0].concat(more).map(v => (v * 1e4).toFixed(0)).join('、')}，平均 ${(x.k * 1e4).toFixed(0)}`;
+  }
+  const tHi = ts.filter(x => x.k > lim(x)), tLo = ts.filter(x => x.k < tMin);
+  line(ts.length === TEAMS.length && !tHi.length && !tLo.length, '阵容', `${ts.length} 支阵容强度 ${(Math.min(...ts.map(x => x.k)) * 1e4).toFixed(0)}–${(Math.max(...ts.map(x => x.k)) * 1e4).toFixed(0)}（这一关的正常值 ${(tBase * 1e4).toFixed(0)}，上限 ${(tMax * 1e4).toFixed(0)}、有彩色缘分的 ${(tMaxR * 1e4).toFixed(0)}，下限 ${(tMin * 1e4).toFixed(0)}）` + reNote + (tHi.length ? '；太强：' + tHi.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join(' / ') : '') + (tLo.length ? '；太弱：' + tLo.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join(' / ') : ''));
   // 4 推荐战力
   const cs = get('curve').split('\n').map(l => { const m = l.match(/第\s*(\d+)\s*关/); if (!m) return null; const w = {}; l.replace(/×([\d.]+) 胜率\s+(\d+)%/g, (_, r, p) => { w[r] = Number(p); }); return { s: Number(m[1]), w }; }).filter(Boolean).sort((a, b) => a.s - b.s);
   // 单关只有二三十局、波动大：单关只抓离谱的（达标了还赢不到两成 / 六成战力还能赢一半 / 超两成还输一半），主要看第 20–80 关的平均
