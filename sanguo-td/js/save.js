@@ -357,10 +357,18 @@ function adGrant() {
 }
 
 /* ---------------- 扫荡：已通关的关卡直接领奖励，每日有次数 ---------------- */
-function sweepLeft() {
+function sweepDay() {
   const sw = Save.data.sweep;
-  if (sw.date !== todayStr()) { sw.date = todayStr(); sw.count = 0; }
-  return Math.max(0, CFG.SWEEP_DAILY - sw.count);
+  if (sw.date !== todayStr()) { sw.date = todayStr(); sw.count = 0; sw.ad = 0; }
+  return sw;
+}
+function sweepLeft() { const sw = sweepDay(); return Math.max(0, CFG.SWEEP_DAILY + (sw.ad || 0) - sw.count); }
+/* 看广告多扫荡：今天还能看几次；看完一次记一次（记完马上调 sweep() 用掉） */
+function sweepAdLeft() { const sw = sweepDay(); return Math.max(0, CFG.AD_SWEEP_DAILY - (sw.ad || 0)); }
+function sweepAdGrant() {
+  if (sweepAdLeft() <= 0) return false;
+  const sw = Save.data.sweep; sw.ad = (sw.ad || 0) + 1; Save.save();
+  return true;
 }
 function sweepReward(stage) { return Math.round(stageWinCoins(stage) * CFG.SWEEP_MUL); }
 function sweep(stage) {

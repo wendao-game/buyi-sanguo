@@ -8,7 +8,7 @@ const UI = (function () {
   const $ = s => document.querySelector(s);
   let screen = 'home', heroTab = 'mine', closable = true, toastTimer = 0, pickSlot = -1;
   let lastPickHero = null;
-  let hudS = null, hudRage = [], hudRock = '', hudSec = -1, hudVer = -1, lpDraft = null, lpSel = null, buffCb = null, lastRes = null, adTimer = 0, adResolve = null;
+  let hudS = null, hudRage = [], hudRock = '', hudSec = -1, hudVer = -1, lpDraft = null, lpSel = null, buffCb = null, reviveCb = null, lastRes = null, adTimer = 0, adResolve = null;
 
   const fmt = n => (n >= 100000 ? (n / 10000).toFixed(1) + '万' : String(Math.floor(n)));
   const P = (id, px) => Art.portrait(id, px || 64);
@@ -104,7 +104,9 @@ const UI = (function () {
         <div class="reward">通关奖励：金币 ×${Math.round(stageWinCoins(st) * (cleared ? CFG.REPLAY_COIN : 1))}、精铁 ×${Math.max(1, Math.round(stageIron(st) * (cleared ? CFG.REPLAY_COIN : 1)))} + 战场掉落${cleared ? '（已通关，奖励减半）' : '<br>首通再得：招募令 ×' + (st % 10 === 0 ? 5 : 1)}</div>
         <div class="intel">${intel(st)}</div>
         <div class="fightrow">
-          ${cleared ? `<button class="btn sweep ${sweepLeft() ? '' : 'gray'}" data-act="sweep">扫荡<small>金币 ×${sweepReward(st)} · 今日 ${sweepLeft()}/${CFG.SWEEP_DAILY}</small></button>` : ''}
+          ${!cleared ? '' : !sweepLeft() && sweepAdLeft() && AdService.available()
+            ? `<button class="btn sweep" data-act="sweepAd">▶ 广告扫荡<small>金币 ×${sweepReward(st)} · 还可看 ${sweepAdLeft()} 次</small></button>`
+            : `<button class="btn sweep ${sweepLeft() ? '' : 'gray'}" data-act="sweep">扫荡<small>金币 ×${sweepReward(st)} · 今日 ${sweepLeft()}/${CFG.SWEEP_DAILY}</small></button>`}
           <button class="btn-big ${cleared ? 'small' : ''}" data-act="fight">出征</button>
         </div>
         ${pw < rec ? '<div class="tip">战力不足？去「武将」页凑羁绊、调站位；战斗中点战场可以投石</div>' : ''}
@@ -498,6 +500,15 @@ const UI = (function () {
     buffCb = cb;
     modal(`<div class="mbox"><h2>军令三选一</h2><div class="buffs">${opts.map((o, i) => `<button data-act="buff" data-i="${i}"><b>${o.name}</b><span>${o.desc}</span></button>`).join('')}</div></div>`, false);
   }
+  /* 城池失守：看广告修复城池接着打（每局一次），或者放弃 */
+  function showRevive(cb) {
+    hideTip(); reviveCb = cb;
+    modal(`<div class="mbox res lose"><h2>城池失守</h2>
+      <p class="mtext" style="margin:14px 0 6px">看一段广告，把城池修复到 <b>${Math.round(CFG.AD_REVIVE_WALL * 100)}%</b> 城防接着打</p>
+      <p class="mtext" style="font-size:13px;opacity:.75">每局一次 · 倒下的武将不会回来</p>
+      <div class="mrow"><button class="btn" data-act="reviveNo">放弃</button>
+      <button class="btn gold" data-act="reviveAd">▶ 看广告修复</button></div></div>`, false);
+  }
   function showResult(r) {
     hideTip();
     lastRes = r;
@@ -558,6 +569,26 @@ const UI = (function () {
       if (typeof r === 'string') return toast(r);
       Sfx.play('sweep'); render(); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(Save.data.pick));
     },
+    sweepAd: () => {
+      const st = Save.data.pick;
+      if (st >= Save.data.stage) return toast('通关后才能扫荡');
+      if (sweepAdLeft() <= 0) return toast('今日扫荡次数已用完');
+      AdService.showRewarded().then(ok => {
+        if (ok === null) toast('暂时没有广告，请稍后再试');
+        else if (ok && sweepAdGrant()) { const r = sweep(st); if (typeof r === 'string') toast(r); else { Sfx.play('sweep'); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(st)); } }
+        else toast('未看完广告，没有扫荡');
+        render();
+      });
+    },
+    reviveAd: () => {
+      AdService.showRewarded().then(ok => {
+        if (!reviveCb) return;
+        if (ok) { const cb = reviveCb; reviveCb = null; closeModal(); return cb(true); }
+        toast(ok === null ? '暂时没有广告，请稍后再试' : '未看完广告，城池没有修复');
+        showRevive(reviveCb);                               // 回到选择：可以再看一次，也可以放弃
+      });
+    },
+    reviveNo: () => { const cb = reviveCb; reviveCb = null; closeModal(); if (cb) cb(false); },
     bondHelp: () => bondHelp(),
     daily: () => { const r = dailyClaim(); if (!r) { Sfx.play('deny'); return toast('今天的军饷已经领过了，明天再来'); } Sfx.play('sweep'); render(); toast('军饷到了：金币 +' + fmt(r.coins) + '、精铁 +' + r.iron + '、招募令 +' + r.tickets); },
     tech: () => techPanel(),
@@ -720,5 +751,5 @@ const UI = (function () {
 
   function cloudNote() { const el = $('#cloudNote'); if (el) el.textContent = Cloud.note(); }
 
-  return { init, show, render, toast, hud, showBuffs, showResult, fakeAd, cloudNote };
+  return { init, show, render, toast, hud, showBuffs, showRevive, showResult, fakeAd, cloudNote };
 })();

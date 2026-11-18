@@ -153,6 +153,24 @@ const Battle = (function () {
       UI.showBuffs(opts, i => { opts[i].apply(S.buffs, S); if (!opts[i].once) S.picks.push(opts[i]); S.choosing = false; nextWave(); });
     } else nextWave();
   }
+  /* 城池失守时看广告复活（每局一次）：只修城，倒下的武将不回来。没有广告可看、已经用过、或者人全倒了，就直接算输 */
+  function offerRevive() {
+    if (S.revived || S.over || typeof AdService === 'undefined' || !AdService.available() || typeof UI === 'undefined' || !UI.showRevive || !livingHeroes().length) return false;
+    const ref = S;
+    S.choosing = true; S.aim = null;                       // 和选军令一样：停在这一刻等玩家决定
+    UI.showRevive(ok => { if (S !== ref || S.over) return; S.choosing = false; if (ok) revive(); else finish(false); });
+    return true;
+  }
+  function revive() {
+    S.revived = true;
+    S.wall = Math.round(S.wallMax * CFG.AD_REVIVE_WALL); S.wallSafe = CFG.AD_REVIVE_SAFE; S.wallBurn.t = 0; S.hurt = 0;
+    for (const e of S.enemies) if (!e.dead) { pushBack(e, 150); stun(e, 1.2); }   // 把堆在城下的敌人震开
+    shockwave(W / 2, WY, 520, 1.4); S.shake = Math.max(S.shake, 10);
+    ring(W / 2, WY - 10, 30, 560, 0.6, '255,220,130', 10);
+    ring(W / 2, WY - 10, 20, 380, 0.45, '255,245,200', 6);
+    text(W / 2, WY - 90, '城池修复', '#ffe08a', 30, 1.6, true);
+    Sfx.play('build');
+  }
   function finish(win) {
     if (S.over) return;
     S.over = true; S.win = win; S.aim = null;
@@ -378,7 +396,7 @@ const Battle = (function () {
   function wallHurt(e, x, delay, dmgK) {
     const boss = e.def.id === 'boss', big = boss || e.def.id === 'elite' || e.def.id === 'rare' || !!e.def.siege || !!e.def.boom, dmg = e.atk * (dmgK || 1) * (S.guard.t > 0 ? S.guard.k : 1) * (S.weak && S.weak.t > 0 ? S.weak.k : 1), ref = S;   // S.guard：高顺的陷阵营，城墙少挨打；S.weak：祢衡把敌人骂得没了力气
     if (S.thorn && S.thorn.t > 0 && !e.dead) { hit(e, S.thorn.dmg, 'ice', S.thorn.h); if (!e.dead && !isBig(e)) pushBack(e, 26); if (S.fx.length < 120) tex('burst', e.x, WY - 16, { w: 70, life: 0.2, grow: 1.4, rgb: '170,220,255' }); }   // 曹仁的铜墙铁壁：打城墙的自己反挨一下
-    let wd = dmg;
+    let wd = S.wallSafe > 0 ? 0 : dmg;   // 刚看广告修好的城：头几秒不掉血
     if (S.wallShield && S.wallShield.t > 0 && S.wallShield.hp > 0) {   // 徐盛「疑城」：假城墙先替真城墙挨打
       const ab = Math.min(S.wallShield.hp, wd); S.wallShield.hp -= ab; wd -= ab;
       if (S.wallFxT <= 0) { S.wallFxT = 0.05; tex('burst', x, WY - 34, { w: 60, life: 0.16, grow: 1.4, rgb: '230,210,150' }); }
@@ -629,7 +647,7 @@ const Battle = (function () {
   function heroHeal(frac) { for (const h of S.heroes) if (!h.dead && h.hp < h.maxHp) h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * frac)); }
   /* 每帧：血条的残影、飘字、告急、破损的烟 */
   function updateWall(dt) {
-    if (S.wallBurn.t > 0) { S.wallBurn.t -= dt; if ((S.wallBurn.tick -= dt) <= 0) { S.wallBurn.tick = 0.5; const d = S.wallBurn.dps * 0.5; S.wall -= d; S.wallAcc += d; S.wallAccX += (W / 2) * d; S.hurt = Math.min(1, S.hurt + 0.12); } }
+    if (S.wallBurn.t > 0) { S.wallBurn.t -= dt; if ((S.wallBurn.tick -= dt) <= 0) { S.wallBurn.tick = 0.5; const d = S.wallSafe > 0 ? 0 : S.wallBurn.dps * 0.5; S.wall -= d; S.wallAcc += d; S.wallAccX += (W / 2) * d; S.hurt = Math.min(1, S.hurt + 0.12); } }
     if (S.wallFxT > 0) S.wallFxT -= dt;
     if (S.hurt > 0) S.hurt = Math.max(0, S.hurt - dt * 1.6);
     if (S.wallLag < S.wall) S.wallLag = S.wall;                                   // 回血：直接跟上
@@ -962,6 +980,7 @@ const Battle = (function () {
     for (let i = S.timers.length - 1; i >= 0; i--) { const tm = S.timers[i]; if ((tm.t -= dt) <= 0) { S.timers.splice(i, 1); tm.fn(); if (!S || S.over) return; } }
     if (S.haste.t > 0) S.haste.t -= dt;
     if (S.guard.t > 0) S.guard.t -= dt;
+    if (S.wallSafe > 0) S.wallSafe -= dt;
     if (S.rally && S.rally.t > 0) S.rally.t -= dt;
     if (S.weak && S.weak.t > 0) S.weak.t -= dt;
     if (S.thorn && S.thorn.t > 0) S.thorn.t -= dt;
@@ -1143,7 +1162,7 @@ const Battle = (function () {
     }
 
     S.enemies = S.enemies.filter(e => !e.dead);
-    if (S.wall <= 0) { S.wall = 0; finish(false); }
+    if (S.wall <= 0) { S.wall = 0; if (!offerRevive()) finish(false); }
   }
 
   function updateShots(dt) {

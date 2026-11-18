@@ -26,7 +26,11 @@ const AdService = {
     return !!(p.createRewardedVideoAd && CFG.AD_UNIT_ID);
   },
   showRewarded() {
-    const p = Platform.api();
+    const p = Platform.api(), quiet = typeof Sfx !== 'undefined' && Sfx.hush;
+    if (quiet) Sfx.hush(true);                             // 放广告时游戏不出声
+    return this._show(p).then(r => { if (quiet) Sfx.hush(false); return r; });
+  },
+  _show(p) {
     if (!p) return UI.fakeAd(CFG.AD_SECONDS);
     if (!this.available()) return Promise.resolve(null);
     if (this._done) return Promise.resolve(null);          // 上一条还没结束
