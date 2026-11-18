@@ -110,21 +110,21 @@ function teamBonus(team) {
     if (n < 2) return;
     const v = b.vals[Math.min(2, n - 2)];
     out[b.stat] += v;
-    out.active.push({ type: 'fac', fac: f, name: FACTIONS[f].name + ' · ' + b.name + '（' + n + '）', desc: b.fmt(v), who: ids.filter(id => HERO_MAP[id].fac === f) });   // who：是哪几名武将凑出来的
+    out.active.push({ type: 'fac', q: Math.min(5, n), fac: f, name: FACTIONS[f].name + ' · ' + b.name + '（' + n + '）', desc: b.fmt(v), who: ids.filter(id => HERO_MAP[id].fac === f) });   // who：是哪几名武将凑出来的
   });
   ids.forEach(id => { const e = HERO_MAP[id].el; out.elc[e] = (out.elc[e] || 0) + 1; });
   Object.keys(out.elc).forEach(e => {                        // 属性共鸣：同系 3 人以上
     const n = out.elc[e], v = ELEMENT_BOND[Math.min(n, ELEMENT_BOND.length - 1)];
     if (!v) return;
     out.el[e] = (out.el[e] || 0) + v;
-    out.active.push({ type: 'elem', name: ELEMENTS[e].name + '系共鸣（' + n + '）', desc: ELEMENTS[e].name + '系伤害 +' + Math.round(v * 100) + '%', who: ids.filter(id => HERO_MAP[id].el === e) });
+    out.active.push({ type: 'elem', q: Math.min(5, n), name: ELEMENTS[e].name + '系共鸣（' + n + '）', desc: ELEMENTS[e].name + '系伤害 +' + Math.round(v * 100) + '%', who: ids.filter(id => HERO_MAP[id].el === e) });
   });
   COMBOS.forEach(c => {
     const n = c.ids.filter(id => ids.includes(id)).length;
     if (n < c.need || (c.must && !ids.includes(c.must))) return;
     ['atk', 'spd', 'crit', 'rage', 'ult', 'wall'].forEach(k => add(c.eff, k));
     if (c.eff.el) for (const e in c.eff.el) out.el[e] = (out.el[e] || 0) + c.eff.el[e];
-    out.active.push({ type: 'combo', name: c.name, desc: c.desc, who: c.ids.filter(id => ids.includes(id)) });
+    out.active.push({ type: 'combo', q: c.q, skill: c.skill || '', name: c.name, desc: c.desc, who: c.ids.filter(id => ids.includes(id)) });
   });
   team.forEach((id, i) => {
     if (!id) return;
@@ -132,7 +132,7 @@ function teamBonus(team) {
     if (ws) { const p = out.per[i]; p.watk = ws.atk || 0; p.wspd = ws.spd || 0; p.wcrit = ws.crit || 0; p.wrage = ws.rage || 0; p.wult = ws.ult || 0; }
     if (r.leader) {
       const own = heroOwn(id), v = Math.min(5, own ? own.star : 0) * 0.03; out.atk += v; out.per[i].rage += 0.2;   // 主帅看星级（养得好），不看品质
-      out.active.push({ type: 'slot', name: '主帅 · ' + d.name, desc: '全军攻击 +' + Math.round(v * 100) + '%，本人怒气获取 +20%' });
+      out.active.push({ type: 'slot', q: Math.max(1, Math.min(5, own ? own.star : 0)), name: '主帅 · ' + d.name, desc: '全军攻击 +' + Math.round(v * 100) + '%，本人怒气获取 +20%' });
     } else if (r.els.includes(d.el)) {
       if (r.atk) out.per[i].atk += r.atk;
       if (r.spd) out.per[i].spd += r.spd;

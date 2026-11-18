@@ -442,6 +442,29 @@ const CHAPTERS = [
     { id: 'caozhen',    name: '曹真', body: '#2a3a7a', hat: '#e8c04a', skills: [SK('大都督', 12, 'summon', { type: 'elite', n: 1 }, '每 12 秒召来一名校尉'), SK('箭阵', 10, 'rain', { dmg: 0.1 }, '每 10 秒一阵箭雨落在城楼上')] },
   ] },
 ];
+/* v2.13 每章再加两位敌将。一章前 9 关原来是三位敌将各守三关（相邻的关会连着打同一个人），现在五位轮着来：
+ * 第 1～9 关 = 老一、新一、老二、新二、老一、新一、老二、新二、老三，相邻两关一定不是同一个人；第 10 关还是章节敌将。
+ * 新招式：drain 骂得全体武将怒气掉一截；chill 让全体武将一段时间出手变慢。立绘 assets/enemies/<id>.png（「敌人 9」「敌人 10」两张拼图），没画之前用代码画的小人 */
+const MORE_MIDS = [
+  [ { id: 'zhangmancheng', name: '张曼成', body: '#a8842a', hat: '#e8c84a', skills: [SK('神上使', 9, 'shoot', { n: 1, dmg: 0.12 }, '每 9 秒朝一名武将掷一杆短矛')] },
+    { id: 'zhaohong',      name: '赵弘',   body: '#8a6a3a', hat: '#d8a83a', skills: [SK('死守', 11, 'guard', { t: 3, mul: 0.5 }, '每 11 秒死守 3 秒，受到的伤害减半')] } ],
+  [ { id: 'xurong',        name: '徐荣',   body: '#3a3e4a', hat: '#a82a2a', skills: [SK('伏兵', 10, 'summon', { type: 'rider', n: 2, haste: 5 }, '每 10 秒伏兵杀出：2 骑狂奔的轻骑')] },
+    { id: 'fanchou',       name: '樊稠',   body: '#5a4634', hat: '#2e2620', skills: [SK('蛮撞', 10, 'wallhit', { dmg: 2.5 }, '每 10 秒猛撞一下城墙，伤害是平时的 2.5 倍')] } ],
+  [ { id: 'liubiao',       name: '刘表',   body: '#6a5a8a', hat: '#d8c04a', skills: [SK('坐谈', 11, 'chill', { t: 4, mul: 0.7 }, '每 11 秒一番清谈，全体武将 4 秒内出手慢三成')] },
+    { id: 'huangzu',       name: '黄祖',   body: '#2a5a6a', hat: '#8fb8c8', skills: [SK('冷箭', 9, 'shoot', { n: 1, dmg: 0.15, low: true }, '每 9 秒朝血最少的武将放一支冷箭')] } ],
+  [ { id: 'shenpei',       name: '审配',   body: '#7a6a3a', hat: '#3a3a3a', skills: [SK('强弩阵', 11, 'rain', { dmg: 0.07 }, '每 11 秒一阵弩箭落在城楼上，所有武将都挨一下')] },
+    { id: 'guotu',         name: '郭图',   body: '#5a4a6a', hat: '#c8b04a', skills: [SK('谗言', 11, 'drain', { n: 25 }, '每 11 秒一通谗言，全体武将怒气 -25')] } ],
+  [ { id: 'wenpin',        name: '文聘',   body: '#3a5a7a', hat: '#c8d0d8', skills: [SK('据守', 11, 'guard', { t: 4, mul: 0.4 }, '每 11 秒据守 4 秒，受到的伤害只剩四成'), SK('江夏箭', 10, 'shoot', { n: 1, dmg: 0.16 }, '每 10 秒朝一名武将射一箭')] },
+    { id: 'niujin',        name: '牛金',   body: '#4a4a5a', hat: '#b03a2a', skills: [SK('突围', 8, 'charge', {}, '每 8 秒策马猛冲一段'), SK('死战', 0, 'enrage', {}, '血量掉到一半时暴怒')] } ],
+  [ { id: 'weixu',         name: '魏续',   body: '#5a5a3a', hat: '#3a3a2a', skills: [SK('盾阵', 10, 'shield', { r: 210, t: 3 }, '每 10 秒给身边的敌人架起盾阵，3 秒内受到的伤害减半')] },
+    { id: 'caoxing',       name: '曹性',   body: '#6a4a3a', hat: '#8a8a7a', skills: [SK('射睛', 9, 'shoot', { n: 1, dmg: 0.24 }, '每 9 秒一箭射向一名武将'), SK('惊弓', 12, 'chill', { t: 3, mul: 0.7 }, '每 12 秒一声弓响，全体武将 3 秒内出手慢三成')] } ],
+  [ { id: 'duosi',         name: '朵思大王', body: '#4a6a4a', hat: '#c8d84a', skills: [SK('哑泉', 11, 'poison', { t: 5, dps: 0.02 }, '每 11 秒引来毒泉，所有武将中毒 5 秒'), SK('蛊惑', 13, 'drain', { n: 20 }, '每 13 秒下一道蛊，全体武将怒气 -20')] },
+    { id: 'jinhuan',       name: '金环三结', body: '#9a6a2a', hat: '#e8c030', skills: [SK('夜袭', 11, 'summon', { type: 'rattan', n: 2 }, '每 11 秒召来 2 个藤甲兵'), SK('环刀', 10, 'smash', { dmg: 0.22, stun: 1.2 }, '每 10 秒砍伤一名武将，打晕 1.2 秒')] } ],
+  [ { id: 'haozhao',       name: '郝昭',   body: '#3a4a6a', hat: '#9aa4b2', skills: [SK('陈仓铁壁', 10, 'guard', { t: 5, mul: 0.35 }, '每 10 秒铁壁 5 秒，受到的伤害只剩三成半'), SK('火箭', 11, 'rain', { dmg: 0.08, fx: 'fire' }, '每 11 秒一阵火箭落在城楼上')] },
+    { id: 'xiahouba',      name: '夏侯霸', body: '#2a3a7a', hat: '#d8b04a', skills: [SK('突骑', 8, 'charge', {}, '每 8 秒策马猛冲一段'), SK('斩将', 10, 'smash', { dmg: 0.3, stun: 1.5 }, '每 10 秒一刀斩向一名武将，打晕 1.5 秒')] } ],
+];
+CHAPTERS.forEach((c, i) => { const x = MORE_MIDS[i]; x.forEach(m => { m.hpK = 0.88; }); c.mids = [c.mid[0], x[0], c.mid[1], x[1], c.mid[2]]; });   // 新敌将的招式比老的软一些，血量系数给高一点（老的 0.75）   // 轮换用的五位（老、新、老、新、老）
+const MID_ORDER = [0, 1, 2, 3, 0, 1, 2, 3, 4];                // 一章前 9 关各是五位里的第几位
 const ENDLESS_BOSS = { name: '幽冥鬼将', skills: [SK('不死', 0, 'revive', {}, '第一次倒下后以四成血量爬起来再战'), SK('鬼火', 10, 'poison', { t: 5, dps: 0.035 }, '每 10 秒放出鬼火，所有武将中毒 5 秒')] };
 /* 奇遇：山贼首领（击败给赏金）和四神兽（第一次击败解锁对应的兵器进卡池，之后再击败给重赏）。神兽前期不出现：第 4 章起一章多一只。
  * from 第几关起会碰上；hpK 血量是敌将的几倍；coinK 赏金 = 这一关通关金币 × coinK；weapon 解锁哪件兵器；aura 身上气焰的颜色；
@@ -461,32 +484,61 @@ const ENC_MAP = {}; ENCOUNTERS.forEach(e => { ENC_MAP[e.id] = e; });
 /* 第 stage 关的敌将：{ id, name（心魔会带前缀）, who 本名, hero, sprite 立绘, look 没图时的配色, skills, hpK 血量系数, final 是不是章节敌将 } */
 /* 神魔当敌将时的血量倍数、气焰颜色和招式（魔是黑紫，神是金、青） */
 const MYTH_BOSS = {
-  god_lvbu:   { hpK: 1.25, aura: '190,70,255', skills: [SK('魔神乱舞', 8, 'smash', { dmg: 0.3, stun: 1.5 }, '每 8 秒砸晕一名武将 1.5 秒'), SK('黑雷', 10, 'rain', { dmg: 0.09 }, '每 10 秒黑雷落在城楼上，所有武将都挨一下'), SK('无双', 0, 'enrage', {}, '血量掉到一半时暴怒')] },
-  god_caocao: { hpK: 1.3,  aura: '130,60,220', skills: [SK('万箭齐发', 8, 'shoot', { n: 3, dmg: 0.11 }, '每 8 秒朝三名武将各射一箭'), SK('奸雄', 11, 'shield', { r: 999, t: 4 }, '每 11 秒全场敌人架起盾，4 秒内受到的伤害减半'), SK('归心', 13, 'heal', { frac: 0.08, r: 999 }, '每 13 秒给全场敌人回血')] },
-  god_guanyu: { hpK: 1.35, aura: '255,215,90', skills: [SK('武神斩', 8, 'smash', { dmg: 0.32, stun: 2 }, '每 8 秒一刀砸晕一名武将 2 秒'), SK('青龙偃月', 10, 'wallhit', { dmg: 3 }, '每 10 秒一刀劈在城墙上，三倍伤害'), SK('显圣', 0, 'revive', {}, '第一次倒下后以四成血量再战')] },
-  god_zhuge:  { hpK: 1.4,  aura: '120,220,255', skills: [SK('天火', 9, 'rain', { dmg: 0.1, fx: 'fire' }, '每 9 秒天火落在城楼上，所有武将都挨一下'), SK('东风', 11, 'haste', { t: 4 }, '每 11 秒全场敌人狂奔 4 秒'), SK('八阵', 12, 'bind', { n: 3, t: 2.5 }, '每 12 秒定住三名武将 2.5 秒'), SK('续命', 0, 'regen', { at: 0.3, frac: 0.25 }, '血量掉到三成时回四分之一')] },
+  god_lvbu:   { hpK: 1.25, aura: '190,70,255', res: { blade: 0.6, thunder: 0.6, ice: 1.3 }, skills: [SK('魔神乱舞', 8, 'smash', { dmg: 0.3, stun: 1.5 }, '每 8 秒砸晕一名武将 1.5 秒'), SK('黑雷', 10, 'rain', { dmg: 0.09 }, '每 10 秒黑雷落在城楼上，所有武将都挨一下'), SK('无双', 0, 'enrage', {}, '血量掉到一半时暴怒')] },
+  god_caocao: { hpK: 1.3,  aura: '130,60,220', res: { poison: 0.6, arrow: 0.6, fire: 1.3 }, skills: [SK('万箭齐发', 8, 'shoot', { n: 3, dmg: 0.11 }, '每 8 秒朝三名武将各射一箭'), SK('奸雄', 11, 'shield', { r: 999, t: 4 }, '每 11 秒全场敌人架起盾，4 秒内受到的伤害减半'), SK('归心', 13, 'heal', { frac: 0.08, r: 999 }, '每 13 秒给全场敌人回血')] },
+  god_guanyu: { hpK: 1.35, aura: '255,215,90', res: { blade: 0.6, fire: 0.6, poison: 1.3 }, skills: [SK('武神斩', 8, 'smash', { dmg: 0.32, stun: 2 }, '每 8 秒一刀砸晕一名武将 2 秒'), SK('青龙偃月', 10, 'wallhit', { dmg: 3 }, '每 10 秒一刀劈在城墙上，三倍伤害'), SK('显圣', 0, 'revive', {}, '第一次倒下后以四成血量再战')] },
+  god_zhuge:  { hpK: 1.4,  aura: '120,220,255', res: { fire: 0.6, wind: 0.6, thunder: 1.3 }, skills: [SK('天火', 9, 'rain', { dmg: 0.1, fx: 'fire' }, '每 9 秒天火落在城楼上，所有武将都挨一下'), SK('东风', 11, 'haste', { t: 4 }, '每 11 秒全场敌人狂奔 4 秒'), SK('八阵', 12, 'bind', { n: 3, t: 2.5 }, '每 12 秒定住三名武将 2.5 秒'), SK('续命', 0, 'regen', { at: 0.3, frac: 0.25 }, '血量掉到三成时回四分之一')] },
 };
 /* 无尽关（第 80 关以后）：整十层固定是神魔（见武将表里的 myth），其余每层从八章的 32 个敌将和幽冥鬼将里挑一个（按层数定，同一层每次是同一个） */
 let BOSS_POOL = null;
 function endlessBoss(n) {
   const myth = HEROES.find(h => h.myth === n);
-  if (myth) { const m = MYTH_BOSS[myth.id]; return { id: myth.id, name: myth.name, who: myth.name, hero: null, myth: myth.id, sprite: 'heroes/' + myth.id, look: null, skills: m.skills, hpK: m.hpK, aura: m.aura, final: true }; }
+  if (myth) { const m = MYTH_BOSS[myth.id]; return { id: myth.id, name: myth.name, who: myth.name, hero: null, myth: myth.id, sprite: 'heroes/' + myth.id, look: null, skills: m.skills, hpK: m.hpK, aura: m.aura, final: true, res: endlessRes(n) }; }
   if (!BOSS_POOL) {
     BOSS_POOL = [{ id: 'boss_9', name: ENDLESS_BOSS.name, who: ENDLESS_BOSS.name, hero: null, sprite: 'enemies/boss_9', look: null, skills: ENDLESS_BOSS.skills }];
     CHAPTERS.forEach((c, ci) => {
       BOSS_POOL.push({ id: 'boss_' + (ci + 1), name: (c.hero ? '心魔·' : '') + c.boss, who: c.boss, hero: c.hero || null, sprite: 'enemies/boss_' + (ci + 1), look: null, skills: c.skills });
-      c.mid.forEach(m => BOSS_POOL.push({ id: m.id, name: (m.hero ? '心魔·' : '') + m.name, who: m.name, hero: m.hero || null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills }));
+      c.mids.forEach(m => BOSS_POOL.push({ id: m.id, name: (m.hero ? '心魔·' : '') + m.name, who: m.name, hero: m.hero || null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills }));
     });
   }
-  const b = BOSS_POOL[(Math.imul(n, 2654435761) >>> 8) % BOSS_POOL.length];
-  return Object.assign({ hpK: 1, final: true }, b);
+  return Object.assign({ hpK: 1, final: true, res: endlessRes(n) }, BOSS_POOL[endlessIdx(n)]);
+}
+/* 无尽第 n 层是敌将池里的第几位：按层数散开挑，和上一层撞了就顺延一位（相邻两层不会是同一个人）。神魔那几层不占位置 */
+const ENDLESS_IDX = [];
+function endlessIdx(n) {
+  for (let k = ENDLESS_IDX.length + 1; k <= n; k++) {
+    let i = (Math.imul(k, 2654435761) >>> 8) % BOSS_POOL.length;
+    const prev = k > 1 && !HEROES.some(h => h.myth === k - 1) ? ENDLESS_IDX[k - 2] : -1;
+    if (i === prev) i = (i + 1) % BOSS_POOL.length;
+    ENDLESS_IDX.push(i);
+  }
+  return ENDLESS_IDX[n - 1];
+}
+/* 无尽关敌将的抗性（只有敌将自己有，小兵没有）：{ 攻击类型: 伤害倍率 }。按层数定，同一层每次一样。
+ * 前 9 层：抗一种（伤害 ×0.7）、怕一种（×1.25）；第 10 层起：抗两种（×0.6）、怕一种（×1.3）。清一色的阵容会撞墙，得换人 */
+const RES_ELS = ['blade', 'arrow', 'fire', 'ice', 'thunder', 'poison', 'wind'];
+function endlessRes(n) {
+  const myth = HEROES.find(h => h.myth === n);
+  if (myth && MYTH_BOSS[myth.id].res) return MYTH_BOSS[myth.id].res;
+  const L = RES_ELS.slice(), out = {}; let seed = Math.imul(n + 7, 2246822519) >>> 0;
+  const pick = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return L.splice(seed % L.length, 1)[0]; };
+  const hard = n >= 10;
+  out[pick()] = hard ? 0.6 : 0.7; if (hard) out[pick()] = 0.6;
+  out[pick()] = hard ? 1.3 : 1.25;
+  return out;
+}
+/* 抗性写成一行字：抗 火、冰 · 怕 风 */
+function resText(res) {
+  if (!res) return '';
+  const r = Object.keys(res).filter(k => res[k] < 1).map(k => ELEMENTS[k].name), w = Object.keys(res).filter(k => res[k] > 1).map(k => ELEMENTS[k].name);
+  return (r.length ? '抗 ' + r.join('、') : '') + (r.length && w.length ? ' · ' : '') + (w.length ? '怕 ' + w.join('、') : '');
 }
 function stageBoss(stage) {
   const ci = Math.floor((stage - 1) / 10), c = CHAPTERS[ci], sub = (stage - 1) % 10;
   if (!c) return endlessBoss(stage - CHAPTERS.length * 10);
   if (sub === 9) return { id: 'boss_' + (ci + 1), name: (c.hero ? '心魔·' : '') + c.boss, who: c.boss, hero: c.hero || null, sprite: 'enemies/boss_' + (ci + 1), look: null, skills: c.skills, hpK: 1, final: true };
-  const m = c.mid[Math.floor(sub / 3)];
-  return { id: m.id, name: (m.hero ? '心魔·' : '') + m.name, who: m.name, hero: m.hero || null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills, hpK: 0.75, final: false };
+  const m = c.mids[MID_ORDER[sub]];
+  return { id: m.id, name: (m.hero ? '心魔·' : '') + m.name, who: m.name, hero: m.hero || null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills, hpK: m.hpK || 0.75, final: false };
 }
 /* 敌人打武将的伤害基准：上阵武将的平均血量 × (这一关的推荐战力 ÷ 阵容战力)，比值限制在 0.6–2.5 之间。
  * 战力刚好达标 = 伤害按自己平均血量的几成算；战力不够，同样的一箭就疼得多，武将倒得快；战力超出很多则几乎打不动 */
@@ -585,13 +637,13 @@ const COMBOS = [
   { name: '蜀汉旧将', ids: ['liaohua', 'zhoucang', 'guanping'], need: 2, desc: '全军攻击 +8%', eff: { atk: 0.08 } },
   { name: '黄巾起义', ids: ['zhangjiao', 'zhangbao', 'guanhai', 'peiyuan', 'chengyuanzhi'], need: 3, desc: '全军攻击 +18%', eff: { atk: 0.18 } },
   { name: '关氏父子', ids: ['guanyu', 'guanping', 'zhoucang', 'guanxing'], need: 2, desc: '刃系伤害 +25%', eff: { el: { blade: 0.25 } } },
-  { name: '五虎上将', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong', 'machao'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
+  { name: '五虎上将', skill: 'wuhu', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'huangzhong', 'machao'], need: 3, desc: '全军攻击 +10%、暴击率 +10%', eff: { atk: 0.10, crit: 0.10 } },
   { name: '长沙旧部', ids: ['huangzhong', 'weiyan'], need: 2, desc: '弓、火系伤害 +25%', eff: { el: { arrow: 0.25, fire: 0.25 } } },
   { name: '荆襄名士', ids: ['zhugeliang', 'xushu'], need: 2, desc: '风系伤害 +35%', eff: { el: { wind: 0.35 } } },
-  { name: '赤壁之盟', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +15%、怒气获取 +8%', eff: { ult: 0.15, rage: 0.08 } },
-  { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +28%', eff: { el: { fire: 0.28 } } },
+  { name: '赤壁之盟', skill: 'chibi', ids: ['zhugeliang', 'zhouyu'], need: 2, desc: '大招伤害 +15%、怒气获取 +8%', eff: { ult: 0.15, rage: 0.08 } },
+  { name: '江东双璧', ids: ['zhouyu', 'luxun'], need: 2, desc: '火系伤害 +18%', eff: { el: { fire: 0.18 } } },
   { name: '江表虎臣', ids: ['ganning', 'taishici', 'chengpu', 'huanggai', 'lingtong', 'jiangqin', 'zhoutai', 'handang', 'panzhang', 'dingfeng', 'xusheng'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
-  { name: '魏之谋主', ids: ['caocao', 'simayi', 'jiaxu', 'guojia'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
+  { name: '魏之谋主', skill: 'mouzhu', ids: ['caocao', 'simayi', 'jiaxu', 'guojia'], need: 2, desc: '大招伤害 +30%', eff: { ult: 0.30 } },
   { name: '曹氏宗亲', ids: ['caocao', 'caohong', 'xiahoudun', 'caochun', 'xiahouyuan', 'caoren', 'caozhang'], need: 2, desc: '城防上限 +25%', eff: { wall: 0.25 } },
   { name: '五子良将', ids: ['zhangliao', 'xuhuang', 'yujin', 'yuejin', 'zhanghe'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
   { name: '并州旧部', ids: ['lvbu', 'zhangliao', 'gaoshun'], need: 2, desc: '全军出手速度 +12%', eff: { spd: 0.12 } },
@@ -599,8 +651,8 @@ const COMBOS = [
   { name: '乱世才女', ids: ['caiwenji', 'zhenji', 'xinxianying'], need: 2, desc: '冰系伤害 +25%、怒气获取 +10%', eff: { el: { ice: 0.25 }, rage: 0.10 } },
   { name: '天公地公', ids: ['zhangjiao', 'zhangbao', 'panfeng'], need: 2, desc: '雷系伤害 +30%', eff: { el: { thunder: 0.30 } } },
   // —— v1.0 新增 ——
-  { name: '桃园结义', ids: ['liubei', 'guanyu', 'zhangfei'], need: 3, desc: '全军攻击 +15%、怒气获取 +15%', eff: { atk: 0.15, rage: 0.15 } },
-  { name: '卧龙凤雏', ids: ['zhugeliang', 'pangtong'], need: 2, desc: '大招伤害 +20%', eff: { ult: 0.20 } },
+  { name: '桃园结义', skill: 'taoyuan', ids: ['liubei', 'guanyu', 'zhangfei'], need: 3, desc: '全军攻击 +15%、怒气获取 +15%', eff: { atk: 0.15, rage: 0.15 } },
+  { name: '卧龙凤雏', skill: 'wolong', ids: ['zhugeliang', 'pangtong'], need: 2, desc: '大招伤害 +20%', eff: { ult: 0.20 } },
   { name: '长坂救主', ids: ['liubei', 'zhaoyun', 'liushan'], need: 2, desc: '冰系伤害 +25%、城防上限 +10%', eff: { el: { ice: 0.25 }, wall: 0.10 } },
   { name: '定军山',   ids: ['fazheng', 'huangzhong'], need: 2, desc: '弓、毒系伤害 +25%', eff: { el: { arrow: 0.25, poison: 0.25 } } },
   { name: '孙刘联姻', ids: ['liubei', 'sunshangxiang'], need: 2, desc: '城防上限 +20%、全军攻击 +6%', eff: { wall: 0.20, atk: 0.06 } },
@@ -613,7 +665,7 @@ const COMBOS = [
   { name: '奇门遁甲', ids: ['zuoci', 'zhangjiao', 'yuji'], need: 2, desc: '雷系伤害 +25%、怒气获取 +10%', eff: { el: { thunder: 0.25 }, rage: 0.10 } },
   { name: '两员上将', ids: ['xingdaorong', 'panfeng'], need: 2, desc: '全军攻击 +12%', eff: { atk: 0.12 } },
   // —— v1.1 新增：让紫、金、橙武将之间多一些搭配（must = 这名武将必须在阵）——
-  { name: '虎牢关',   ids: ['lvbu', 'liubei', 'guanyu', 'zhangfei'], need: 3, must: 'lvbu', desc: '全军暴击率 +10%、攻击 +6%', eff: { crit: 0.10, atk: 0.06 } },
+  { name: '虎牢关', skill: 'hulao',   ids: ['lvbu', 'liubei', 'guanyu', 'zhangfei'], need: 3, must: 'lvbu', desc: '全军暴击率 +10%、攻击 +6%', eff: { crit: 0.10, atk: 0.06 } },
   { name: '神亭酣战', ids: ['taishici', 'sunce'], need: 2, desc: '刃、雷系伤害 +20%', eff: { el: { blade: 0.20, thunder: 0.20 } } },
   { name: '宛城护主', ids: ['dianwei', 'caocao'], need: 2, desc: '刃系伤害 +15%、城防上限 +15%', eff: { el: { blade: 0.15 }, wall: 0.15 } },
   { name: '裸衣斗马超', ids: ['xuchu', 'machao'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
@@ -645,12 +697,12 @@ const COMBOS = [
   { name: '街亭',     ids: ['zhanghe', 'simayi', 'wangping'], need: 2, desc: '风、毒、弓系伤害 +20%', eff: { el: { wind: 0.20, poison: 0.20, arrow: 0.20 } } },
   // —— v1.4 新增：收服来的敌将 ——
   { name: '河北双雄', ids: ['yanliang', 'wenchou', 'yuanshao'], need: 2, desc: '刃、弓系伤害 +25%', eff: { el: { blade: 0.25, arrow: 0.25 } } },
-  { name: '连环计',   ids: ['dongzhuo', 'diaochan', 'lvbu'], need: 2, must: 'dongzhuo', desc: '火、毒系伤害 +20%、全军暴击率 +6%', eff: { el: { fire: 0.20, poison: 0.20 }, crit: 0.06 } },
+  { name: '连环计', skill: 'lianhuan',   ids: ['dongzhuo', 'diaochan', 'lvbu'], need: 2, must: 'dongzhuo', desc: '火、毒系伤害 +20%、全军暴击率 +6%', eff: { el: { fire: 0.20, poison: 0.20 }, crit: 0.06 } },
   { name: '七擒七纵', ids: ['menghuo', 'zhugeliang'], need: 2, desc: '毒、风系伤害 +25%', eff: { el: { poison: 0.25, wind: 0.25 } } },
   { name: '斩将夺旗', ids: ['guanyu', 'yanliang', 'wenchou'], need: 2, must: 'guanyu', desc: '刃系伤害 +20%、全军暴击率 +6%', eff: { el: { blade: 0.20 }, crit: 0.06 } },
   { name: '虎豹骑',   ids: ['caochun', 'xiahoudun', 'caocao'], need: 2, must: 'caochun', desc: '风、刃系伤害 +20%', eff: { el: { wind: 0.20, blade: 0.20 } } },
   // —— v2.2 新武将的缘分 ——
-  { name: '江东之主', ids: ['sunquan', 'zhouyu', 'luxun', 'lvmeng'], need: 2, desc: '全军攻击 +10%、怒气获取 +10%', eff: { atk: 0.10, rage: 0.10 } },
+  { name: '江东之主', skill: 'jiangdong', ids: ['sunquan', 'zhouyu', 'luxun', 'lvmeng'], need: 2, desc: '全军攻击 +10%、怒气获取 +10%', eff: { atk: 0.10, rage: 0.10 } },
   { name: '孙氏三杰', ids: ['sunquan', 'sunce', 'sunshangxiang', 'sunjian'], need: 2, desc: '雷、弓系伤害 +20%', eff: { el: { thunder: 0.20, arrow: 0.20 } } },
   { name: '白衣渡江', ids: ['lvmeng', 'luxun'], need: 2, desc: '全军暴击率 +10%', eff: { crit: 0.10 } },
   { name: '夏侯兄弟', ids: ['xiahoudun', 'xiahouyuan'], need: 2, desc: '全军出手速度 +10%', eff: { spd: 0.10 } },
@@ -692,6 +744,13 @@ const COMBOS = [
   { name: '蜀汉贤相', ids: ['feiyi', 'zhugeliang', 'jiangwei', 'liushan'], need: 2, must: 'feiyi', desc: '全军出手速度 +8%', eff: { spd: 0.08 } },
   { name: '讨曹檄文', ids: ['chenlin', 'yuanshao'], need: 2, desc: '火、弓系伤害 +20%', eff: { el: { fire: 0.20, arrow: 0.20 } } },
 ];
+/* 缘分的品质（v2.13）：按加成的强度打分再分档，界面上用品质的颜色。
+ * 打分：全军攻击、出手速度按 1 算，暴击率 1.2，大招伤害、怒气 0.6，城防上限 0.35，单系伤害 0.4（只有那一系的人吃得到）。
+ * 0.20 以上橙、0.15 金、0.11 紫、0.08 蓝、再低绿。带 skill 的是彩色：最出名的八组，凑齐了左边的礌石换成这组缘分的合击大招（招式在 skills.js 的 BOND_SKILLS）。
+ * 一支队伍同时凑齐几组彩色缘分时，用表里排在前面的那一组的大招 */
+function comboScore(e) { let v = (e.atk || 0) + (e.spd || 0) + (e.crit || 0) * 1.2 + (e.ult || 0) * 0.6 + (e.rage || 0) * 0.6 + (e.wall || 0) * 0.35; if (e.el) for (const k in e.el) v += e.el[k] * 0.4; return v; }
+COMBOS.forEach(c => { const v = comboScore(c.eff); c.q = c.skill ? 7 : v >= 0.2 - 1e-9 ? 5 : v >= 0.15 - 1e-9 ? 4 : v >= 0.11 - 1e-9 ? 3 : v >= 0.08 - 1e-9 ? 2 : 1; });
+
 
 /* 局内三选一军令 */
 const BUFFS = [
