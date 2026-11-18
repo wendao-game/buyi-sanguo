@@ -327,7 +327,6 @@ const UI = (function () {
     const showIds = GACHA_POOL[5].slice(0, 4);
     $('#gacha').innerHTML = `
       <div class="gbanner">
-        <div class="gsoon">黑·彩神将 敬请期待</div>
         <h2>群英招募</h2><p>白 · 绿 · 蓝 · 紫 · 金 · 橙　武将与兵器同池</p>
         <div class="gshow">${showIds.map(id => `<img src="${P(id)}">`).join('')}</div>
       </div>
