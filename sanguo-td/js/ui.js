@@ -92,7 +92,7 @@ const UI = (function () {
     $('#home').innerHTML = `
       <div class="logo"><b>烽火守城</b><span>三国塔防</span></div>
       <div class="stagecard">
-        <div class="chap">${ch.endless ? ch.name : '第 ' + ch.index + ' 章 · ' + ch.name}</div>
+        <div class="chap">${ch.endless ? ch.name + (S.stage > 81 ? ' · 最高第 ' + (S.stage - 81) + ' 层' : '') : '第 ' + ch.index + ' 章 · ' + ch.name}</div>
         <div class="stagesel">
           ${S.stage > 20 ? `<button class="jump" data-act="stage" data-d="-10" ${st <= 1 ? 'disabled' : ''}>«</button>` : ''}
           <button data-act="stage" data-d="-1" ${st <= 1 ? 'disabled' : ''}>◀</button>
@@ -108,6 +108,10 @@ const UI = (function () {
           <button class="btn-big ${cleared ? 'small' : ''}" data-act="fight">出征</button>
         </div>
         ${pw < rec ? '<div class="tip">战力不足？去「武将」页凑羁绊、调站位；战斗中点战场可以投石</div>' : ''}
+      </div>
+      <div class="longrow">
+        <button class="lbtn ${dailyReady() ? 'hot' : 'done'}" data-act="daily"><b>每日军饷</b><small>${dailyReady() ? '金币 ×' + fmt(dailyReward().coins) + ' · 招募令 ×' + CFG.DAILY.tickets : '今天已领 · 明天再来'}</small></button>
+        <button class="lbtn ${techOpen() ? (CFG.TECH.some(t => (S[t.cur] || 0) >= techCost(t.id)) ? 'hot' : '') : 'lock'}" data-act="tech"><b>城池科技</b><small>${techOpen() ? CFG.TECH.map(t => t.name + ' ' + techLv(t.id)).join(' · ') : '通关第 8 章后开放'}</small></button>
       </div>
       <div class="homefoot"><button class="link" data-act="settings">设置 · 存档</button>${S.enc && S.enc.seen && Object.keys(S.enc.seen).length ? '<button class="link" data-act="encLog">奇遇录</button>' : ''}<div id="cloudNote" class="cloudnote">${Cloud.note()}</div></div>`;
   }
@@ -130,6 +134,20 @@ const UI = (function () {
     const sp = Object.keys(ENEMIES).map(k => ENEMIES[k]).filter(d => d.from && d.from <= st);
     const sb = stageBoss(st);
     return `<b>敌将 ${ch.boss}</b>` + (sb.res ? `<i class="res">${resText(sb.res)}</i>` : '') + sb.skills.map(k => `「${k.name}」${k.desc}`).join('；') + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
+  }
+
+  /* 城池科技：三条没有上限的线，各花一种货币 */
+  function techPanel() {
+    const S = Save.data;
+    if (!techOpen()) return modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>城池科技</h2><p class="mtext">通关第 8 章（第 ${CFG.TECH_OPEN} 关）后开放。<br>开放之后可以一直升下去，没有上限。</p></div>`);
+    const rows = CFG.TECH.map(t => {
+      const lv = techLv(t.id), c = techCost(t.id), have = S[t.cur] || 0, pct = v => (Math.round(v * 1000) / 10) + '%';
+      return `<div class="techrow"><div class="tname"><b>${t.name}</b><span>Lv.${lv}</span></div>
+        <div class="tdesc">${t.what} <b>+${pct(t.per * lv)}</b> → <i>+${pct(t.per * (lv + 1))}</i></div>
+        <button class="btn ${have >= c ? 'gold' : 'gray'}" data-act="techUp" data-id="${t.id}">升级<small>${t.curName} ${fmt(c)}（有 ${fmt(have)}）</small></button></div>`;
+    }).join('');
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>城池科技</h2>
+      <p class="mtext" style="font-size:13.5px">没有等级上限，每升一级贵 ${Math.round((CFG.TECH[0].grow - 1) * 100)}%。武将、兵器养满之后，靠它继续往无尽关的高层打。</p>${rows}</div>`);
   }
 
   /* ---------------- 武将 ---------------- */
@@ -540,6 +558,9 @@ const UI = (function () {
       Sfx.play('sweep'); render(); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(Save.data.pick));
     },
     bondHelp: () => bondHelp(),
+    daily: () => { const r = dailyClaim(); if (!r) { Sfx.play('deny'); return toast('今天的军饷已经领过了，明天再来'); } Sfx.play('sweep'); render(); toast('军饷到了：金币 +' + fmt(r.coins) + '、精铁 +' + r.iron + '、招募令 +' + r.tickets); },
+    tech: () => techPanel(),
+    techUp: d => { const e = techUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('forge'); render(); techPanel(); },
     rbPick: d => { Save.data.rb = d.n; Save.save(); render(); bondHelp(); toast('彩色缘分换成「' + d.n + '」'); },
     weapon: d => weaponDetail(d.id),
     heroWeapon: d => { lastPickHero = d.id; weaponPick(d.id); },

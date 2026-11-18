@@ -49,6 +49,7 @@ const Battle = (function () {
     S.bonus = bonus; S.wallBonus = bonus.wall; S.psnVuln = 0; S.regenK = 0;
     S.buffs = { atk: 1 + bonus.atk, spd: 1 + bonus.spd, crit: bonus.crit, rage: 1 + bonus.rage, ult: 1 + bonus.ult, coin: 1, boss: 1, el: {} };
     for (const k in bonus.el) S.buffs.el[k] = 1 + bonus.el[k];
+    S.buffs.atk *= techMul('atk'); S.buffs.ult *= techMul('ult'); S.wallBonus += techMul('wall') - 1;   // 城池科技
     S.heroes = [];
     Save.data.team.forEach((id, i) => {
       if (!id) return;

@@ -23,6 +23,8 @@ const Save = {
       speed: 1,
       auto: true,
       sweep: { date: '', count: 0 },
+      tech: { atk: 0, wall: 0, ult: 0 },   // 城池科技各条线的等级（没有上限）
+      daily: { date: '' },                 // 每日军饷：哪天领过
       gfx: 'gl',           // 战斗画面：'gl' 高清（WebGL），'2d' 兼容
       sound: true,         // 音效开关
       music: true,         // 背景音乐开关
@@ -82,6 +84,30 @@ function gain(coins, tickets) {
   S.earned = (S.earned || 0) + (coins || 0) + (tickets || 0) * CFG.TICKET_PRICE;
 }
 
+/* ---------------- 城池科技（v2.15）：三条没有上限的成长线 ---------------- */
+const TECH_MAP = {}; CFG.TECH.forEach(t => { TECH_MAP[t.id] = t; });
+function techOpen() { return Save.data.stage > CFG.TECH_OPEN; }
+function techLv(id) { const t = Save.data && Save.data.tech; return (t && t[id]) || 0; }
+function techMul(id) { return 1 + TECH_MAP[id].per * techLv(id); }
+function techCost(id, lv) { const t = TECH_MAP[id]; return Math.round(t.base * Math.pow(t.grow, lv == null ? techLv(id) : lv)); }
+function techUp(id) {
+  const t = TECH_MAP[id], S = Save.data;
+  if (!t) return '没有这项科技';
+  if (!techOpen()) return '通关第 ' + CFG.TECH_OPEN + ' 关后开放';
+  const c = techCost(id);
+  if ((S[t.cur] || 0) < c) return t.curName + '不足（需要 ' + c + '）';
+  S[t.cur] -= c; S.tech = S.tech || {}; S.tech[id] = techLv(id) + 1; Save.save();
+  return null;
+}
+/* ---------------- 每日军饷 ---------------- */
+function dailyReady() { const d = Save.data.daily || (Save.data.daily = { date: '' }); return d.date !== todayStr(); }
+function dailyReward() { const st = Math.max(1, Save.data.stage - 1); return { coins: Math.round(stageWinCoins(st) * CFG.DAILY.coinK), iron: Math.round(stageIron(st) * CFG.DAILY.ironK), tickets: CFG.DAILY.tickets }; }
+function dailyClaim() {
+  if (!dailyReady()) return null;
+  const r = dailyReward(); Save.data.daily.date = todayStr();
+  gain(r.coins, r.tickets); Save.data.iron += r.iron; Save.save();
+  return r;
+}
 function todayStr() {
   const d = new Date();
   return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
@@ -157,7 +183,8 @@ function teamPower(team) {
     sum += heroStats(id).power * (1 + (m.atk || 0)) * (1 + (m.spd || 0)) * (1 + b.atk + p.atk) * (1 + b.spd + p.spd) * (1 + b.crit + (m.crit || 0)) * (1 + (b.el[d.el] || 0) * 0.6) * (1 + b.ult * 0.3 + b.rage * 0.35 + p.rage * 0.35)   // 怒气获取 +10% ≈ 战力 +3.5%（模拟器量出来的：原来按 2% 算，怒气叠得多的阵容实际比战力数字强一截）
       * (1 + p.watk) * (1 + p.wspd) * (1 + p.wcrit) * (1 + p.wult * 0.3 + p.wrage * 0.35);   // 兵器
   });
-  if (b.active.some(a => a.skill)) sum *= 1 + CFG.BOND_SKILL_POWER;   // 彩色缘分的合击大招也算战力（不算的话，带彩色缘分的队伍实际比战力数字能打一截，推荐战力就不准了）
+  if (b.active.some(a => a.skill)) sum *= 1 + CFG.BOND_SKILL_POWER;
+  sum *= techMul('atk') * (1 + (techMul('ult') - 1) * 0.3 + (techMul('wall') - 1) * 0.2);   // 城池科技：攻击按全额算，大招伤害三折（和缘分里的算法一样），城防两折   // 彩色缘分的合击大招也算战力（不算的话，带彩色缘分的队伍实际比战力数字能打一截，推荐战力就不准了）
   return Math.round(sum);
 }
 function basePower(team) { return (team || Save.data.team).reduce((s, id) => s + (id ? heroStats(id).power : 0), 0); }

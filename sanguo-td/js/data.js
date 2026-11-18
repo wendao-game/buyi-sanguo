@@ -51,6 +51,17 @@ const CFG = {
   WEAPON_UP: [1, 1.5, 2, 3, 4.5, 6],            // 强化到下一级 = 此值 × 当前等级
 
   // —— 局内操作 ——
+  /* —— 长线（v2.15）——
+   * 城池科技：通关第 TECH_OPEN 关（主线打完）之后开放，三条线都没有等级上限，每升一级花费 × grow。
+   * 等级、星级、兵器都有上限，养满之后战力大约 12.6 万，只够打到无尽第 38 层上下；有了科技，无尽关可以一直往上打，只是越来越慢 */
+  TECH_OPEN: 80,
+  TECH: [
+    { id: 'atk',  name: '练兵', cur: 'coins', curName: '金币', base: 4000, grow: 1.03, per: 0.01,  what: '全军攻击' },
+    { id: 'wall', name: '筑城', cur: 'iron',  curName: '精铁', base: 40,   grow: 1.03, per: 0.015, what: '城防上限' },
+    { id: 'ult',  name: '军械', cur: 'soul',  curName: '将魂', base: 40,   grow: 1.03, per: 0.01,  what: '大招伤害' },
+  ],
+  /* 每日军饷：每天领一次，按打到过的最高关算（金币 = 那一关通关金币 × coinK，精铁同理），外加几张招募令 */
+  DAILY: { coinK: 5, ironK: 5, tickets: 2 },
   BOND_SKILL_POWER: 0.10,  // 彩色缘分的合击大招折算成多少战力（模拟器量出来它让队伍强 8%～17%）
   ROCK_MAX: 3,             // 滚木礌石最多存几块
   ROCK_CD: 6,              // 每块恢复秒数
