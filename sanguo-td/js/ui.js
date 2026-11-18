@@ -35,8 +35,29 @@ const UI = (function () {
     const t = $('#toast'); t.textContent = msg; t.classList.add('on');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), 1600);
   }
-  function modal(html, canClose) { closable = canClose !== false; const m = $('#modal'); m.innerHTML = html; m.classList.add('on'); }
-  function closeModal() { const m = $('#modal'); m.classList.remove('on'); m.innerHTML = ''; }
+  /* 重画之后滚动位置留在原处（不然在详情里滑到下面点一下升级，整个弹窗弹回最上面；图鉴翻到一半点一个武将，回来又是从头）。
+   * scrollSnap 记下 root 里所有滚动过的元素（按 标签.类名 认），scrollPut 重画之后放回去 */
+  function scrollSnap(root) {
+    const out = [];
+    root.querySelectorAll('*').forEach(el => { if (el.scrollTop > 0) out.push([el.tagName + '.' + el.className, el.scrollTop]); });
+    return out;
+  }
+  function scrollPut(root, snap) {
+    if (!snap || !snap.length) return;
+    const all = root.querySelectorAll('*');
+    snap.forEach(x => { for (let i = 0; i < all.length; i++) if (all[i].tagName + '.' + all[i].className === x[0]) { all[i].scrollTop = x[1]; break; } });
+  }
+  /* 弹窗：按标题认是不是「同一个弹窗」。同一个重画（升级、升星、换兵器之后），或者中间弹了个确认框又回来，都回到原来滑到的位置；关掉弹窗就忘掉 */
+  const modalTitle = m => { const t = m.querySelector('h2, h3'); return t ? t.textContent : ''; };
+  let modalScroll = {};
+  function modal(html, canClose) {
+    closable = canClose !== false;
+    const m = $('#modal');
+    if (m.classList.contains('on')) { const t = modalTitle(m); if (t) modalScroll[t] = scrollSnap(m); }
+    m.innerHTML = html; m.classList.add('on');
+    scrollPut(m, modalScroll[modalTitle(m)]);
+  }
+  function closeModal() { const m = $('#modal'); m.classList.remove('on'); m.innerHTML = ''; modalScroll = {}; }
 
   /* ---------------- 页面切换 ---------------- */
   function show(tab) {
@@ -46,13 +67,18 @@ const UI = (function () {
     document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
     render();
   }
+  let viewKey = '', viewScroll = null;
   function render() {
     $('#tCoins').textContent = fmt(Save.data.coins);
     $('#tTickets').textContent = fmt(Save.data.tickets);
+    const root = $('#' + screen), key = screen + '|' + heroTab;   // 同一页重画（没换页、没换「我的武将 / 图鉴」）：列表留在原来翻到的地方
+    const snap = root && key === viewKey ? scrollSnap(root) : null;
     if (screen === 'home') renderHome();
     else if (screen === 'heroes') renderHeroes();
     else if (screen === 'gacha') renderGacha();
     else if (screen === 'arms') renderArms();
+    if (root) scrollPut(root, snap);
+    viewKey = key;
   }
 
   /* ---------------- 主城 ---------------- */
