@@ -65,7 +65,10 @@ const Sfx = (function () {
         .then(b => new Promise((ok, no) => ac.decodeAudioData(b, ok, no))).then(buf => { FILES[m[1]] = buf; }).catch(() => { /* 下不到或解不了就用合成的 */ });
     });
   }
-  function unlock() { if (ensure() && ac.state === 'suspended') ac.resume().catch(() => {}); }
+  let hushed = false;
+  function unlock() { if (!hushed && ensure() && ac.state === 'suspended') ac.resume().catch(() => {}); }
+  /* 放广告时整个停声（音乐和音效都停），放完接着响 */
+  function hush(on) { hushed = !!on; if (!ac) return; try { (on ? ac.suspend() : ac.resume()).catch(() => {}); } catch (e) { /* 不支持就算了 */ } }
   ['pointerdown', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, unlock, { passive: true }));
   // 切到后台就静音，回来再恢复
   document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) ac.suspend().catch(() => {}); else ac.resume().catch(() => {}); });
@@ -330,5 +333,5 @@ const Sfx = (function () {
     for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; if (v > 0.002) { sq += v * v; n++; } }
     return { peak: +peak.toFixed(3), rms: +Math.sqrt(sq / Math.max(1, n)).toFixed(3), len: +(n / 44100).toFixed(2) };
   }
-  return { play, music, unlock, probe, render, files: () => Object.keys(FILES), songs: () => Object.keys(SONGS), get ready() { return !!ac && ac.state === 'running'; }, names: () => Object.keys(BANK) };
+  return { play, music, unlock, hush, probe, render, files: () => Object.keys(FILES), songs: () => Object.keys(SONGS), get ready() { return !!ac && ac.state === 'running'; }, names: () => Object.keys(BANK) };
 })();
