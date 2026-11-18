@@ -218,6 +218,13 @@ function levelUp(id) {
   Save.data.coins -= c; own.lv++; Save.save();
   return null;
 }
+/* 连升 n 级：金币够几级升几级，返回升了几级（0 = 一级都升不起）。等级没有上限以后，一级一级点太累 */
+function levelUpMany(id, n) {
+  let k = 0;
+  while (k < n && !levelUp(id)) k++;
+  return k;
+}
+function levelCostMany(id, n) { const lv = heroOwn(id).lv; let s = 0; for (let i = 0; i < n; i++) s += levelCost(id, lv + i); return s; }
 function starNeed(id) {
   const own = heroOwn(id);
   return own.star >= CFG.MAX_STAR ? 0 : CFG.STAR_NEED[own.star];
