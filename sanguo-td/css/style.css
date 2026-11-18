@@ -579,3 +579,20 @@ td[data-bq="7"], .bqn[data-bq="7"] { animation: bqHue 4s linear infinite; text-s
 .bond.off { opacity: 0.55; } .bond.off b { color: #a89880; text-decoration: line-through; }
 .offrow td { color: #8a7a68; } .offrow td:first-child { text-decoration: line-through; }
 button.mini { margin-left: 6px; padding: 2px 9px; border-radius: 8px; border: 0; font-size: 12px; color: #2a1608; background: linear-gradient(#ffe9a8, #e9b53c); }
+
+/* ---------------- v2.15 长线：每日军饷、城池科技、无尽纪录 ---------------- */
+.longrow { display: flex; gap: 10px; margin: 8px 26px 0; }
+.lbtn { flex: 1; height: 46px; border: 0; border-radius: 12px; color: #ffe9a8; background: linear-gradient(#3b271c, #1f130d); box-shadow: inset 0 0 0 1.5px #8a6a3a, 0 2px 6px #0008; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.lbtn b { font-family: var(--fr); font-weight: normal; font-size: 16px; line-height: 1.1; }
+.lbtn small { font-size: 10.5px; color: #c8b89a; margin-top: 1px; }
+.lbtn.hot { box-shadow: inset 0 0 0 2px #ffd24a, 0 0 10px #ffb02a80; } .lbtn.hot b { color: #ffe27a; }
+.lbtn.done, .lbtn.lock { opacity: 0.6; }
+.record { margin: 8px 26px 0; text-align: center; font-size: 13px; color: #d8c8a8; } .record b { color: #ffd24a; font-size: 16px; }
+.techrow { display: grid; grid-template-columns: 92px 1fr 150px; align-items: center; gap: 8px; padding: 10px 4px; border-top: 1px solid #ffffff14; }
+.techrow .tname b { display: block; font-family: var(--fr); font-weight: normal; font-size: 19px; color: #ffe9a8; } .techrow .tname span { font-size: 12px; color: #c8b89a; }
+.techrow .tdesc { font-size: 13px; color: #e8dcc0; } .techrow .tdesc b { color: #8dff8a; } .techrow .tdesc i { font-style: normal; color: #ffd24a; }
+.techrow .btn { height: 46px; font-size: 15px; } .techrow .btn small { display: block; font-size: 10.5px; opacity: 0.9; }
+.longrow + .homefoot { margin-top: 5px; }
+/* 「设置 · 存档」「奇遇录」挪到左上角：主城下面多了军饷和科技两个按钮，无尽关的情报又长，原来的位置会压到城楼上的武将 */
+#home .homefoot { position: absolute; left: 16px; top: 16px; margin: 0; text-align: left; z-index: 3; }
+#home .homefoot .cloudnote { margin-top: 3px; text-align: left; }
