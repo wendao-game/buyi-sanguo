@@ -596,3 +596,80 @@ button.mini { margin-left: 6px; padding: 2px 9px; border-radius: 8px; border: 0;
 /* 「设置 · 存档」「奇遇录」挪到左上角：主城下面多了军饷和科技两个按钮，无尽关的情报又长，原来的位置会压到城楼上的武将 */
 #home .homefoot { position: absolute; left: 16px; top: 16px; margin: 0; text-align: left; z-index: 3; }
 #home .homefoot .cloudnote { margin-top: 3px; text-align: left; }
+
+/* ===== 屏幕适配（v2.18）=====
+ * #app 的高度由 main.js 按屏幕算（最少 960），多出来的部分是 --ext；刘海 / 底部横条是 --safeT / --safeB。
+ * 战斗画面（#cv #gl）和战斗 HUD 固定 540×960，贴在底部；上面的 --ext 由 #ext 画背景镜像补上。 */
+#app { --ext: 0px; --safeT: 0px; --safeB: 0px; }
+#ext { position: absolute; left: 0; top: 0; width: 540px; height: var(--ext); display: none; }
+#cv, #gl { inset: auto; left: 0; top: var(--ext); width: 540px; height: 960px; }
+#app[data-screen="battle"] #hud { inset: auto; left: 0; top: var(--ext); width: 540px; height: 960px; }
+#app[data-screen="battle"] #tipbar { top: calc(var(--ext) + 110px); }
+#app[data-screen="battle"] #toast { top: calc(var(--ext) + 118px); }
+/* 主城、武将、兵器、招募：上面让出刘海，下面导航条让出底部横条 */
+#topbar { top: var(--safeT); }
+.screen { top: calc(60px + var(--safeT)); bottom: calc(78px + var(--safeB)); }
+#nav { height: calc(84px + var(--safeB)); padding-bottom: var(--safeB); }
+#tipbar { bottom: calc(98px + var(--safeB)); }
+/* 平板等比 9:16 更宽的屏：两边不是纯黑，铺一层压暗、模糊的战场背景 */
+body.wide::before { content: ""; position: fixed; inset: -40px; background: url(../assets/bg/battle.jpg) center / cover no-repeat; filter: blur(18px) brightness(.38) saturate(.8); }
+
+/* ===== 新手引导（v2.18）===== */
+/* 上阵武将金币够升级：头像左下角的「升」 */
+.card .upmark { position: absolute; left: 3px; bottom: 22px; width: 20px; height: 20px; border-radius: 50%; font-style: normal; font-family: var(--fb); font-size: 13px; line-height: 20px; text-align: center; color: #fff; background: radial-gradient(circle at 50% 30%, #6ee36a, #1f8a2a); box-shadow: 0 0 0 1.5px #0c3a12, 0 0 8px #6ee36aaa; animation: upPulse 1s ease-in-out infinite alternate; }
+@keyframes upPulse { from { transform: scale(1); } to { transform: scale(1.15); } }
+/* 彩色神将卡：等级和星星在彩虹底上看不清，换白字加描边 */
+.card[data-q="7"] .cmeta { color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000, 0 1px 2px #000; }
+
+/* ===== 主城四个入口、挂机军饷、试炼（v2.18）===== */
+.longrow.quad { gap: 6px; margin: 8px 18px 0; }
+.longrow.quad .lbtn { height: 48px; padding: 0 2px; }
+.longrow.quad .lbtn b { font-size: 15px; letter-spacing: 1px; }
+.longrow.quad .lbtn small { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.idlebox { margin: 12px auto 4px; padding: 12px 10px; border-radius: 12px; text-align: center; background: #00000055; box-shadow: inset 0 0 0 1.5px #8a6a3a; }
+.idlebox b { display: block; font-family: var(--fr); font-weight: normal; font-size: 22px; color: #ffe27a; }
+.idlebox small { display: block; margin-top: 4px; font-size: 12.5px; color: #c8b89a; }
+.mtext b.bad { color: #ff7a6a; }
+/* 无尽关本层词缀 */
+.intel i.affix { color: #ffd0b0; background: #3a1c14; box-shadow: inset 0 0 0 1px #a8583a; margin-top: 2px; }
+/* AI 合成内容标识（TapTap「AI接入声明」要求）：主城最下面一行小字，不抢眼 */
+#home .ainote { position: absolute; left: 0; right: 0; bottom: 9px; margin: 0; text-align: center; font-size: 12px; letter-spacing: .5px; color: #e8d8c0; opacity: .6; text-shadow: 0 1px 2px #000; pointer-events: none; z-index: 2; }
+
+/* ===== 名将列传（v2.18）===== */
+.tabs .lgbtn { position: relative; }
+.tabs .lgbtn .dot { position: absolute; right: 6px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: #ff4a3a; box-shadow: 0 0 6px #ff4a3a; }
+.lglist { max-height: 560px; overflow-y: auto; margin-top: 8px; display: flex; flex-direction: column; gap: 10px; }
+.lgrow { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; background: #00000055; box-shadow: inset 0 0 0 1.5px var(--qc, #8a6a3a); }
+.lgrow img { width: 58px; height: 58px; border-radius: 50%; flex: none; box-shadow: 0 0 0 2px var(--qc, #8a6a3a); }
+.lgrow .lgtxt { flex: 1; min-width: 0; text-align: left; }
+.lgrow .lgtxt b { font-family: var(--fr); font-weight: normal; font-size: 16px; color: #ffe9a8; }
+.lgrow .lgtxt p { margin: 3px 0 2px; font-size: 12px; line-height: 1.45; color: #e8d8c0; }
+.lgrow .lgtxt small { display: block; font-size: 11.5px; color: #c8b89a; line-height: 1.4; }
+.lgrow .lgtxt small.ok { color: #8fe08a; } .lgrow .lgtxt small.bad { color: #ff9a7a; }
+.lgrow .btn { flex: none; width: 70px; height: 40px; padding: 0; }
+.lgrow.off { opacity: .55; } .lgrow.off img { filter: grayscale(1); }
+.lgrow .lgok { font-style: normal; margin-left: 6px; padding: 0 6px; border-radius: 6px; font-size: 11px; color: #1a120c; background: #ffd24a; }
+.lgline { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: #00000045; box-shadow: inset 0 0 0 1px #8a6a3a; font-size: 13px; text-align: left; }
+.lgline b { color: #ffe9a8; font-family: var(--fr); font-weight: normal; } .lgline span { flex: 1; color: #c8b89a; font-size: 12px; }
+
+/* ---------- v2.19 过关斩将、天气 ---------- */
+.longrow.rushrow { margin: 6px 18px 0; }
+.lbtn.rush { height: 42px; flex-direction: row; gap: 12px; background: linear-gradient(90deg, #3a1612, #1e0e0a 50%, #3a1612); box-shadow: inset 0 0 0 1.5px #a8463a, 0 2px 6px #0008; }
+.lbtn.rush b { color: #ffcfae; letter-spacing: 3px; }
+.lbtn.rush small { margin: 0; }
+.lbtn.rush.hot { box-shadow: inset 0 0 0 2px #ff7a4a, 0 0 12px #ff5a2a80; }
+.rslist { margin: 8px 0; padding: 6px 8px; border-radius: 10px; background: rgba(0,0,0,.28); box-shadow: inset 0 0 0 1px #5a4030; }
+.rshead { font-size: 12px; color: #c8b89a; margin-bottom: 4px; }
+.rsrow { display: grid; grid-template-columns: 20px auto 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: baseline; padding: 4px 0; border-top: 1px solid rgba(255,255,255,.06); }
+.rsrow i { grid-row: span 2; font-style: normal; font-family: SGNum, sans-serif; color: #ffd24a; font-size: 15px; text-align: center; }
+.rsrow b { font-weight: normal; color: #ffe9c8; font-size: 15px; }
+.rsrow b.demon { color: #d8b4ff; } .rsrow b.myth { color: #ffd24a; }
+.rsrow span { justify-self: end; font-size: 12px; color: #9fc8ff; }
+.rsrow small { grid-column: 2 / span 2; font-size: 11.5px; color: #a8988a; }
+.rsmore { font-size: 11.5px; color: #8a7a6a; text-align: center; margin-top: 3px; }
+.intel i.wx { color: #cfe4ff; background: #182638; box-shadow: inset 0 0 0 1px #4a6a9a; margin-top: 2px; }
+
+/* 魔将的名字：黑字、淡紫描边（深色底上才看得见） */
+.rsrow b.mo, .moname { color: #120c18; text-shadow: 1px 0 #c9a2ff, -1px 0 #c9a2ff, 0 1px #c9a2ff, 0 -1px #c9a2ff, 1px 1px #c9a2ff, -1px -1px #c9a2ff, 1px -1px #c9a2ff, -1px 1px #c9a2ff; }   /* 八个方向不带模糊的影子 = 一圈清楚的描边 */
+/* 神将的名字：七彩渐变 */
+.rsrow b.shen, .shenname { background: linear-gradient(90deg, #ff5a5a, #ffad3a, #ffe84a, #5ae878, #4ab8ff, #b07aff); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 1px #000) drop-shadow(0 1px 1px #000); }

@@ -387,6 +387,7 @@ const Art = (function () {
   /* 敌人用哪张图：有图片用图片；没有就用代码画的小人（描粗黑边、放大一些） */
   function enemySprite(e) {
     const d = e.def, im = (e.spr && Assets.get(e.spr)) || Assets.get('enemy:' + d.id);
+    if (im && e.bust && e.spr && Assets.get(e.spr)) { const hU = SPRITE.enemy.units * 1.3, wU = hU * im.width / im.height; return { im, x: -wU * 0.5, y: 12.4 - hU * 1.04, w: wU, h: hU, k: 1, top: 3.25 }; }   // 心魔的半身像：底边飘在脚下那团魔焰上
     if (im) { const hU = SPRITE.enemy.units, wU = hU * im.width / im.height; return { im, x: -wU * SPRITE.enemy.ax, y: 12.4 - hU * SPRITE.enemy.ay, w: wU, h: hU, k: 1, top: 2.55 }; }
     const pd = e.look || d;                                    // 没有立绘的敌将：同一个小人换一套配色
     const ps = procSprite('enemy:' + d.id + (e.look ? ':' + e.look.key : ''), [-20, -30, 44, 54], cc => enemyBody(cc, pd));
@@ -585,7 +586,9 @@ const Art = (function () {
       const w = (d.id === 'boss' || d.id === 'rare') ? 70 : d.r * 2, hy = e.y - d.r * (k || 2.1) - ((d.id === 'boss' || d.id === 'rare') ? 14 : 4);
       c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(e.x - w / 2 - 1, hy - 1, w + 2, (d.id === 'boss' || d.id === 'rare') ? 7 : 5);
       c.fillStyle = (d.id === 'boss' || d.id === 'rare') ? '#ff5a3a' : '#e8463a'; c.fillRect(e.x - w / 2, hy, w * Math.max(0, e.hp / e.max), (d.id === 'boss' || d.id === 'rare') ? 5 : 3);
-      if ((d.id === 'boss' || d.id === 'rare')) { c.fillStyle = '#ffe9a8'; c.font = 'bold 12px "Microsoft YaHei",sans-serif'; c.textAlign = 'center'; c.fillText(e.name, e.x, hy - 4); if (e.resTxt) { c.fillStyle = '#bfe4ff'; c.font = 'bold 10px "Microsoft YaHei",sans-serif'; c.fillText(e.resTxt, e.x, hy - 17); } }
+      if ((d.id === 'boss' || d.id === 'rare')) { c.font = 'bold 12px "Microsoft YaHei",sans-serif'; c.textAlign = 'center'; if (e.mythQ === 6) { c.lineWidth = 3; c.lineJoin = 'round'; c.strokeStyle = '#c9a2ff'; c.strokeText(e.name, e.x, hy - 4); c.fillStyle = '#120c18'; }
+        else if (e.mythQ === 7) { const tw = c.measureText(e.name).width, g = c.createLinearGradient(e.x - tw / 2, 0, e.x + tw / 2, 0); ['#ff5a5a', '#ffad3a', '#ffe84a', '#5ae878', '#4ab8ff', '#b07aff'].forEach((k, i) => g.addColorStop(i / 5, k)); c.lineWidth = 3; c.lineJoin = 'round'; c.strokeStyle = '#140a06'; c.strokeText(e.name, e.x, hy - 4); c.fillStyle = g; }   // 神将：七彩
+        else c.fillStyle = '#ffe9a8'; c.fillText(e.name, e.x, hy - 4); if (e.resTxt) { c.fillStyle = '#bfe4ff'; c.font = 'bold 10px "Microsoft YaHei",sans-serif'; c.fillText(e.resTxt, e.x, hy - 17); } }
     }
   }
 

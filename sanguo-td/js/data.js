@@ -11,6 +11,7 @@ const CFG = {
   WAVES: 10,               // 每关波数
   BUFF_EVERY: 3,           // 每几波出一次三选一军令
   ENEMY_HP_SCALE: 1,       // 敌人血量总倍率（整体难度旋钮：1 = 按数值规划；调大整体变难）
+  ENDLESS_HP_K: 0.85,      // 无尽关（第 80 关以后）敌人血量再乘这个数。2026-11-18 带词缀一起校准：1 时达标胜率约 55%，0.85 约 74%（主线目标 75%）
 
   // —— 经济 ——
   TICKET_PRICE: 200,       // 多少金币换 1 张招募令
@@ -104,15 +105,30 @@ const CFG = {
   SWEEP_DAILY: 5,
   SWEEP_MUL: 1.3,          // 扫荡奖励 = 通关金币 × 此倍率（约等于通关金币 + 平均掉落）
 
+  // —— 挂机军饷（v2.18）：不在线也攒金币，回来在主城领。故意给得少：攒满 8 小时 ≈ 最高关通关金币的 0.8 倍（每日军饷是 2 倍）——
+  IDLE: { k: 0.1, maxH: 8 },   // 每小时 = 最高通关那一关的通关金币 × k；最多攒 maxH 小时；可以看广告双倍领
+  // —— 每日试炼（v2.18）：每天一条规则（TRIALS），关卡比已通关的低 back 关；每天第一次赢给奖励，金币只按掉落给一半 ——
+  TRIAL: { open: 5, back: 3, iron: 3, soul: 6, tickets: 1, coinK: 0.5 },
+  // —— 名将列传（v2.18）首通奖励：这名武将的碎片、将魂、招募令（只领一次）；金币只按掉落给一半 ——
+  LEGEND: { shards: 5, soul: 20, tickets: 2, coinK: 0.5 },   // 通关第 open 关后开放；精铁 = 该关精铁 × iron；将魂 = soul + 关数/10
+  // —— 过关斩将（v2.19）：打进无尽后开放。一局里只有敌将，一个接一个，打到守不住为止；中途不回血。
+  //    难度固定（不随玩家进度变，排行榜才公平）：第 k 将按「第 base + step×k 关」的强度，血量再 × hpK（模拟 8 局平均：刚进无尽的战力斩 3 将，无尽 10 层的战力 4 将、20 层 7 将、30 层 10 将；见 tools/sim/rush.js）。
+  //    奖励：破纪录时每多斩一将给 将魂 soul + soulK×k、精铁（那一关的一半）、招募令 tickets；每天第一局按斩将数给将魂 daySoul×将（最多算 dayCap 将）；金币按掉落给一半 ——
+  RUSH: { base: 80, step: 3, hpK: 0.7, buffEvery: 3, soul: 10, soulK: 2, tickets: 1, daySoul: 4, dayCap: 20, coinK: 0.5, show: 61 },   // show：从第几关起主城显示（未开放时灰着）
+  // —— TapTap 排行榜（后台 2026-11-18 建好、已发布；这里填客户端 ID）——
+  LB_STAGE: 'b9swz8htp8rkbh4c0f',   // 最高关卡：已通关数，主线 80 关之后无尽每层接着算
+  LB_POWER: 'f7nm0iefzbwbh15293',   // 最高战力：历史最高的阵容战力
+  LB_RUSH: '',                      // 过关斩将：最多斩将数（还没建；空着就不上传）
+
   // —— 云存档 / 本机备份（只在 TapTap 里生效）——
   CLOUD_NAME: 'sanguo_td_save',
   CLOUD_EVERY: 65,         // 最快多少秒上传一次
 
   // —— 礼包码（主城「设置 · 存档」里兑换）——
   // times = 每份存档能用几次（不写 = 1 次）；ver 改个数，这个码的已用次数就清零重新算
-  // 现在这个是试玩用的；正式上线前删掉或换成活动用的码
+  // 例：FENGHUO100: { tickets: 100, coins: 5000, note: '试玩礼包', times: 5, ver: 2 },
+  // 上线版不放码（试玩码 FENGHUO100 已删）；一个码都没有时，设置里不显示兑换框
   GIFT_CODES: {
-    FENGHUO100: { tickets: 100, coins: 5000, note: '试玩礼包', times: 5, ver: 2 },
   },
 };
 
@@ -555,6 +571,131 @@ function stageBoss(stage) {
   const m = c.mids[MID_ORDER[sub]];
   return { id: m.id, name: (m.hero ? '心魔·' : '') + m.name, who: m.name, hero: m.hero || null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills, hpK: m.hpK || 0.75, final: false };
 }
+/* 无尽关的难度词缀（v2.18）：每层固定（按层数算，同一层每次一样，输了重打还是这几条）。
+ * 第 1–29 层一条、30–59 层两条、60 层起三条，互不重复。倍率写法和每日试炼一样（battle.js 的 S.mods）：
+ * eHp / eSpd / eAtk 敌军血量、移速、攻击；bossHp 敌将血量；bossCd 敌将技能冷却；wall 城防（>1 上限变高；<1 开局只有这么多）；rage 武将怒气获取；hSpd 武将出手速度 */
+const ENDLESS_AFFIX = [
+  { id: 'haste', name: '急行', desc: '敌军移速 +15%', eSpd: 1.15 },
+  { id: 'armor', name: '坚甲', desc: '敌军血量 +12%', eHp: 1.12 },
+  { id: 'sharp', name: '锐锋', desc: '敌军攻击 +25%', eAtk: 1.25 },
+  { id: 'swift', name: '迅令', desc: '敌将技能冷却 -15%', bossCd: 0.85 },
+  { id: 'tired', name: '疲兵', desc: '武将怒气获取 -15%', rage: 0.85 },
+  { id: 'ruin', name: '残垣', desc: '开局城防只有八成半', wall: 0.85 },
+  { id: 'slow', name: '迟滞', desc: '武将出手速度 -8%', hSpd: 0.92 },
+  { id: 'tank', name: '铁壁', desc: '敌将血量 +15%', bossHp: 1.15 },   // 原来 +25%：三轮模拟里带铁壁的层都是最难的，降一档
+];
+function endlessAffixes(n) {
+  if (!(n >= 1)) return [];
+  const k = n >= 60 ? 3 : n >= 30 ? 2 : 1, L = ENDLESS_AFFIX.slice(), out = [];
+  let seed = Math.imul(n + 101, 2654435761) >>> 0;
+  for (let i = 0; i < k; i++) { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; out.push(L.splice(seed % L.length, 1)[0]); }
+  return out;
+}
+/* 几条词缀合成一份倍率（同一项相乘）；没有词缀返回 null */
+function mergeMods(list) {
+  if (!list || !list.length) return null;
+  const m = { names: list.map(a => a.name) };
+  ['eHp', 'eSpd', 'eAtk', 'bossHp', 'bossCd', 'wall', 'rage', 'hSpd', 'hAtk'].forEach(f => { list.forEach(a => { if (a[f]) m[f] = (m[f] || 1) * a[f]; }); });
+  return m;
+}
+function stageAffixes(stage) { return endlessAffixes(stage - CHAPTERS.length * 10); }
+
+/* ---------------- 天气（v2.19） ----------------
+ * el：各攻击类型的伤害倍率（武将打敌人）；eFire：敌将火攻（火雨、火箭、焚城）的倍率；eSpd：敌军移速；bolt：不时落雷劈中敌人
+ * 无尽关每层固定一种（同一层每次一样），过关斩将每换一个敌将换一次；主线、试炼、列传没有天气 */
+const WEATHERS = [
+  { id: 'clear', name: '晴',   desc: '天朗气清，各系照常', el: {}, w: 3 },
+  { id: 'sun',   name: '烈日', desc: '火 +25% · 冰 -20% · 敌将火攻更猛', el: { fire: 1.25, ice: 0.8 }, eFire: 1.25, w: 1 },
+  { id: 'rain',  name: '大雨', desc: '火 -30% · 雷 +25% · 毒 -15% · 敌将火攻减弱', el: { fire: 0.7, thunder: 1.25, poison: 0.85 }, eFire: 0.6, w: 1 },
+  { id: 'snow',  name: '大雪', desc: '冰 +25% · 火 -15% · 敌军移速 -10%', el: { ice: 1.25, fire: 0.85 }, eSpd: 0.9, w: 1 },
+  { id: 'gale',  name: '狂风', desc: '风 +25% · 弓 -20%', el: { wind: 1.25, arrow: 0.8 }, w: 1 },
+  { id: 'fog',   name: '大雾', desc: '毒 +25% · 刃 +10% · 弓 -15%', el: { poison: 1.25, blade: 1.1, arrow: 0.85 }, w: 1 },
+  { id: 'storm', name: '雷暴', desc: '雷 +30% · 冰 -10% · 不时落雷劈中敌人', el: { thunder: 1.3, ice: 0.9 }, bolt: true, w: 1 },
+];
+const WEATHER_MAP = {}; WEATHERS.forEach(w => { WEATHER_MAP[w.id] = w; });
+function pickWeather(seed) {
+  const tot = WEATHERS.reduce((a, w) => a + w.w, 0); let r = (seed >>> 0) % (tot * 97) / 97;
+  for (const w of WEATHERS) if ((r -= w.w) < 0) return w;
+  return WEATHERS[0];
+}
+function endlessWeather(n) { return n >= 1 ? pickWeather(Math.imul(n + 977, 2246822519) >>> 7) : null; }
+function stageWeather(stage) { return endlessWeather(stage - CHAPTERS.length * 10); }
+function weatherText(w) { return w ? w.name + '（' + w.desc + '）' : ''; }
+
+/* ---------------- 过关斩将（v2.19）：只打敌将，一个接一个 ----------------
+ * 心魔：任何一名武将都能当敌将。章节里本来就有的（程远志、董卓、颜良……）用原来的立绘和招式；
+ * 其余的按攻击类型配一招（招式名就是他的大招名）、按阵营配一招，金将半血暴怒、橙将倒下再起一次。
+ * 正面全身图是 assets/enemies/<武将id>.png（提示词「敌人 11～21」）；还没画的先用半身像（heroes/<id>_head），脚下一团黑紫魔焰，像一道飘过来的影子。
+ * 抗性：抗自己的攻击类型（×0.6），怕克他的那一种（×1.3） */
+const DEMON_EL = {
+  arrow:   ult => SK(ult, 8, 'shoot', { n: 3, dmg: 0.1 }, '每 8 秒朝三名武将各射一箭'),
+  blade:   ult => SK(ult, 9, 'smash', { dmg: 0.26, stun: 1.2 }, '每 9 秒一刀斩向一名武将，打晕 1.2 秒'),
+  fire:    ult => SK(ult, 10, 'rain', { dmg: 0.08, fx: 'fire' }, '每 10 秒一阵火雨落在城楼上，所有武将都挨一下'),
+  ice:     ult => SK(ult, 10, 'chill', { t: 4, mul: 0.7 }, '每 10 秒寒气袭来，全体武将 4 秒内出手慢三成'),
+  thunder: ult => SK(ult, 11, 'bind', { n: 2, t: 2 }, '每 11 秒雷光定住两名武将 2 秒'),
+  poison:  ult => SK(ult, 11, 'poison', { t: 5, dps: 0.03 }, '每 11 秒放出毒瘴，所有武将中毒 5 秒'),
+  wind:    ult => SK(ult, 10, 'haste', { t: 3.5 }, '每 10 秒卷起狂风，全场敌人 3.5 秒内走得更快、砍得更勤'),
+};
+const DEMON_FAC = {
+  wei: SK('虎卫', 12, 'shield', { r: 260, t: 3.5 }, '每 12 秒给身边的敌人架盾，3.5 秒内受到的伤害减半'),
+  shu: SK('仁心', 13, 'heal', { frac: 0.06, r: 260 }, '每 13 秒给身边的敌人回血'),
+  wu:  SK('火攻', 13, 'burnwall', { t: 3, dps: 0.45 }, '每 13 秒点着城墙，烧 3 秒'),
+  qun: SK('乱世', 11, 'summon', { type: 'grunt', n: 4 }, '每 11 秒喊来 4 个乱兵'),
+};
+const DEMON_RAGE = SK('入魔', 0, 'enrage', {}, '血量掉到一半时暴怒');
+const DEMON_UNDYING = SK('不灭', 0, 'revive', {}, '第一次倒下后以四成血量再战');
+const DEMON_HPK = [0.8, 0.85, 0.9, 0.95, 1, 1.1];
+const DEMON_WEAK = { fire: 'ice', ice: 'thunder', thunder: 'blade', blade: 'poison', poison: 'wind', wind: 'arrow', arrow: 'fire' };   // 谁克谁：冰克火、雷克冰……
+let RUSH_POOL = null;
+function rushPool() {
+  if (RUSH_POOL) return RUSH_POOL;
+  const known = {}, L = [];
+  CHAPTERS.forEach((c, ci) => {
+    if (c.hero) known[c.hero] = { sprite: 'enemies/boss_' + (ci + 1), skills: c.skills, look: null };
+    c.mids.forEach(m => { if (m.hero) known[m.hero] = { sprite: 'enemies/' + m.id, skills: m.skills, look: { key: m.id, body: m.body, hat: m.hat } }; });
+  });
+  HEROES.forEach(h => {
+    if (h.q >= 6) return;                                   // 神魔另算（每第 5 将）
+    const k = known[h.id], skills = k ? k.skills.slice() : [DEMON_EL[h.el](h.ult), DEMON_FAC[h.fac]];
+    if (h.q >= 4 && !skills.some(s => s.k === 'enrage')) skills.push(DEMON_RAGE);
+    if (h.q >= 5 && !skills.some(s => s.k === 'revive')) skills.push(DEMON_UNDYING);
+    const res = {}; res[h.el] = 0.6; res[DEMON_WEAK[h.el]] = 1.3;
+    L.push({ id: 'demon_' + h.id, name: '心魔·' + h.name, who: h.name, title: h.title, hero: h.id, sprite: k ? k.sprite : 'enemies/' + h.id, bust: !k, head: k ? '' : 'heroes/' + h.id + '_head', look: k ? k.look : null, skills, hpK: DEMON_HPK[h.q], res });   // 正面图（敌人 11～21 拼图）还没画的，先用半身像顶着（bust）
+  });
+  CHAPTERS.forEach((c, ci) => {                              // 不是武将的章节敌将、副将
+    if (!c.hero) L.push({ id: 'boss_' + (ci + 1), name: c.boss, who: c.boss, hero: null, sprite: 'enemies/boss_' + (ci + 1), look: null, skills: c.skills, hpK: 1 });
+    c.mids.forEach(m => { if (!m.hero) L.push({ id: m.id, name: m.name, who: m.name, hero: null, sprite: 'enemies/' + m.id, look: { key: m.id, body: m.body, hat: m.hat }, skills: m.skills, hpK: 1 }); });
+  });
+  L.push({ id: 'boss_9', name: ENDLESS_BOSS.name, who: ENDLESS_BOSS.name, hero: null, sprite: 'enemies/boss_9', look: null, skills: ENDLESS_BOSS.skills, hpK: 1 });
+  ENCOUNTERS.filter(e => e.kind === 'beast').forEach(e => L.push({ id: 'enc_' + e.id, name: e.name, who: e.name, hero: null, sprite: 'enemies/enc_' + e.id, look: { key: 'enc_' + e.id, body: e.body, hat: e.hat, beast: e.id }, skills: e.skills, hpK: 1.1, aura: e.aura }));
+  return (RUSH_POOL = L);
+}
+/* 每天一套出场顺序（同一天谁打都一样，可以研究对策）：每第 5 将是神魔将（四位轮着来），其余从上面的池子里洗牌发 */
+let RUSH_SEQ = null;
+function rushSeq(day) {
+  if (RUSH_SEQ && RUSH_SEQ.day === day) return RUSH_SEQ.list;
+  const P = rushPool().slice(); let seed = Math.imul(day + 4099, 2654435761) >>> 0;
+  for (let i = P.length - 1; i > 0; i--) { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; const j = seed % (i + 1), x = P[i]; P[i] = P[j]; P[j] = x; }
+  RUSH_SEQ = { day, list: P }; return P;
+}
+const RUSH_GODS = HEROES.filter(h => h.myth).sort((a, b) => a.myth - b.myth).map(h => h.id);
+function rushStage(k) { return CFG.RUSH.base + CFG.RUSH.step * k; }
+function rushBoss(day, k) {
+  if (k % 5 === 0) {
+    const id = RUSH_GODS[((day + k / 5 - 1) % RUSH_GODS.length + RUSH_GODS.length) % RUSH_GODS.length], h = HERO_MAP[id], m = MYTH_BOSS[id];
+    return { id, name: h.name, who: h.name, title: h.title, hero: null, myth: id, sprite: 'heroes/' + id, look: null, skills: m.skills, hpK: m.hpK, aura: m.aura, final: true, res: m.res };
+  }
+  const L = rushSeq(day), b = L[(k - 1 - Math.floor(k / 5)) % L.length];
+  return Object.assign({ final: true }, b, { res: b.res || endlessRes(10 + ((day * 7 + k) % 60)) });
+}
+function rushWeather(day, k) { return k <= 1 ? WEATHERS[0] : pickWeather(Math.imul(day * 64 + k + 31, 2246822519) >>> 7); }
+/* 第 4 将起每将带一条词缀，第 10 将起两条、第 16 将起三条（只挑敌人那边的：急行、坚甲、锐锋、迅令、铁壁） */
+function rushAffixes(day, k) {
+  const n = k >= 16 ? 3 : k >= 10 ? 2 : k >= 4 ? 1 : 0, L = ENDLESS_AFFIX.filter(a => a.eSpd || a.eHp || a.eAtk || a.bossCd || a.bossHp), out = [];
+  let seed = Math.imul(day * 97 + k + 5, 2654435761) >>> 0;
+  for (let i = 0; i < n; i++) { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; out.push(L.splice(seed % L.length, 1)[0]); }
+  return out;
+}
 /* 敌人打武将的伤害基准：上阵武将的平均血量 × (这一关的推荐战力 ÷ 阵容战力)，比值限制在 0.6–2.5 之间。
  * 战力刚好达标 = 伤害按自己平均血量的几成算；战力不够，同样的一箭就疼得多，武将倒得快；战力超出很多则几乎打不动 */
 function heroHitBase(stage, avgHp, power) { return avgHp * Math.max(0.6, Math.min(2.5, stagePower(stage) / Math.max(1, power))); }
@@ -586,7 +727,7 @@ function hpPerPower(stage) {
   const T = HP_PER_POWER, s = Math.max(1, stage);
   if (s <= T[0][0]) return T[0][1];
   for (let i = 1; i < T.length; i++) if (s <= T[i][0]) { const f = (s - T[i - 1][0]) / (T[i][0] - T[i - 1][0]); return T[i - 1][1] * Math.pow(T[i][1] / T[i - 1][1], f); }
-  return T[T.length - 1][1];
+  return T[T.length - 1][1] * (s > CHAPTERS.length * 10 ? CFG.ENDLESS_HP_K : 1);   // 无尽关另外乘一个系数（含词缀、敌将抗性一起校准）
 }
 /* 关卡强度 */
 function stageHpMul(stage, wave) { return CFG.ENEMY_HP_SCALE * hpPerPower(stage) * stagePower(stage) * (1 + 0.07 * (wave - 1)); }
@@ -635,6 +776,50 @@ const SLOT_ROLES = [
   { name: '前锋', desc: '刃、风、冰系攻击 +15%', els: ['blade', 'wind', 'ice'], atk: 0.15 },
   { name: '右翼', desc: '弓、火、毒、雷系出手速度 +15%', els: ['arrow', 'fire', 'poison', 'thunder'], spd: 0.15 },
 ];
+
+/* ---------------- 每日试炼（v2.18）：按天轮换，每天一条 ----------------
+ * fac：只有这个阵营的武将能出战（开打时自动派出该阵营最强的阵容，打完换回原阵容）
+ * eHp / eSpd / eAtk：敌军血量、移速、攻击倍率；wall：城防（>1 上限变高；<1 上限不变、开局只有这么多）；rage：武将怒气获取倍率；hAtk：武将攻击倍率 */
+const TRIALS = [
+  { id: 'wei', name: '魏武试炼', desc: '只有魏国武将能出战', fac: 'wei' },
+  { id: 'haste', name: '急行军', desc: '敌军移速 +40%', eSpd: 1.4 },
+  { id: 'shu', name: '蜀汉试炼', desc: '只有蜀国武将能出战', fac: 'shu' },
+  { id: 'tough', name: '铁甲连营', desc: '敌军血量 +60%，城防 +40%', eHp: 1.6, wall: 1.4 },
+  { id: 'wu', name: '江东试炼', desc: '只有吴国武将能出战', fac: 'wu' },
+  { id: 'rage', name: '怒火燎原', desc: '武将怒气获取 ×2，敌军攻击 +60%', rage: 2, eAtk: 1.6 },
+  { id: 'qun', name: '群雄试炼', desc: '只有群雄武将能出战', fac: 'qun' },
+  { id: 'glass', name: '孤城死守', desc: '开局城防只剩一半，武将攻击 +30%', wall: 0.5, hAtk: 1.3 },
+];
+
+/* ---------------- 名将列传（v2.18）：典故挑战关，拥有这名武将（need 里的人都要有）才能挑战 ----------------
+ * stage：用哪一关的敌军和敌将（挑的都是史实里交过手的人）；固定难度，不随进度变
+ * team：solo = 只有他一人；need = 只用 need 里这几个人；fac = 他领衔，其余从这个阵营里挑最强的
+ * 人数不满 5 个时按人数补强（武将攻击、城防上限 × 5 ÷ 人数，敌人打武将的伤害也按补强后的战力算），一个人也打得过
+ * 倍率字段和每日试炼一样（eHp eSpd eAtk bossHp bossCd rage hAtk）；wallMax 城防上限倍率、wallStart 开局城防比例
+ * 首通奖励只领一次：这名武将的碎片 CFG.LEGEND.shards、将魂、招募令；满星的碎片按品质折成将魂 */
+const LEGENDS = [
+  { id: 'taoyuan', hero: 'liubei', need: ['liubei', 'guanyu', 'zhangfei'], team: 'need', stage: 10, name: '桃园结义',
+    story: '桃园三结义，刘关张初出茅庐，便在涿郡迎战黄巾将程远志。', desc: '只用刘备、关羽、张飞三人；怒气获取 +30%', rage: 1.3 },
+  { id: 'huaxiong', hero: 'guanyu', team: 'solo', stage: 19, name: '温酒斩华雄',
+    story: '华雄连斩数将，关羽请战。曹操斟酒相送，酒尚温，华雄已授首。', desc: '关羽单骑出战；敌将血量 +50%，怒气获取 ×2', bossHp: 1.5, rage: 2 },
+  { id: 'zhudong', hero: 'lvbu', team: 'solo', stage: 20, name: '戟诛董卓',
+    story: '王允连环计成，吕布倒戈，方天画戟直指董卓。', desc: '吕布单骑出战；敌军攻击 +30%，怒气获取 ×1.5', eAtk: 1.3, rage: 1.5 },
+  { id: 'xiaobawang', hero: 'sunce', team: 'solo', stage: 28, name: '江东小霸王',
+    story: '孙坚战死于黄祖之手，孙策承父志，率江东子弟讨伐黄祖。', desc: '孙策单骑出战；敌军移速 +20%，怒气获取 ×1.5', eSpd: 1.2, rage: 1.5 },
+  { id: 'wancheng', hero: 'dianwei', team: 'solo', stage: 29, name: '宛城护主',
+    story: '张绣夜袭宛城，典韦独守营门，死战护曹操脱身。', desc: '典韦单骑出战；城防上限 +50%，怒气获取 ×1.5', wallMax: 1.5, rage: 1.5 },
+  { id: 'wuchao', hero: 'caocao', team: 'fac', fac: 'wei', stage: 35, name: '火烧乌巢',
+    story: '官渡相持，曹操亲率轻骑夜袭乌巢，火焚袁军粮草。', desc: '曹操领衔，只能派魏国武将；敌军血量 +30%', eHp: 1.3 },
+  { id: 'fanjian', hero: 'zhouyu', team: 'fac', fac: 'wu', stage: 45, name: '赤壁反间计',
+    story: '曹军压境，周瑜以反间计除去蔡瑁，赤壁一战定江东。', desc: '周瑜领衔，只能派吴国武将；敌将血量 +50%，怒气获取 +30%', bossHp: 1.5, rage: 1.3 },
+  { id: 'changban', hero: 'zhaoyun', team: 'solo', stage: 46, name: '单骑救主',
+    story: '长坂坡曹军追至，赵云怀抱阿斗，单骑七进七出。', desc: '赵云单骑出战；敌军移速 +10%，城防上限 +30%，怒气获取 ×1.5', eSpd: 1.1, wallMax: 1.3, rage: 1.5 },
+  { id: 'dangyang', hero: 'zhangfei', team: 'solo', stage: 50, name: '当阳怒吼',
+    story: '张飞据水断桥，横矛立马一声怒吼，曹军不敢近前。', desc: '张飞单骑出战；敌军移速 -25%，怒气获取 ×2.5', eSpd: 0.75, rage: 2.5 },
+  { id: 'kongcheng', hero: 'zhugeliang', team: 'solo', stage: 77, name: '空城计',
+    story: '魏军大至，城中无兵。诸葛亮大开城门，登城抚琴。', desc: '诸葛亮单骑出战；开局城防只有三成，敌军移速 -25%，怒气获取 ×2.5', wallStart: 0.3, eSpd: 0.75, rage: 2.5 },
+];
+const LEGEND_MAP = {}; LEGENDS.forEach(l => { LEGEND_MAP[l.id] = l; });
 
 /* ---------------- 阵营羁绊：同阵营上阵 2 / 3 / 4 人 ---------------- */
 const FACTION_BONDS = {

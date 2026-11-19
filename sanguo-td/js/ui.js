@@ -85,7 +85,11 @@ const UI = (function () {
   function renderHome() {
     const D0 = Save.data, fresh = D0.draws === 0 && D0.tickets >= 10;
     const nb = document.querySelector('#nav button[data-tab=gacha]'); if (nb) nb.classList.toggle('hint', fresh);
+    // 前期（前 20 关）阵容里有金币够、等级还低的武将：「武将」按钮闪一闪。等级追上关卡数就不闪了
+    const lvOK = !fresh && D0.stage <= 20 && teamCanLevel();
+    const nh = document.querySelector('#nav button[data-tab=heroes]'); if (nh) nh.classList.toggle('hint', lvOK);
     if (fresh) tip('home1', '你有 <b>10 张招募令</b>：先去<b>「招募」</b>十连，凑满 5 名武将再出征', 10000);
+    else if (lvOK && D0.stage >= 3) tip('lvup1', '金币够<b>升级武将</b>了：去<b>「武将」</b>页点武将，前几级只要几个金币，是涨战力最快的办法（头像上有「升」的就能升）', 10000);
     else if (Object.keys(D0.weapons).length && !Object.keys(D0.weapons).some(id => D0.weapons[id].hero)) tip('arms1', '你抽到了<b>兵器</b>：去<b>「兵器」</b>页装给武将，能加攻击和出手速度；通关给的<b>精铁</b>可以强化它', 9000);
     else if (D0.stage > 1) tip('home2', '打过的关卡可以<b>扫荡</b>直接领金币；金币能升级武将，也能换招募令', 9000);
     const S = Save.data, st = S.pick, ch = chapterOf(st), cleared = st < S.stage, pw = teamPower(), rec = stageRecommend(st);
@@ -109,13 +113,119 @@ const UI = (function () {
             : `<button class="btn sweep ${sweepLeft() ? '' : 'gray'}" data-act="sweep">扫荡<small>金币 ×${sweepReward(st)} · 今日 ${sweepLeft()}/${CFG.SWEEP_DAILY}</small></button>`}
           <button class="btn-big ${cleared ? 'small' : ''}" data-act="fight">出征</button>
         </div>
-        ${pw < rec ? '<div class="tip">战力不足？去「武将」页凑羁绊、调站位；战斗中点战场可以投石</div>' : ''}
+        ${pw < rec ? '<div class="tip">战力不足？去「武将」页升级武将、凑羁绊、调站位；战斗中点战场可以投石</div>' : ''}
       </div>
-      <div class="longrow">
-        <button class="lbtn ${dailyReady() ? 'hot' : 'done'}" data-act="daily"><b>每日军饷</b><small>${dailyReady() ? '金币 ×' + fmt(dailyReward().coins) + ' · 招募令 ×' + CFG.DAILY.tickets : '今天已领 · 明天再来'}</small></button>
-        <button class="lbtn ${techOpen() ? (CFG.TECH.some(t => (S[t.cur] || 0) >= techCost(t.id)) ? 'hot' : '') : 'lock'}" data-act="tech"><b>城池科技</b><small>${techOpen() ? CFG.TECH.map(t => t.name + ' ' + techLv(t.id)).join(' · ') : '通关第 8 章后开放'}</small></button>
-      </div>
-      <div class="homefoot"><button class="link" data-act="settings">设置 · 存档</button>${S.enc && S.enc.seen && Object.keys(S.enc.seen).length ? '<button class="link" data-act="encLog">奇遇录</button>' : ''}<div id="cloudNote" class="cloudnote">${Cloud.note()}</div></div>`;
+      ${homeRow()}
+      <div class="homefoot"><button class="link" data-act="settings">设置 · 存档</button>${S.enc && S.enc.seen && Object.keys(S.enc.seen).length ? '<button class="link" data-act="encLog">奇遇录</button>' : ''}${Rank.ok() ? '<button class="link" data-act="rank">排行榜</button>' : ''}<div id="cloudNote" class="cloudnote">${Cloud.note()}</div></div>
+      <p class="ainote">AI 合成内容 · 游戏中的美术含 AI 生成内容</p>`;   // TapTap「AI接入声明」要的游戏内标识：主城最下面一行小字
+    Rank.sync(false);
+  }
+  /* 主城下面一排四个入口：每日军饷、挂机军饷、每日试炼、城池科技 */
+  function homeRow() {
+    const S = Save.data, idle = idleInfo(), tr = trialToday(), tOpen = trialOpen(), tDone = tOpen && trialDone();
+    const hm = h => { const m = Math.floor(h * 60); return m < 60 ? m + ' 分钟' : Math.floor(m / 60) + ' 时 ' + (m % 60) + ' 分'; };
+    return `<div class="longrow quad">
+        <button class="lbtn ${dailyReady() ? 'hot' : 'done'}" data-act="daily"><b>每日军饷</b><small>${dailyReady() ? '可领取' : Clock.waiting() ? '校准时间中' : '明天再来'}</small></button>
+        <button class="lbtn ${idle.h >= 1 ? 'hot' : ''}" data-act="idle"><b>挂机军饷</b><small>${idle.full ? '已攒满' : '已攒 ' + hm(idle.h)}</small></button>
+        <button class="lbtn ${!tOpen ? 'lock' : tDone ? 'done' : 'hot'}" data-act="trial"><b>每日试炼</b><small>${!tOpen ? '第 ' + CFG.TRIAL.open + ' 关后开放' : tDone ? (Clock.waiting() ? '校准时间中' : '今天已领') : tr.name}</small></button>
+        <button class="lbtn ${techOpen() ? (CFG.TECH.some(t => (S[t.cur] || 0) >= techCost(t.id)) ? 'hot' : '') : 'lock'}" data-act="tech"><b>城池科技</b><small>${techOpen() ? 'Lv ' + CFG.TECH.reduce((a, t) => a + techLv(t.id), 0) : '8 章后开放'}</small></button>
+      </div>${S.stage >= CFG.RUSH.show ? `<div class="longrow rushrow"><button class="lbtn rush ${!rushOpen() ? 'lock' : rushDayDone() ? '' : 'hot'}" data-act="rush"><b>过关斩将</b><small>${!rushOpen() ? '打进无尽后开放 · 只打敌将的车轮战' : '最佳 ' + rushRec().best + ' 将' + (rushDayDone() ? ' · 敌将一个接一个' : ' · 今日首局有将魂')}</small></button></div>` : ''}`;
+  }
+  /* 挂机军饷 */
+  function idlePanel() {
+    const r = idleInfo(), adOK = AdService.available();
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>挂机军饷</h2>
+      <p class="mtext">不在线时城里也在攒军饷：每小时 <b>金币 ×${fmt(r.perH)}</b>（按最高通关的关卡算），最多攒 ${CFG.IDLE.maxH} 小时。</p>
+      <div class="idlebox"><b>金币 ×${fmt(r.coins)}</b><small>${r.full ? '已经攒满，快领吧' : '已攒 ' + (Math.floor(r.h * 10) / 10) + ' / ' + CFG.IDLE.maxH + ' 小时'}</small></div>
+      <div class="mrow"><button class="btn ${r.coins ? 'gold' : 'gray'}" data-act="idleGet">领取</button>${adOK ? `<button class="btn red" data-act="idleAd">▶ 看广告双倍<small>金币 ×${fmt(r.coins * 2)}</small></button>` : ''}</div></div>`);
+  }
+  /* 每日试炼 */
+  function trialPanel() {
+    if (!trialOpen()) return modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>每日试炼</h2><p class="mtext">通关第 ${CFG.TRIAL.open} 关后开放。每天一条特殊规则，赢了领精铁、将魂和招募令。</p></div>`);
+    const t = trialToday(), st = trialStage(), rw = trialReward(st), done = trialDone(), team = trialTeam(t);
+    const facNote = t.fac ? (team ? '<br>会自动派出你最强的' + facName(t.fac) + '阵容（' + team.filter(Boolean).length + ' 人），打完换回原阵容' : '<br><b class="bad">你还没有' + facName(t.fac) + '武将</b>') : '';
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>每日试炼</h2>
+      <p class="mtext">今日：<b>「${t.name}」</b>${t.desc}${facNote}</p>
+      <p class="mtext" style="font-size:13.5px">关卡：第 ${st} 关的敌军（${chapterOf(st).endless ? '无尽' : '第 ' + chapterOf(st).index + ' 章'}）· 每天换一条规则，明天是「${TRIALS[(TRIALS.indexOf(t) + 1) % TRIALS.length].name}」</p>
+      <div class="idlebox"><b>${done ? '今天的奖励已领' : '首胜奖励'}</b><small>精铁 ×${rw.iron} · 将魂 ×${rw.soul} · 招募令 ×${rw.tickets}${done ? '（明天再来；今天还能再打，只得掉落金币）' : ''}</small></div>
+      <div class="mrow"><button class="btn red" data-act="trialGo" ${t.fac && !team ? 'disabled' : ''}>出战</button></div></div>`);
+  }
+  /* ---------------- 名将列传（v2.18） ---------------- */
+  const missingNames = L => legendNeed(L).filter(x => !heroOwn(x)).map(x => HERO_MAP[x].name).join('、');
+  /* 武将详情里的一行：这名武将有列传就显示 */
+  function legendLine(id) {
+    const L = LEGENDS.find(l => l.hero === id); if (!L) return '';
+    const open = legendOpen(L), done = legendDone(L);
+    return `<div class="lgline"><b>名将列传 · ${L.name}</b><span>${done ? '已完成' : open ? '可挑战' : '需要拥有：' + missingNames(L)}</span>${open ? `<button class="link" data-act="legendGo" data-id="${L.id}">${done ? '再战' : '挑战'} ›</button>` : ''}</div>`;
+  }
+  function legendPanel() {
+    const n = LEGENDS.filter(legendDone).length, rw = legendReward();
+    const rows = LEGENDS.map(L => {
+      const open = legendOpen(L), done = legendDone(L), team = open ? legendTeam(L) : null, pw = open ? legendPower(L, team) : 0, rec = stageRecommend(L.stage);
+      return `<div class="lgrow ${open ? '' : 'off'} ${done ? 'done' : ''}" style="--qc:${qc(L.hero)}"><img src="${P(L.hero)}">
+        <div class="lgtxt"><b>${HERO_MAP[L.hero].name} · ${L.name}</b>${done ? '<i class="lgok">已完成</i>' : ''}<p>${L.story}</p><small>${L.desc}</small>
+          <small class="${open ? (pw >= rec ? 'ok' : 'bad') : ''}">${open ? '推荐战力 ' + fmt(rec) + ' · 你的 ' + fmt(pw) : '需要拥有：' + missingNames(L)}</small></div>
+        <button class="btn ${open ? 'red' : 'gray'}" data-act="legendGo" data-id="${L.id}" ${open ? '' : 'disabled'}>${done ? '再战' : '挑战'}</button></div>`;
+    }).join('');
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>名将列传</h2>
+      <p class="mtext" style="font-size:13px">拥有这名武将才能挑战。首通奖励：这名武将的碎片 ×${rw.shards}、将魂 ×${rw.soul}、招募令 ×${rw.tickets}（满星的碎片折成将魂）· 已完成 ${n}/${LEGENDS.length}</p>
+      <div class="lglist">${rows}</div></div>`);
+  }
+  function startLegend(id) {
+    const L = LEGEND_MAP[id];
+    if (!L) return;
+    if (!legendOpen(L)) return toast('需要拥有：' + missingNames(L));
+    const team = legendTeam(L), rule = legendRule(L, team);
+    Save.data.trialBak = Save.data.team.slice(); Save.data.team = team; Save.save();   // 打完、退出、重开游戏都会换回原阵容（同每日试炼）
+    closeModal(); show('battle');
+    $('#bSpeed').textContent = '×' + Save.data.speed;
+    $('#bAuto').classList.toggle('off', !Save.data.auto);
+    Battle.start(L.stage, rule);
+  }
+  function facName(f) { return f === 'qun' ? '群雄' : FACTIONS[f].name + '国'; }   // 「魏国」「蜀国」「吴国」，群不叫「群国」
+  function startTrial() {
+    const t = trialToday();
+    if (!trialOpen()) return toast('通关第 ' + CFG.TRIAL.open + ' 关后开放');
+    if (t.fac) {
+      const team = trialTeam(t);
+      if (!team) return toast('你还没有' + facName(t.fac) + '武将');
+      Save.data.trialBak = Save.data.team.slice(); Save.data.team = team; Save.save();
+    }
+    if (!Save.data.team.some(Boolean)) return toast('至少上阵一名武将');
+    closeModal(); show('battle');
+    $('#bSpeed').textContent = '×' + Save.data.speed;
+    $('#bAuto').classList.toggle('off', !Save.data.auto);
+    Battle.start(trialStage(), t);
+  }
+  /* ---------------- 过关斩将（v2.19） ---------------- */
+  function rushPanel() {
+    const R = CFG.RUSH, rec = rushRec(), day = dayNo(), nx = rushRecordReward(rec.best, rec.best + 1);
+    if (!rushOpen()) return modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>过关斩将</h2><p class="mtext">打完主线 80 关、进入无尽后开放。<br>一局里只有敌将：心魔、神魔将、四神兽一个接一个杀来，打到守不住为止。</p></div>`);
+    const rows = [1, 2, 3, 4, 5].map(k => { const b = rushBoss(day, k), w = rushWeather(day, k); return `<div class="rsrow"><i>${k}</i><b class="${b.myth ? (HERO_MAP[b.myth].q === 6 ? 'mo' : 'shen') : b.hero ? 'demon' : ''}">${b.name}</b><span>${w.name}</span><small>${b.skills.filter(x => x.cd > 0).map(x => x.name).join('、')}</small></div>`; }).join('');
+    const ch = chapterOf(rushStage(1));
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>过关斩将</h2>
+      <p class="mtext" style="font-size:13.5px">只有敌将，一个接一个杀来，打到城破或全军覆没为止。<b>中途不回血</b>（带上会回血、护盾、修城的武将），每斩 ${R.buffEvery} 将选一道军令。<br>难度固定：第 1 将相当于无尽第 ${ch.endless} 层，之后每将强一截；第 4 将起带词缀，每将天气不同，每第 5 将是神魔将。</p>
+      <div class="rslist"><div class="rshead">今日出场（每天一套，谁打都一样）</div>${rows}<div class="rsmore">……之后的到阵前才知道</div></div>
+      <div class="idlebox"><b>最佳纪录 ${rec.best} 将</b><small>破纪录每多斩一将：将魂 ×${nx.soul} 起、精铁 ×${nx.iron} 起、招募令 ×${nx.tickets}<br>${rushDayDone() ? '今天的首局奖励已领（还能再打，破纪录照样有奖）' : '今天第一局：每斩一将再给将魂 ×' + R.daySoul + '（最多算 ' + R.dayCap + ' 将）'}</small></div>
+      <div class="mrow">${Rank.ok() && CFG.LB_RUSH ? '<button class="btn gold" data-act="rankRush">排行榜</button>' : ''}<button class="btn red" data-act="rushGo">出战</button></div></div>`);
+  }
+  function startRush() {
+    if (!rushOpen()) return toast('打进无尽后开放');
+    if (!Save.data.team.some(Boolean)) return toast('至少上阵一名武将');
+    closeModal(); show('battle');
+    $('#bSpeed').textContent = '×' + Save.data.speed;
+    $('#bAuto').classList.toggle('off', !Save.data.auto);
+    Battle.start(rushStage(1), { rush: true, name: '过关斩将', desc: '只有敌将，打到守不住为止' });
+  }
+  /* 排行榜 */
+  function rankPanel() {
+    const S = Save.data, st = Rank.stageScore(), ch = chapterOf(Math.max(1, st));
+    const where = st <= 0 ? '还没通关' : st <= 80 ? '第 ' + ch.index + ' 章第 ' + ch.sub + ' 关' : '主线全通 + 无尽第 ' + (st - 80) + ' 层';
+    modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>排行榜</h2>
+      <div class="mrow"><button class="btn gold" data-act="rankStage">最高关卡<small>已通关 ${st}（${where}）</small></button></div>
+      <div class="mrow"><button class="btn gold" data-act="rankPower">最高战力<small>历史最高 ${fmt(Rank.track())}</small></button></div>
+      ${CFG.LB_RUSH && rushOpen() ? `<div class="mrow"><button class="btn gold" data-act="rankRush">过关斩将<small>最多斩将 ${rushRec().best}</small></button></div>` : ''}
+      <p class="mtext" style="font-size:12.5px">最高关卡：主线 80 关之后，无尽每过一层再 +1。成绩有长进时自动上传。</p></div>`);
   }
 
   /* 奇遇录：碰到过的山贼首领和神兽（没见过的只写「？？？」，让玩家自己去碰） */
@@ -135,7 +245,11 @@ const UI = (function () {
     const ch = chapterOf(st), sk = bossSkill(st);
     const sp = Object.keys(ENEMIES).map(k => ENEMIES[k]).filter(d => d.from && d.from <= st);
     const sb = stageBoss(st);
-    return `<b>敌将 ${ch.boss}</b>` + (sb.res ? `<i class="res">${resText(sb.res)}</i>` : '') + sb.skills.map(k => `「${k.name}」${k.desc}`).join('；') + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
+    const af = stageAffixes(st);                               // 无尽关这一层固定的难度词缀
+    return `<b>敌将 ${sb.myth ? '<span class="' + (HERO_MAP[sb.myth].q === 6 ? 'moname' : 'shenname') + '">' + ch.boss + '</span>' : ch.boss}</b>` + (sb.res ? `<i class="res">${resText(sb.res)}</i>` : '') + sb.skills.map(k => `「${k.name}」${k.desc}`).join('；')
+      + (stageWeather(st) && stageWeather(st).id !== 'clear' ? '<br><b>天气</b> <i class="wx">' + stageWeather(st).name + '：' + stageWeather(st).desc + '</i>' : '')
+      + (af.length ? '<br><b>本层词缀</b> ' + af.map(a => `<i class="affix">${a.name}：${a.desc}</i>`).join('') : '')
+      + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
   }
 
   /* 城池科技：三条没有上限的线，各花一种货币 */
@@ -171,23 +285,26 @@ const UI = (function () {
     const cards = ids.map(id => {
       const d = HERO_MAP[id], own = S.heroes[id], q = QUALITIES[d.q];
       const canStar = own && own.star < CFG.MAX_STAR && own.shards >= CFG.STAR_NEED[own.star];
+      const canUp = own && teamIndex(id) >= 0 && S.coins >= levelCost(id);   // 上阵的武将金币够升级：头像上标「升」
       return `<div class="card ${own ? '' : 'off'}" data-q="${d.q}" style="--qc:${q.color}" data-act="hero" data-id="${id}">
         <i class="qtag">${q.name}</i>${teamIndex(id) >= 0 ? '<i class="badge">阵</i>' : ''}
         <img src="${P(id)}"><div class="cname">${d.name}</div>
         <div class="cmeta">${own ? 'Lv.' + own.lv + ' ' + stars(own.star) : '未获得'}</div>
-        ${canStar ? '<span class="dot"></span>' : ''}</div>`;
+        ${canUp ? '<i class="upmark">升</i>' : ''}${canStar ? '<span class="dot"></span>' : ''}</div>`;
     }).join('');
     const total = HEROES.filter(mythShown).length;
     $('#heroes').innerHTML = `
       <div class="team">${team}</div>
-      <div class="tinfo"><span>${pickSlot >= 0 ? '再点一个位置交换站位 · 点同一位置看详情' : '点位置选中后可交换站位'}</span><span>战力 <b>${teamPower()}</b> <button class="link" data-act="bondHelp">羁绊一览</button></span></div>
+      <div class="tinfo"><span>${pickSlot >= 0 ? '再点一个位置交换站位 · 点同一位置看详情' : '点位置选中后可交换站位'}</span><span>战力 <b>${teamPower()}</b> <button class="link" data-act="autoTeam">一键上阵</button> <button class="link" data-act="bondHelp">羁绊一览</button></span></div>
       <div class="bonds">${bonds}</div>
       <div class="tabs">
         <button data-act="htab" data-v="mine" class="${heroTab === 'mine' ? 'on' : ''}">我的武将 ${Object.keys(S.heroes).length}/${total}</button>
         <button data-act="htab" data-v="all" class="${heroTab === 'all' ? 'on' : ''}">图鉴</button>
+        <button data-act="legends" class="lgbtn">列传 ${LEGENDS.filter(legendDone).length}/${LEGENDS.length}${LEGENDS.some(L => legendOpen(L) && !legendDone(L)) ? '<i class="dot"></i>' : ''}</button>
         <button data-act="refineAll" class="soulbtn">将魂 ${fmt(S.soul)} · 炼化</button>
       </div>
       <div class="grid">${cards}</div>`;
+    Rank.sync(false);                                         // 阵容变强了：最高战力榜（最多 30 秒报一次）
   }
   function detail(id, picking) {
     const d = HERO_MAP[id], q = QUALITIES[d.q], el = ELEMENTS[d.el], own = heroOwn(id), st = heroStats(id), ti = teamIndex(id);
@@ -198,7 +315,7 @@ const UI = (function () {
         ${own ? `<p style="margin-top:6px">Lv.${own.lv}　${stars(own.star)}</p>` : ''}
       </div></div>
       <div class="dstat four"><div><b>${st.atk}</b>攻击</div><div><b>${st.hp}</b>生命</div><div><b>${(1 / st.cd).toFixed(2)}</b>每秒出手</div><div><b>${st.power}</b>战力</div></div>
-      ${skillHtml(id, own)}`;
+      ${skillHtml(id, own)}${legendLine(id)}`;
     if (own && !picking) {
       const wid = heroWeapon(id), w = wid && WEAPON_MAP[wid];
       h += w ? `<div class="wrow" style="--wq:${QUALITIES[w.q].color}" data-act="heroWeapon" data-id="${id}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${weaponOwn(wid).lv}${w.owner === id ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, id))}</div><span class="go">更换 ›</span></div>`
@@ -299,11 +416,14 @@ const UI = (function () {
   }
   function settings() {
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>设置 · 存档</h2>
-      <p class="mtext" style="font-size:13px">${Platform.isTap() ? '在 TapTap 里进度会自动保存到云存档和本机备份。' : '网页版进度只存在这个浏览器里。'}换设备或清理数据前，可以复制存档码留底，之后在这里读入。</p>
-      <div class="mrow"><button class="btn gold" data-act="codeOut">复制存档码</button><button class="btn" data-act="codeIn">读入存档码</button></div>
+      ${Platform.isTap()
+        // TapTap 里不给存档码：已经有云存档和本机文件备份；存档码的校验写在客户端，能被伪造成满资源存档（2026-11-18 资源审计）
+        ? '<p class="mtext" style="font-size:13px">在 TapTap 里进度会自动保存到云存档和本机备份，换设备登录同一个账号就能接着玩。</p>'
+        : `<p class="mtext" style="font-size:13px">网页版进度只存在这个浏览器里。换设备或清理数据前，可以复制存档码留底，之后在这里读入（读入存档码的进度不计排行榜）。</p>
+      <div class="mrow"><button class="btn gold" data-act="codeOut">复制存档码</button><button class="btn" data-act="codeIn">读入存档码</button></div>`}
       <div class="mrow"><button class="btn" data-act="gfx">战斗画面：${GLView.active() ? '高清（WebGL）' : '兼容（2D）'}<small>${GLView.ok ? '点击切换 · 手机发热或卡顿时可以换成兼容' : '这台设备开不了高清画面' + (GLView.error ? '：' + GLView.error : '')}</small></button></div>
       <div class="mrow"><button class="btn" data-act="sound">音效：${Save.data.sound === false ? '关' : '开'}</button><button class="btn" data-act="musicsw">音乐：${Save.data.music === false ? '关' : '开'}</button></div>
-      <div class="mrow"><input class="gift" id="giftCode" placeholder="礼包码" autocomplete="off" autocapitalize="characters"><button class="btn red" data-act="gift">兑换</button></div>
+      ${Object.keys(CFG.GIFT_CODES).length ? '<div class="mrow"><input class="gift" id="giftCode" placeholder="礼包码" autocomplete="off" autocapitalize="characters"><button class="btn red" data-act="gift">兑换</button></div>' : ''}
       <div class="mrow"><button class="btn gray" data-act="resetAsk">重置存档</button></div></div>`);
   }
   function codeOut() {
@@ -375,7 +495,7 @@ const UI = (function () {
       return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '和橙品武将同池'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>
-      <p class="mtext" style="font-size:13px;margin-top:10px">每一抽先定品质，再有 ${ws}% 的概率是这个品质的兵器、${100 - ws}% 是武将；同品质里每个概率相同<br>十连必出紫品以上 · 累计 ${CFG.PITY} 抽没出${QUALITIES[CFG.PITY_Q].name}品以上的武将时，下一抽必得${QUALITIES[CFG.PITY_Q].name}品武将<br>以上为单抽基础概率，计入保底后紫、金的实际概率更高<br>重复武将转为碎片用于升星；重复兵器熔成精铁用于强化</p></div>`);
+      <p class="mtext" style="font-size:13px;margin-top:10px">每一抽先定品质，再有 ${ws}% 的概率是这个品质的兵器、${100 - ws}% 是武将；同品质里每个概率相同<br>十连必出紫品以上 · 连续 ${CFG.PITY - 1} 抽没出${QUALITIES[CFG.PITY_Q].name}品以上的武将时，第 ${CFG.PITY} 抽必得${QUALITIES[CFG.PITY_Q].name}品武将<br>以上为单抽基础概率，计入保底后紫、金的实际概率更高<br>重复武将转为碎片用于升星；重复兵器熔成精铁用于强化</p></div>`);
   }
   /* 网页版模拟广告：看完 resolve(true)，中途放弃 resolve(false) */
   function fakeAd(sec) {
@@ -511,22 +631,29 @@ const UI = (function () {
   function showResult(r) {
     hideTip();
     lastRes = r;
-    const canNext = r.win;
-    modal(`<div class="mbox res ${r.win ? '' : 'lose'}"><h2>${r.win ? '大获全胜' : r.wiped ? '全军覆没' : '城池失守'}</h2><ul>
-        ${r.win ? '' : `<li>坚守至<b>第 ${r.wave} / ${CFG.WAVES} 波</b></li>`}
+    Rank.sync(true);                                          // 通关数、战力有长进就报排行榜
+    const canNext = r.win && !r.trial && !r.legend && !r.rush;           // 试炼、列传没有「下一关」，只有再战一次
+    modal(`<div class="mbox res ${r.win ? '' : 'lose'}"><h2>${r.rush ? '斩将 ' + r.slain : r.win ? '大获全胜' : r.wiped ? '全军覆没' : '城池失守'}</h2><ul>
+        ${r.rush ? `<li class="enc">过关斩将<b>止步第 ${r.slain + 1} 将</b></li><li${r.record ? ' class="enc"' : ''}>${r.record ? '新纪录' : '最佳纪录'}<b>${r.best} 将</b></li>${r.daySoul ? `<li>今日首局 · 将魂<b>+${r.daySoul}</b></li>` : ''}` : ''}
+        ${r.trialDef && !r.rush ? `<li class="enc">${r.legend ? '名将列传' : '每日试炼'}<b>${r.trialDef.name}</b></li>` : ''}
+        ${r.legend && r.first ? `<li class="enc">首通 · 获得称号<b>「${LEGEND_MAP[r.legendId].name}」</b></li>` : ''}
+        ${r.shards ? `<li>${HERO_MAP[LEGEND_MAP[r.legendId].hero].name}的碎片<b>+${r.shards}</b></li>` : ''}
+        ${r.win || r.rush ? '' : `<li>坚守至<b>第 ${r.wave} / ${CFG.WAVES} 波</b></li>`}
         <li>击败敌军<b>${r.kills}</b></li>
         ${r.combo >= 10 ? `<li>最高连斩<b>${r.combo}</b></li>` : ''}
         ${r.fallen && r.fallen.length ? `<li>阵亡武将<b>${r.fallen.map(x => HERO_MAP[x].name).join('、')}</b></li>` : ''}
-        <li>获得金币（含掉落 ${r.dropped}）<b>+${r.coins}</b></li>
+        <li>获得金币（${r.trial || r.legend || r.rush ? '按掉落的一半' : '含掉落 ' + r.dropped}）<b>+${r.coins}</b></li>
         ${r.iron ? `<li>精铁（强化兵器用）<b>+${r.iron}</b></li>` : ''}
-        ${r.tickets ? `<li>首通奖励 · 招募令<b>+${r.tickets}</b></li>` : ''}
+        ${r.soul ? `<li>将魂（升星时顶碎片）${r.rush && r.daySoul ? '合计' : ''}<b>+${r.soul}</b></li>` : ''}
+        ${r.tickets ? `<li>${r.rush ? '破纪录' : r.trial ? '试炼首胜' : r.legend ? '列传首通' : '首通奖励'} · 招募令<b>+${r.tickets}</b></li>` : ''}
+        ${r.again ? (r.legend ? '<li>这一关的首通奖励已经领过了<b>可以随时再战</b></li>' : '<li>今天的试炼奖励已经领过了<b>明天再来</b></li>') : ''}
         ${r.enc ? `<li class="enc">奇遇 · 击败${r.enc.name}<b>金币 +${r.enc.coins}${r.enc.iron ? '　精铁 +' + r.enc.iron : ''}</b></li>` : ''}
       </ul>
       ${r.myth ? `<div class="encw" style="--qc:${QUALITIES[HERO_MAP[r.myth].q].color}"><img src="${P(r.myth)}"><p>击败<b>${HERO_MAP[r.myth].name}</b><br>已加入卡池，招募有机会抽到</p></div>` : ''}
       ${r.enc && r.enc.unlock ? `<div class="encw" style="--qc:${QUALITIES[WEAPON_MAP[r.enc.unlock].q].color}"><img src="${WI(r.enc.unlock)}"><p>解锁神兽兵器<b>「${WEAPON_MAP[r.enc.unlock].name}」</b><br>已加入卡池，招募有机会抽到</p></div>` : ''}
       <div class="dmgs">${(() => { const top = Math.max(1, ...r.dmg.map(x => x.dmg)), sum = Math.max(1, r.dmg.reduce((s, x) => s + x.dmg, 0));
         return r.dmg.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join(''); })()}</div>
-      ${r.win ? '' : '<p class="mtext" style="font-size:13px;margin-top:8px">试试：凑阵营羁绊和缘分、把武将放到合适的站位、手动瞄准大招、点战场投石</p>'}
+      ${r.rush ? '<p class="mtext" style="font-size:13px;margin-top:8px">过关斩将中途不回血：带上<b>会回血、加护盾、修城</b>的武将，按今天的敌将挑克制他们的攻击类型，再看看天气（雨天火弱、雷强）</p>' : r.win ? '' : '<p class="mtext" style="font-size:13px;margin-top:8px">试试：去「武将」页<b>升级武将</b>（前期每级只要几个金币）、凑阵营羁绊和缘分、把武将放到合适的站位、手动瞄准大招、点战场投石</p>'}
       <div class="mrow"><button class="btn" data-act="resHome">返回主城</button>
       <button class="btn red" data-act="${canNext ? 'resNext' : 'resRetry'}">${canNext ? '下一关' : '再战一次'}</button></div></div>`, false);
   }
@@ -559,9 +686,11 @@ const UI = (function () {
       toast('兑换成功：' + [r.tickets ? '招募令 +' + r.tickets : '', r.coins ? '金币 +' + r.coins : ''].filter(Boolean).join('，') + (r.left > 0 ? '（还能用 ' + r.left + ' 次）' : ''));
     },
     codeLoad: () => {
+      if (Platform.isTap()) return toast('TapTap 里用云存档，不支持读入存档码');
       const ta = document.querySelector('#modal textarea'), d = parseSaveCode(ta && ta.value);
       if (typeof d === 'string') return toast(d);
-      Save.replace(d); closeModal(); show('home'); toast('存档已读入');
+      d.noRank = true;                                        // 存档码能被伪造：读进来的进度永远不上排行榜（这个标记跟着存档走，伪造的码也去不掉）
+      Save.replace(d); closeModal(); show('home'); toast('存档已读入（不计排行榜）');
     },
     sweep: () => {
       const r = sweep(Save.data.pick);
@@ -572,10 +701,10 @@ const UI = (function () {
       const st = Save.data.pick;
       if (st >= Save.data.stage) return toast('通关后才能扫荡');
       if (sweepAdLeft() <= 0) return toast('今日扫荡次数已用完');
-      AdService.showRewarded().then(ok => {
+      const grant = () => { if (!sweepAdGrant()) return false; const r = sweep(st); if (typeof r === 'string') toast(r); else { Sfx.play('sweep'); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(st)); } return true; };
+      AdService.showRewarded(() => { grant(); render(); }).then(ok => {
         if (ok === null) toast('暂时没有广告，请稍后再试');
-        else if (ok && sweepAdGrant()) { const r = sweep(st); if (typeof r === 'string') toast(r); else { Sfx.play('sweep'); toast('扫荡完成：金币 +' + r + '、精铁 +' + stageIron(st)); } }
-        else toast('未看完广告，没有扫荡');
+        else if (!(ok && grant())) toast('未看完广告，没有扫荡');
         render();
       });
     },
@@ -589,7 +718,7 @@ const UI = (function () {
     },
     reviveNo: () => { const cb = reviveCb; reviveCb = null; closeModal(); if (cb) cb(false); },
     bondHelp: () => bondHelp(),
-    daily: () => { const r = dailyClaim(); if (!r) { Sfx.play('deny'); return toast('今天的军饷已经领过了，明天再来'); } Sfx.play('sweep'); render(); toast('军饷到了：金币 +' + fmt(r.coins) + '、精铁 +' + r.iron + '、招募令 +' + r.tickets); },
+    daily: () => { const r = dailyClaim(); if (!r) { Sfx.play('deny'); return toast(Clock.waiting() ? '正在和云存档校准时间，稍等几秒再领' : '今天的军饷已经领过了，明天再来'); } Sfx.play('sweep'); render(); toast('军饷到了：金币 +' + fmt(r.coins) + '、精铁 +' + r.iron + '、招募令 +' + r.tickets); },
     tech: () => techPanel(),
     techUp: d => { const e = techUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('forge'); render(); techPanel(); },
     rbPick: d => { Save.data.rb = d.n; Save.save(); render(); bondHelp(); toast('彩色缘分换成「' + d.n + '」'); },
@@ -615,6 +744,33 @@ const UI = (function () {
       if (pickSlot < 0) { pickSlot = i; if (!t[i]) toast('再点另一个位置交换；或点下方武将 → 上阵'); return render(); }
       if (pickSlot === i) { pickSlot = -1; render(); if (t[i]) detail(t[i]); return; }
       teamSwap(pickSlot, i); pickSlot = -1; Sfx.play('swap'); render(); toast('已交换站位');
+    },
+    idle: () => idlePanel(),
+    idleGet: () => { const c = idleClaim(1); if (!c) { Sfx.play('deny'); return toast('还没攒下金币，过一会儿再来'); } Sfx.play('coin'); closeModal(); render(); toast('挂机军饷：金币 +' + fmt(c)); },
+    idleAd: () => {
+      if (idleInfo().coins < 1) { Sfx.play('deny'); return toast('还没攒下金币，过一会儿再来'); }
+      const late = () => { const c = idleClaim(2); if (c) { render(); toast('挂机军饷：金币 +' + fmt(c)); } };
+      AdService.showRewarded(late).then(ok => {
+        if (ok === null) return toast('暂时没有广告，请稍后再试');
+        if (!ok) return toast('未看完广告，可以直接领取');
+        const c = idleClaim(2); closeModal(); render(); if (c) { Sfx.play('coin'); toast('挂机军饷（双倍）：金币 +' + fmt(c)); }
+      });
+    },
+    trial: () => trialPanel(),
+    legends: () => legendPanel(),
+    legendGo: d => startLegend(d.id),
+    trialGo: () => startTrial(),
+    rank: () => rankPanel(),
+    rush: () => rushPanel(),
+    rushGo: () => startRush(),
+    rankRush: () => { Rank.sync(true); Rank.open(CFG.LB_RUSH); },
+    rankStage: () => { Rank.sync(true); Rank.open(CFG.LB_STAGE); },
+    rankPower: () => { Rank.sync(true); Rank.open(CFG.LB_POWER); },
+    autoTeam: () => {
+      const before = teamPower(), t = bestTeam();
+      if (!t || teamPower(t) <= before) { Sfx.play('deny'); return toast('现在的阵容已经是最强的了'); }
+      Save.data.team = t; pickSlot = -1; Save.save(); Sfx.play('swap'); render();
+      toast('已上阵最强阵容：战力 ' + before + ' → ' + teamPower());
     },
     lvup10: d => { const n = levelUpMany(d.id, 10); if (!n) { Sfx.play('deny'); return toast('金币不足'); } Sfx.play('up'); render(); detail(d.id); if (n < 10) toast('金币只够升 ' + n + ' 级'); },
     lvup: d => { const e = levelUp(d.id); if (e) { Sfx.play('deny'); return toast(e); } Sfx.play('up'); render(); detail(d.id); },
@@ -660,7 +816,7 @@ const UI = (function () {
     },
     ad: () => {
       if (adLeft() <= 0) return toast('今日广告次数已用完，明天再来');
-      AdService.showRewarded().then(ok => {
+      AdService.showRewarded(() => { if (adGrant()) { toast('获得招募令 ×' + CFG.AD_REWARD); render(); } }).then(ok => {
         if (ok === null) toast('暂时没有广告，请稍后再试');
         else if (ok && adGrant()) toast('获得招募令 ×' + CFG.AD_REWARD);
         else toast('未看完广告，没有奖励');
@@ -711,7 +867,12 @@ const UI = (function () {
     },
     lpOk: () => {
       const S = Battle.state, changed = lpDraft.some((id, i) => id !== Save.data.team[i]);
-      if (changed) { if (Battle.lineup(lpDraft)) toast('阵容已更换'); else return toast('台上至少要留一名还能打的武将'); }
+      if (changed) {
+        if (Battle.lineup(lpDraft)) toast('阵容已更换');
+        else if (S && S.trial && S.trial.fixed) return toast('名将列传的阵容是固定的，不能换人');
+        else if (S && S.trial && S.trial.fac && lpDraft.some(id => id && HERO_MAP[id].fac !== S.trial.fac)) return toast('这场试炼只能派' + facName(S.trial.fac) + '武将');
+        else return toast('台上至少要留一名还能打的武将');
+      }
       lpDraft = null; if (S) S.paused = false; closeModal();
     },
     lpCancel: () => { const S = Battle.state; lpDraft = null; if (S) S.paused = false; closeModal(); },
@@ -736,7 +897,7 @@ const UI = (function () {
     buff: d => { Sfx.play('buff'); const cb = buffCb; buffCb = null; closeModal(); if (cb) cb(Number(d.i)); },
     resHome: () => { Battle.stop(); closeModal(); show('home'); },
     resNext: () => { Battle.stop(); const S = Save.data; S.pick = Math.min(S.stage, lastRes.stage + 1); Save.save(); startBattle(S.pick); },
-    resRetry: () => { Battle.stop(); startBattle(lastRes.stage); },
+    resRetry: () => { Battle.stop(); if (lastRes && lastRes.legend) startLegend(lastRes.legendId); else if (lastRes && lastRes.rush) startRush(); else if (lastRes && lastRes.trial) startTrial(); else startBattle(lastRes.stage); },
   };
 
   function init() {
