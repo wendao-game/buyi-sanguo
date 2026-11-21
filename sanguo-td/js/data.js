@@ -158,7 +158,7 @@ const VOICES = {
   god_caocao: { file: 'shencaocao', gain: 1.5, enter: [[0.07, 5.68, 1.25], '设使天下无有孤，不知当几人称帝、几人称王！'], rage: [[5.72, 10.18], '宁教我负天下人，休教天下人负我！'], ult: [[[16.14, 19.71], '东临碣石，以观沧海！'], [[19.74, 22.73], '唯才是举——诸将听令！']], death: [[26.98, 32.04, 1.1], '孤……纵横一世……终负了天下人……'] },
   god_guanyu: { file: 'shenguanyu', gain: 1.05, enter: [[0.15, 2.8], '关某在此，谁敢放肆！'], rage: [[2.84, 5.52], '青龙偃月，斩尽不臣！'], ult: [[[5.6, 8.94], '天刀悬顶，劈山断海！'], [[8.98, 12.06], '酒尚温——汝头已落！']], death: [[20.2, 25.15, 2], '玉泉山下……关某，终得解脱……'] },
   god_zhuge:  { file: 'shenzhuge', gain: 2.1, enter: [[0.1, 2.42], '八阵图成，汝可寻得生门？'], rage: [[2.44, 4.75], '鞠躬尽瘁，死而后已！'], ult: [[[10.56, 12.6], '夜观天象，星落如雨。'], [[14.99, 17.1], '七星灯明，吾命未绝！']], death: [[19.29, 21.77, 1.3], '悠悠苍天，曷此其极……'] },
-  god_zhenji: { file: 'mozhenji', gain: 1.45, enter: [[0.12, 7.68], '洛水寒，蛇影长……君可愿，与我同沉？'], rage: [[8.18, 12.6, 0.9], '你惊扰了洛水……就别想再上岸。'], ult: [[[16.78, 20.08], '洛水倒卷——沉下来吧。'], [[27.06, 30.68], '盘起来……一个也别想走！']], death: [[34.97, 39.77, 1.5], '洛水……终于……不冷了……'] },
+  god_zhenji: { file: 'mozhenji', gain: 1.45, enter: [[0.12, 7.68], '洛水寒，蛇影长……君可愿，与我同沉？'], rage: [[8.18, 12.6, 0.9], '你惊扰了洛水……就别想再上岸。'], ult: [[[16.78, 20.08], '洛水倒卷——沉下来吧。'], [[27.06, 30.68], '盘起来……一个也别想走！']], death: [[34.97, 39.77, 1.5], '洛水……终于……不冷了……'], morph: [[20.28, 26.85], '魔血已尽……那就让你看看，我真正的样子！'] },
   god_zhaoyun: { file: 'shenzhaoyun', gain: 1.6, enter: [[0.11, 2.75], '龙魂不灭，此枪不倒！'], rage: [[2.97, 5.56], '绝境之中，方见龙胆！'], ult: [[[5.74, 8.42], '银龙出海，七进七出！'], [[13.83, 16.76], '四象归一，龙魂现世！']], death: [[19.92, 24.95, 1.6], '七进七出……这一次……出不去了……'], revive: [[17.05, 19.55, 1.2], '绝境……亦是生路！'] },
 };
 /* 签到礼包码的校验位：3 个字符。游戏（save.js 的 redeemGift）和生成工具（tools/gen_sign_codes.js）共用这一个算法 */
@@ -556,7 +556,10 @@ const ENC_MAP = {}; ENCOUNTERS.forEach(e => { ENC_MAP[e.id] = e; });
 /* 第 stage 关的敌将：{ id, name（心魔会带前缀）, who 本名, hero, sprite 立绘, look 没图时的配色, skills, hpK 血量系数, final 是不是章节敌将 } */
 /* 神魔当敌将时的血量倍数、气焰颜色和招式（魔是黑紫，神是金、青） */
 const MYTH_BOSS = {
-  god_zhenji: { hpK: 1.42, aura: '120,110,255', res: { wind: 0.6, ice: 0.6, thunder: 1.3 }, skills: [SK('灵蛇缠身', 9, 'bind', { n: 2, t: 2.2 }, '每 9 秒放出蛇影缠住两名武将 2.2 秒'), SK('洛水倒卷', 11, 'chill', { t: 4, mul: 0.65 }, '每 11 秒洛水倒卷，全体武将 4 秒内出手慢三成半'), SK('蛇毒', 12, 'poison', { t: 5, dps: 0.035 }, '每 12 秒吐出毒雾，所有武将中毒 5 秒'), SK('化蛇', 0, 'enrage', {}, '血量掉到一半时化成魔蛇暴怒')] },
+  god_zhenji: { hpK: 1.42, aura: '120,110,255', res: { wind: 0.6, ice: 0.6, thunder: 1.3 }, skills: [SK('灵蛇缠身', 9, 'bind', { n: 2, t: 2.2 }, '每 9 秒放出蛇影缠住两名武将 2.2 秒'), SK('洛水倒卷', 11, 'chill', { t: 4, mul: 0.65 }, '每 11 秒洛水倒卷，全体武将 4 秒内出手慢三成半'), SK('蛇毒', 12, 'poison', { t: 5, dps: 0.035 }, '每 12 秒吐出毒雾，所有武将中毒 5 秒'), SK('化蛇', 0, 'morph', {}, '血量掉到一半时化成洛水魔蛇：体型大一圈、换一套更凶的招式，变身的两秒不受伤害')],
+    // morph：半血变身（battle.js 的 morph()）。at 血量比例；scale 体型倍数；atk / spd 攻击、移速倍数；skills 变身后的招式（换掉原来那套）；snake 画成拖着长蛇身的大蛇
+    morph: { at: 0.5, name: '化蛇', title: '魔血已尽 · 洛水魔蛇', form: '洛水魔蛇', scale: 1.7, atk: 1.4, spd: 1.3, snake: true, sprite: 'enemies/god_zhenji_snake',
+      skills: [SK('蛇吻', 8, 'smash', { dmg: 0.34, stun: 1.8 }, '每 8 秒一口咬向一名武将，打晕 1.8 秒'), SK('盘绕', 10, 'bind', { n: 3, t: 2.5 }, '每 10 秒蛇身盘住三名武将 2.5 秒'), SK('甩尾', 10, 'wallhit', { dmg: 3 }, '每 10 秒一尾抽在城墙上，三倍伤害'), SK('毒雾', 13, 'poison', { t: 6, dps: 0.04 }, '每 13 秒喷出毒雾，所有武将中毒 6 秒')] } },
   god_zhaoyun: { hpK: 1.45, aura: '200,230,255', res: { ice: 0.6, blade: 0.6, fire: 1.3 }, skills: [SK('七进七出', 8, 'charge', { rgb: '200,230,255' }, '每 8 秒策马猛冲一段，冲锋时不吃减速和击退'), SK('龙胆', 9, 'smash', { dmg: 0.3, stun: 1.5 }, '每 9 秒一枪挑向一名武将，打晕 1.5 秒'), SK('枪雨', 11, 'rain', { dmg: 0.1 }, '每 11 秒枪落如雨，所有武将都挨一下'), SK('绝境', 0, 'revive', {}, '第一次倒下后以四成血量再战')] },
   god_lvbu:   { hpK: 1.25, aura: '190,70,255', res: { blade: 0.6, thunder: 0.6, ice: 1.3 }, skills: [SK('魔神乱舞', 8, 'smash', { dmg: 0.3, stun: 1.5 }, '每 8 秒砸晕一名武将 1.5 秒'), SK('黑雷', 10, 'rain', { dmg: 0.09 }, '每 10 秒黑雷落在城楼上，所有武将都挨一下'), SK('无双', 0, 'enrage', {}, '血量掉到一半时暴怒')] },
   god_caocao: { hpK: 1.3,  aura: '130,60,220', res: { poison: 0.6, arrow: 0.6, fire: 1.3 }, skills: [SK('万箭齐发', 8, 'shoot', { n: 3, dmg: 0.11 }, '每 8 秒朝三名武将各射一箭'), SK('奸雄', 11, 'shield', { r: 999, t: 4 }, '每 11 秒全场敌人架起盾，4 秒内受到的伤害减半'), SK('归心', 13, 'heal', { frac: 0.08, r: 999 }, '每 13 秒给全场敌人回血')] },
@@ -567,7 +570,7 @@ const MYTH_BOSS = {
 let BOSS_POOL = null;
 function endlessBoss(n) {
   const myth = HEROES.find(h => h.myth === n);
-  if (myth) { const m = MYTH_BOSS[myth.id]; return { id: myth.id, name: myth.name, who: myth.name, hero: null, myth: myth.id, sprite: 'heroes/' + myth.id, look: null, skills: m.skills, hpK: m.hpK, aura: m.aura, final: true, res: endlessRes(n) }; }
+  if (myth) { const m = MYTH_BOSS[myth.id]; return { id: myth.id, name: myth.name, who: myth.name, hero: null, myth: myth.id, sprite: 'heroes/' + myth.id, look: null, skills: m.skills, hpK: m.hpK, aura: m.aura, final: true, res: endlessRes(n), morph: m.morph || null }; }
   if (!BOSS_POOL) {
     BOSS_POOL = [{ id: 'boss_9', name: ENDLESS_BOSS.name, who: ENDLESS_BOSS.name, hero: null, sprite: 'enemies/boss_9', look: null, skills: ENDLESS_BOSS.skills }];
     CHAPTERS.forEach((c, ci) => {
@@ -726,7 +729,7 @@ function rushStage(k) { return CFG.RUSH.base + CFG.RUSH.step * k; }
 function rushBoss(day, k) {
   if (k % 5 === 0) {
     const id = RUSH_GODS[((day + k / 5 - 1) % RUSH_GODS.length + RUSH_GODS.length) % RUSH_GODS.length], h = HERO_MAP[id], m = MYTH_BOSS[id];
-    return { id, name: h.name, who: h.name, title: h.title, hero: null, myth: id, sprite: 'heroes/' + id, look: null, skills: m.skills, hpK: m.hpK, aura: m.aura, final: true, res: m.res };
+    return { id, name: h.name, who: h.name, title: h.title, hero: null, myth: id, sprite: 'heroes/' + id, look: null, skills: m.skills, hpK: m.hpK, aura: m.aura, final: true, res: m.res, morph: m.morph || null };
   }
   const L = rushSeq(day), b = L[(k - 1 - Math.floor(k / 5)) % L.length];
   return Object.assign({ final: true }, b, { res: b.res || endlessRes(10 + ((day * 7 + k) % 60)) });

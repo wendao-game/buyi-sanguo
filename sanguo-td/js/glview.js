@@ -187,7 +187,8 @@ const GLView = (function () {
     const moving = e.frozen <= 0 && e.y < e.stopY;
     const bob = moving ? -Math.abs(Math.sin(e.walk)) * 2.4 : (e.frozen > 0 ? 0 : Math.sin(t * 9 + e.ph) * 1.2);
     ell(La, e.x, e.y + d.r * 0.95 * ds, d.r * 1.05 * ds, d.r * 0.4 * ds, 0x000000, 0.35);
-    const pz = e.pz, psc = pz ? pz.sc : 1;                                                // 敌将的出手姿势（battle.js 的 bossPz）
+    const esc = e.sc || 1, pz = e.pz, psc = (pz ? pz.sc : 1) * esc;                       // 敌将的出手姿势（battle.js 的 bossPz）；esc：变身后的体型倍数
+    if (e.snake) drawSnake(e, t, ds * esc);
     const lunge = pz ? pz.dy * ds : e.atkT > 0 ? Math.sin((1 - e.atkT / 0.24) * Math.PI) * 8 * ds : 0;   // 攻城：往城墙扑一下
     const hitK = Math.max(0, Math.min(1, e.flash * 10));                                  // 挨打的一瞬间：压扁一下、往后（远离城墙）顿一下
     const k = s * q.k, fx = e.x, fy = e.y + bob + lunge + 12.4 * s - hitK * 2.5 * ds, w = q.w * k * psc * (1 + hitK * 0.07), h = q.h * k * psc * (1 - hitK * 0.08), ax = -q.x / q.w, ay = (12.4 - q.y) / q.h;
@@ -212,11 +213,26 @@ const GLView = (function () {
     if (e.mark > 0 || e.vuln > 0.2) ringE(La, e.x, e.y + d.r * 0.9, d.r * 1.1, d.r * 0.42, e.mark > 0 ? 0xc878ff : 0xffc878, 0.85);
     // 血条
     if (e.hp < e.max || (d.id === 'boss' || d.id === 'rare')) {
-      const bw = (d.id === 'boss' || d.id === 'rare') ? 70 : d.r * 2, hy = e.y - d.r * q.top * ds - ((d.id === 'boss' || d.id === 'rare') ? 14 : 4), bh = (d.id === 'boss' || d.id === 'rare') ? 5 : 3;
+      const bw = ((d.id === 'boss' || d.id === 'rare') ? 70 : d.r * 2) * (esc > 1 ? 1.4 : 1), hy = e.y - d.r * q.top * ds * esc - ((d.id === 'boss' || d.id === 'rare') ? 14 : 4), bh = (d.id === 'boss' || d.id === 'rare') ? 5 : 3;
       rect(La, e.x - bw / 2 - 1, hy - 1, bw + 2, bh + 2, 0x000000, 0.6);
       rect(La, e.x - bw / 2, hy, bw * Math.max(0, e.hp / e.max), bh, (d.id === 'boss' || d.id === 'rare') ? 0xff5a3a : 0xe8463a, 1);
       if ((d.id === 'boss' || d.id === 'rare')) { txt(Lt, numW, e.name, e.x, hy - 4, 12, mythColor(e.mythQ, '#ffe9a8'), 'center', 2.4); if (e.resTxt) txt(Lt, numW, e.resTxt, e.x, hy - 18, 10, '#bfe4ff', 'center', 2.2); }   // 无尽关：名字上面一行小字写抗什么、怕什么
     }
+  }
+  /* 大蛇的身子（v2.22，魔·甄姬化蛇）：从头后面一节一节往屏幕上方甩出去，越远越细，左右摆动；身子长到伸出屏幕外，看不到尾巴 */
+  function drawSnake(e, t, k) {
+    const N = 30, r0 = e.def.r * 1.12 * k;
+    for (let i = N; i >= 1; i--) {                             // 先画远的
+      const u = i / N, x = e.x + Math.sin(t * 1.6 - i * 0.36) * (8 + i * 3) * k * 0.62, y = e.y - e.def.r * 0.5 * k - i * r0 * 0.46, r = r0 * (1 - u * 0.38);
+      ell(La, x + 6, y + r * 0.95, r * 1.08, r * 0.42, 0x000000, 0.26);
+      sp(La, TX.disc, x, y, r * 2.3, r * 2.06, { tint: 0x0d0718 });                                  // 黑边
+      sp(La, TX.disc, x, y, r * 2.04, r * 1.82, { tint: i % 3 ? 0x33206c : 0x241552 });               // 鳞：隔两节深一节
+      if (i % 3 === 0) sp(La, TX.disc, x, y - r * 0.1, r * 0.9, r * 0.5, { tint: 0x6a4cd8, a: 0.55 });   // 背上的花纹
+      sp(La, TX.disc, x, y + r * 0.3, r * 1.15, r * 0.72, { tint: 0x8f86c8, a: 0.3 });                // 腹部颜色浅一点
+      sp(La, TX.glow, x - r * 0.32, y - r * 0.36, r * 1.4, r * 0.95, { tint: 0xa98cff, a: 0.55, blend: ADD });   // 鳞上的冷光
+      if (i % 6 === 0) light(x, y, r * 2.4, 0x7a5cff, 0.35);
+    }
+    glow(La, e.x, e.y - e.def.r * k, e.def.r * 3.4 * k, 0x5a30c8, 0.3 + Math.sin(t * 3) * 0.08);     // 头周围一团魔光
   }
   /* 阵亡的敌人：按被什么打死的，倒下的样子不同 */
   function drawGhost(g) {
@@ -526,7 +542,7 @@ const GLView = (function () {
 
     const sh = S && S.shake > 0 ? 9 * Math.min(1, S.shake * 4) : 0;
     let zoom = 1, zx = W / 2, zy = H / 2;
-    if (S && S.slowT > 0 && S.slowAt) { zoom = 1 + 0.07 * Math.sin(Math.PI * Math.min(1, S.slowT)); zx = S.slowAt.x; zy = S.slowAt.y; }   // 敌将倒下：镜头朝他推近一点
+    if (S && S.slowT > 0 && S.slowAt) { zoom = 1 + (S.cine ? (S.cine.kind === 'morph' ? 0.22 : 0.13) : 0.07) * Math.sin(Math.PI * Math.min(1, S.slowT)); zx = S.slowAt.x; zy = S.slowAt.y; }   // 登场、变身时推得更近   // 敌将倒下：镜头朝他推近一点
     world.scale.set(zoom); world.position.set((Math.random() - 0.5) * sh + zx * (1 - zoom), (Math.random() - 0.5) * sh + zy * (1 - zoom));
 
     // —— 地面 ——
@@ -621,6 +637,7 @@ const GLView = (function () {
     }
     for (let i = 0; i < 2; i++) { const x = ((t * (6 + i * 4) + i * 300) % (W + 400)) - 200; sp(Lf, TX.glow, x, 150 + i * 90, 380, 114, { tint: 0xffe1be, a: 0.045 }); }
 
+    if (S && S.oppress && !S.over) { rect(Lo, 0, 0, W, H, 0x0c0620, 0.2); sp(Lo, TX.vigW, 0, 0, W, H, { ax: 0, ay: 0, tint: 0x6a3cff, a: 0.26 + Math.sin(t * 2.2) * 0.08, blend: ADD }); }   // 大蛇在场：天色压暗，屏幕四周一圈紫光一明一暗
     if (S && S.weather && S.weather.id !== 'clear') drawWeather(S.weather.id, S.t, S.wxT > 0 ? 1 - S.wxT / 1.2 : 1);
     if (S && S.teles && S.teles.length) drawTeles(S, S.t);
     // —— 画面之上：暗角、闪白、界面 ——
@@ -773,6 +790,7 @@ const GLView = (function () {
       txt(Lh, numH, '再点一次头像 = 自动选目标', W / 2, 174, 13, '#e8d8b8', 'center', 3);
     }
     if (S.vig) sp(Lo, TX.vigW, 0, 0, W, H, { ax: 0, ay: 0, tint: col(S.vig.rgb), a: S.vig.a * Math.pow(S.vig.t / S.vig.max, 1.5), blend: ADD });   // 重击余韵
+    if (S.cine) drawCine(S.cine, t);
     if (S.intro) drawIntro(S.intro);
     if (S.bcut) drawBcut(S.bcut);
     if (S.banner) {
@@ -782,6 +800,19 @@ const GLView = (function () {
       txt(Lh, numH, S.banner.text, W / 2, 345, 36, S.over && !S.win ? '#ff6a5a' : '#ffe08a', 'center', 5, a, -1);
       if (S.banner.sub) txt(Lh, numH, S.banner.sub, W / 2, 377, 13, '#f0e2c4', 'center', 3, a);
     }
+  }
+  /* 电影黑边（v2.22）：敌将登场、变身时上下各压一条黑边；变身（kind: 'morph'）时屏幕正中再砸出两个大字 */
+  function drawCine(k, t) {
+    const p = k.t / k.dur, a = Math.min(1, p * 7, (1 - p) * 5), bar = (k.kind === 'morph' ? 96 : 70) * a, c = 'rgb(' + k.rgb + ')';
+    rect(Lh, 0, 0, W, bar, 0x000000, 0.94); rect(Lh, 0, H - bar, W, bar, 0x000000, 0.94);
+    rect(Lh, 0, bar, W, 2, k.rgb, a * 0.9); rect(Lh, 0, H - bar - 2, W, 2, k.rgb, a * 0.9);
+    if (k.kind !== 'morph') return;
+    const y = 520, pop = p < 0.14 ? 2.2 - p * 8.6 : 1 + Math.sin(t * 40) * 0.012;
+    sp(Lh, TX.glow, W / 2, y - 24, W * 1.1, 230, { tint: 0x000000, a: 0.7 * a, blend: 0 });
+    sp(Lh, TX.glow, W / 2, y - 24, W * 0.95, 150, { tint: col(k.rgb), a: 0.4 * a, blend: ADD });
+    for (let i = 0; i < 8; i++) { const yy = y - 90 + i * 20, xx = ((t * 1300 + i * 211) % (W + 300)) - 150; line(Lh, xx, yy, xx + 170, yy, 2, k.rgb, 0.35 * a, ADD); }
+    txt(Lh, numH, k.name, W / 2, y, 92, '#f4eaff', 'center', 9, a, -pop);
+    if (k.title) txt(Lh, numH, k.title, W / 2, y + 44, 20, c, 'center', 4, a);
   }
   /* 敌将登场的名牌（v2.19）：两道线从中间拉开，名字弹出来 */
   function drawIntro(k) {

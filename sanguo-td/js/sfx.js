@@ -302,7 +302,7 @@ const Sfx = (function () {
   }
 
   /* —— 神魔将的配音（v2.21，表在 data.js 的 VOICES）：一个角色一个文件，用到才下载；一次只说一句，后说的顶掉先说的（放大招的句子不顶登场、倒下这些要紧的） —— */
-  const VO = {}; let voNow = null; const VO_PRI = { death: 4, revive: 4, enter: 3, rage: 2, ult: 1 };
+  const VO = {}; let voNow = null; const VO_PRI = { death: 4, revive: 4, morph: 4, enter: 3, rage: 2, ult: 1 };
   function voiceLoad(id) {
     const V = typeof VOICES !== 'undefined' && VOICES[id]; if (!V || VO[V.file] !== undefined || typeof fetch !== 'function' || !ensure()) return;
     VO[V.file] = null;

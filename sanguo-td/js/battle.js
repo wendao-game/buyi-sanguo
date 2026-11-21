@@ -31,6 +31,7 @@ const Battle = (function () {
       stage, ch: chapterOf(stage), boss: stageBoss(stage), heroHit: 100, fallen: {}, wallBurn: { t: 0, dps: 0, tick: 0 }, wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
       queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
       cut: null, lastCut: -99, shock: null, dim: null,
+      cine: null, oppress: 0,                                 // v2.22 电影黑边（敌将登场、变身）；oppress：场上有变了身的大蛇，画面一直压暗
       teles: [], bcut: null, lastBcut: -99, intro: null, vig: null,   // v2.19 敌将演出：放招前的地面预警、大招横幅、登场名牌、重击后屏幕四周泛一圈招式色
       t: 0, coins: 0, kills: 0,
       buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 }, guard: { t: 0, k: 1 }, combo: 0, comboT: 0, comboPop: 0, comboMax: 0,
@@ -135,7 +136,7 @@ const Battle = (function () {
     S.ch = Object.assign({}, chapterOf(S.stage), { title: '过关斩将 · 第 ' + k + ' 将', boss: S.boss.name });
     const af = rushAffixes(R.day, k); R.af = af;
     S.mods = Object.assign({ rush: true }, mergeMods(af) || {});
-    const wPrev = S.weather; S.weather = rushWeather(R.day, k);
+    const wPrev = S.weather; S.weather = rushWeather(R.day, k); S.oppress = 0;
     calcHit();                                                  // 敌将越往后越强：打武将的伤害基准跟着这一将的关卡算
     S.queue = [{ t: 1.6, type: 'boss', x: 270 }]; S.waveDur = 1.6; S.waveT = 0; S.spawned = 0; S.waveSize = 1;
     const sub = [];
@@ -423,6 +424,7 @@ const Battle = (function () {
     }
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (e.def.id === 'boss') Sfx.play('bossdie');
+    if (e.snake) S.oppress = 0;                                 // 大蛇倒了：天色放晴
     if (e.def.id === 'boss' && S.boss.myth) say(S.boss.myth, 'death', e.x, e.y - e.def.r * 2.6 - 60, e.aura);
     if (e.def.id === 'boss' && S.rush) later(0.7, () => { for (const o of S.enemies) if (!o.dead) { text(o.x, o.y - 30, '溃逃', '#e8dcc0', 14, 0.8); o.dead = true; burst(o.x, o.y, 4, o.def.body, 120, 4, 0.5); } });   // 过关斩将：敌将倒了，他叫来的兵一哄而散（不算击杀、不掉东西）
     if (e.def.id === 'boss' && S.boss.myth && !S.rush && !(Save.data.unlocked || {})[S.boss.myth]) {   // 过关斩将里打掉神魔不解锁（还是要在无尽里打）   // 第一次击败神魔：解锁，进卡池
@@ -546,6 +548,36 @@ const Battle = (function () {
     S.lastBcut = S.t;
     S.bcut = { name: k.name, who: e.name, rgb, e, t: 0, dur: 1.05 };
     S.dim = { t: 0.45, max: 0.45 };
+  }
+  /* 半血变身（v2.22，魔·甄姬化蛇）：先停住蓄势——慢镜头、电影黑边、镜头推近、黑气往他身上聚，不受伤害；
+   * 然后一声巨响变成新形态：体型变大、换一套招式、攻击和移速提高，全体武将被震慑一下，之后画面一直压暗（S.oppress）。表在 data.js 的 MYTH_BOSS[..].morph */
+  function morph(e) {
+    const M = S.boss.morph, rgb = e.aura || '150,110,255', c = 'rgb(' + rgb + ')', ref = S;
+    e.morphed = true; e.halfSaid = true; e.holdT = 1.6; e.guardT = 2.4; e.guardK = 0; e.ccImm = Math.max(e.ccImm, 3.5);
+    e.frozen = 0; e.fear = 0; e.conf = 0; e.slow = 0; e.burn = 0; e.psn = 0; e.chargeT = 0; e.tgt = null; S.teles.length = 0;
+    S.cine = { kind: 'morph', t: 0, dur: 1.5, rgb, name: M.name, title: M.title }; S.dim = { t: 1.6, max: 1.6 }; S.slowT = 1.3; S.slowAt = { x: e.x, y: e.y + 40 };
+    S.shake = Math.max(S.shake, 0.5); Sfx.play('myth_dark'); Sfx.play('boss_wind');
+    say(S.boss.myth, 'morph', e.x, e.y - e.def.r * 2.6 - 96, rgb);
+    pose(e, 'roar', 1.6); e.pose.rgb = rgb;
+    tex('pillar', e.x, e.y + 26, { w: 150, h: 640, ay: 1, life: 1.5, fadeIn: 0.1, a: 0.6, rgb: '70,40,150', force: true });
+    tex('vortex', e.x, e.y + 20, { w: 380, h: 240, life: 1.5, spin: -6, fadeIn: 0.1, a: 0.85, rgb, force: true });
+    for (let i = 0; i < 4; i++) S.rings.push({ x: e.x, y: e.y, r0: 420 - i * 60, r1: 30, life: 0.38, max: 0.38, color: c, w: 5, fill: false });   // 往里收的几圈
+    for (let i = 0; i < 26; i++) { const a = rand() * TAU, r = 200 + rand() * 160, x = Math.cos(a) * r, y = Math.sin(a) * r * 0.7; part(e.x + x, e.y - 20 + y, -x / 0.4, -y / 0.4, 0.38, i % 3 ? '#7a5cff' : '#1a0f2e', 5 + rand() * 4); }   // 黑气往身上聚
+    S.timers.push({ t: 0.4, fn: () => {                         // 变！
+      if (S !== ref || S.over || e.dead) return;
+      e.snake = !!M.snake; e.scTo = M.scale || 1; e.sc = e.sc || 1; e.atk *= M.atk || 1; e.spd *= M.spd || 1; e.name = S.boss.name + ' · ' + M.name;
+      if (M.sprite && Assets.get(M.sprite)) e.spr = M.sprite;   // 有蛇头的图就换上，没有就是人身拖着蛇尾
+      e.sk = M.skills.map(k => ({ k, t: k.cd * 0.45 + 1.2 })); S.boss = Object.assign({}, S.boss, { skills: M.skills });
+      S.oppress = 1; S.intro = { name: M.form || M.name, title: S.boss.name + ' · ' + M.name, myq: e.mythQ || 0, rgb, t: 0, dur: 2.4 };
+      hitStop(0.14); S.shake = Math.max(S.shake, 1.1); S.flash = { color: rgb, a: 0.3, t: 0.4, max: 0.4 }; impact(rgb, 0.9, 0);
+      shockwave(e.x, e.y, 560, 1.8); roarFx(e, rgb, 460); later(0.18, () => roarFx(e, rgb, 560));
+      for (let i = 0; i < 4; i++) ring(e.x, e.y, 20 + i * 26, 360 + i * 130, 0.7 + i * 0.22, i % 2 ? '#1a0f2e' : c, 7);
+      tex('el_hit_dark', e.x, e.y - 30, { w: 520, life: 0.8, grow: 1.6, rgb, force: true }); tex('demon_flame', e.x, e.y + 30, { w: 420, ay: 1, life: 1.2, grow: 1.25, fadeIn: 0.05, rgb, force: true });
+      dust(e.x, e.y + 20, 26, 320); burst(e.x, e.y - 20, 30, '#7a5cff', 420, 5, 0.7, 300);
+      Sfx.play('boss_roar'); Sfx.play('boss_smash');
+      for (const o of S.enemies) if (!o.dead && o !== e) { pushBack(o, 60); o.hasteT = Math.max(o.hasteT, 4); }                       // 小兵被气浪掀开，然后发了狂地往前冲
+      for (const h of livingHeroes()) { h.stunT = Math.max(h.stunT, 0.9); text(h.x, h.y - 70, '震慑', '#c8b4ff', 16, 1); }            // 城头的武将被震得一愣
+    } });
   }
   function impact(rgb, a, stop) { S.vig = { rgb, a, t: 0.55, max: 0.55 }; if (stop) hitStop(stop); }   // 重击打中：屏幕四周泛一圈招式的颜色，顿一下
   function bossPz(e, dt) {
@@ -1116,6 +1148,7 @@ const Battle = (function () {
     if (S.bcut && (S.bcut.t += dt) >= S.bcut.dur) S.bcut = null;
     if (S.intro && (S.intro.t += dt) >= S.intro.dur) S.intro = null;
     if (S.vig && (S.vig.t -= dt) <= 0) S.vig = null;
+    if (S.cine && (S.cine.t += dt) >= S.cine.dur) S.cine = null;
     if (S.weather && S.weather.bolt && (S.boltT -= dt) <= 0) {   // 雷暴：天上不时劈下一道雷，打中一个敌人（伤害按台上武将的平均攻击算）
       S.boltT = 2.6 + rand() * 2;
       const tg = randLive(), hs = livingHeroes();
@@ -1178,6 +1211,9 @@ const Battle = (function () {
       if (e.shieldT > 0) e.shieldT -= dt;
       if (e.ccImm > 0) e.ccImm -= dt;
       if (e.guardT > 0) e.guardT -= dt;
+      if (e.scTo && e.sc !== e.scTo) { e.sc = (e.sc || 1) + (e.scTo - (e.sc || 1)) * Math.min(1, dt * 3.2); if (Math.abs(e.sc - e.scTo) < 0.004) e.sc = e.scTo; }
+      if (e.def.id === 'boss' && S.boss.morph && !e.morphed && e.hp < e.max * S.boss.morph.at) morph(e);
+      if (e.holdT > 0) { e.holdT -= dt; continue; }             // 变身的那两秒：站着不动，不走、不打、不放招
       if (e.def.id === 'boss' && S.boss.myth && !e.halfSaid && e.hp < e.max * 0.5) { e.halfSaid = true; say(S.boss.myth, 'rage', e.x, e.y - e.def.r * 2.6 - 96, e.aura); }
       if (e.sk) for (const x of e.sk) {                          // 敌将的被动招式
         if (x.k.k === 'enrage' && !e.enraged && e.hp < e.max * 0.5) {     // 半血暴怒
@@ -1218,6 +1254,7 @@ const Battle = (function () {
       if (e.sk && !e.seen && e.y > 150) {                        // 敌将露面：仰天一吼
         if (d.id === 'boss') { S.intro = { name: e.name, myq: e.mythQ || 0, title: e.title || (S.boss.myth ? (HERO_MAP[S.boss.myth].q === 7 ? '神将' : '魔将') : e.demon ? '心魔' : S.ch.endless ? '无尽敌将' : '敌将'), rgb: foeRgb(e), t: 0, dur: 2.3 }; S.dim = { t: 0.7, max: 0.7 }; }   // v2.19：敌将登场亮名牌
         if (d.id === 'boss' && S.boss.myth) say(S.boss.myth, 'enter', e.x, e.y - d.r * 2.6 - 96, e.aura);
+        if (d.id === 'boss') { S.cine = { kind: 'enter', t: 0, dur: 1.25, rgb: foeRgb(e) }; S.slowT = Math.max(S.slowT || 0, 0.5); S.slowAt = { x: e.x, y: e.y + 70 }; S.shake = Math.max(S.shake, 0.65); for (let i = 0; i < 3; i++) ring(e.x, e.y, 20 + i * 30, 300 + i * 110, 0.7 + i * 0.2, 'rgb(' + foeRgb(e) + ')', 5); }   // v2.22：电影黑边 + 镜头朝他推近 + 三圈气浪
         e.seen = true; pose(e, 'roar', 0.9); roarFx(e, foeRgb(e), 340); ring(e.x, e.y, 20, 340, 0.7, 'rgb(' + foeRgb(e) + ')', 6); shockwave(e.x, e.y, 300, 1); dust(e.x, e.y + 20, 12, 180);
         S.shake = Math.max(S.shake, 0.4); Sfx.play('boss_roar');
       }

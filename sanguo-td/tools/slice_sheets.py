@@ -31,7 +31,7 @@ SHEETS_ORDER = {
     'hero_11': ('heroes', ['dingfeng', 'miheng', 'huangyueying', 'zhurong', 'caozhang', 'yuji', 'sunjian', 'yuanshao', 'caoren']),
     'hero_12': ('heroes', ['chenlin', 'wuguotai', 'zhangsong', 'feiyi', 'xunyou', 'xusheng', 'xinxianying', 'lusu', 'simahui']),   # v2.9 新加的 9 名辅助武将
     'hero_13': ('heroes', ['god_zhenji', 'god_zhaoyun', None, None, None, None, None, None, None]),   # v2.21 新神魔将
-    'enemy_22': ('enemies', ['god_zhenji', 'god_zhaoyun', None, None, None, None, None, None, None]),   # v2.21 新神魔将当敌将时的正面图
+    'enemy_22': ('enemies', ['god_zhenji', 'god_zhaoyun', 'god_zhenji_snake', None, None, None, None, None, None]),   # v2.21 新神魔将当敌将时的正面图
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
     'enemy_3': ('enemies', ['sapper', 'ram', 'drummer', 'heavy', 'catapult', 'rattan', 'shaman', None, None]),
