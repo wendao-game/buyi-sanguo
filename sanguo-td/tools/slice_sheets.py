@@ -30,6 +30,8 @@ SHEETS_ORDER = {
     'hero_10': ('heroes', ['jianggan', 'mizhu', 'panzhang', 'liushan', 'xuyou', 'kongrong', 'manchong', 'guanxing', 'zhangbao2']),   # v2.3 新加的 18 名
     'hero_11': ('heroes', ['dingfeng', 'miheng', 'huangyueying', 'zhurong', 'caozhang', 'yuji', 'sunjian', 'yuanshao', 'caoren']),
     'hero_12': ('heroes', ['chenlin', 'wuguotai', 'zhangsong', 'feiyi', 'xunyou', 'xusheng', 'xinxianying', 'lusu', 'simahui']),   # v2.9 新加的 9 名辅助武将
+    'hero_13': ('heroes', ['god_zhenji', 'god_zhaoyun', None, None, None, None, None, None, None]),   # v2.21 新神魔将
+    'enemy_22': ('enemies', ['god_zhenji', 'god_zhaoyun', None, None, None, None, None, None, None]),   # v2.21 新神魔将当敌将时的正面图
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
     'enemy_2': ('enemies', ['boss_3', 'boss_4', 'boss_5', 'boss_6', 'boss_7', 'boss_8', 'boss_9', None, None]),
     'enemy_3': ('enemies', ['sapper', 'ram', 'drummer', 'heavy', 'catapult', 'rattan', 'shaman', None, None]),
@@ -81,10 +83,12 @@ FX_SHEETS = {
     'fx_5': ['thunder_ring', 'moon', 'halberd', 'tiger', 'wolf', 'chain', 'snowflake', 'cross_slash', 'red_arrow'],
     'fx_6': ['demon_flame', 'blood_eye', None, None, None, None, None, None, None],
     'fx_7': ['skyfire', 'fissure', 'meteor', 'vortex', 'soul', 'guandao', 'god_phantom', None, None],   # 神魔的专属大招
+    'fx_8': ['water_vortex', 'demon_snake', 'four_dragons', None, None, None, None, None, None],   # v2.21 魔·甄姬、神·赵云的专属大招
 }
 FX_SIZE = {'slash': 384, 'bolt': 384, 'pillar': 384, 'thrust': 384, 'circle': 320, 'whirl': 256, 'flame': 256,
            'el_orb_fire': 128, 'el_orb_wind': 160, 'dragon_azure': 512, 'dragon_white': 512, 'phoenix': 512,
-           'skyfire': 448, 'fissure': 384, 'vortex': 448, 'guandao': 448, 'god_phantom': 448, 'meteor': 320}
+           'skyfire': 448, 'fissure': 384, 'vortex': 448, 'guandao': 448, 'god_phantom': 448, 'meteor': 320,
+           'water_vortex': 512, 'demon_snake': 512, 'four_dragons': 512}
 
 
 def clear_bg(im, tol=24):

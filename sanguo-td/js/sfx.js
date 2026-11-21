@@ -20,6 +20,7 @@ const Sfx = (function () {
   const FILE_VOL = { boom: 0.2, thunder: 0.27, freeze: 0.37, boss_smash: 0.2, boss_roar: 0.28, myth_dark: 0.2, myth_holy: 0.33,
     ult_thunder: 0.27, ult_fire: 0.31, ult_ice: 0.25, ult_wind: 0.24, ult_poison: 0.34, ult_blade: 0.3 };
   const FILE_VOL_DEF = 0.28;
+  const VOICE_VOL = 0.4;                                    // 神魔将配音的基准音量（再乘 VOICES 里每个人的 gain）
   let filesAsked = false;
 
   /* 接线：所有声音 → master → 压缩器 → 输出；另外分一路进混响，听起来有点空间感、不发干 */
@@ -300,6 +301,32 @@ const Sfx = (function () {
     mNext = now + 0.5;
   }
 
+  /* —— 神魔将的配音（v2.21，表在 data.js 的 VOICES）：一个角色一个文件，用到才下载；一次只说一句，后说的顶掉先说的（放大招的句子不顶登场、倒下这些要紧的） —— */
+  const VO = {}; let voNow = null; const VO_PRI = { death: 4, revive: 4, enter: 3, rage: 2, ult: 1 };
+  function voiceLoad(id) {
+    const V = typeof VOICES !== 'undefined' && VOICES[id]; if (!V || VO[V.file] !== undefined || typeof fetch !== 'function' || !ensure()) return;
+    VO[V.file] = null;
+    fetch('assets/voice/' + V.file + '.mp3' + (window.ASSET_VER ? '?v=' + window.ASSET_VER : '')).then(r => r.arrayBuffer())
+      .then(b => new Promise((ok, no) => ac.decodeAudioData(b, ok, no))).then(buf => { VO[V.file] = buf; }).catch(() => { delete VO[V.file]; });   // 没下到：下次再试
+  }
+  /* 说一句。返回字幕（没开声音、文件还没到也返回，字幕照出）；这一类没有台词返回 '' */
+  function voice(id, kind) {
+    const V = typeof VOICES !== 'undefined' && VOICES[id]; if (!V || !V[kind]) return '';
+    const one = kind === 'ult' ? V.ult[Math.floor(Math.random() * V.ult.length)] : V[kind], clip = one[0], line = one[1];
+    if (typeof Save !== 'undefined' && Save.data && Save.data.sound === false) return line;
+    const buf = VO[V.file];
+    if (!buf) { voiceLoad(id); return line; }
+    if (!ac || ac.state !== 'running') return line;
+    const now = ac.currentTime, pri = VO_PRI[kind] || 1;
+    if (voNow && now < voNow.end) { if (pri < voNow.pri) return line; try { voNow.src.stop(); } catch (e) { /* 已经停了 */ } }
+    try {
+      const s = ac.createBufferSource(), g = ac.createGain(), dur = Math.max(0.1, clip[1] - clip[0]);
+      s.buffer = buf; g.gain.value = VOICE_VOL * (V.gain || 1) * (clip[2] || 1); s.connect(g); g.connect(master);
+      s.start(0, clip[0], dur); s.onended = () => { try { g.disconnect(); } catch (e) { /* 已断开 */ } };
+      voNow = { src: s, end: now + dur, pri };
+    } catch (e) { /* 播不了就只出字幕 */ }
+    return line;
+  }
   function play(name) {
     if (typeof Save !== 'undefined' && Save.data && Save.data.sound === false) return;
     const b = BANK[name], fb = FILES[name];
@@ -333,5 +360,5 @@ const Sfx = (function () {
     for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; if (v > 0.002) { sq += v * v; n++; } }
     return { peak: +peak.toFixed(3), rms: +Math.sqrt(sq / Math.max(1, n)).toFixed(3), len: +(n / 44100).toFixed(2) };
   }
-  return { play, music, unlock, hush, probe, render, files: () => Object.keys(FILES), songs: () => Object.keys(SONGS), get ready() { return !!ac && ac.state === 'running'; }, names: () => Object.keys(BANK) };
+  return { play, music, unlock, hush, probe, render, voice, voiceLoad, files: () => Object.keys(FILES), songs: () => Object.keys(SONGS), get ready() { return !!ac && ac.state === 'running'; }, names: () => Object.keys(BANK) };
 })();

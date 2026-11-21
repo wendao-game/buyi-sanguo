@@ -1394,6 +1394,61 @@ const SKILLS = (function () {
           });
         } },
     },
+    /* —— v2.21：魔·甄姬（无尽第 50 层）、神·赵云（第 60 层）。专属特效图（water_vortex、demon_snake、four_dragons）没画之前用现成的贴图顶着 —— */
+    god_zhenji: {
+      passive: { name: '洛水魔纹', desc: '普攻打中的敌人减速 2 秒，并且 4 秒内受到的伤害 +12%', onHit(B, h, e) { B.slow(e, 2); B.vuln(e, 4, 0.12); } },
+      ult: { desc: '洛水化蛇：洛水倒卷成一个大漩涡，3 秒里把全场敌人往中心拽，每 0.4 秒 ×0.25；随后她化成魔蛇从漩涡里盘上来收紧，圈里的敌人 ×2（觉醒 ×3）并定住 1.6 秒（校尉、敌将 0.6 秒）',
+        cast(B, h, a, k) {
+          const x = B.W / 2, y = (B.TOP + B.WY) / 2 + 10, R = 230, P = '130,100,255', T = 3, own = B.has('water_vortex');
+          B.flash('40,30,110', 0.4, 0.8);
+          B.tex(own ? 'water_vortex' : 'vortex', x, y, { w: R * 2.3, life: T + 0.6, spin: -4, fadeIn: 0.15, a: 0.95, rgb: own ? '' : '110,150,255' });   // 洛水漩涡
+          B.tex('vortex', x, y, { w: R * 1.2, life: T + 0.6, spin: -8, fadeIn: 0.15, a: 0.6, rgb: '150,110,255' });
+          const n = Math.round(T / 0.4);
+          for (let i = 0; i < n; i++) B.later(0.2 + i * 0.4, () => {
+            B.pull(x, y, 560, 0.16);                                                                                               // 往漩涡中心拽
+            B.area(x, y, R + 70, e => B.hit(e, a * 0.25, 'wind', h, { dot: true }));
+            if (i % 2 === 0) B.ring(x, y, R, 30, 0.4, '#8a78ff', 4);
+          });
+          B.later(T + 0.25, () => {                                                                                                // 魔蛇盘上来，收紧
+            if (B.has('demon_snake')) B.tex('demon_snake', x, y, { w: R * 2.3, life: 1.2, grow: 0.8, spin: 1.2, fadeIn: 0.05 });
+            else for (let i = 0; i < 3; i++) B.tex('circle', x, y, { w: R * 2 - i * 90, h: (R * 2 - i * 90) * 0.62, life: 1.0, grow: 0.7, spin: 3 + i, rgb: P, a: 0.9 });
+            B.tex('demon_flame', x, y + 30, { w: 300, ay: 1, life: 1.0, grow: 1.2, fadeIn: 0.05, rgb: P });
+            B.tex('el_hit_dark', x, y - 10, { w: 420, life: 0.6, grow: 1.4, rgb: P });
+            B.flash('130,90,255', 0.25, 0.4); B.shake(0.5); B.shock(x, y, 360, 1.3);
+            B.area(x, y, R, e => { B.hit(e, a * 2 * k, 'wind', h); B.stun(e, B.isBig(e) ? 0.6 : 1.6); });
+          });
+        } },
+    },
+    god_zhaoyun: {
+      passive: { name: '一身是胆', desc: '攻击 +10%、出手速度 +10%；每局第一次倒下时原地满血站起来，3 秒内不受伤害', mod: { atk: 0.1, spd: 0.1 }, undying: true },
+      ult: { desc: '龙魂四象：银龙出海，七进七出——一条银龙在战场上来回穿七趟，每趟贯穿一路敌人 ×2.3 并冻住 0.6 秒；第七趟之后四条龙魂在场中合一炸开，全场敌人 ×3.4（觉醒 ×5.1）并冻住 1.5 秒（校尉、敌将 0.5 秒）',
+        cast(B, h, a, k) {
+          const C = '200,230,255';
+          B.flash('190,225,255', 0.35, 0.6);
+          B.tex('pillar', h.x, h.y + 34, { w: 170, h: 620, ay: 1, life: 1.2, fadeIn: 0.1, rgb: C });
+          rainbow(B, h.x, h.y + 10, 30, 13, 2.4, 0.9);
+          for (let i = 0; i < 7; i++) B.later(0.15 + i * 0.3, () => {                                                             // 七进七出：单数趟往前冲，双数趟杀回来
+            const t = B.dense(90) || B.rnd(), x = t ? Math.max(50, Math.min(B.W - 50, t.x + (Math.random() - 0.5) * 70)) : 60 + Math.random() * (B.W - 120), up = i % 2 === 0;
+            B.blade(h, x, up ? B.WY - 16 : B.TOP - 10, up ? -Math.PI / 2 : Math.PI / 2, { look: 'ice', el: 'ice', w: 90, spd: 1500, dmg: a * 2.3, stun: 0.6, life: 0.55, big: true, tex: 'dragon_white', texW: 230 });
+            B.tex('thrust', x, (B.TOP + B.WY) / 2, { w: B.WY - B.TOP, h: 60, rot: Math.PI / 2, life: 0.28, a: 0.7, rgb: C });       // 枪光留下的一道亮线
+            if (i % 2 === 0) B.shake(0.12);
+          });
+          B.later(0.15 + 7 * 0.3 + 0.25, () => {                                                                                   // 四象归一
+            const x = B.W / 2, y = (B.TOP + B.WY) / 2;
+            if (B.has('four_dragons')) B.tex('four_dragons', x, y, { w: 520, life: 1.1, grow: 1.15, spin: 1.5, fadeIn: 0.06 });
+            else [['dragon_azure', '90,230,170'], ['dragon_white', '255,120,90'], ['dragon_white', '245,250,255'], ['dragon_azure', '120,130,255']].forEach((d, i) => {   // 青、赤、白、玄四条龙从四个方向往中间冲
+              const g = i * Math.PI / 2 + Math.PI / 4, T = 0.35, sx = x + Math.cos(g) * 330, sy = y + Math.sin(g) * 300;
+              B.tex(d[0], sx, sy, { w: 240, life: T, vx: (x - sx) / T, vy: (y - sy) / T, rot: g + Math.PI, a: 0.95, rgb: d[1] });
+            });
+            B.later(0.35, () => {
+              B.tex('snowflake', x, y, { w: 460, life: 0.9, grow: 1.4, spin: 1.2, a: 0.85, rgb: C }); B.tex('burst', x, y, { w: 420, life: 0.35, grow: 1.6, rgb: '235,245,255' });
+              rainbow(B, x, y, 60, 24, 2.6, 1.1);
+              B.flash('220,240,255', 0.3, 0.5); B.shake(0.55); B.shock(x, y, 420, 1.5);
+              B.lives().forEach(e => { B.hit(e, a * 3.4 * k, 'ice', h); B.stun(e, B.isBig(e) ? 0.5 : 1.5); });
+            });
+          });
+        } },
+    },
   };
 })();
 

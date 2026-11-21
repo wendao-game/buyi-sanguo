@@ -46,7 +46,15 @@ const Battle = (function () {
     S.enc = ed ? { def: ed, wave: 3 + Math.floor(rand() * 5), killed: false } : null;
     calcHit();   // 伤害基准按补强前的血量算，不然加的血量被伤害抵掉   // pk：名将列传人数不满 5 个时的补强   // 敌人打武将的伤害基准：开局定下来，中途换人不变
     nextWave();
+    voiceLoad();                                              // 这一局里有神魔将（上阵的、当敌将的）：先把配音下好
   }
+  /* 神魔将说一句：播配音（Sfx.voice，表在 data.js 的 VOICES），头顶出字幕。没有这句台词什么也不做 */
+  function say(id, kind, x, y, rgb) {
+    const line = typeof Sfx.voice === 'function' ? Sfx.voice(id, kind) : '';
+    if (line) text(Math.max(150, Math.min(W - 150, x)), y, '「' + line + '」', rgb ? 'rgb(' + rgb + ')' : '#fff3d6', line.length > 16 ? 15 : 18, Math.min(4.5, 1.8 + line.length * 0.1), true);
+    return line;
+  }
+  function voiceLoad() { if (typeof Sfx.voiceLoad !== 'function') return; if (S.boss && S.boss.myth) Sfx.voiceLoad(S.boss.myth); for (const h of S.heroes) Sfx.voiceLoad(h.def.id); }
   function calcHit() { S.heroHit = heroHitBase(S.stage, S.heroes.reduce((a, h) => a + h.maxHp, 0) / Math.max(1, S.heroes.length) / (S.mods && S.mods.hHp || 1), teamPower() * (S.mods && S.mods.pk || 1)); }
   /* 按存档里的阵容建队：开局调一次；局中换将时再调，留在场上的武将保留怒气、出手计时和伤害，新上场的从 0 怒气开始 */
   function setupTeam(first) {
@@ -136,6 +144,7 @@ const Battle = (function () {
     if (S.boss.res) sub.push(resText(S.boss.res));
     S.banner = { text: '第 ' + k + ' 将 · ' + S.boss.name, sub: sub.join('；'), t: 3.2, max: 3.2 };
     if (wPrev !== S.weather) S.wxT = 1.2;                       // 换天气：画面过渡一下
+    voiceLoad();
     Sfx.play('horn');
     if (k === 1) Sfx.music('boss');
   }
@@ -382,6 +391,7 @@ const Battle = (function () {
     const rv = e.sk && e.sk.find(x => x.k.k === 'revive');
     if (rv && !e.revived) {          // 幽冥鬼将：第一次倒下爬起来再战
       e.revived = true; e.hp = Math.round(e.max * 0.4); e.frozen = 0; e.fear = 0; e.conf = 0; e.ccImm = 2.5;
+      if (e.def.id === 'boss' && S.boss.myth) say(S.boss.myth, 'revive', e.x, e.y - e.def.r * 2.6 - 96, e.aura);
       bossShout(e, rv.k.name, 'myth_dark'); pose(e, 'roar', 0.9); e.pose.rgb = e.aura || '170,120,255'; ring(e.x, e.y, 10, 170, 0.6, '#b48cff', 6); tex('pillar', e.x, e.y + 20, { w: 120, h: 420, ay: 1, life: 0.9, fadeIn: 0.1, rgb: '170,120,255', force: true }); S.shake = Math.max(S.shake, 0.3);
       return;
     }
@@ -413,6 +423,7 @@ const Battle = (function () {
     }
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (e.def.id === 'boss') Sfx.play('bossdie');
+    if (e.def.id === 'boss' && S.boss.myth) say(S.boss.myth, 'death', e.x, e.y - e.def.r * 2.6 - 60, e.aura);
     if (e.def.id === 'boss' && S.rush) later(0.7, () => { for (const o of S.enemies) if (!o.dead) { text(o.x, o.y - 30, '溃逃', '#e8dcc0', 14, 0.8); o.dead = true; burst(o.x, o.y, 4, o.def.body, 120, 4, 0.5); } });   // 过关斩将：敌将倒了，他叫来的兵一哄而散（不算击杀、不掉东西）
     if (e.def.id === 'boss' && S.boss.myth && !S.rush && !(Save.data.unlocked || {})[S.boss.myth]) {   // 过关斩将里打掉神魔不解锁（还是要在无尽里打）   // 第一次击败神魔：解锁，进卡池
       (Save.data.unlocked = Save.data.unlocked || {})[S.boss.myth] = 1; S.mythNew = S.boss.myth; Save.save();
@@ -738,6 +749,13 @@ const Battle = (function () {
     text(h.x + (rand() - 0.5) * 16, h.y - 62, '-' + dmg, '#ff6a5a', 17, 0.8);
     if (S.fx.length < 140) tex('burst', h.x, h.y - 24, { w: 70, life: 0.16, grow: 1.3, rgb: '255,120,100' });
     if (h.hp > 0) return;
+    if (h.sk && h.sk.passive.undying && !(S.undying = S.undying || {})[h.def.id]) {   // 记在这一局上，不记在人身上：换下去再换上来不能再用一次
+      S.undying[h.def.id] = 1; h.hp = h.maxHp; h.immuneT = Math.max(h.immuneT || 0, 3); h.stunT = 0; h.psnT = 0; h.psnDps = 0;
+      text(h.x, h.y - 84, h.sk.passive.name + ' · 绝境复生', '#bfe4ff', 22, 1.8, true); say(h.def.id, 'revive', h.x, h.y - 112, '220,240,255');
+      tex('pillar', h.x, h.y + 34, { w: 110, h: 420, ay: 1, life: 1, fadeIn: 0.08, rgb: '200,230,255', force: true }); ring(h.x, h.y + 20, 10, 110, 0.6, '#cfe8ff', 5); shockwave(h.x, h.y, 220, 0.9);
+      S.flash = { color: '200,230,255', a: 0.2, t: 0.4, max: 0.4 }; Sfx.play('myth_holy');
+      return;
+    }
     h.hp = 0; h.dead = true; h.rage = 0; S.fallen[h.def.id] = 1; S.teamVer++;
     if (S.aim === h.slot) S.aim = null;
     text(h.x, h.y - 84, h.def.name + ' 阵亡', '#ff5a4a', 22, 1.8, true); ring(h.x, h.y + 20, 10, 90, 0.6, '#ff5a4a', 5); burst(h.x, h.y - 20, 14, '#c8b8a0', 200, 4, 0.6, 300);
@@ -987,6 +1005,7 @@ const Battle = (function () {
     const amp = S.nextUlt > 1 ? S.nextUlt : 1; if (amp > 1) { S.nextUlt = 1; later(0.3, () => text(h.x, h.y - 104, '玉玺加持', '#ffd24a', 18, 1.2, true)); }   // 孙坚的传国玉玺：下一个放出来的大招更狠
     const a = h.atk * S.buffs.atk * S.buffs.ult * h.ultMul * amp, q = QUALITIES[h.def.q], k = h.awake ? 1.5 : 1;
     text(h.x, h.y - 58, '【' + h.def.ult + '】' + (h.awake ? '·觉醒' : ''), q.color, 21, 1.5, true);
+    if (h.def.myth) say(h.def.id, 'ult', h.x, h.y - 96, h.def.q === 6 ? '210,170,255' : '255,240,190');
     ring(h.x, h.y + 26, 12, 70, 0.5, q.color, 4);
     tex('pillar', h.x, h.y + 34, { w: 60, h: 260, ay: 1, life: 0.7, fadeIn: 0.12, a: 0.5, rgb: hexRgb(q.color), force: true });
     cutIn(h, !!pt || !Save.data.auto);
@@ -1159,6 +1178,7 @@ const Battle = (function () {
       if (e.shieldT > 0) e.shieldT -= dt;
       if (e.ccImm > 0) e.ccImm -= dt;
       if (e.guardT > 0) e.guardT -= dt;
+      if (e.def.id === 'boss' && S.boss.myth && !e.halfSaid && e.hp < e.max * 0.5) { e.halfSaid = true; say(S.boss.myth, 'rage', e.x, e.y - e.def.r * 2.6 - 96, e.aura); }
       if (e.sk) for (const x of e.sk) {                          // 敌将的被动招式
         if (x.k.k === 'enrage' && !e.enraged && e.hp < e.max * 0.5) {     // 半血暴怒
           e.enraged = true; e.atk *= 1.5; e.spd *= 1.6; e.frozen = 0; e.fear = 0; e.conf = 0; e.slow = 0; e.ccImm = 4;
@@ -1197,6 +1217,7 @@ const Battle = (function () {
       if (e.fleeT > 0 && e.fleeT < 10 && e.fleeT + dt >= 10) text(e.x, e.y - 70, e.name + '就要遁走了', '#cfe8ff', 20, 1.6);
       if (e.sk && !e.seen && e.y > 150) {                        // 敌将露面：仰天一吼
         if (d.id === 'boss') { S.intro = { name: e.name, myq: e.mythQ || 0, title: e.title || (S.boss.myth ? (HERO_MAP[S.boss.myth].q === 7 ? '神将' : '魔将') : e.demon ? '心魔' : S.ch.endless ? '无尽敌将' : '敌将'), rgb: foeRgb(e), t: 0, dur: 2.3 }; S.dim = { t: 0.7, max: 0.7 }; }   // v2.19：敌将登场亮名牌
+        if (d.id === 'boss' && S.boss.myth) say(S.boss.myth, 'enter', e.x, e.y - d.r * 2.6 - 96, e.aura);
         e.seen = true; pose(e, 'roar', 0.9); roarFx(e, foeRgb(e), 340); ring(e.x, e.y, 20, 340, 0.7, 'rgb(' + foeRgb(e) + ')', 6); shockwave(e.x, e.y, 300, 1); dust(e.x, e.y + 20, 12, 180);
         S.shake = Math.max(S.shake, 0.4); Sfx.play('boss_roar');
       }
