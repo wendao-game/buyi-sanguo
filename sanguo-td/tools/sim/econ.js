@@ -140,6 +140,32 @@ function fresh(patch) { const G = load(patch), D = G.Save.data; return { G, D, c
   ok('重置存档保留礼包码使用记录', Array.isArray(G.Save.data.gifts) && G.Save.data.gifts[0] === 'X@1');
 }
 
+/* ---------- 7b. TapTap 签到礼包码（v2.20）：校验对得上才认；每份存档每一档只能领一次，换多少个码都一样 ---------- */
+{
+  const { G, D, c } = fresh(), S = G.CFG.GIFT_SIGN, ABC = vm.runInContext('SIGN_ABC', c);
+  const mk = (tier, seed) => { let body = ''; for (let i = 0; i < 6; i++) body += ABC[(seed * 7 + i * 13 + seed * i) % ABC.length]; return 'FH' + tier + body + c.signCheck(S.id, S.salt, tier, body); };
+  const sum = f => Object.keys(S.tiers).reduce((a, k) => a + (S.tiers[k][f] || 0), 0);
+  ok('签到码：四档奖励合计不离谱（招募令 ≤ 30、金币 ≤ 2 万、精铁 ≤ 100、将魂 ≤ 100）', sum('tickets') <= 30 && sum('coins') <= 20000 && sum('iron') <= 100 && sum('soul') <= 100, JSON.stringify(S.tiers));
+  const m0 = money(D), a1 = mk('A', 1), r1 = c.redeemGift(a1);
+  ok('签到码：对的码能兑换，给的就是这一档写的奖励', typeof r1 === 'object' && D.tickets === m0.tickets + S.tiers.A.tickets && D.coins === m0.coins + (S.tiers.A.coins || 0));
+  const m1 = money(D); let again = 0;
+  for (let i = 2; i < 400; i++) if (typeof c.redeemGift(mk('A', i)) === 'object') again++;
+  ok('签到码：同一档再换 400 个不同的码也领不到第二次', again === 0 && D.tickets === m1.tickets && D.coins === m1.coins);
+  ok('签到码：同一个码小写、带空格和横线也认，但还是只能领一次', typeof c.redeemGift(' ' + a1.toLowerCase().replace(/(.{4})/g, '$1-') + ' ') === 'string');
+  const bad = mk('B', 5), wrong = bad.slice(0, -1) + (bad.slice(-1) === '2' ? '3' : '2'), m2 = money(D);
+  ['FHB', 'FHBAAAAAAAAA', wrong, 'FHZ' + bad.slice(3), 'XX' + bad.slice(2), bad + 'A', bad.slice(0, 11), 'FH__proto__', 'FHconstructor'].forEach(x => { try { c.redeemGift(x); } catch (e) {} });
+  ok('签到码：校验位不对、档位不存在、长度不对的码都换不到东西', JSON.stringify(money(D)) === JSON.stringify(m2), JSON.stringify(money(D)));
+  let guess = 0; for (let i = 0; i < 3000; i++) { let s = 'FHB'; for (let k = 0; k < 9; k++) s += ABC[(i * 31 + k * 17 + i * k) % ABC.length]; if (typeof c.redeemGift(s) === 'object') guess++; }
+  ok('签到码：瞎编 3000 个码最多蒙中这一档一次', guess <= 1);
+  ['B', 'C', 'D'].forEach((t, i) => c.redeemGift(mk(t, 50 + i)));
+  ok('签到码：四档全领完，一共就是四档奖励的合计', D.tickets === m0.tickets + sum('tickets') && D.coins === m0.coins + sum('coins') && D.iron === m0.iron + sum('iron') && D.soul === m0.soul + sum('soul') && allFin(D), JSON.stringify(money(D)));
+  const m3 = money(D); G.Save.reset(); const D2 = G.Save.data, t2 = D2.tickets;
+  ['A', 'B', 'C', 'D'].forEach((t, i) => c.redeemGift(mk(t, 90 + i)));
+  ok('签到码：重置存档后不能再领一遍', D2.tickets === t2, String(D2.tickets - t2));
+  const src = fs.readFileSync(path.join(__dirname, '..', 'gen_sign_codes.js'), 'utf8');
+  ok('签到码：生成工具和游戏用同一个校验算法（都读 data.js 的 signCheck）', /signCheck/.test(src) && /CFG\.GIFT_SIGN/.test(src));
+}
+
 /* ---------- 7b. 奇遇：中途退出 / 重新开始刷不出来（掷骰结果存进存档，一局打完才结掉） ---------- */
 {
   const real = fs.readFileSync(path.join(JS, 'save.js'), 'utf8').match(/function rollEncounter[\s\S]*?\n}\n/)[0];

@@ -666,10 +666,22 @@ function encounterReward(stage, id) {
 /* ---------------- 礼包码 ---------------- */
 /* 成功返回礼包内容 { tickets, coins, note }，失败返回错误文字 */
 function redeemGift(code) {
-  const key = String(code || '').replace(/\s+/g, '').toUpperCase(), g = CFG.GIFT_CODES[key];
-  if (!g) return '礼包码不对';
+  const key = String(code || '').replace(/[\s-]+/g, '').toUpperCase(), g = Object.prototype.hasOwnProperty.call(CFG.GIFT_CODES, key) ? CFG.GIFT_CODES[key] : null;
   const S = Save.data;
   S.gifts = Array.isArray(S.gifts) ? S.gifts : [];
+  if (!g) {                                                    // 不是固定的礼包码：看是不是 TapTap 签到活动的码（校验位对得上才认）
+    const G = CFG.GIFT_SIGN, m = G && /^FH([A-Z])([2-9A-HJKMNP-Z]{6})([2-9A-HJKMNP-Z]{3})$/.exec(key);
+    const t = m && Object.prototype.hasOwnProperty.call(G.tiers, m[1]) ? G.tiers[m[1]] : null;
+    if (!t || signCheck(G.id, G.salt, m[1], m[2]) !== m[3]) return '礼包码不对';
+    const tag = 'SIGN:' + G.id + ':' + m[1];                    // 按「哪一期、哪一档」记，不按码记：同一档换多少个码都只能领一次
+    if (S.gifts.includes(tag)) return '累计签到第 ' + t.day + ' 天的礼包已经领过了（每档只能领一次）';
+    S.gifts.push(tag);
+    gain(t.coins || 0, t.tickets || 0);
+    const pos = v => { v = Number(v); return isFinite(v) && v > 0 ? Math.round(v) : 0; };
+    S.iron = (S.iron || 0) + pos(t.iron); S.soul = (S.soul || 0) + pos(t.soul);
+    Save.save();
+    return { left: 0, tickets: t.tickets || 0, coins: t.coins || 0, iron: pos(t.iron), soul: pos(t.soul), day: t.day };
+  }
   const tag = g.ver ? key + '@' + g.ver : key, times = g.times || 1, used = S.gifts.filter(k => k === tag).length;   // 带版本号记：改了 ver 以前用过的不算
   if (used >= times) return times > 1 ? '这个礼包码已经用满 ' + times + ' 次了' : '这个礼包码已经用过了';
   S.gifts.push(tag);

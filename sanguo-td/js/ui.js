@@ -423,7 +423,7 @@ const UI = (function () {
       <div class="mrow"><button class="btn gold" data-act="codeOut">复制存档码</button><button class="btn" data-act="codeIn">读入存档码</button></div>`}
       <div class="mrow"><button class="btn" data-act="gfx">战斗画面：${GLView.active() ? '高清（WebGL）' : '兼容（2D）'}<small>${GLView.ok ? '点击切换 · 手机发热或卡顿时可以换成兼容' : '这台设备开不了高清画面' + (GLView.error ? '：' + GLView.error : '')}</small></button></div>
       <div class="mrow"><button class="btn" data-act="sound">音效：${Save.data.sound === false ? '关' : '开'}</button><button class="btn" data-act="musicsw">音乐：${Save.data.music === false ? '关' : '开'}</button></div>
-      ${Object.keys(CFG.GIFT_CODES).length ? '<div class="mrow"><input class="gift" id="giftCode" placeholder="礼包码" autocomplete="off" autocapitalize="characters"><button class="btn red" data-act="gift">兑换</button></div>' : ''}
+      ${Object.keys(CFG.GIFT_CODES).length || CFG.GIFT_SIGN ? '<div class="mrow"><input class="gift" id="giftCode" placeholder="礼包码 / 签到兑换码" autocomplete="off" autocapitalize="characters"><button class="btn red" data-act="gift">兑换</button></div>' : ''}
       <div class="mrow"><button class="btn gray" data-act="resetAsk">重置存档</button></div></div>`);
   }
   function codeOut() {
@@ -683,7 +683,7 @@ const UI = (function () {
       const el = document.querySelector('#giftCode'), r = redeemGift(el && el.value);
       if (typeof r === 'string') return toast(r);
       closeModal(); render();
-      toast('兑换成功：' + [r.tickets ? '招募令 +' + r.tickets : '', r.coins ? '金币 +' + r.coins : ''].filter(Boolean).join('，') + (r.left > 0 ? '（还能用 ' + r.left + ' 次）' : ''));
+      toast('兑换成功：' + [r.tickets ? '招募令 +' + r.tickets : '', r.coins ? '金币 +' + fmt(r.coins) : '', r.iron ? '精铁 +' + r.iron : '', r.soul ? '将魂 +' + r.soul : ''].filter(Boolean).join('，') + (r.left > 0 ? '（还能用 ' + r.left + ' 次）' : ''));
     },
     codeLoad: () => {
       if (Platform.isTap()) return toast('TapTap 里用云存档，不支持读入存档码');

@@ -130,7 +130,31 @@ const CFG = {
   // 上线版不放码（试玩码 FENGHUO100 已删）；一个码都没有时，设置里不显示兑换框
   GIFT_CODES: {
   },
+  // —— TapTap 签到活动的礼包码（v2.20）——
+  // TapTap 后台的签到活动按「累计签到第几天」分档发礼包码，每档要上传不少于 1000 个不重复的码。游戏是单机的、没有服务器验码，
+  // 所以码是算出来的：FH + 档位字母 + 6 位随机 + 3 位校验（校验 = 活动编号、档位、随机段一起算的哈希），共 12 位，
+  // 不用 0 O 1 I L 这些容易看错的字。游戏只认校验对得上的码；**每份存档每一档只能领一次**（不管换多少个码），
+  // 所以就算有人照着源码算出码来，最多也只是把这四档各领一次。生成码：node tools/gen_sign_codes.js
+  // id 换一个（比如 S2）= 开新一期活动，四档都能重新领；tiers 里的奖励可以有 tickets 招募令、coins 金币、iron 精铁、soul 将魂
+  GIFT_SIGN: {
+    id: 'S1', salt: 'fhsc-qiandao',
+    tiers: {
+      A: { day: 1, tickets: 2, coins: 2000 },
+      B: { day: 3, tickets: 3, coins: 5000 },
+      C: { day: 5, tickets: 5, iron: 30 },
+      D: { day: 7, tickets: 10, soul: 50 },
+    },
+  },
 };
+/* 签到礼包码的校验位：3 个字符。游戏（save.js 的 redeemGift）和生成工具（tools/gen_sign_codes.js）共用这一个算法 */
+const SIGN_ABC = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+function signCheck(id, salt, tier, body) {
+  let h = 0x811c9dc5; const s = salt + '|' + id + '|' + tier + '|' + body;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d) >>> 0; h = (h ^ (h >>> 12)) >>> 0;   // 最后一定要 >>> 0 转回无符号：异或完可能是负数，取余就取不到字了
+  let out = ''; for (let i = 0; i < 3; i++) { out += SIGN_ABC[h % SIGN_ABC.length]; h = Math.floor(h / SIGN_ABC.length); }
+  return out;
+}
 
 /* 只有本机调试时才认网址里的调试参数（?coins=…），正式发布的网页和小游戏里一律忽略 */
 const DEV = (function () {
