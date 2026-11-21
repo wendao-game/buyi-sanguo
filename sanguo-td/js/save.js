@@ -35,6 +35,11 @@ const Save = {
       unlocked: {},        // 奇遇里解锁的神兽兵器：兵器 id → 1（解锁后才会进卡池）
       enc: { n: 0, kills: {}, seen: {} },   // 奇遇：连着多少局没碰上、各击败过几次、见过哪些（奇遇录）
       earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
+      idle: { t: 0 },      // 挂机军饷：从什么时候开始攒（领完重新攒；只往后走，改回更早的时间不会多给）
+      trial: { date: '' }, // 每日试炼：哪天拿过首胜奖励（和每日军饷一样按天序号判断）
+      rush: { best: 0, date: '' },   // 过关斩将：最多斩过几将、哪天领过每日首局奖励
+      bestPower: 0,        // 历史最高阵容战力（排行榜用）
+      lb: { stage: 0, power: 0, rush: 0 },   // 排行榜上已经报过的成绩：有长进才再报
       at: 0,               // 最后保存时间
       ver: 2,
     };
@@ -43,6 +48,8 @@ const Save = {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(this.KEY) || 'null'); } catch (e) { d = null; }
     this.data = Object.assign(this.fresh(), d || {});
+    // 阵营试炼打到一半关掉了游戏：把临时换上的阵容换回原来的
+    if (Array.isArray(this.data.trialBak)) { this.data.team = this.data.trialBak; delete this.data.trialBak; }
     // 清理存档里已不存在的武将
     Object.keys(this.data.heroes).forEach(id => { if (!HERO_MAP[id]) delete this.data.heroes[id]; });
     this.data.team = (Array.isArray(this.data.team) ? this.data.team : []).slice(0, 5).map(id => (id && this.data.heroes[id] ? id : null));
@@ -52,9 +59,15 @@ const Save = {
     const W = this.data.weapons = (this.data.weapons && typeof this.data.weapons === 'object') ? this.data.weapons : {}, used = {};
     Object.keys(W).forEach(id => { const w = W[id]; if (!WEAPON_MAP[id] || !w) return delete W[id]; w.lv = Math.max(1, Math.min(CFG.WEAPON_MAX_LV, w.lv | 0)); if (w.hero && (!this.data.heroes[w.hero] || used[w.hero])) w.hero = null; if (w.hero) used[w.hero] = 1; });
     this.data.iron = Math.max(0, this.data.iron | 0); this.data.soul = Math.max(0, this.data.soul | 0);
+    // 金币、招募令、累计获得：不是正的有限数（NaN、Infinity、负数、字符串）一律清成 0。宁可清零也不能留下「无限」
+    const num = v => (typeof v === 'number' && isFinite(v) && v > 0 ? v : 0);
+    const R = this.data.rush = this.data.rush && typeof this.data.rush === 'object' ? this.data.rush : { best: 0, date: '' };
+    R.best = Math.max(0, Math.min(300, Math.floor(Number(R.best)) || 0));
+    this.data.coins = Math.floor(num(this.data.coins)); this.data.tickets = Math.floor(num(this.data.tickets)); this.data.earned = num(this.data.earned);
   },
   save() {
     this.data.at = Date.now();
+    if (typeof Clock !== 'undefined' && Clock.anchor) Clock.floor(Clock.now());   // 记下确认过的服务器时间：下次没网时最多只能比它晚 36 小时
     try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); } catch (e) { /* 无痕模式等：忽略 */ }
     if (typeof Cloud !== 'undefined') Cloud.dirty();
   },
@@ -64,24 +77,39 @@ const Save = {
     this.load();
     if (typeof Cloud !== 'undefined') Cloud.dirty();
   },
-  /* 哪份更新：累计获得更多的那份；一样多取后保存的 */
+  /* 累计获得：存档里记的数和「打到这一关至少拿过的首通金币」取大的。
+   * 老存档没有 earned（或迁移时被填成 0），不兜底的话会输给新设备上的空档 */
+  earnedOf(s) {
+    let floor = 0; const st = Math.max(1, (s && s.stage) | 0);
+    for (let i = 1; i < st; i++) floor += stageWinCoins(i);
+    return Math.max(typeof s.earned === 'number' && isFinite(s.earned) ? s.earned : 0, floor);   // Infinity / NaN 不算：不能让一份坏档永远「更新」
+  },
+  /* 哪份更新：累计获得更多的那份；一样多再比关卡、武将数，最后才比保存时间
+   * （启动时会先存一次档，空档的保存时间总是最新，不能先比时间） */
   newer(a, b) {
     if (!b) return true; if (!a) return false;
-    if ((a.earned || 0) !== (b.earned || 0)) return (a.earned || 0) > (b.earned || 0);
+    const ea = this.earnedOf(a), eb = this.earnedOf(b);
+    if (ea !== eb) return ea > eb;
+    if ((a.stage || 1) !== (b.stage || 1)) return (a.stage || 1) > (b.stage || 1);
+    const ha = Object.keys(a.heroes || {}).length, hb = Object.keys(b.heroes || {}).length;
+    if (ha !== hb) return ha > hb;
     return (a.at || 0) > (b.at || 0);
   },
   reset() {
+    const gifts = this.data && this.data.gifts;   // 礼包码用过几次跟着带过去：重置存档不能让礼包码重新可用
     try { localStorage.removeItem(this.KEY); } catch (e) {}
     this.data = this.fresh();
+    if (Array.isArray(gifts) && gifts.length) this.data.gifts = gifts;
     this.save();
   },
 };
 
 /* 获得金币 / 招募令：同时记进累计获得 */
 function gain(coins, tickets) {
-  const S = Save.data;
-  S.coins += coins || 0; S.tickets += tickets || 0;
-  S.earned = (S.earned || 0) + (coins || 0) + (tickets || 0) * CFG.TICKET_PRICE;
+  const S = Save.data, pos = v => { v = Number(v); return isFinite(v) && v > 0 ? Math.round(v) : 0; };   // 只收正的有限数：NaN、字符串、负数都当 0，免得把金币弄坏或拼成字符串
+  coins = pos(coins); tickets = pos(tickets);
+  S.coins += coins; S.tickets += tickets;
+  S.earned = (S.earned || 0) + coins + tickets * CFG.TICKET_PRICE;
 }
 
 /* ---------------- 城池科技（v2.15）：三条没有上限的成长线 ---------------- */
@@ -100,17 +128,126 @@ function techUp(id) {
   return null;
 }
 /* ---------------- 每日军饷 ---------------- */
-function dailyReady() { const d = Save.data.daily || (Save.data.daily = { date: '' }); return d.date !== todayStr(); }
+function dailyReady() { const d = Save.data.daily || (Save.data.daily = { date: '' }); return isNewDay(d); }
 function dailyReward() { const st = Math.max(1, Save.data.stage - 1); return { coins: Math.round(stageWinCoins(st) * CFG.DAILY.coinK), iron: Math.round(stageIron(st) * CFG.DAILY.ironK), tickets: CFG.DAILY.tickets }; }
 function dailyClaim() {
   if (!dailyReady()) return null;
-  const r = dailyReward(); Save.data.daily.date = todayStr();
+  const r = dailyReward(); markDay(Save.data.daily);
   gain(r.coins, r.tickets); Save.data.iron += r.iron; Save.save();
   return r;
 }
+/* 现在几点：TapTap 里是校准过的服务器时间（platform.js 的 Clock），普通网页、不带画面的模拟是手机时间 */
+function nowMs() { return typeof Clock !== 'undefined' ? Clock.now() : Date.now(); }
+const BJ = 8 * 36e5;                                           // 每天按北京时间 0 点刷新（改手机时区也提前不了）
 function todayStr() {
-  const d = new Date();
-  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  const d = new Date(nowMs() + BJ);
+  return d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1) + '-' + d.getUTCDate();
+}
+/* 每日次数按「天序号」（北京时间的日期折算成第几天）判断，只认往后走：
+ * 只有今天比记录的那天更晚才算新的一天。把手机日期往前调回去不会让次数重置；
+ * TapTap 里用的是服务器时间，往后调也没用（以前比的是日期字符串，来回调就能无限领） */
+function dayNo() { return Math.floor((nowMs() + BJ) / 864e5); }
+function strDayNo(s) {          // 旧存档里的 'YYYY-M-D' → 天序号（和 dayNo 同一个基准）
+  const m = /^(\d+)-(\d+)-(\d+)$/.exec(s || '');
+  return m ? Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5) : -1;
+}
+function recDay(rec) { if (typeof rec.day !== 'number') rec.day = strDayNo(rec.date); return rec.day; }
+function isNewDay(rec) { return dayNo() > recDay(rec); }
+function markDay(rec) { rec.day = dayNo(); rec.date = todayStr(); }
+
+/* ---------------- 挂机军饷（v2.18） ----------------
+ * 每小时 = 最高通关那一关的通关金币 × CFG.IDLE.k，最多攒 CFG.IDLE.maxH 小时。
+ * 起点只往后走：把时间往前调不会多给；往后调了再调回来，要等真实时间追上才会再攒 */
+function idleInfo() {
+  const S = Save.data, I = S.idle && typeof S.idle === 'object' ? S.idle : (S.idle = { t: 0 }), now = nowMs();   // TapTap 里是服务器时间
+  if (!(I.t > 0)) I.t = now;                                 // 新档 / 老档第一次：从现在开始攒
+  const h = Math.min(CFG.IDLE.maxH, Math.max(0, (now - I.t) / 36e5));
+  const perH = Math.round(stageWinCoins(Math.max(1, S.stage - 1)) * CFG.IDLE.k);
+  return { h, perH, coins: Math.floor(perH * h), full: h >= CFG.IDLE.maxH };
+}
+function idleClaim(mul) {
+  const r = idleInfo();
+  if (r.coins < 1) return 0;
+  const c = r.coins * (mul || 1);
+  gain(c, 0); Save.data.idle.t = Math.max(Save.data.idle.t, nowMs()); Save.save();
+  return c;
+}
+
+/* ---------------- 每日试炼（v2.18） ---------------- */
+function trialOpen() { return Save.data.stage > CFG.TRIAL.open; }
+function trialToday() { const n = TRIALS.length; return TRIALS[((dayNo() % n) + n) % n]; }
+function trialStage() { return Math.max(1, Save.data.stage - CFG.TRIAL.back); }
+function trialRec() { const S = Save.data; return S.trial && typeof S.trial === 'object' ? S.trial : (S.trial = { date: '' }); }
+function trialDone() { return !isNewDay(trialRec()); }        // 今天的首胜奖励领过了
+function trialReward(st) { return { iron: Math.max(1, Math.round(stageIron(st) * CFG.TRIAL.iron)), soul: CFG.TRIAL.soul + Math.floor(st / 10), tickets: CFG.TRIAL.tickets }; }
+/* ---------------- 名将列传（v2.18）：拥有这名武将才能挑战，首通奖励只领一次 ---------------- */
+function legendNeed(L) { return L.need || [L.hero]; }
+function legendOpen(L) { return legendNeed(L).every(id => !!heroOwn(id)); }
+function legendDone(L) { const S = Save.data; return !!(S.legends && S.legends[L.id]); }
+/* 出战阵容：solo 只有他一人（站主帅位）；need 只用这几人；fac 他领衔 + 同阵营最强的补满 */
+function legendTeam(L) {
+  if (L.team === 'solo') return [null, null, L.hero, null, null];
+  if (L.team === 'need') return arrangeTeam(legendNeed(L).filter(id => heroOwn(id)));
+  const t = bestTeam(id => HERO_MAP[id].fac === L.fac) || [], ids = t.filter(Boolean);
+  if (!ids.includes(L.hero)) { if (ids.length >= 5) { ids.sort((a, b) => heroStats(a).power - heroStats(b).power); ids.shift(); } ids.push(L.hero); }
+  return arrangeTeam(ids);
+}
+/* 人数不满 5 个按人数补强：攻击、城防上限、敌人打武将的伤害基准都按 5 ÷ 人数 放大 */
+function legendRule(L, team) {
+  const pk = 5 / Math.max(1, team.filter(Boolean).length), sq = Math.sqrt(pk);
+  // 攻击和出手速度各放大 √pk（只放大攻击，伤害全砸在一个目标上）；武将血量 × pk（弓手、投石车、敌将专打武将的伤害本来分给五个人，单骑时全落在他一个人身上，模拟里几乎都是武将先倒）
+  return { legend: L.id, name: L.name, desc: L.desc, fixed: true, pk, hAtk: sq * (L.hAtk || 1), hSpd: sq, hHp: pk, wall: pk * (L.wallMax || 1), wallStart: L.wallStart || 1,
+    rage: L.rage || 1, eHp: L.eHp, eSpd: L.eSpd, eAtk: L.eAtk, bossHp: L.bossHp, bossCd: L.bossCd };
+}
+function legendPower(L, team) { team = team || legendTeam(L); return Math.round(teamPower(team) * 5 / Math.max(1, team.filter(Boolean).length)); }
+function legendReward() { return { shards: CFG.LEGEND.shards, soul: CFG.LEGEND.soul, tickets: CFG.LEGEND.tickets }; }
+/* 列传结算：不推进关卡；金币只按掉落给一半；拥有这名武将、第一次赢才给首通奖励 */
+function settleLegend(id, win, dropped) {
+  const L = LEGEND_MAP[id], S = Save.data, coins = Math.round(Math.max(0, Number(dropped) || 0) * CFG.LEGEND.coinK);
+  let r = null;
+  if (L && win && legendOpen(L) && !legendDone(L)) {
+    r = legendReward(); (S.legends = S.legends && typeof S.legends === 'object' ? S.legends : {})[L.id] = 1;
+    const own = heroOwn(L.hero), q = Math.min(HERO_MAP[L.hero].q, CFG.SOUL_VALUE.length - 1);
+    if (own.star >= CFG.MAX_STAR) { r.soul += r.shards * CFG.SOUL_VALUE[q]; r.shards = 0; }   // 满星了：碎片按品质折成将魂
+    else own.shards += r.shards;
+    S.soul = (S.soul || 0) + r.soul;
+  }
+  gain(coins, r ? r.tickets : 0);
+  Save.save();
+  return { coins, dropped: coins, tickets: r ? r.tickets : 0, soul: r ? r.soul : 0, shards: r ? r.shards : 0, iron: 0, enc: null, legend: true, legendId: id, first: !!r, again: win && !r };
+}
+/* ---------------- 过关斩将（v2.19）：打进无尽后开放 ---------------- */
+function rushOpen() { return Save.data.stage > CHAPTERS.length * 10; }
+function rushRec() { const S = Save.data; return S.rush && typeof S.rush === 'object' ? S.rush : (S.rush = { best: 0, date: '' }); }
+function rushDayDone() { return !isNewDay(rushRec()); }       // 今天的首局奖励领过了
+/* 纪录从 from 将刷到 to 将：每多斩一将给一份 */
+function rushRecordReward(from, to) {
+  const R = CFG.RUSH, r = { soul: 0, iron: 0, tickets: 0 };
+  for (let k = Math.max(0, from | 0) + 1; k <= Math.min(300, to | 0); k++) { r.soul += R.soul + R.soulK * k; r.iron += Math.max(1, Math.round(stageIron(rushStage(k)) / 2)); r.tickets += R.tickets; }
+  return r;
+}
+/* 结算：kills = 斩了几将。破纪录给纪录奖励；今天第一局按斩将数给将魂；金币按掉落给一半 */
+function settleRush(kills, dropped) {
+  const S = Save.data, Rd = rushRec(), dv = Number(dropped), coins = isFinite(dv) && dv > 0 ? Math.round(dv * CFG.RUSH.coinK) : 0;
+  kills = Math.max(0, Math.min(300, Number(kills) | 0));        // 300 将：实际打不到，只是给乱填的数封个顶
+  let rec = null, day = 0;
+  if (!rushOpen()) return { coins: 0, dropped: 0, tickets: 0, iron: 0, soul: 0, daySoul: 0, enc: null, rush: true, slain: kills, best: Rd.best, record: false, first: false };   // 没开放（正常进不来）：什么也不给
+  if (kills > Rd.best) { rec = rushRecordReward(Rd.best, kills); Rd.best = kills; S.soul = (S.soul || 0) + rec.soul; S.iron = (S.iron || 0) + rec.iron; }
+  if (!rushDayDone()) { day = CFG.RUSH.daySoul * Math.min(kills, CFG.RUSH.dayCap); markDay(Rd); S.soul = (S.soul || 0) + day; }
+  gain(coins, rec ? rec.tickets : 0);
+  Save.save();
+  return { coins, dropped: coins, tickets: rec ? rec.tickets : 0, iron: rec ? rec.iron : 0, soul: (rec ? rec.soul : 0) + day, daySoul: day, enc: null, rush: true, slain: kills, best: Rd.best, record: !!rec, first: !!rec };
+}
+/* 阵营试炼的出战阵容：该阵营里总战力最高的一套（一个都没有返回 null） */
+function trialTeam(t) { if (!t.fac) return null; const team = bestTeam(id => HERO_MAP[id].fac === t.fac); return team && team.some(Boolean) ? team : null; }
+/* 试炼结算：不推进关卡；金币只给掉落的一半；今天第一次赢给精铁、将魂、招募令 */
+function settleTrial(stage, win, dropped) {
+  const S = Save.data, coins = Math.round(dropped * CFG.TRIAL.coinK);
+  let r = null;
+  if (win && !trialDone()) { r = trialReward(stage); markDay(trialRec()); S.iron = (S.iron || 0) + r.iron; S.soul = (S.soul || 0) + r.soul; }
+  gain(coins, r ? r.tickets : 0);
+  Save.save();
+  return { coins, dropped: coins, tickets: r ? r.tickets : 0, iron: r ? r.iron : 0, soul: r ? r.soul : 0, first: !!r, enc: null, trial: true, again: win && !r };
 }
 
 /* ---------------- 武将数值 ---------------- */
@@ -164,7 +301,7 @@ function teamBonus(team) {
     if (ws) { const p = out.per[i]; p.watk = ws.atk || 0; p.wspd = ws.spd || 0; p.wcrit = ws.crit || 0; p.wrage = ws.rage || 0; p.wult = ws.ult || 0; }
     if (r.leader) {
       const own = heroOwn(id), v = Math.min(5, own ? own.star : 0) * 0.03; out.atk += v; out.per[i].rage += 0.2;   // 主帅看星级（养得好），不看品质
-      out.active.push({ type: 'slot', q: Math.max(1, Math.min(5, own ? own.star : 0)), name: '主帅 · ' + d.name, desc: '全军攻击 +' + Math.round(v * 100) + '%，本人怒气获取 +20%' });
+      out.active.push({ type: 'slot', q: Math.max(1, Math.min(5, own ? own.star : 0)), name: '主帅 · ' + d.name, desc: (v ? '全军攻击 +' + Math.round(v * 100) + '%' : '升星后全军攻击每星 +3%') + '，本人怒气获取 +20%' });   // 零星时别写「+0%」，新手会以为主帅位没用
     } else if (r.els.includes(d.el)) {
       if (r.atk) out.per[i].atk += r.atk;
       if (r.spd) out.per[i].spd += r.spd;
@@ -317,6 +454,38 @@ function weaponMelt(wid) {
 
 /* ---------------- 布阵 ---------------- */
 function teamIndex(id) { return Save.data.team.indexOf(id); }
+/* 一键上阵：从面板战力最高的 10 名武将里挑 5 个、排好站位，取总战力（含羁绊、缘分、站位、兵器）最高的那套 */
+function bestTeam(only) {
+  const pool = Object.keys(Save.data.heroes).filter(id => HERO_MAP[id] && (!only || only(id)))
+    .sort((a, b) => heroStats(b).power - heroStats(a).power).slice(0, 10);
+  if (pool.length <= 5) return arrangeTeam(pool);
+  let best = null, bp = -1;
+  const pick = [];
+  (function rec(i) {
+    if (pick.length === 5) { const t = arrangeTeam(pick), p = teamPower(t); if (p > bp) { bp = p; best = t; } return; }
+    if (pool.length - i < 5 - pick.length) return;
+    pick.push(pool[i]); rec(i + 1); pick.pop(); rec(i + 1);
+  })(0);
+  return best;
+}
+/* 排站位：星级最高的当主帅（主帅加成看星级），其余按系别放到有加成的位置，放不下的补空位 */
+function arrangeTeam(ids) {
+  const t = [null, null, null, null, null];
+  const rest = ids.slice().sort((a, b) => (heroOwn(b).star - heroOwn(a).star) || (heroStats(b).power - heroStats(a).power));
+  if (rest.length) t[2] = rest.shift();
+  const left = [];
+  rest.sort((a, b) => heroStats(b).power - heroStats(a).power).forEach(id => {
+    const i = [0, 1, 3, 4].find(k => !t[k] && SLOT_ROLES[k].els.includes(HERO_MAP[id].el));
+    if (i != null) t[i] = id; else left.push(id);
+  });
+  left.forEach(id => { const i = [0, 1, 3, 4].find(k => !t[k]); if (i != null) t[i] = id; });
+  return t;
+}
+/* 阵容里有没有「金币够、等级还低」的武将：前期提示去升级（等级追上关卡数就不再提示） */
+function teamCanLevel() {
+  const S = Save.data;
+  return S.team.some(id => id && S.heroes[id] && S.heroes[id].lv < S.stage && S.coins >= levelCost(id));
+}
 function teamSet(slot, id) {
   const t = Save.data.team, old = t.indexOf(id);
   if (old >= 0) t[old] = null;
@@ -336,8 +505,10 @@ function teamRemove(id) {
 
 /* ---------------- 经济：金币换招募令 ---------------- */
 function buyTickets(n) {
+  n = Math.floor(Number(n));                                   // 只认正整数：传进来字符串 '10' 时 tickets += '10' 会拼成字符串（19 → '1910'）
+  if (!(n >= 1)) return '金币不足';
   const cost = n * CFG.TICKET_PRICE;
-  if (n <= 0 || Save.data.coins < cost) return '金币不足';
+  if (Save.data.coins < cost) return '金币不足';
   Save.data.coins -= cost; Save.data.tickets += n; Save.save();
   return null;
 }
@@ -345,7 +516,7 @@ function buyTickets(n) {
 /* ---------------- 广告（播放见 platform.js 的 AdService） ---------------- */
 function adLeft() {
   const ad = Save.data.ad;
-  if (ad.date !== todayStr()) { ad.date = todayStr(); ad.count = 0; }
+  if (isNewDay(ad)) { markDay(ad); ad.count = 0; }
   return Math.max(0, CFG.AD_DAILY_LIMIT - ad.count);
 }
 function adGrant() {
@@ -359,7 +530,7 @@ function adGrant() {
 /* ---------------- 扫荡：已通关的关卡直接领奖励，每日有次数 ---------------- */
 function sweepDay() {
   const sw = Save.data.sweep;
-  if (sw.date !== todayStr()) { sw.date = todayStr(); sw.count = 0; sw.ad = 0; }
+  if (isNewDay(sw)) { markDay(sw); sw.count = 0; sw.ad = 0; }
   return sw;
 }
 function sweepLeft() { const sw = sweepDay(); return Math.max(0, CFG.SWEEP_DAILY + (sw.ad || 0) - sw.count); }
@@ -437,6 +608,7 @@ function gachaDraw(n) {
 /* ---------------- 关卡结算 ---------------- */
 function settleBattle(stage, win, wavesCleared, dropped, encId) {
   const S = Save.data;
+  encSettle();                                                 // 这一局的奇遇掷骰到这里才算用掉
   const base = Math.round(stageWinCoins(stage) * (stage < S.stage ? CFG.REPLAY_COIN : 1));   // 重复打已通关的关：通关金币打折（掉落照常）
   const coins = dropped + (win ? base : Math.floor(base * 0.3 * wavesCleared / CFG.WAVES));
   let tickets = 0, first = false;
@@ -460,14 +632,24 @@ function rollEncounter(stage) {
   const S = Save.data;
   S.enc = (S.enc && typeof S.enc === 'object') ? S.enc : { n: 0, kills: {} }; S.enc.kills = S.enc.kills || {}; S.enc.seen = S.enc.seen || {};
   S.unlocked = (S.unlocked && typeof S.unlocked === 'object') ? S.unlocked : {};
+  // 上一局掷出来、还没打完（中途退出 / 重新开始）的结果接着用：不然连点「重新开始」就能把奇遇刷出来（2026-11-18 资源审计）
+  const P = S.enc.pending;
+  if (P && typeof P === 'object') { const e = P.id ? ENC_MAP[P.id] : null; return e && stage >= e.from ? e : null; }
   const of = k => ENCOUNTERS.filter(e => e.kind === k && stage >= e.from), beasts = of('beast'), bandits = of('bandit');
   const r = Math.random();
   let kind = beasts.length && r < CFG.ENC.beast ? 'beast' : bandits.length && r < CFG.ENC.beast + CFG.ENC.bandit ? 'bandit' : null;
   if (!kind && bandits.length && S.enc.n >= CFG.ENC.pity) kind = beasts.length && Math.random() < 0.3 ? 'beast' : 'bandit';
-  if (!kind) { S.enc.n++; return null; }
-  S.enc.n = 0;
-  const L = kind === 'beast' ? beasts : bandits, fresh = L.filter(e => e.weapon && !S.unlocked[e.weapon]), list = fresh.length ? fresh : L;
-  return list[Math.floor(Math.random() * list.length)];
+  let out = null;
+  if (kind) { const L = kind === 'beast' ? beasts : bandits, fresh = L.filter(e => e.weapon && !S.unlocked[e.weapon]), list = fresh.length ? fresh : L; out = list[Math.floor(Math.random() * list.length)]; }
+  S.enc.pending = { id: out ? out.id : '' }; Save.save();   // 记进存档：关掉游戏重开也还是这个结果
+  return out;
+}
+/* 一局打完（赢输都算）才结掉这次掷骰：保底计数这时候才加 / 清零。中途退出不算，下一局还用同一个结果 */
+function encSettle() {
+  const S = Save.data, E = S.enc;
+  if (!E || !E.pending) return;
+  if (E.pending.id) E.n = 0; else E.n = (E.n || 0) + 1;
+  delete E.pending;
 }
 /* 击败之后的奖励：山贼首领给赏金；神兽第一次击败解锁兵器，以后再击败给重赏和精铁 */
 function encounterReward(stage, id) {

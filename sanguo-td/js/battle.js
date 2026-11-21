@@ -24,23 +24,30 @@ const Battle = (function () {
   }
 
   /* ---------------- 开局 ---------------- */
-  function start(stage) {
+  function start(stage, trial) {
     S = {
+      trial: trial || null,                                   // 每日试炼：这一局的规则（TRIALS 里的一条）；普通关卡是 null
+      mods: trial || mergeMods(stageAffixes(stage)),          // 这一局的倍率：试炼规则，或者无尽关这一层的难度词缀（主线关卡是 null）
       stage, ch: chapterOf(stage), boss: stageBoss(stage), heroHit: 100, fallen: {}, wallBurn: { t: 0, dps: 0, tick: 0 }, wave: 0, waveT: 0, waveDur: 0, spawned: 0, waveSize: 1,
       queue: [], enemies: [], live: [], heroes: [], shots: [], zones: [], parts: [], texts: [], bolts: [], drops: [], rings: [], timers: [], slashes: [], fx: [], ghosts: [], decals: [],
       cut: null, lastCut: -99, shock: null, dim: null,
+      teles: [], bcut: null, lastBcut: -99, intro: null, vig: null,   // v2.19 敌将演出：放招前的地面预警、大招横幅、登场名牌、重击后屏幕四周泛一圈招式色
       t: 0, coins: 0, kills: 0,
       buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 }, guard: { t: 0, k: 1 }, combo: 0, comboT: 0, comboPop: 0, comboMax: 0,
       picks: [], dmgLog: {}, teamVer: 0,                     // 已选的军令（换将后要重新算一遍）、下场武将的伤害记录、阵容版本号（界面据此重建大招按钮）
       rock: { n: CFG.ROCK_MAX, max: CFG.ROCK_MAX, t: 0, dmg: 1 }, aim: null, aimT: 0,
       over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, wallHitX: W / 2, wallLag: 0, wallAcc: 0, wallAccX: 0, wallAccT: 0, wallFxT: 0, hurt: 0, alarm: false, healK: 1, banner: null, flash: null,
     };
+    S.rush = trial && trial.rush ? { day: dayNo(), k: 0 } : null;   // 过关斩将：今天的出场顺序、打到第几将
+    S.weather = !trial && S.ch.endless ? stageWeather(stage) : null;   // 天气：无尽每层固定；过关斩将每将一换（rushWave 里定）
+    S.boltT = 3;
     setupTeam(true);
-    const ed = rollEncounter(stage);                           // 奇遇：这一局会不会碰上山贼首领 / 神兽，在第 3～7 波里出现
+    const ed = S.trial ? null : rollEncounter(stage);          // 奇遇：这一局会不会碰上山贼首领 / 神兽，在第 3～7 波里出现（试炼里不出）
     S.enc = ed ? { def: ed, wave: 3 + Math.floor(rand() * 5), killed: false } : null;
-    S.heroHit = heroHitBase(stage, S.heroes.reduce((a, h) => a + h.maxHp, 0) / Math.max(1, S.heroes.length), teamPower());   // 敌人打武将的伤害基准：开局定下来，中途换人不变
+    calcHit();   // 伤害基准按补强前的血量算，不然加的血量被伤害抵掉   // pk：名将列传人数不满 5 个时的补强   // 敌人打武将的伤害基准：开局定下来，中途换人不变
     nextWave();
   }
+  function calcHit() { S.heroHit = heroHitBase(S.stage, S.heroes.reduce((a, h) => a + h.maxHp, 0) / Math.max(1, S.heroes.length) / (S.mods && S.mods.hHp || 1), teamPower() * (S.mods && S.mods.pk || 1)); }
   /* 按存档里的阵容建队：开局调一次；局中换将时再调，留在场上的武将保留怒气、出手计时和伤害，新上场的从 0 怒气开始 */
   function setupTeam(first) {
     const prev = {};
@@ -50,6 +57,7 @@ const Battle = (function () {
     S.buffs = { atk: 1 + bonus.atk, spd: 1 + bonus.spd, crit: bonus.crit, rage: 1 + bonus.rage, ult: 1 + bonus.ult, coin: 1, boss: 1, el: {} };
     for (const k in bonus.el) S.buffs.el[k] = 1 + bonus.el[k];
     S.buffs.atk *= techMul('atk'); S.buffs.ult *= techMul('ult'); S.wallBonus += techMul('wall') - 1;   // 城池科技
+    if (S.mods) { S.buffs.atk *= S.mods.hAtk || 1; S.buffs.rage *= S.mods.rage || 1; S.buffs.spd *= S.mods.hSpd || 1; }   // 试炼规则 / 无尽词缀
     S.heroes = [];
     Save.data.team.forEach((id, i) => {
       if (!id) return;
@@ -61,7 +69,7 @@ const Battle = (function () {
         crit: m.crit + p.wcrit, critDmg: m.critDmg, rageMul: 1 + m.rage + p.rage + p.wrage, ultMul: 1 + p.wult,
         m: { w: 1 + m.w, r: 1 + m.r, chain: m.chain, life: 1 + m.life, push: 1 + m.push, tspd: 1 + m.tspd, burn: 1 + m.burn, dotCrit: !!m.dotCrit },
         x: SLOTS[i][0], y: SLOTS[i][1], t: first ? 0.4 + rand() * 0.6 : CFG.SWAP_DELAY, rage: 0, anim: 0, n: 0, dmg: S.dmgLog[id] || 0, hasteT: 0, hasteMul: 1, bigT: 0,
-        maxHp: st.hp, hp: 0, dead: false, stunT: 0, psnT: 0, psnDps: 0, psnTick: 0, hurtT: 0, immuneT: 0, boostT: 0, boostK: 1,
+        maxHp: st.hp * (S.mods && S.mods.hHp || 1), hp: 0,   /* hHp：名将列传人数少时武将血量也补强（专打武将的伤害本来分给五个人） */ dead: false, stunT: 0, psnT: 0, psnDps: 0, psnTick: 0, hurtT: 0, immuneT: 0, boostT: 0, boostK: 1,
       };
       h.hp = h.maxHp;
       if (old) { h.rage = old.rage; h.n = old.n; h.t = old.t; h.hasteT = old.hasteT; h.hasteMul = old.hasteMul; h.bigT = old.bigT; h.anim = old.anim; h.hp = Math.min(h.maxHp, old.hp); h.dead = old.dead; h.stunT = old.stunT; h.psnT = old.psnT; h.psnDps = old.psnDps; h.immuneT = old.immuneT || 0; if (old.boostT > 0) { h.boostT = old.boostT; h.boostK = old.boostK; h.atk *= old.boostK; } }   // 留在场上的人血量、状态都带着
@@ -72,10 +80,11 @@ const Battle = (function () {
     S.heroes.forEach(h => { if (h.sk && h.sk.passive.aura) h.sk.passive.aura({ S, self: h, heroes: S.heroes, has }); });
     for (const b of S.picks) b.apply(S.buffs, S);           // 已选的军令（加成类）重新生效
     const oldMax = S.wallMax;
-    S.wallMax = Math.round((400 + basePower()) * (1 + S.wallBonus));
+    const wf = S.mods && S.mods.wall || 1;                   // 试炼规则 / 无尽词缀的城防倍率：>1 是上限变高（铁甲连营）；<1 是开局就残了（孤城死守、残垣），上限不变
+    S.wallMax = Math.round((400 + basePower()) * (1 + S.wallBonus) * (wf > 1 ? wf : 1));
     const bs = bonus.active.find(a => a.skill && BOND_SKILLS[a.skill]), bd = bs ? BOND_SKILLS[bs.skill] : null;   // 彩色缘分：礌石换成合击大招（凑齐了几组就用排在前面的那组）
     S.bond = bd ? { id: bs.skill, def: bd, bond: bs.name, cd: bd.cd, t: S.bond && S.bond.id === bs.skill ? S.bond.t : bd.cd * 0.5 } : null;
-    S.wall = first || !oldMax ? S.wallMax : Math.max(1, Math.round(S.wallMax * S.wall / oldMax));   // 换将后城防按原来的比例折算
+    S.wall = first || !oldMax ? Math.round(S.wallMax * (wf < 1 ? wf : 1) * (S.mods && S.mods.wallStart || 1)) : Math.max(1, Math.round(S.wallMax * S.wall / oldMax));   // 开局：城防残了的规则从残血开始（以前是把上限砍掉、血条却是满的，玩家以为没生效）；换将后按原来的比例折算
     S.wallLag = S.wall;
     S.aim = null; S.teamVer++;
   }
@@ -85,14 +94,20 @@ const Battle = (function () {
     const onField = S.heroes.map(h => h.def.id);
     if (team.some(id => id && S.fallen[id] && !onField.includes(id))) return false;      // 阵亡后换下去的人这一关不能再上
     if (!team.some(id => id && !S.fallen[id])) return false;                              // 至少要有一个还能打的
+    if (S.trial && S.trial.fac && team.some(id => id && HERO_MAP[id].fac !== S.trial.fac)) return false;   // 阵营试炼：只能换同阵营的人
+    if (S.trial && S.trial.fixed) return false;                                           // 名将列传：阵容固定，不能换人
     Save.data.team = team.slice(0, 5); Save.save();
     setupTeam(false);
     Sfx.play('up');
     return true;
   }
-  function stop() { S = null; }
+  function stop() {
+    S = null;
+    if (Save.data.trialBak) { Save.data.team = Save.data.trialBak; delete Save.data.trialBak; Save.save(); }   // 阵营试炼中途退出：也换回原阵容
+  }
 
   function nextWave() {
+    if (S.rush) return rushWave();
     S.wave++;
     const w = genWave(S.stage, S.wave);
     if (S.enc && S.wave === S.enc.wave) { w.list.push({ t: Math.min(3, w.dur * 0.4), type: 'rare', x: 270 }); w.list.sort((a, b) => a.t - b.t); }
@@ -100,20 +115,42 @@ const Battle = (function () {
     const ne = S.wave === 1 ? newEnemyAt(S.stage) : null;
     S.banner = ne ? { text: '新敌人 · ' + ne.name, sub: ne.tip, t: 4, max: 4 } : { text: S.wave === CFG.WAVES ? '最终波 · ' + S.ch.boss + '来袭' : '第 ' + S.wave + ' 波', sub: S.wave === CFG.WAVES ? (S.boss.res ? '【' + resText(S.boss.res) + '】' : '') + S.boss.skills.map(k => k.name + '：' + k.desc).join('；') : '', t: S.wave === CFG.WAVES ? 3.2 : 1.8, max: S.wave === CFG.WAVES ? 3.2 : 1.8 };
     if (S.enc && S.wave === S.enc.wave) { const e = S.enc.def; S.banner = { text: '奇遇 · ' + e.name, t: 4, max: 4 }; Sfx.play('enc'); }
+    if (S.trial && S.wave === 1) S.banner = { text: (S.trial.legend ? '名将列传 · ' : '每日试炼 · ') + S.trial.name, sub: S.trial.desc, t: 3.5, max: 3.5 };
+    else if (!S.trial && S.ch.endless && S.wave === 1) { const af = stageAffixes(S.stage), wt = S.weather && S.weather.id !== 'clear' ? S.weather : null; if (af.length || wt) S.banner = { text: '无尽第 ' + S.ch.endless + ' 层 · ' + af.map(a => a.name).concat(wt ? [wt.name] : []).join(' · '), sub: af.map(a => a.desc).concat(wt ? ['天气' + wt.name + '：' + wt.desc] : []).join('；'), t: 3.8, max: 3.8 }; }
     Sfx.play(S.wave === CFG.WAVES ? 'horn' : 'wave');
     if (S.wave === CFG.WAVES) Sfx.music('boss');             // 最后一波：音乐换成更急的一段
   }
+  /* 过关斩将：每一波只来一个敌将。第 k 将按第 rushStage(k) 关的强度，换天气、加词缀，武将不回血 */
+  function rushWave() {
+    const k = ++S.wave, R = S.rush; R.k = k;
+    S.stage = rushStage(k); S.boss = rushBoss(R.day, k);
+    S.ch = Object.assign({}, chapterOf(S.stage), { title: '过关斩将 · 第 ' + k + ' 将', boss: S.boss.name });
+    const af = rushAffixes(R.day, k); R.af = af;
+    S.mods = Object.assign({ rush: true }, mergeMods(af) || {});
+    const wPrev = S.weather; S.weather = rushWeather(R.day, k);
+    calcHit();                                                  // 敌将越往后越强：打武将的伤害基准跟着这一将的关卡算
+    S.queue = [{ t: 1.6, type: 'boss', x: 270 }]; S.waveDur = 1.6; S.waveT = 0; S.spawned = 0; S.waveSize = 1;
+    const sub = [];
+    if (S.weather.id !== 'clear' || (wPrev && wPrev.id !== 'clear')) sub.push('天气' + S.weather.name + (S.weather.id !== 'clear' ? '：' + S.weather.desc : ''));
+    if (af.length) sub.push(af.map(a => a.name + '：' + a.desc).join('，'));
+    if (S.boss.res) sub.push(resText(S.boss.res));
+    S.banner = { text: '第 ' + k + ' 将 · ' + S.boss.name, sub: sub.join('；'), t: 3.2, max: 3.2 };
+    if (wPrev !== S.weather) S.wxT = 1.2;                       // 换天气：画面过渡一下
+    Sfx.play('horn');
+    if (k === 1) Sfx.music('boss');
+  }
   /* q: { type, x }；召出来的援兵另外带 y（出现的位置）、hpK（血量打几折）、haste（狂奔几秒） */
   function spawn(q) {
-    const d = ENEMIES[q.type], isBoss = d.id === 'boss', hk = d.horde ? 1 / CFG.HORDE : 1, hp = Math.round(d.hp * stageHpMul(S.stage, S.wave) * (q.hpK || 1) * hk * (isBoss ? S.boss.hpK : 1));   // 小兵：人多、单个脆
+    const T = S.mods || {};                                      // 试炼规则 / 无尽词缀：敌军血量、攻击、移速，敌将血量、技能冷却
+    const d = ENEMIES[q.type], isBoss = d.id === 'boss', hk = d.horde ? 1 / CFG.HORDE : 1, hp = Math.round(d.hp * stageHpMul(S.stage, S.rush ? CFG.WAVES : S.wave) * (q.hpK || 1) * hk * (isBoss ? S.boss.hpK * (T.bossHp || 1) * (S.rush ? CFG.RUSH.hpK : 1) : 1) * (T.eHp || 1));   // 过关斩将：按那一关最后一波的强度，敌将血量再乘 hpK   // 小兵：人多、单个脆
     if (q.y == null) S.spawned++;
     S.enemies.push({
       def: d, name: isBoss ? S.boss.name : d.name, x: q.x, y: q.y == null ? -d.r - rand() * 16 : q.y,
-      demon: isBoss && !!S.boss.hero,                        // 心魔：也是武将的敌将，画成黑紫色的影子
+      demon: isBoss && !!S.boss.hero, bust: isBoss && !!S.boss.head && !Assets.get(S.boss.sprite), title: isBoss ? S.boss.title || '' : '',   // bust：用半身像当立绘的心魔（脚下垫魔焰）                        // 心魔：也是武将的敌将，画成黑紫色的影子
       look: isBoss && S.boss.look ? Object.assign({}, d, S.boss.look) : null,   // 没有立绘的敌将：代码画的小人换一套配色
-      sk: isBoss ? S.boss.skills.map(k => ({ k, t: k.cd * 0.6 })) : null, guardT: 0, guardK: 1, regenUsed: false, rare: null, aura: '',
+      sk: isBoss ? S.boss.skills.map(k => ({ k, t: k.cd * 0.6 * (T.bossCd || 1) })) : null, cdK: isBoss ? T.bossCd || 1 : 1, guardT: 0, guardK: 1, regenUsed: false, rare: null, aura: '',
       hasteT: q.haste || 0, auraT: 0, shieldT: 0, ccImm: 0, chargeT: 0, supT: 1 + rand(), heroT: 1.5 + rand() * 2, enraged: false, revived: false,
-      hp, max: hp, atk: d.atk * stageAtkMul(S.stage) * hk, spd: d.spd * (0.9 + rand() * 0.2),
+      hp, max: hp, atk: d.atk * stageAtkMul(S.stage) * hk * (T.eAtk || 1), spd: d.spd * (0.9 + rand() * 0.2) * (T.eSpd || 1) * (S.weather && S.weather.eSpd || 1),
       stopY: WY - 15 - d.r - rand() * 12 - (d.range ? d.range * (0.6 + rand() * 0.4) : 0),
       acd: 0.3 + rand() * 0.7, flash: 0, frozen: 0, slow: 0, burn: 0, burnT: 0, burnDps: 0, burnSrc: null,
       psn: 0, psnT: 0, psnDps: 0, psnSrc: null, psnMark: 0, vuln: 0, vulnT: 0, fear: 0, conf: 0, confT: 0, confSrc: null, mark: 0,
@@ -139,14 +176,14 @@ const Battle = (function () {
   }
   /* 敌人造型：第 1 章黄巾兵，之后换官军造型；敌将每章不同 */
   function enemySprite(id) {
-    if (id === 'boss') return S.boss.myth && Assets.get('enemies/' + S.boss.myth) ? 'enemies/' + S.boss.myth : S.boss.sprite;   // 神魔：有正面的敌将图就用，没有先用武将立绘
+    if (id === 'boss') return S.boss.myth && Assets.get('enemies/' + S.boss.myth) ? 'enemies/' + S.boss.myth : S.boss.head && !Assets.get(S.boss.sprite) ? S.boss.head : S.boss.sprite;   // 心魔的正面图还没画：先用半身像   // 神魔：有正面的敌将图就用，没有先用武将立绘
     if (id === 'rare') return null;                             // 奇遇的立绘在 spawn 里按是哪一只来定
     if (S.ch.index > 1 && Assets.get('enemy:' + id + '_2')) return 'enemy:' + id + '_2';
     return null;
   }
   function afterWave() {
-    heroHeal(CFG.HERO_WAVE_HEAL);                              // 打完一波，活着的武将喘口气
-    if (S.wave % CFG.BUFF_EVERY === 0 && S.wave < CFG.WAVES) {
+    if (!S.rush) heroHeal(CFG.HERO_WAVE_HEAL);                 // 打完一波，活着的武将喘口气（过关斩将不回血：要回血自己带会回血的武将）
+    if (S.rush ? S.wave % CFG.RUSH.buffEvery === 0 : S.wave % CFG.BUFF_EVERY === 0 && S.wave < CFG.WAVES) {
       S.choosing = true; S.aim = null;
       const pool = BUFFS.filter(b => !b.el || S.heroes.some(h => h.def.el === b.el)), opts = [];
       while (opts.length < 3 && pool.length) opts.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
@@ -155,7 +192,7 @@ const Battle = (function () {
   }
   /* 城池失守时看广告复活（每局一次）：只修城，倒下的武将不回来。没有广告可看、已经用过、或者人全倒了，就直接算输 */
   function offerRevive() {
-    if (S.revived || S.over || typeof AdService === 'undefined' || !AdService.available() || typeof UI === 'undefined' || !UI.showRevive || !livingHeroes().length) return false;
+    if (S.rush || S.revived || S.over || typeof AdService === 'undefined' || !AdService.available() || typeof UI === 'undefined' || !UI.showRevive || !livingHeroes().length) return false;
     const ref = S;
     S.choosing = true; S.aim = null;                       // 和选军令一样：停在这一刻等玩家决定
     UI.showRevive(ok => { if (S !== ref || S.over) return; S.choosing = false; if (ok) revive(); else finish(false); });
@@ -175,8 +212,11 @@ const Battle = (function () {
     if (S.over) return;
     S.over = true; S.win = win; S.aim = null;
     Sfx.music(null); Sfx.play(win ? 'win' : 'lose');
-    S.banner = { text: win ? '大获全胜' : S.wiped ? '全军覆没' : '城池失守', t: 99, max: 99 };
-    const res = settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins), S.enc && S.enc.killed ? S.enc.def.id : null);
+    S.banner = { text: win ? '大获全胜' : S.wiped ? '全军覆没' : '城池失守', sub: S.rush ? '过关斩将 · 斩将 ' + (S.wave - 1) : '', t: 99, max: 99 };
+    const res = S.rush ? settleRush(S.wave - 1, Math.round(S.coins)) : S.trial && S.trial.legend ? settleLegend(S.trial.legend, win, Math.round(S.coins)) : S.trial ? settleTrial(S.stage, win, Math.round(S.coins))
+      : settleBattle(S.stage, win, win ? CFG.WAVES : S.wave - 1, Math.round(S.coins), S.enc && S.enc.killed ? S.enc.def.id : null);
+    if (Save.data.trialBak) { Save.data.team = Save.data.trialBak; delete Save.data.trialBak; Save.save(); }   // 阵营试炼打完：换回原来的阵容
+    res.trialDef = S.trial;
     res.win = win; res.kills = S.kills; res.stage = S.stage; res.wave = S.wave; res.combo = S.comboMax; res.wiped = !!S.wiped; res.fallen = Object.keys(S.fallen);
     res.dmg = damageList(); res.myth = S.mythNew || null;
     const ref = S;
@@ -191,9 +231,29 @@ const Battle = (function () {
   }
 
   /* ---------------- 特效小工具 ---------------- */
-  function part(x, y, vx, vy, life, color, size, g) {
+  /* kind（v2.18，只影响高清画面怎么画）：ember 火星（往上飘、忽明忽暗）、shard 冰碴（硬的小碎片）、arc 电火花（一闪一折）、
+   * bubble 毒泡（慢慢往上冒、越来越大）、wisp 风丝（边走边打旋）；不写 = 原来的光点 / 火花 / 烟 */
+  function part(x, y, vx, vy, life, color, size, g, kind) {
     if (S.parts.length > 700) return;
-    S.parts.push({ x, y, vx, vy, life, max: life, color, size, g: g || 0 });
+    S.parts.push({ x, y, vx, vy, life, max: life, color, size, g: g || 0, kind: kind || '', seed: rand() * 100 });
+  }
+  /* 命中、击杀时按攻击类型迸出的粒子（n 个）。刃、弓是亮白色的火花 */
+  function elemFx(x, y, el, n) {
+    if (S.parts.length > 520) return;
+    for (let i = 0; i < n; i++) {
+      const a = rand() * TAU, r = rand();
+      if (el === 'fire') part(x + (r - 0.5) * 16, y, (rand() - 0.5) * 70, -60 - rand() * 110, 0.55 + rand() * 0.4, rand() < 0.3 ? '#ffe08a' : '#ff9a3a', 1.6 + rand() * 1.2, -60, 'ember');
+      else if (el === 'ice') part(x, y, Math.cos(a) * (140 + r * 140), Math.sin(a) * (140 + r * 140) - 60, 0.35 + rand() * 0.2, rand() < 0.5 ? '#f0faff' : '#a8dcff', 1.8 + rand(), 520, 'shard');
+      else if (el === 'thunder') part(x + (r - 0.5) * 20, y + (rand() - 0.5) * 20, Math.cos(a) * 60, Math.sin(a) * 60, 0.12 + rand() * 0.1, '#e8dcff', 1.6 + rand(), 0, 'arc');
+      else if (el === 'poison') part(x + (r - 0.5) * 22, y + rand() * 6, (rand() - 0.5) * 24, -28 - rand() * 36, 0.6 + rand() * 0.4, rand() < 0.5 ? '#b6f06a' : '#7ad04a', 2 + rand() * 1.6, -10, 'bubble');
+      else if (el === 'wind') part(x, y, Math.cos(a) * 150, Math.sin(a) * 150 - 40, 0.4 + rand() * 0.2, '#d2fff2', 1.5 + rand() * 0.6, 0, 'wisp');
+      else part(x, y, Math.cos(a) * (180 + r * 160), Math.sin(a) * (180 + r * 160) - 40, 0.22 + rand() * 0.12, rand() < 0.4 ? '#ffffff' : '#ffe6b0', 1.5 + rand() * 0.8, 380);
+    }
+  }
+  /* 顿帧（v2.18）：重击、敌将倒下的一瞬间画面停一下，只影响画面（frame 里把时间放慢），不带画面的模拟不走这里 */
+  function hitStop(t) {
+    if (S.t - (S.stopAt == null ? -9 : S.stopAt) < 0.3) return;   // 太密会一顿一顿的
+    S.stopAt = S.t; S.stopT = Math.max(S.stopT || 0, t);
   }
   function burst(x, y, n, color, spd, size, life, g) {
     for (let i = 0; i < n; i++) { const a = rand() * TAU, v = spd * (0.3 + rand() * 0.7); part(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.6 + rand() * 0.4), color, size * (0.6 + rand() * 0.6), g); }
@@ -211,8 +271,9 @@ const Battle = (function () {
   function dmgText(e, dmg, color, crit, dot) {
     const top = Math.max(96, e.y - e.def.r * (e.ds || 1) * 1.9 - 6);
     if (!crit && e.y < RANGE_Y + 6) return;                     // 还没走进战场的（挤在画面最上面）不跳普通数字，免得糊在血条底下
+    const share = dmg / Math.max(1, e.max);                     // 这一下打掉了几成血：越多数字越大、颜色越热
     if (crit) {
-      S.texts.push({ x: e.x + (rand() - 0.5) * 20, y: top - 8, val: dmg, str: String(dmg), color, size: 27, life: 0.95, max: 0.95, vx: (rand() - 0.5) * 70, pop: 1.5, num: true, crit: true });
+      S.texts.push({ x: e.x + (rand() - 0.5) * 20, y: top - 8, val: dmg, str: String(dmg), color: share >= 0.5 ? '#ff7a3a' : color, size: 27 + Math.min(9, share * 18), life: 0.95, max: 0.95, vx: (rand() - 0.5) * 70, vy: -170, pop: 1.5, num: true, crit: true, big: share >= 0.3 });
       return;
     }
     const key = dot ? 'dtxt' : 'txt', t = e[key];
@@ -221,7 +282,7 @@ const Battle = (function () {
       return;
     }
     if (S.texts.length > 90) return;
-    const n = { x: e.x + (rand() - 0.5) * 14 + (dot ? 14 : 0), y: top - rand() * 6 + (dot ? 10 : 0), val: dmg, str: String(dmg), color, size: dot ? 11 : 17, life: dot ? 0.6 : 0.85, max: dot ? 0.6 : 0.85, dot, vx: (rand() - 0.5) * 28, pop: 1, num: true };
+    const n = { x: e.x + (rand() - 0.5) * 14 + (dot ? 14 : 0), y: top - rand() * 6 + (dot ? 10 : 0), val: dmg, str: String(dmg), color, size: dot ? 11 : 17 + (share >= 0.3 ? 4 : 0), life: dot ? 0.6 : 0.85, max: dot ? 0.6 : 0.85, dot, vx: (rand() - 0.5) * 28, pop: 1, num: true, big: !dot && share >= 0.3 };
     S.texts.push(n); e[key] = n;
   }
   function later(t, fn) { const ref = S; S.timers.push({ t, fn: () => { if (S === ref && !S.over) fn(); } }); }
@@ -287,6 +348,7 @@ const Battle = (function () {
     o = o || {};
     let m = 1 + (e.vuln || 0) + ((e.psn > 0 || e.psnMark > 0) ? S.psnVuln : 0);
     m *= S.buffs.el[el] || 1;
+    if (S.weather && S.weather.el[el]) m *= S.weather.el[el];       // 天气：雨天火弱、雷强……
     if (el === 'fire' && S.windT > 0) m *= 1.1;                    // 诸葛亮的东风助火势（v2.14：1.2 → 1.1，和火系武将、孙权叠起来太狠）
     if (isBig(e)) m *= S.buffs.boss;
     if (e.def.res && e.def.res[el]) m *= e.def.res[el];          // 藤甲、重甲：有的系打折，有的系加倍
@@ -310,6 +372,8 @@ const Battle = (function () {
     if (crit && !o.dot) Sfx.play('crit');
     if (crit && !o.dot && S.fx.length < 120) { tex('burst', e.x, e.y - e.def.r * 0.6, { w: 44 + e.def.r, life: 0.24, grow: 1.35, rgb: '255,225,140', rot: rand() * TAU }); burst(e.x, e.y - e.def.r * 0.6, 4, '#ffe9a8', 230, 2.2, 0.28, 300); }
     else if (!o.dot && S.fx.length < 70) tex('burst', e.x, e.y - e.def.r * 0.5, { w: 20 + e.def.r * 0.7, life: 0.13, grow: 1.25, a: 0.75, rgb: hexRgb(elColor(el)), rot: rand() * TAU });   // 命中小闪光
+    if (!o.dot && (!o.basic || rand() < 0.3)) elemFx(e.x, e.y - e.def.r * 0.6, el, crit ? 5 : o.basic ? 1 : 3);   // 按攻击类型迸粒子（普攻只偶尔迸一点，太密会糊）
+    if (crit && !o.dot && src && isBig(e)) hitStop(0.045);       // 暴击打中敌将、精英：顿一下
     dmgText(e, dmg, crit ? '#ffdf4a' : elColor(el), crit && !o.dot, !!o.dot);
     if (o.basic && src && src.sk && src.sk.passive.onHit && e.hp > 0) src.sk.passive.onHit(B, src, e);
     if (e.hp <= 0) kill(e, src, el);
@@ -333,14 +397,12 @@ const Battle = (function () {
     }
     burst(e.x, e.y, e.def.id === 'boss' ? 40 : 4, e.def.body, 120, 4, 0.5);
     if (S.parts.length < 400) burst(e.x, e.y - 4, 3, '#ffe2a0', 170, 2, 0.3, 320);
-    if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, look: e.look, flip: e.flip, x: e.x, y: e.y, life: 0.5, max: 0.5, el: el || '', dir: rand() < 0.5 ? -1 : 1 });   // el：按是被什么打死的，倒下的样子不同
+    if (S.ghosts.length < 40) S.ghosts.push({ def: e.def, spr: e.spr, look: e.look, bust: e.bust, flip: e.flip, x: e.x, y: e.y, life: 0.5, max: 0.5, el: el || '', dir: rand() < 0.5 ? -1 : 1 });   // el：按是被什么打死的，倒下的样子不同
     if (S.parts.length < 360) {
-      if (el === 'ice') burst(e.x, e.y - 8, 6, '#d8f2ff', 210, 2.6, 0.45, 520);                    // 冻碎：冰碴四溅
-      else if (el === 'fire') { burst(e.x, e.y - 8, 5, '#ffa040', 120, 2, 0.5, -160); part(e.x, e.y - 10, 0, -30, 0.7, '#3a2e27', 6); }   // 烧成灰：火星往上飘，一缕黑烟
-      else if (el === 'poison') burst(e.x, e.y - 4, 5, '#9be84f', 90, 2.6, 0.5, 200);
-      else if (el === 'thunder') burst(e.x, e.y - 10, 5, '#d8c4ff', 260, 1.6, 0.25);
-      else if (el === 'wind') burst(e.x, e.y - 8, 5, '#b8ffe8', 200, 2, 0.4, -120);
+      elemFx(e.x, e.y - 8, el, isBig(e) ? 10 : 5);                // 冻碎冰碴四溅、烧成火星往上飘、毒泡、电火花、风丝
+      if (el === 'fire') part(e.x, e.y - 10, 0, -30, 0.7, '#3a2e27', 6);   // 一缕黑烟
     }
+    if (isBig(e) || e.def.siege || e.rare) hitStop(e.def.id === 'boss' ? 0.13 : 0.06);   // 敌将、精英、攻城器械倒下：顿一下（敌将之后还有慢镜头）
     if ((e.def.id === 'boss' || e.rare) && !S.over) { S.slowT = 1.0; S.slowAt = { x: e.x, y: e.y }; }          // 敌将倒下：慢动作
     if (e.rare && S.enc) {                                    // 奇遇里的那一只被击败了
       S.enc.killed = true;
@@ -351,7 +413,8 @@ const Battle = (function () {
     }
     if (e.def.id === 'boss') { ring(e.x, e.y, 10, 140, 0.5, '#ffd24a', 5); S.shake = 0.4; tex('pillar', e.x, e.y + 20, { w: 150, h: 520, ay: 1, life: 1.2, fadeIn: 0.1, force: true }); tex('burst', e.x, e.y - 20, { w: 260, life: 0.6, grow: 1.4, force: true }); shockwave(e.x, e.y, 420, 1.6); }
     if (e.def.id === 'boss') Sfx.play('bossdie');
-    if (e.def.id === 'boss' && S.boss.myth && !(Save.data.unlocked || {})[S.boss.myth]) {   // 第一次击败神魔：解锁，进卡池
+    if (e.def.id === 'boss' && S.rush) later(0.7, () => { for (const o of S.enemies) if (!o.dead) { text(o.x, o.y - 30, '溃逃', '#e8dcc0', 14, 0.8); o.dead = true; burst(o.x, o.y, 4, o.def.body, 120, 4, 0.5); } });   // 过关斩将：敌将倒了，他叫来的兵一哄而散（不算击杀、不掉东西）
+    if (e.def.id === 'boss' && S.boss.myth && !S.rush && !(Save.data.unlocked || {})[S.boss.myth]) {   // 过关斩将里打掉神魔不解锁（还是要在无尽里打）   // 第一次击败神魔：解锁，进卡池
       (Save.data.unlocked = Save.data.unlocked || {})[S.boss.myth] = 1; S.mythNew = S.boss.myth; Save.save();
       text(W / 2, 292, e.name + ' 加入卡池', '#ffe9a8', 24, 2.6, true);
     }
@@ -439,7 +502,41 @@ const Battle = (function () {
     S.rings.push({ x: e.x, y: e.y - 16, r0: 130, r1: 24, life: WINDUP - 0.05, max: WINDUP - 0.05, color: c, w: 4, fill: false });   // 往里收的一圈
     for (let i = 0; i < 16; i++) { const a = rand() * TAU, r = 80 + rand() * 60, x = Math.cos(a) * r, y = Math.sin(a) * r * 0.7; part(e.x + x, e.y - 20 + y, -x / 0.5, -y / 0.5, 0.48, c, 4 + rand() * 2); }
     Sfx.play('boss_wind');
+    tele(e, k, rgb);
   }
+  /* 放招前在地上亮出要打的地方（v2.19）。打人的招式在这时就选好目标，放出来打的就是瞄准线指着的人 */
+  const HERO_Y = CFG.SLOTS.reduce((a, s) => a + s[1], 0) / CFG.SLOTS.length;
+  function tele(e, k, rgb) {
+    const T = WINDUP + 0.05, add = z => S.teles.push(Object.assign({ t: T, max: T, rgb }, z));
+    e.tgt = null;
+    switch (k.k) {
+      case 'rain': case 'poison': add({ k: 'area', x: W / 2, y: HERO_Y + 6, w: W - 50, h: 120 }); break;
+      case 'burnwall': add({ k: 'area', x: W / 2, y: WY + 2, w: W - 70, h: 36, rgb: '255,120,50' }); break;
+      case 'wallhit': add({ k: 'wall', x: e.x }); break;
+      case 'charge': add({ k: 'lane', e }); break;
+      case 'summon': for (let i = 0; i < k.n; i++) add({ k: 'spot', x: Math.max(60, Math.min(W - 60, e.x + (i - (k.n - 1) / 2) * 46)), y: e.y - 14 }); break;
+      case 'shoot': case 'smash': case 'bind': {
+        const list = pickHeroes(k.k === 'smash' ? 1 : k.n, k.low);
+        e.tgt = { k, list };
+        list.forEach(h => add({ k: 'aim', e, h }));
+        break;
+      }
+    }
+  }
+  /* 这一招打谁：蓄力时瞄好的（人还活着就打他），没瞄过的现选 */
+  function castTargets(e, k, n) {
+    const t = e.tgt && e.tgt.k === k ? e.tgt.list.filter(h => !h.dead) : null; e.tgt = null;
+    return t && t.length ? t : pickHeroes(n, k.low);
+  }
+  /* 敌将的大招：屏幕上横过一条带立绘的招式名（同一局里隔 5 秒以上才出一次，免得刷屏） */
+  const BIG_CAST = { wallhit: 1, rain: 1, haste: 1, burnwall: 1, poison: 1 };
+  function bossCut(e, k, rgb) {
+    if (!BIG_CAST[k.k] && !(k.k === 'bind' && k.n >= 3) || S.t - S.lastBcut < 5 || S.cut) return;
+    S.lastBcut = S.t;
+    S.bcut = { name: k.name, who: e.name, rgb, e, t: 0, dur: 1.05 };
+    S.dim = { t: 0.45, max: 0.45 };
+  }
+  function impact(rgb, a, stop) { S.vig = { rgb, a, t: 0.55, max: 0.55 }; if (stop) hitStop(stop); }   // 重击打中：屏幕四周泛一圈招式的颜色，顿一下
   function bossPz(e, dt) {
     const z = e.pz || (e.pz = { dy: 0, rot: 0, sc: 1, glow: 0, rgb: '255,120,80' });
     let dy = 0, rot = 0, sc = e.enraged ? 1.08 : 1, gl = 0, w = 9, wk = null;
@@ -526,10 +623,11 @@ const Battle = (function () {
   function bossCast(e, k) {
     const rgb = castRgb(e, k), c = 'rgb(' + rgb + ')';
     if (S.block > 0) {                                           // 辛宪英「料事如神」：这一招被识破，放不出来
-      S.block--; text(e.x, e.y - e.def.r * 2.6 - 34, k.name + ' 被识破', '#9fe8ff', 22, 1.4, true); ring(e.x, e.y, 20, 120, 0.4, '#9fe8ff', 5); tex('burst', e.x, e.y - 24, { w: 130, life: 0.25, grow: 1.4, rgb: '160,230,255', force: true }); Sfx.play('block');
+      S.block--; e.tgt = null; text(e.x, e.y - e.def.r * 2.6 - 34, k.name + ' 被识破', '#9fe8ff', 22, 1.4, true); ring(e.x, e.y, 20, 120, 0.4, '#9fe8ff', 5); tex('burst', e.x, e.y - 24, { w: 130, life: 0.25, grow: 1.4, rgb: '160,230,255', force: true }); Sfx.play('block');
       return;
     }
     bossShout(e, k.name, CAST_SFX[k.k] || 'boss_cast');
+    bossCut(e, k, rgb);
     tex('burst', e.x, e.y - 24, { w: 110, life: 0.2, grow: 1.6, a: 0.45, rgb, force: true }); ring(e.x, e.y + e.def.r * 0.6, 24, 150, 0.4, c, 5); S.shake = Math.max(S.shake, 0.18);   // 蓄满了，放出来的一下
     pose(e, k.k === 'smash' || k.k === 'wallhit' ? 'smash' : k.k === 'shoot' || k.k === 'burnwall' || k.k === 'bind' ? 'throw' : k.k === 'charge' || k.k === 'guard' ? 'release' : 'roar', k.k === 'smash' || k.k === 'wallhit' ? 0.6 : 0.5);
     if (e.pose.k === 'roar') e.pose.rgb = rgb;
@@ -567,11 +665,12 @@ const Battle = (function () {
           Sfx.play('boss_smash'); tex('cross_slash', x, y - 16, { w: 300, life: 0.36, grow: 1.3, rgb, force: true }); tex('fissure', x, y + 6, { w: 300, h: 130, life: 1.2, fadeIn: 0.04, force: true });
           tex('pillar', x, y + 10, { w: 150, h: 420, ay: 1, life: 0.6, fadeIn: 0.05, rgb, force: true });
           ring(x, y, 10, 220, 0.5, c, 6); shockwave(x, y, 300, 1.3); dust(x, y, 18, 220); S.shake = Math.max(S.shake, 0.6); S.flash = { color: rgb, a: 0.2, t: 0.3, max: 0.3 };
+          impact(rgb, 0.75, 0.07); tex('fissure', x + 40, y + 10, { w: 200, h: 90, life: 2.2, fadeIn: 0.04, a: 0.6, rot: 0.3, force: true });   // 砸完的裂口多留一会儿
         } });
         break;
       }
       case 'burnwall':
-        S.wallBurn = { t: k.t, dps: k.dps * e.atk, tick: 0 };
+        S.wallBurn = { t: k.t, dps: k.dps * e.atk * (S.weather && S.weather.eFire || 1), tick: 0 };   // 天气：雨天火攻弱、烈日火攻猛
         for (let i = 0; i < 3; i++) S.shots.push({ k: 'earrow', orb: 'el_orb_fire', rgb: '255,150,70', big: true, x: e.x, y: e.y - 20, x0: e.x, y0: e.y - 20, tx: 130 + i * 140, ty: WY - 4, t: 0, dur: 0.34, arc: 60 });   // 三团火扔到城墙上
         { const ref = S; S.timers.push({ t: 0.34, fn: () => {
           if (S !== ref || S.over) return;
@@ -581,18 +680,19 @@ const Battle = (function () {
         } }); }
         break;
       case 'shoot':
-        pickHeroes(k.n, k.low).forEach((h, i) => { const ref = S; S.timers.push({ t: i * 0.18, fn: () => { if (S === ref && !S.over && !e.dead && !h.dead) { strikeHero(e, h, k.dmg, k.orb ? { orb: k.orb, rgb: k.rgb } : k.name === '飞刀' ? 'knife' : 'arrow', k.orb ? 0.5 : 0.32); tex('burst', e.x, e.y - 22, { w: 90, life: 0.16, grow: 1.4, rgb, force: true }); streak(e.x, e.y - 20, h.x, h.y - 20, rgb, 22, 0.3); } } }); });
+        castTargets(e, k, k.n).forEach((h, i) => { const ref = S; S.timers.push({ t: i * 0.18, fn: () => { if (S === ref && !S.over && !e.dead && !h.dead) { strikeHero(e, h, k.dmg, k.orb ? { orb: k.orb, rgb: k.rgb } : k.name === '飞刀' ? 'knife' : 'arrow', k.orb ? 0.5 : 0.32); tex('burst', e.x, e.y - 22, { w: 90, life: 0.16, grow: 1.4, rgb, force: true }); streak(e.x, e.y - 20, h.x, h.y - 20, rgb, 22, 0.3); } } }); });
         if (k.orb) { ring(e.x, e.y - 10, 10, 110, 0.4, 'rgb(' + k.rgb + ')', 5); tex('burst', e.x, e.y - 20, { w: 150, life: 0.3, grow: 1.4, rgb: k.rgb, force: true }); }
         break;
       case 'smash': {
-        const h = pickHeroes(1)[0]; if (!h) break;
+        const h = castTargets(e, k, 1)[0]; if (!h) break;
         const ref = S; tex('circle', h.x, h.y + 26, { w: 110, h: 44, life: 0.6, spin: 3, rgb: '255,90,70', a: 0.9, force: true });      // 先在脚下亮一圈红的，半秒后才砸下来
         S.timers.push({ t: 0.55, fn: () => {
           if (S !== ref || S.over || h.dead) return;
           if (k.fx === 'tiger') { tex('tiger', h.x, h.y - 30, { w: 210, life: 0.45, grow: 1.25, fadeIn: 0.05, rgb: k.rgb, force: true }); tex('cross_slash', h.x, h.y - 24, { w: 170, life: 0.3, grow: 1.3, rgb: k.rgb, force: true }); }   // 白虎：一道虎影扑下来
           else { streak(e.x, e.y - 30, h.x, h.y - 20, rgb, 70, 0.2); tex('slash', h.x, h.y - 34, { w: 210, life: 0.28, grow: 1.2, rot: Math.PI + 0.35, rgb, force: true }); tex('fissure', h.x, h.y + 26, { w: 170, h: 70, life: 0.8, fadeIn: 0.04, a: 0.9, force: true }); }   // 一道刀光从敌将那边劈到武将身上
           tex('burst', h.x, h.y - 20, { w: 150, life: 0.25, grow: 1.4, rgb: k.fx === 'tiger' ? k.rgb : '255,160,120', force: true }); shockwave(h.x, h.y, 120, 0.6); S.shake = Math.max(S.shake, 0.3);
-          Sfx.play('boss_smash'); heroHurt(h, k.dmg * S.heroHit); if (!h.dead) h.stunT = Math.max(h.stunT, k.stun);
+          Sfx.play('boss_smash'); impact(k.fx === 'tiger' ? k.rgb : '255,90,60', 0.5, 0.05); tex('fissure', h.x, h.y + 26, { w: 150, h: 60, life: 1.6, fadeIn: 0.04, a: 0.7, force: true });
+          heroHurt(h, k.dmg * S.heroHit); if (!h.dead) h.stunT = Math.max(h.stunT, k.stun);
         } });
         break;
       }
@@ -603,7 +703,7 @@ const Battle = (function () {
           S.flash = { color: '255,120,50', a: 0.2, t: 0.5, max: 0.5 };
         } else
         for (let i = 0; i < 8; i++) { const ref = S; S.timers.push({ t: i * 0.06, fn: () => { if (S === ref && !S.over) tex('arrow_rain', 80 + rand() * (W - 160), WY + 10 + rand() * 60, { w: 150, life: 0.45, vy: 620, a: 0.9, rgb: Assets.get('fx:arrow_rain') ? undefined : '255,200,140', force: true }); } }); }
-        { const ref = S; S.timers.push({ t: 0.45, fn: () => { if (S === ref && !S.over) for (const h of livingHeroes()) heroHurt(h, k.dmg * S.heroHit); } }); }
+        { const ref = S, wk = k.fx === 'fire' && S.weather && S.weather.eFire || 1; S.timers.push({ t: 0.45, fn: () => { if (S === ref && !S.over) { impact(rgb, 0.45, 0); for (const h of livingHeroes()) heroHurt(h, k.dmg * wk * S.heroHit); } } }); }
         break;
       case 'poison':
         for (const h of livingHeroes()) { h.psnT = Math.max(h.psnT, k.t); h.psnDps = Math.max(h.psnDps, k.dps * S.heroHit); }
@@ -621,7 +721,7 @@ const Battle = (function () {
         roarFx(e, rgb, 280); S.flash = { color: rgb, a: 0.14, t: 0.35, max: 0.35 };
         break;
       case 'bind':
-        pickHeroes(k.n).forEach(h => { streak(e.x, e.y - 20, h.x, h.y - 10, '220,210,200', 26, 0.3); h.stunT = Math.max(h.stunT, k.t); tex('chain', h.x, h.y - 6, { w: 96, h: 30, life: k.t, a: 0.95, force: true }); tex('chain', h.x, h.y + 12, { w: 96, h: 30, rot: 0.5, life: k.t, a: 0.85, force: true }); text(h.x, h.y - 70, '定身', '#ffb070', 16, 1); });
+        castTargets(e, k, k.n).forEach(h => { streak(e.x, e.y - 20, h.x, h.y - 10, '220,210,200', 26, 0.3); h.stunT = Math.max(h.stunT, k.t); tex('chain', h.x, h.y - 6, { w: 96, h: 30, life: k.t, a: 0.95, force: true }); tex('chain', h.x, h.y + 12, { w: 96, h: 30, rot: 0.5, life: k.t, a: 0.85, force: true }); text(h.x, h.y - 70, '定身', '#ffb070', 16, 1); });
         break;
     }
   }
@@ -894,6 +994,7 @@ const Battle = (function () {
     tex('circle', h.x, h.y + 29, { w: 96, h: 38, spin: 2.6, life: 0.95, grow: 1.7, rgb: hexRgb(q.color), a: 0.95, fadeIn: 0.08, force: true });   // 脚下法阵
     for (let i = 0; i < 10; i++) part(h.x + (rand() - 0.5) * 56, h.y + 24 - rand() * 20, (rand() - 0.5) * 20, -150 - rand() * 170, 0.45 + rand() * 0.35, q.color, 2.4);   // 往上蹿的光点
     S.dim = { t: 0.5, max: 0.5 };                               // 放大招的一瞬间场景压暗，特效更突出
+    hitStop(0.05);                                              // 起手顿一下，蓄力感
     B.pt = pt || null;
     const k0 = S.kills; later(1.6, () => { const n = S.kills - k0; if (n >= 8) text(h.x, h.y - 84, '一招 ' + n + ' 杀', '#ffd24a', n >= 20 ? 26 : 21, 1.4, true); });   // 大招放完看这一下杀了多少
     if (h.sk) h.sk.ult.cast(B, h, a, k); else defaultUlt(h, a);
@@ -974,7 +1075,8 @@ const Battle = (function () {
     S.live = S.enemies.filter(e => !e.dead && e.y > RANGE_Y);
     while (S.queue.length && S.queue[0].t <= S.waveT) spawn(S.queue.shift());
     if (!S.queue.length) {
-      if (S.wave >= CFG.WAVES) { if (!S.enemies.length) return finish(true); }
+      if (S.rush) { if (!S.enemies.length) return afterWave(); }   // 过关斩将：这一将打完（连同他叫来的人）才来下一个，没有时间限制
+      else if (S.wave >= CFG.WAVES) { if (!S.enemies.length) return finish(true); }
       else if (!S.enemies.length || S.waveT > S.waveDur + 9) return afterWave();
     }
     for (let i = S.timers.length - 1; i >= 0; i--) { const tm = S.timers[i]; if ((tm.t -= dt) <= 0) { S.timers.splice(i, 1); tm.fn(); if (!S || S.over) return; } }
@@ -990,6 +1092,21 @@ const Battle = (function () {
     if (S.ward && S.ward.t > 0) S.ward.t -= dt;
     if (S.wallShield && S.wallShield.t > 0) S.wallShield.t -= dt;
     if (S.heroSlow && S.heroSlow.t > 0) S.heroSlow.t -= dt;
+    if (S.wxT > 0) S.wxT -= dt;
+    for (let i = S.teles.length - 1; i >= 0; i--) if ((S.teles[i].t -= dt) <= 0) S.teles.splice(i, 1);
+    if (S.bcut && (S.bcut.t += dt) >= S.bcut.dur) S.bcut = null;
+    if (S.intro && (S.intro.t += dt) >= S.intro.dur) S.intro = null;
+    if (S.vig && (S.vig.t -= dt) <= 0) S.vig = null;
+    if (S.weather && S.weather.bolt && (S.boltT -= dt) <= 0) {   // 雷暴：天上不时劈下一道雷，打中一个敌人（伤害按台上武将的平均攻击算）
+      S.boltT = 2.6 + rand() * 2;
+      const tg = randLive(), hs = livingHeroes();
+      if (tg && hs.length) {
+        const atk = hs.reduce((a, h) => a + h.atk, 0) / hs.length * S.buffs.atk;
+        bolt(tg.x + (rand() - 0.5) * 60, -20, tg.x, tg.y - 10, 1.6); tex('el_hit_thunder', tg.x, tg.y - 10, { w: 110, life: 0.3, grow: 1.4, force: true }); ring(tg.x, tg.y, 8, 70, 0.3, '#c8b8ff', 4);
+        S.flash = { color: '200,190,255', a: 0.16, t: 0.18, max: 0.18 };
+        hit(tg, atk * 2.5, 'thunder', null);
+      }
+    }
     if (S.bond) {                                              // 彩色缘分的合击大招：攒满了，开着自动就自己放
       if (S.bond.t < S.bond.cd) S.bond.t = Math.min(S.bond.cd, S.bond.t + dt);
       else if (Save.data.auto && (S.live.length >= 3 || S.live.some(e => isBig(e)))) castBond();
@@ -1046,6 +1163,8 @@ const Battle = (function () {
         if (x.k.k === 'enrage' && !e.enraged && e.hp < e.max * 0.5) {     // 半血暴怒
           e.enraged = true; e.atk *= 1.5; e.spd *= 1.6; e.frozen = 0; e.fear = 0; e.conf = 0; e.slow = 0; e.ccImm = 4;
           bossShout(e, x.k.name, 'boss_roar'); ring(e.x, e.y, 10, 150, 0.5, '#ff5a3a', 6); S.shake = Math.max(S.shake, 0.45); S.flash = { color: '255,80,50', a: 0.25, t: 0.4, max: 0.4 };
+          text(e.x, e.y - e.def.r * 0.9, '怒', '#ff3a2a', 60, 1.3, true); impact('255,60,40', 0.8, 0.08);   // v2.19：身上炸出一个「怒」字，屏幕四周一圈红
+          for (let i = 0; i < 3; i++) ring(e.x, e.y, 20 + i * 30, 260 + i * 90, 0.6 + i * 0.2, i % 2 ? '#ffb040' : '#ff4a2a', 5);
           pose(e, 'roar', 0.9); e.pose.rgb = '255,80,50'; roarFx(e, '255,90,60', 380); tex('pillar', e.x, e.y + 24, { w: 170, h: 520, ay: 1, life: 1, fadeIn: 0.08, a: 0.55, rgb: '255,80,50', force: true }); shockwave(e.x, e.y, 320, 1.2); dust(e.x, e.y + 20, 14, 200);
         } else if (x.k.k === 'regen' && !e.regenUsed && e.hp < e.max * x.k.at) {   // 残血回一口
           e.regenUsed = true; const v = Math.round(e.max * x.k.frac); e.hp = Math.min(e.max, e.hp + v);
@@ -1077,13 +1196,14 @@ const Battle = (function () {
       }
       if (e.fleeT > 0 && e.fleeT < 10 && e.fleeT + dt >= 10) text(e.x, e.y - 70, e.name + '就要遁走了', '#cfe8ff', 20, 1.6);
       if (e.sk && !e.seen && e.y > 150) {                        // 敌将露面：仰天一吼
+        if (d.id === 'boss') { S.intro = { name: e.name, myq: e.mythQ || 0, title: e.title || (S.boss.myth ? (HERO_MAP[S.boss.myth].q === 7 ? '神将' : '魔将') : e.demon ? '心魔' : S.ch.endless ? '无尽敌将' : '敌将'), rgb: foeRgb(e), t: 0, dur: 2.3 }; S.dim = { t: 0.7, max: 0.7 }; }   // v2.19：敌将登场亮名牌
         e.seen = true; pose(e, 'roar', 0.9); roarFx(e, foeRgb(e), 340); ring(e.x, e.y, 20, 340, 0.7, 'rgb(' + foeRgb(e) + ')', 6); shockwave(e.x, e.y, 300, 1); dust(e.x, e.y + 20, 12, 180);
         S.shake = Math.max(S.shake, 0.4); Sfx.play('boss_roar');
       }
       if (e.sk && e.y > RANGE_Y + 20) for (const x of e.sk) if (x.k.cd > 0) {
         x.t -= dt;
         if (!x.warn && x.t <= WINDUP) { x.warn = true; windup(e, x.k); }   // 放招前先蓄力（招式还是原来那个时刻放出来）
-        if (x.t <= 0) { x.t = x.k.cd; x.warn = false; bossCast(e, x.k); }
+        if (x.t <= 0) { x.t = x.k.cd * (e.cdK || 1); x.warn = false; bossCast(e, x.k); }   // cdK：无尽词缀「迅令」
       }
       // 校尉、敌将一边往前走一边朝台上的武将掷兵器
       if ((d.id === 'elite' || d.id === 'boss' || d.id === 'rare') && e.y > RANGE_Y + 30 && (e.heroT -= dt) <= 0) { e.heroT = d.id === 'elite' ? 5 : 3.5; const hh = pickHeroes(1)[0]; if (hh) { strikeHero(e, hh, CFG.HERO_HIT[d.id === 'elite' ? 'elite' : 'boss'], e.sk ? { wave: 1, rgb: foeRgb(e) } : 'knife', 0.4); if (e.sk && !e.pose) pose(e, 'throw', 0.4); } }
@@ -1307,10 +1427,15 @@ const Battle = (function () {
   }
 
   function updateFx(dt) {
-    for (let i = S.parts.length - 1; i >= 0; i--) { const p = S.parts[i]; p.life -= dt; if (p.life <= 0) { S.parts.splice(i, 1); continue; } p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; p.vx *= 0.96; p.vy *= 0.96; }
+    for (let i = S.parts.length - 1; i >= 0; i--) {
+      const p = S.parts[i]; p.life -= dt; if (p.life <= 0) { S.parts.splice(i, 1); continue; }
+      if (p.kind === 'wisp') { const a = 5 * dt * (p.seed > 50 ? 1 : -1), c0 = Math.cos(a), s0 = Math.sin(a), vx = p.vx; p.vx = vx * c0 - p.vy * s0; p.vy = vx * s0 + p.vy * c0; }   // 风丝：边走边打旋
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; const dr = p.kind === 'bubble' ? 0.99 : 0.96; p.vx *= dr; p.vy *= dr;
+    }
     for (let i = S.texts.length - 1; i >= 0; i--) {
       const t = S.texts[i]; t.life -= dt;
-      if (t.num) { const p = Math.max(0, t.life / t.max); t.y -= (12 + 78 * p * p) * dt; t.x += t.vx * dt * p; if (t.pop > 0) t.pop = Math.max(0, t.pop - dt * 7); }   // 先快后慢地往上飘，带一点横向的漂
+      if (t.num && t.crit) { t.vy = (t.vy || -170) + 420 * dt; t.y += Math.max(-170, t.vy) * dt * (t.vy < 0 ? 1 : 0.25); t.x += t.vx * dt; if (t.pop > 0) t.pop = Math.max(0, t.pop - dt * 5); }   // 暴击：先往上一蹦、再慢慢落一点
+      else if (t.num) { const p = Math.max(0, t.life / t.max); t.y -= (12 + 78 * p * p) * dt; t.x += t.vx * dt * p; if (t.pop > 0) t.pop = Math.max(0, t.pop - dt * 7); }   // 先快后慢地往上飘，带一点横向的漂
       else t.y -= 34 * dt;
       if (t.life <= 0) { t.gone = true; S.texts.splice(i, 1); }
     }
@@ -1332,9 +1457,13 @@ const Battle = (function () {
 
   /* ---------------- 绘制 ---------------- */
   function outlined(str, x, y, size, color, align, sw) {
+    const mo = color === 'mo';                                  // 魔将的名字：黑字、淡紫描边；神将（'shen'）：七彩渐变
     c.font = 'bold ' + size + 'px ' + FONT; c.textAlign = align || 'center';
-    c.lineJoin = 'round'; c.lineWidth = sw || 3.2; c.strokeStyle = 'rgba(20,10,6,.9)';
-    c.strokeText(str, x, y); c.fillStyle = color; c.fillText(str, x, y);
+    c.lineJoin = 'round'; c.lineWidth = (sw || 3.2) + (mo ? 1 : 0); c.strokeStyle = mo ? '#c9a2ff' : 'rgba(20,10,6,.9)';
+    c.strokeText(str, x, y);
+    if (color === 'shen') { const w = c.measureText(str).width, x0 = align === 'right' ? x - w : align === 'left' ? x : x - w / 2, g = c.createLinearGradient(x0, 0, x0 + w, 0); ['#ff5a5a', '#ffad3a', '#ffe84a', '#5ae878', '#4ab8ff', '#b07aff'].forEach((k, i) => g.addColorStop(i / 5, k)); c.fillStyle = g; }
+    else c.fillStyle = mo ? '#120c18' : color;
+    c.fillText(str, x, y);
   }
   function drawCoin(x, y, r) {
     c.fillStyle = '#b8862a'; Art.circ(c, x, y + 1, r); c.fillStyle = '#ffd24a'; Art.circ(c, x, y, r);
@@ -1712,6 +1841,10 @@ const Battle = (function () {
     c.globalAlpha = 1;
     c.restore();
     ambientAir(S.t);
+    if (S.weather && S.weather.id !== 'clear') weather2d(S.weather.id, S.t);
+    if (S.teles && S.teles.length) teles2d(S.t);
+    if (S.intro) { const k = S.intro, p = k.t / k.dur; c.globalAlpha = Math.min(1, p * 5, (1 - p) * 4); outlined(k.title, W / 2, 190, 14, 'rgb(' + k.rgb + ')', 'center', 3); outlined(k.name, W / 2, 228, 36, k.myq === 6 ? 'mo' : k.myq === 7 ? 'shen' : '#fff3d6', 'center', 6); c.globalAlpha = 1; }
+    if (S.bcut) { const k = S.bcut, p = k.t / k.dur; c.globalAlpha = Math.min(1, p * 6, (1 - p) * 4); c.fillStyle = 'rgba(0,0,0,.55)'; c.fillRect(0, 216, W, 104); outlined(k.who, W - 30, 250, 16, k.e && k.e.mythQ === 6 ? 'mo' : k.e && k.e.mythQ === 7 ? 'shen' : 'rgb(' + k.rgb + ')', 'right', 4); outlined(k.name, W - 28, 296, 42, '#fff3d6', 'right', 6); c.globalAlpha = 1; }
     c.drawImage(grade(), 0, 0, W, H);
     if (S.flash) { c.fillStyle = 'rgba(' + S.flash.color + ',' + (S.flash.a * S.flash.t / S.flash.max) + ')'; c.fillRect(0, 0, W, H); }
 
@@ -1728,7 +1861,8 @@ const Battle = (function () {
     const hx = hf > 0 ? Math.sin(S.t * 95) * 2.6 * hf : 0, hurt = Math.max(S.hurt * 0.85, low ? 0.32 + 0.18 * Math.sin(S.t * 5.5) : 0);
     if (hurt > 0.01) { const g3 = c.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 600); g3.addColorStop(0, 'rgba(255,40,20,0)'); g3.addColorStop(1, 'rgba(255,30,10,' + (0.95 * hurt).toFixed(3) + ')'); c.fillStyle = g3; c.fillRect(0, 0, W, H); }   // 屏幕四周泛红
     c.fillStyle = 'rgba(0,0,0,.65)'; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.fill(); Art.rr(c, bx + 17 + hx, 81, bw - 34, 16, 8); c.fill();
-    const wp = S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);
+    const rb = S.rush ? S.enemies.find(e => e.def.id === 'boss' && !e.dead) : null;
+    const wp = S.rush ? (rb ? Math.max(0, rb.hp / rb.max) : 0) : S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);
     if (wp > 0.03) { const g2 = c.createLinearGradient(0, 54, 0, 74); g2.addColorStop(0, '#8fe86a'); g2.addColorStop(1, '#3fae3e'); c.fillStyle = g2; Art.rr(c, bx, 54, bw * wp, 20, 10); c.fill(); }
     if (lag > hp + 0.004) { c.fillStyle = 'rgba(255,240,200,.95)'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * lag, 12, 6); c.fill(); }
     if (hp > 0.03) { c.fillStyle = hp > 0.5 ? '#e0483a' : hp > 0.25 ? '#e8802a' : '#ff2a2a'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * hp, 12, 6); c.fill(); }
@@ -1736,7 +1870,8 @@ const Battle = (function () {
     c.strokeStyle = 'rgba(240,210,122,.85)'; c.lineWidth = 1.6; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.stroke();
     if (low || hf > 0) { c.strokeStyle = 'rgba(255,90,64,' + (low ? 0.6 + 0.4 * Math.sin(S.t * 9) : hf).toFixed(3) + ')'; c.lineWidth = 2.2; Art.rr(c, bx + 16 + hx, 80, bw - 32, 18, 9); c.stroke(); }
     else { c.strokeStyle = 'rgba(232,193,90,.6)'; c.lineWidth = 1.2; Art.rr(c, bx + 17, 81, bw - 34, 16, 8); c.stroke(); }
-    outlined(S.wave + '/' + CFG.WAVES + ' 波', W / 2, 70, 16, '#ffffff', 'center', 3);
+    outlined(S.rush ? (rb ? rb.name : '第 ' + S.wave + ' 将') + ' · 已斩 ' + (S.wave - 1) : S.wave + '/' + CFG.WAVES + ' 波', W / 2, 70, S.rush ? 14 : 16, '#ffffff', 'center', 3);
+    if (S.weather && S.weather.id !== 'clear') outlined('天气 · ' + S.weather.name, W / 2, 112, 13, '#e8f0ff', 'center', 3);
     outlined('城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2 + hx, 93, 11, hf > 0.3 || low ? '#ffe0d8' : '#ffffff', 'center', 2.4);
     drawCoin(W - 82, 30, 9); outlined(String(Math.round(S.coins)), W - 68, 36, 17, '#ffe9a8', 'left');
 
@@ -1773,6 +1908,41 @@ const Battle = (function () {
       c.save(); c.translate(l[0], l[1] + 26); c.scale(1, 0.4); glow(0, 0, l[2] * 1.5, '255,150,60', 0.2 * f); c.restore();   // 灯光洒在地上
     });
     c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+  }
+  /* 天气（简单画面）：雨丝、雪片、雾、阳光、风线 */
+  function weather2d(id, t) {
+    c.save();
+    if (id === 'rain' || id === 'storm') {
+      c.fillStyle = id === 'storm' ? 'rgba(12,16,34,.3)' : 'rgba(20,34,58,.18)'; c.fillRect(0, 0, W, H);
+      c.strokeStyle = 'rgba(200,220,255,.32)'; c.lineWidth = 1.2; c.beginPath();
+      for (let i = 0; i < 56; i++) { const y = ((t * (760 + (i * 37 % 9) * 40) + i * 131.7) % (H + 160)) - 80, x = ((i * 97.3 + t * 150 + y * 0.18) % (W + 120)) - 60, L = 22 + (i % 5) * 5; c.moveTo(x, y); c.lineTo(x - L * 0.18, y - L); }
+      c.stroke();
+    } else if (id === 'snow') {
+      c.fillStyle = 'rgba(221,232,255,.07)'; c.fillRect(0, 0, W, H); c.fillStyle = 'rgba(255,255,255,.75)';
+      for (let i = 0; i < 50; i++) { const y = ((t * (34 + (i * 13 % 7) * 9) + i * 89.3) % (H + 40)) - 20, x = ((i * 61.7) % W) + Math.sin(t * 0.9 + i) * 18; Art.circ(c, x, y, 1.4 + (i % 4) * 0.7); }
+    } else if (id === 'fog') {
+      c.fillStyle = 'rgba(200,204,210,.16)'; c.fillRect(0, 0, W, H);
+    } else if (id === 'sun') {
+      c.globalCompositeOperation = 'lighter'; c.fillStyle = 'rgba(255,160,64,.05)'; c.fillRect(0, 0, W, H);
+    } else if (id === 'gale') {
+      c.strokeStyle = 'rgba(232,255,244,.22)'; c.lineWidth = 1.3; c.beginPath();
+      for (let i = 0; i < 20; i++) { const x = ((t * (520 + (i * 7 % 5) * 90) + i * 173.1) % (W + 400)) - 200, y = 140 + (i * 53.3 % (H - 260)), L = 60 + (i % 4) * 30; c.moveTo(x, y); c.lineTo(x - L, y + L * 0.06); }
+      c.stroke();
+    }
+    c.restore();
+  }
+  function teles2d(t) {
+    c.save(); c.lineWidth = 3;
+    for (const z of S.teles) {
+      const p = 1 - z.t / z.max, a = Math.min(1, p * 4) * (0.55 + 0.35 * Math.sin(t * 26));
+      c.strokeStyle = c.fillStyle = 'rgba(' + (z.rgb || '255,70,50') + ',' + a + ')';
+      if (z.k === 'area') { c.globalAlpha = 0.25; c.fillRect(z.x - z.w / 2, z.y - z.h / 2, z.w, z.h); c.globalAlpha = 1; c.strokeRect(z.x - z.w / 2, z.y - z.h / 2, z.w, z.h); }
+      else if (z.k === 'wall') { c.globalAlpha = 0.35; c.fillRect(z.x - 70, WY - 16, 140, 32); c.globalAlpha = 1; }
+      else if (z.k === 'aim' && z.e && !z.e.dead && z.h && !z.h.dead) { c.setLineDash([10, 8]); c.beginPath(); c.moveTo(z.e.x, z.e.y - 24); c.lineTo(z.h.x, z.h.y - 20); c.stroke(); c.setLineDash([]); }
+      else if (z.k === 'lane' && z.e && !z.e.dead) { c.globalAlpha = 0.3; c.fillRect(z.e.x - 30, z.e.y + 20, 60, 210); c.globalAlpha = 1; }
+      else if (z.k === 'spot') { c.beginPath(); c.ellipse(z.x, z.y, 26, 10, 0, 0, TAU); c.stroke(); }
+    }
+    c.restore();
   }
   function ambientAir(t) {
     c.globalCompositeOperation = 'lighter';
@@ -1862,7 +2032,8 @@ const Battle = (function () {
   }
   function frame(dt) {
     dt = Math.min(dt, 0.05); idleT += dt;
-    if (S && S.slowT > 0 && !S.paused) { S.slowT -= dt; dt *= 0.3; }   // 敌将倒下的那一秒放慢（只影响画面，不带画面的模拟不走这里）
+    if (S && S.stopT > 0 && !S.paused) { S.stopT -= dt; dt *= 0.04; }   // 顿帧：几十毫秒几乎停住
+    else if (S && S.slowT > 0 && !S.paused) { S.slowT -= dt; dt *= 0.3; }   // 敌将倒下的那一秒放慢（只影响画面，不带画面的模拟不走这里）
     if (S && !S.paused && !S.choosing) step(dt);
     draw();
     if (S) UI.hud(S);

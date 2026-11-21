@@ -4,6 +4,7 @@
 //   3 阵容   几支缘分叠得多的阵容不能强得离谱，也不能弱得没法用（team.js）
 //   4 推荐战力  战力 = 推荐值时胜率要在合理范围，差四成基本打不过，超两成基本稳过（curve.js）
 //   5 进度   模拟玩家能在合理的局数内打完八章（bot.js）
+//   6 资源   无限金币、改手机时间刷每日、重复领奖、广告多发这类漏洞一个都不能有（econ.js；每次打包上传前必跑）
 // 用法：node tools/sim/check.js          完整版，约 8 分钟
 //       node tools/sim/check.js quick    快速版（样本少一半，约 4 分钟；波动大一些）
 const { spawn } = require('child_process'), path = require('path'), os = require('os');
@@ -28,6 +29,7 @@ const TEAMS = [                                             // 缘分叠得多�
   TEAMS.forEach(t => jobs.push(() => run('team.js', [t, 60, 40, 2, quick ? 8 : 12]).then(o => ['team', o])));
   ['10,50', '20,60', '30,70', '40,80'].forEach(s => jobs.push(() => run('curve.js', [s, N]).then(o => ['curve', o])));
   for (let i = 0; i < (quick ? 2 : 4); i++) jobs.push(() => run('bot.js', [80, 900, [0.3, 0.4, 0.35, 0.35][i]]).then(o => ['bot', o]));
+  jobs.unshift(() => run('econ.js', []).then(o => ['econ', o]));   // 资源检查最先跑：一分钟内出结果
   const res = await pool(jobs, cores), get = k => res.filter(r => r[0] === k).map(r => r[1]).join('\n');
   const rows = []; let fail = 0;
   const line = (ok, name, text) => { if (!ok) fail++; rows.push((ok ? '通过  ' : '不通过 ') + name.padEnd(6, '　') + text); };
@@ -65,6 +67,9 @@ const TEAMS = [                                             // 缘分叠得多�
   const bs = get('bot').split('\n').map(l => l.match(/结束：打到第\s*(\d+)\s*关，共\s*(\d+)\s*局/)).filter(Boolean).map(m => ({ stage: Number(m[1]), n: Number(m[2]) }));
   const bBad = bs.filter(b => b.stage < 81 || b.n < 150 || b.n > 750);                     // 抽卡运气影响很大，同样的数值两次能差一倍
   line(bs.length > 0 && !bBad.length, '进度', bs.map(b => b.stage >= 81 ? `${b.n} 局打完八章` : `${b.n} 局只打到第 ${b.stage} 关`).join('、') + '（应该在 150–750 局；目标 350 左右）');
+  // 6 资源：无限金币、改时间刷每日、重复领奖这类漏洞（econ.js）
+  const ec = get('econ'), eFail = ec.split('\n').filter(l => l.startsWith('FAIL')), eSum = (ec.match(/资源检查：(.*)/) || [])[1];
+  line(!!eSum && !eFail.length, '资源', eSum ? (eFail.length ? eFail.map(l => l.slice(5)).join('；') : eSum.replace('资源检查：', '')) : 'econ.js 没跑完：' + ec.trim().split('\n').slice(-2).join(' '));
   console.log(rows.join('\n'));
   console.log((fail ? `自检有 ${fail} 项不通过` : '自检全部通过') + `，用时 ${Math.round((Date.now() - t0) / 1000)} 秒`);
   process.exitCode = fail ? 1 : 0;

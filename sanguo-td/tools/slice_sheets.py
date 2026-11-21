@@ -41,6 +41,17 @@ SHEETS_ORDER = {
     'enemy_8': ('enemies', ['god_lvbu', 'god_caocao', 'god_guanyu', 'god_zhuge', None, None, None, None, None]),   # 神魔当敌将时的正面图
     'enemy_9': ('enemies', ['zhangmancheng', 'zhaohong', 'xurong', 'fanchou', 'liubiao', 'huangzu', 'shenpei', 'guotu', 'wenpin']),   # v2.13 每章再加两位敌将（共 16 位，两张）
     'enemy_10': ('enemies', ['niujin', 'weixu', 'caoxing', 'duosi', 'jinhuan', 'haozhao', 'xiahouba', None, None]),
+    'enemy_11': ('enemies', ['zhugeliang', 'lvbu', 'caocao', 'luxun', 'guanyu', 'zhangfei', 'zhouyu', 'zhaoyun', 'simayi']),   # 心魔正面图（过关斩将）
+    'enemy_12': ('enemies', ['huangzhong', 'zhangliao', 'zhangjiao', 'jiaxu', 'zhenji', 'taishici', 'xuhuang', 'ganning', 'weiyan']),   # 心魔正面图（过关斩将）
+    'enemy_13': ('enemies', ['caiwenji', 'liru', 'xushu', 'guanping', 'caohong', 'chengpu', 'zhangbao', 'liaohua', 'zhoucang']),   # 心魔正面图（过关斩将）
+    'enemy_14': ('enemies', ['peiyuan', 'guanhai', 'panfeng', 'mifang', 'liubei', 'sunce', 'machao', 'sunshangxiang', 'diaochan']),   # 心魔正面图（过关斩将）
+    'enemy_15': ('enemies', ['guojia', 'dianwei', 'pangtong', 'xiaoqiao', 'zuoci', 'daqiao', 'xuchu', 'huanggai', 'fazheng']),   # 心魔正面图（过关斩将）
+    'enemy_16': ('enemies', ['yujin', 'lingtong', 'xingdaorong', 'jiangqin', 'zhanghe', 'zhoutai', 'chengong', 'madai', 'gongsunzan']),   # 心魔正面图（过关斩将）
+    'enemy_17': ('enemies', ['yuejin', 'lidian', 'handang', 'wangping', 'masu', 'pangde', 'dengai', 'huatuo', 'jiangwei']),   # 心魔正面图（过关斩将）
+    'enemy_18': ('enemies', ['lvmeng', 'xiahouyuan', 'xunyu', 'sunquan', 'jianggan', 'mizhu', 'panzhang', 'liushan', 'xuyou']),   # 心魔正面图（过关斩将）
+    'enemy_19': ('enemies', ['kongrong', 'manchong', 'guanxing', 'zhangbao2', 'dingfeng', 'miheng', 'huangyueying', 'caozhang', 'yuji']),   # 心魔正面图（过关斩将）
+    'enemy_20': ('enemies', ['sunjian', 'chenlin', 'wuguotai', 'zhangsong', 'feiyi', 'xunyou', 'xusheng', 'xinxianying', 'lusu']),   # 心魔正面图（过关斩将）
+    'enemy_21': ('enemies', ['simahui', None, None, None, None, None, None, None, None]),   # 心魔正面图（过关斩将）
     'enemy_7': ('enemies', ['enc_zhangyan', 'enc_yangfeng', 'enc_heyi', 'enc_yanbaihu', 'enc_qinglong', 'enc_baihu', 'enc_zhuque', 'enc_xuanwu', None]),
 }
 # 头像拼图：顺序和武将拼图一样，切出来存 heroes/<id>_head.png

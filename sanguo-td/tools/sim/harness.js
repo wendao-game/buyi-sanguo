@@ -104,6 +104,9 @@ function account(draws, lv, patch, iron, stage) {
 function levelTo(G, target) {
   const D = G.Save.data, ids = D.team.filter(Boolean); let bl = 1, bd = Infinity;
   for (let lv = 1; lv <= 100; lv++) { ids.forEach(id => { D.heroes[id].lv = lv; }); const d = Math.abs(Math.log(G.teamPower() / target)); if (d < bd) { bd = d; bl = lv; } }
+  // v2.16 起等级没有上限：100 级还不够（无尽高层）就接着往上二分，找刚好达标的等级。以前封顶 100，无尽 20 层以后的模拟阵容只有推荐战力的一半
+  ids.forEach(id => { D.heroes[id].lv = 100; });
+  if (G.teamPower() < target) { let lo = 100, hi = 20000; while (lo < hi) { const m = (lo + hi) >> 1; ids.forEach(id => { D.heroes[id].lv = m; }); if (G.teamPower() >= target) hi = m; else lo = m + 1; } bl = lo; }
   ids.forEach(id => { D.heroes[id].lv = bl; }); return bl;
 }
 module.exports = { load, fight, bestTeam, equipBest, spendIron, spendSoul, starOwn, account, levelTo, PLAN, planAt };
