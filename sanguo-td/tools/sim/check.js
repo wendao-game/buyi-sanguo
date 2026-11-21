@@ -37,9 +37,16 @@ const TEAMS = [                                             // 缘分叠得多�
   const bad = get('skills').split('\n').filter(l => l.includes('!!') && l.includes('品质'));
   line(!bad.length, '技能', bad.length ? '有问题的大招：' + bad.map(l => l.split(/\s+/)[0].replace(/　/g, '') + '（' + l.split('!!')[1].trim() + '）').join('、') : HEROES.length + ' 个大招都能打到人');
   // 2 武将强度
-  const ks = get('heroes').split('\n').map(l => l.match(/^(\S+)\s+(\S+).*k=([\d.]+)/)).filter(Boolean).map(m => ({ name: m[2].replace(/　/g, ''), k: Number(m[3]) }));
-  const med = ks.map(x => x.k).sort((a, b) => a - b)[Math.floor(ks.length / 2)], hi = ks.filter(x => x.k > med * 1.4), lo = ks.filter(x => x.k < med * 0.72);
-  line(ks.length === HEROES.length && !hi.length && !lo.length, '武将', `强度中位数 ${(med * 1e4).toFixed(0)}，范围 ${(Math.min(...ks.map(x => x.k)) * 1e4).toFixed(0)}–${(Math.max(...ks.map(x => x.k)) * 1e4).toFixed(0)}` + (hi.length ? '；偏强：' + hi.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join('、') : '') + (lo.length ? '；偏弱：' + lo.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join('、') : '') + (ks.length !== HEROES.length ? `；只量到 ${ks.length}/${HEROES.length} 人` : ''));
+  const ks = get('heroes').split('\n').map(l => l.match(/^(\S+)\s+(\S+).*k=([\d.]+)/)).filter(Boolean).map(m => ({ id: m[1], name: m[2].replace(/　/g, ''), k: Number(m[3]) }));
+  const med = ks.map(x => x.k).sort((a, b) => a - b)[Math.floor(ks.length / 2)];
+  // 和下面「阵容」一样：单次量出来有 ±5% 左右的抖动，刚好压在线上的（出界不到一成）再量两次取三次的平均，免得同一个人这次过、下次不过
+  let hNote = '';
+  for (const x of ks) if ((x.k > med * 1.4 && x.k <= med * 1.4 * 1.1) || (x.k < med * 0.72 && x.k >= med * 0.72 * 0.9)) {
+    const more = (await Promise.all([0, 1].map(() => run('heroes.js', [20, 2, rep, x.id])))).map(o => { const m = o.split('\n').map(l => l.match(/^(\S+)\s+(\S+).*k=([\d.]+)/)).find(m2 => m2 && m2[1] === x.id); return m ? Number(m[3]) : x.k; });
+    const k0 = x.k; x.k = (k0 + more[0] + more[1]) / 3; hNote += `；${x.name} 压线，重测：${[k0].concat(more).map(v => (v * 1e4).toFixed(0)).join('、')}，平均 ${(x.k * 1e4).toFixed(0)}`;
+  }
+  const hi = ks.filter(x => x.k > med * 1.4), lo = ks.filter(x => x.k < med * 0.72);
+  line(ks.length === HEROES.length && !hi.length && !lo.length, '武将', `强度中位数 ${(med * 1e4).toFixed(0)}，范围 ${(Math.min(...ks.map(x => x.k)) * 1e4).toFixed(0)}–${(Math.max(...ks.map(x => x.k)) * 1e4).toFixed(0)}` + (hi.length ? '；偏强：' + hi.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join('、') : '') + (lo.length ? '；偏弱：' + lo.map(x => x.name + ' ' + (x.k * 1e4).toFixed(0)).join('、') : '') + (ks.length !== HEROES.length ? `；只量到 ${ks.length}/${HEROES.length} 人` : '') + hNote);
   // 3 阵容
   const ts = get('team').split('\n').map(l => l.match(/^(.*?)\s+战力.*k=([\d.]+)/)).filter(Boolean).map(m => ({ name: m[1], k: Number(m[2]) }));
   // 上下限按第 60 关（team.js 测的那一关）的正常值算：敌人的组成一改，所有阵容的数值会一起挪，写死的数字就不准了
