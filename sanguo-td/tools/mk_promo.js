@@ -79,7 +79,7 @@ const PAGE = async function () {
   }
 
   /* —— 宣传图 1920×1080：左边标题，右边一群名将站在城外 —— */
-  function wide() {
+  function wide(text) {
     const W = 1920, H = 1080, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high';
     const k = W / bg.width, sy = 1650 / k;                    // 背景是竖图：横着铺满宽度，取城外战场到城墙垛口这一截
     g.drawImage(bg, 0, sy, bg.width, H / k, 0, 0, W, H);
@@ -91,14 +91,15 @@ const PAGE = async function () {
     person(g, 'zhangfei', 990, 890, 340); person(g, 'zhaoyun', 1230, 940, 380); person(g, 'caocao', 1470, 960, 400); person(g, 'sunshangxiang', 1715, 900, 330);   // 普通关羽不放：和神·关羽重复
     person(g, 'liubei', 1100, 1050, 300); person(g, 'xiaoqiao', 1775, 1052, 290, 'rgba(255,150,200,.9)');
     embers(g, W, H, 90);
+    if (text === false) return cv;
     const t = title(g, 90, 430, 200, 'left'), cx = t.x0 + t.w / 2;
     tag(g, cx, 492, '三国塔防', 46);
     line(g, cx, 668, '排兵布阵 · 凑缘分 · 战心魔', 44, '#ffe9c0');
     line(g, cx, 744, '百余名将 · 八章八十关 · 过关斩将', 34, '#e8c890');
-    return cv.toDataURL('image/jpeg', 0.93);
+    return cv;
   }
   /* —— 竖版封面 900×1350：上面标题，下面名将 —— */
-  function tall() {
+  function tall(text) {
     const W = 900, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high';
     const k = H / 1500;                                       // 背景取上面 1500 像素高的一截（城外战场 + 城墙），铺满
     g.drawImage(bg, (bg.width - W / k) / 2, 330, W / k, 1500, 0, 0, W, H);
@@ -108,11 +109,35 @@ const PAGE = async function () {
     person(g, 'zhangfei', 165, 1040, 300); person(g, 'sunshangxiang', 760, 1040, 290); person(g, 'zhaoyun', 320, 1100, 330); person(g, 'caocao', 590, 1110, 340);
     person(g, 'xiaoqiao', 450, 1250, 300, 'rgba(255,150,200,.9)'); person(g, 'liubei', 150, 1270, 270); person(g, 'diaochan', 760, 1270, 270, 'rgba(255,150,200,.9)');
     embers(g, W, H, 70);
+    if (text === false) return cv;
     title(g, W / 2, 250, 190, 'center'); tag(g, W / 2, 300, '三国塔防', 44);
     line(g, W / 2, 432, '排兵布阵 · 凑缘分 · 战心魔', 36, '#ffe9c0');
-    return cv.toDataURL('image/jpeg', 0.93);
+    return cv;
   }
-  return { '烽火守城-宣传图-1920x1080.jpg': wide(), '烽火守城-竖版封面-900x1350.jpg': tall() };
+  /* —— 方图 1440×1440（商店「宣传图（1:1）」）—— */
+  function square() {
+    const W = 1440, H = 1440, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high';
+    g.drawImage(bg, 0, 420, bg.width, bg.width, 0, 0, W, H);   // 背景取中间一块正方形：城外战场 + 城墙
+    let gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(12,5,3,.94)'); gr.addColorStop(0.3, 'rgba(12,5,3,.55)'); gr.addColorStop(0.5, 'rgba(12,5,3,.1)'); gr.addColorStop(0.86, 'rgba(12,5,3,.15)'); gr.addColorStop(1, 'rgba(12,5,3,.8)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    g.save(); g.globalCompositeOperation = 'lighter'; gr = g.createRadialGradient(720, 960, 50, 720, 960, 760); gr.addColorStop(0, 'rgba(255,150,60,.36)'); gr.addColorStop(1, 'rgba(255,90,20,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); g.restore();
+    person(g, 'god_lvbu', 300, 930, 370, 'rgba(190,90,255,.9)'); person(g, 'god_guanyu', 720, 905, 400, 'rgba(255,215,90,.95)'); person(g, 'god_zhuge', 1140, 930, 355, 'rgba(120,220,255,.9)');
+    person(g, 'zhangfei', 190, 1180, 360); person(g, 'sunshangxiang', 1250, 1180, 345); person(g, 'zhaoyun', 500, 1215, 385); person(g, 'caocao', 950, 1225, 395);
+    person(g, 'liubei', 250, 1405, 330); person(g, 'diaochan', 1195, 1405, 330, 'rgba(255,150,200,.9)'); person(g, 'xiaoqiao', 720, 1410, 350, 'rgba(255,150,200,.9)');
+    embers(g, W, H, 90);
+    title(g, W / 2, 280, 240, 'center'); tag(g, W / 2, 330, '三国塔防', 52);
+    line(g, W / 2, 470, '排兵布阵 · 凑缘分 · 战心魔', 44, '#ffe9c0');
+    return cv;
+  }
+  /* 从一张图里裁一块、缩到指定大小 */
+  function crop(src, sx, sy, sw, sh, w, h) { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(src, sx, sy, sw, sh, 0, 0, w, h); return cv; }
+  /* 透明底的标题 Logo 1280×720（Windows 素材里的「游戏 Logo」，选填） */
+  function logo() { const cv = document.createElement('canvas'); cv.width = 1280; cv.height = 720; const g = cv.getContext('2d'); title(g, 640, 400, 250, 'center'); tag(g, 640, 460, '三国塔防', 56); return cv; }
+  const jpg = cv => cv.toDataURL('image/jpeg', 0.93), w0 = wide(), t0 = tall();
+  return {
+    '烽火守城-宣传图-1920x1080.jpg': jpg(w0), '烽火守城-宣传图-方图-1440x1440.jpg': jpg(square()),
+    'Windows-竖版封面-900x1350.jpg': jpg(t0), 'Windows-横版封面-920x430.jpg': jpg(crop(w0, 0, 150, 1920, 897, 920, 430)),
+    'Windows-无Logo横版宣传图-1920x1080.jpg': jpg(wide(false)), 'Windows-无Logo竖版宣传图-900x1350.jpg': jpg(tall(false)), 'Windows-游戏Logo-透明-1280x720.png': logo().toDataURL('image/png'),
+  };
 };
 
 (async () => {
