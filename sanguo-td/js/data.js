@@ -134,15 +134,18 @@ const CFG = {
   // TapTap 后台的签到活动按「累计签到第几天」分档发礼包码，每档要上传不少于 1000 个不重复的码。游戏是单机的、没有服务器验码，
   // 所以码是算出来的：FH + 档位字母 + 6 位随机 + 3 位校验（校验 = 活动编号、档位、随机段一起算的哈希），共 12 位，
   // 不用 0 O 1 I L 这些容易看错的字。游戏只认校验对得上的码；**每份存档每一档只能领一次**（不管换多少个码），
-  // 所以就算有人照着源码算出码来，最多也只是把这四档各领一次。生成码：node tools/gen_sign_codes.js
-  // id 换一个（比如 S2）= 开新一期活动，四档都能重新领；tiers 里的奖励可以有 tickets 招募令、coins 金币、iron 精铁、soul 将魂
+  // 所以就算有人照着源码算出码来，最多也只是把这七档各领一次。生成码：node tools/gen_sign_codes.js
+  // id 换一个（比如 S2）= 开新一期活动，每一档都能重新领；tiers 里的奖励可以有 tickets 招募令、coins 金币、iron 精铁、soul 将魂
   GIFT_SIGN: {
     id: 'S1', salt: 'fhsc-qiandao',
     tiers: {
-      A: { day: 1, tickets: 2, coins: 2000 },
-      B: { day: 3, tickets: 3, coins: 5000 },
-      C: { day: 5, tickets: 5, iron: 30 },
-      D: { day: 7, tickets: 10, soul: 50 },
+      A: { day: 1, tickets: 1, coins: 1000 },                // 七天每天一档（2026-11-21 用户定的：只有 1/3/5/7 四天有奖太少）；合计招募令 25、金币 6000、精铁 50、将魂 70
+      B: { day: 2, tickets: 2, coins: 2000 },
+      C: { day: 3, tickets: 2, iron: 20 },
+      D: { day: 4, tickets: 3, coins: 3000 },
+      E: { day: 5, tickets: 3, soul: 20 },
+      F: { day: 6, tickets: 4, iron: 30 },
+      G: { day: 7, tickets: 10, soul: 50 },
     },
   },
 };
