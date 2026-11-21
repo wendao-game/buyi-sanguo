@@ -1823,6 +1823,45 @@ const Battle = (function () {
     });
   }
 
+  /* 战斗顶部信息：关卡名、波次条、城防条、金币、天气（2D 画法）。part：'all' 全画在战斗画布上；
+   * 'top' 只画信息本身（长屏上挪到战斗画面上方的空白里，画在 #hudcv 上，见 drawHudUp）；'vig' 只画挨打时屏幕四周的泛红 */
+  function hudTop(part) {
+    if (part === 'all') { const tg = c.createLinearGradient(0, 0, 0, 120); tg.addColorStop(0, 'rgba(10,6,4,.75)'); tg.addColorStop(1, 'rgba(10,6,4,0)'); c.fillStyle = tg; c.fillRect(0, 0, W, 120); }
+    if (part !== 'vig') { c.font = 'bold 27px SGBrush,' + FONT; c.textAlign = 'center'; c.lineJoin = 'round'; c.lineWidth = 5; c.strokeStyle = 'rgba(20,10,6,.9)';
+    if (part === 'top') { const tw = c.measureText(S.ch.title).width; if (tw > 292) c.font = 'bold ' + Math.max(19, Math.floor(27 * 292 / tw)) + 'px SGBrush,' + FONT; }   // 挪上去以后右边是胶囊按钮，关卡名太长就缩小，不伸到它下面
+    c.strokeText(S.ch.title, W / 2, 40); c.fillStyle = '#ffd76a'; c.fillText(S.ch.title, W / 2, 40); }
+    const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
+    const hp = Math.max(0, S.wall / S.wallMax), lag = Math.min(1, Math.max(hp, S.wallLag / S.wallMax)), hf = Math.min(1, Math.max(0, S.wallFlash) * 6), low = hp < 0.3 && !S.over;
+    const hx = hf > 0 ? Math.sin(S.t * 95) * 2.6 * hf : 0, hurt = Math.max(S.hurt * 0.85, low ? 0.32 + 0.18 * Math.sin(S.t * 5.5) : 0);
+    if (hurt > 0.01 && part !== 'top') { const g3 = c.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 600); g3.addColorStop(0, 'rgba(255,40,20,0)'); g3.addColorStop(1, 'rgba(255,30,10,' + (0.95 * hurt).toFixed(3) + ')'); c.fillStyle = g3; c.fillRect(0, 0, W, H); }   // 屏幕四周泛红
+    if (part === 'vig') return;
+    c.fillStyle = 'rgba(0,0,0,.65)'; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.fill(); Art.rr(c, bx + 17 + hx, 81, bw - 34, 16, 8); c.fill();
+    const rb = S.rush ? S.enemies.find(e => e.def.id === 'boss' && !e.dead) : null;
+    const wp = S.rush ? (rb ? Math.max(0, rb.hp / rb.max) : 0) : S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);
+    if (wp > 0.03) { const g2 = c.createLinearGradient(0, 54, 0, 74); g2.addColorStop(0, '#8fe86a'); g2.addColorStop(1, '#3fae3e'); c.fillStyle = g2; Art.rr(c, bx, 54, bw * wp, 20, 10); c.fill(); }
+    if (lag > hp + 0.004) { c.fillStyle = 'rgba(255,240,200,.95)'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * lag, 12, 6); c.fill(); }
+    if (hp > 0.03) { c.fillStyle = hp > 0.5 ? '#e0483a' : hp > 0.25 ? '#e8802a' : '#ff2a2a'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * hp, 12, 6); c.fill(); }
+    if (hf > 0) { c.fillStyle = 'rgba(255,255,255,' + (0.6 * hf).toFixed(3) + ')'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * Math.max(hp, 0.03), 12, 6); c.fill(); }
+    c.strokeStyle = 'rgba(240,210,122,.85)'; c.lineWidth = 1.6; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.stroke();
+    if (low || hf > 0) { c.strokeStyle = 'rgba(255,90,64,' + (low ? 0.6 + 0.4 * Math.sin(S.t * 9) : hf).toFixed(3) + ')'; c.lineWidth = 2.2; Art.rr(c, bx + 16 + hx, 80, bw - 32, 18, 9); c.stroke(); }
+    else { c.strokeStyle = 'rgba(232,193,90,.6)'; c.lineWidth = 1.2; Art.rr(c, bx + 17, 81, bw - 34, 16, 8); c.stroke(); }
+    outlined(S.rush ? (rb ? rb.name : '第 ' + S.wave + ' 将') + ' · 已斩 ' + (S.wave - 1) : S.wave + '/' + CFG.WAVES + ' 波', W / 2, 70, S.rush ? 14 : 16, '#ffffff', 'center', 3);
+    if (S.weather && S.weather.id !== 'clear') outlined('天气 · ' + S.weather.name, W / 2, 112, 13, '#e8f0ff', 'center', 3);
+    outlined('城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2 + hx, 93, 11, hf > 0.3 || low ? '#ffe0d8' : '#ffffff', 'center', 2.4);
+    const cy = part === 'top' ? 34 : 0;                       // 挪上去以后金币放到波次条那一行的右边（原来的位置正好在胶囊按钮底下）
+    drawCoin(W - 82, 30 + cy, 9); outlined(String(Math.round(S.coins)), W - 68, 36 + cy, 17, '#ffe9a8', 'left');
+  }
+  /* 长屏手机（v2.22）：战斗画面上方多出来的那一截原来是空的，把顶部信息整体往上挪 CFG.HUD_UP 这么多（main.js 的 fit() 按屏幕和右上角的胶囊按钮算），
+   * 画在单独的一块透明画布 #hudcv 上（它的位置跟着 --hudUp 走）。高清和 2D 画面共用这一套 */
+  let hcv = null, hc = null;
+  function drawHudUp() {
+    if (!hcv) { hcv = document.getElementById('hudcv'); hc = hcv && hcv.getContext ? hcv.getContext('2d') : null; }
+    if (!hc) return;
+    hc.setTransform(1, 0, 0, 1, 0, 0); hc.clearRect(0, 0, hcv.width, hcv.height);
+    if (!S || !(CFG.HUD_UP > 0)) return;
+    const c0 = c; c = hc;
+    try { c.setTransform(2, 0, 0, 2, 0, 0); hudTop('top'); } finally { c = c0; }
+  }
   function render() {
     c.setTransform(2, 0, 0, 2, 0, 0); c.imageSmoothingQuality = 'high';
     c.save();
@@ -1909,29 +1948,7 @@ const Battle = (function () {
     if (S.cut) drawCut(S.cut);
 
     // —— 顶部信息 ——
-    const tg = c.createLinearGradient(0, 0, 0, 120); tg.addColorStop(0, 'rgba(10,6,4,.75)'); tg.addColorStop(1, 'rgba(10,6,4,0)');
-    c.fillStyle = tg; c.fillRect(0, 0, W, 120);
-    c.font = 'bold 27px SGBrush,' + FONT; c.textAlign = 'center'; c.lineJoin = 'round'; c.lineWidth = 5; c.strokeStyle = 'rgba(20,10,6,.9)';
-    const title = S.ch.title;
-    c.strokeText(title, W / 2, 40); c.fillStyle = '#ffd76a'; c.fillText(title, W / 2, 40);
-    const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
-    const hp = Math.max(0, S.wall / S.wallMax), lag = Math.min(1, Math.max(hp, S.wallLag / S.wallMax)), hf = Math.min(1, Math.max(0, S.wallFlash) * 6), low = hp < 0.3 && !S.over;
-    const hx = hf > 0 ? Math.sin(S.t * 95) * 2.6 * hf : 0, hurt = Math.max(S.hurt * 0.85, low ? 0.32 + 0.18 * Math.sin(S.t * 5.5) : 0);
-    if (hurt > 0.01) { const g3 = c.createRadialGradient(W / 2, H / 2, 280, W / 2, H / 2, 600); g3.addColorStop(0, 'rgba(255,40,20,0)'); g3.addColorStop(1, 'rgba(255,30,10,' + (0.95 * hurt).toFixed(3) + ')'); c.fillStyle = g3; c.fillRect(0, 0, W, H); }   // 屏幕四周泛红
-    c.fillStyle = 'rgba(0,0,0,.65)'; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.fill(); Art.rr(c, bx + 17 + hx, 81, bw - 34, 16, 8); c.fill();
-    const rb = S.rush ? S.enemies.find(e => e.def.id === 'boss' && !e.dead) : null;
-    const wp = S.rush ? (rb ? Math.max(0, rb.hp / rb.max) : 0) : S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);
-    if (wp > 0.03) { const g2 = c.createLinearGradient(0, 54, 0, 74); g2.addColorStop(0, '#8fe86a'); g2.addColorStop(1, '#3fae3e'); c.fillStyle = g2; Art.rr(c, bx, 54, bw * wp, 20, 10); c.fill(); }
-    if (lag > hp + 0.004) { c.fillStyle = 'rgba(255,240,200,.95)'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * lag, 12, 6); c.fill(); }
-    if (hp > 0.03) { c.fillStyle = hp > 0.5 ? '#e0483a' : hp > 0.25 ? '#e8802a' : '#ff2a2a'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * hp, 12, 6); c.fill(); }
-    if (hf > 0) { c.fillStyle = 'rgba(255,255,255,' + (0.6 * hf).toFixed(3) + ')'; Art.rr(c, bx + 20 + hx, 83, (bw - 40) * Math.max(hp, 0.03), 12, 6); c.fill(); }
-    c.strokeStyle = 'rgba(240,210,122,.85)'; c.lineWidth = 1.6; Art.rr(c, bx - 3, 51, bw + 6, 26, 13); c.stroke();
-    if (low || hf > 0) { c.strokeStyle = 'rgba(255,90,64,' + (low ? 0.6 + 0.4 * Math.sin(S.t * 9) : hf).toFixed(3) + ')'; c.lineWidth = 2.2; Art.rr(c, bx + 16 + hx, 80, bw - 32, 18, 9); c.stroke(); }
-    else { c.strokeStyle = 'rgba(232,193,90,.6)'; c.lineWidth = 1.2; Art.rr(c, bx + 17, 81, bw - 34, 16, 8); c.stroke(); }
-    outlined(S.rush ? (rb ? rb.name : '第 ' + S.wave + ' 将') + ' · 已斩 ' + (S.wave - 1) : S.wave + '/' + CFG.WAVES + ' 波', W / 2, 70, S.rush ? 14 : 16, '#ffffff', 'center', 3);
-    if (S.weather && S.weather.id !== 'clear') outlined('天气 · ' + S.weather.name, W / 2, 112, 13, '#e8f0ff', 'center', 3);
-    outlined('城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2 + hx, 93, 11, hf > 0.3 || low ? '#ffe0d8' : '#ffffff', 'center', 2.4);
-    drawCoin(W - 82, 30, 9); outlined(String(Math.round(S.coins)), W - 68, 36, 17, '#ffe9a8', 'left');
+    hudTop(CFG.HUD_UP > 0 ? 'vig' : 'all');
 
     if (S.aim !== null) {
       const h = S.heroes.find(q => q.slot === S.aim);
@@ -2082,6 +2099,7 @@ const Battle = (function () {
   }
   /* 画一帧：WebGL 画面可用就用它（出错自动退回 2D），否则用这里的 2D 画法 */
   function draw() {
+    drawHudUp();                                              // 长屏：顶部信息画在战斗画面上方的那块画布上
     if (typeof GLView !== 'undefined' && GLView.active()) {
       try { GLView.render(S, S ? S.t : idleT); return; }
       catch (e) { GLView.disable('绘制出错：' + (e && e.message)); if (typeof console !== 'undefined') console.error(e); }

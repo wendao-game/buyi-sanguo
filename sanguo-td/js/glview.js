@@ -757,8 +757,9 @@ const GLView = (function () {
   }
   const WX_COLOR = { sun: '#ffd27a', rain: '#9fc8ff', snow: '#eef6ff', gale: '#b8ffe0', fog: '#d8dce4', storm: '#c8b8ff' };
   function drawHud(S, t) {
-    sp(Lo, TX.gradV, 0, 0, W, 120, { ax: 0, ay: 0, tint: 0x0a0604, a: 0.75 });
-    txt(Lh, numH, S.ch.title, W / 2, 40, 27, '#ffd76a', 'center', 5, 1, -1);
+    const up = CFG.HUD_UP > 0;                                // 长屏：顶部信息挪到战斗画面上方的空白里了（battle.js 的 drawHudUp），这里不画
+    if (!up) { sp(Lo, TX.gradV, 0, 0, W, 120, { ax: 0, ay: 0, tint: 0x0a0604, a: 0.75 }); txt(Lh, numH, S.ch.title, W / 2, 40, 27, '#ffd76a', 'center', 5, 1, -1); }
+    else sp(Lo, TX.gradV, 0, 0, W, 46, { ax: 0, ay: 0, tint: 0x0a0604, a: 0.5 });   // 留一小条过渡，和上面接上
     const bx = 110, bw = 320;                               // 波次条（绿）在上，城防条（红）在下
     if (S.combo >= 5 && !S.over) {                          // 连斩：快断的时候变淡
       const k = 1 + S.comboPop * 0.35, al = Math.min(1, S.comboT / 0.8), hot = S.combo >= 100 ? '#ff7a3a' : S.combo >= 30 ? '#ffd24a' : '#fff0d0';
@@ -767,6 +768,7 @@ const GLView = (function () {
     const hp = Math.max(0, S.wall / S.wallMax), lag = Math.min(1, Math.max(hp, (S.wallLag || 0) / S.wallMax)), hf = Math.min(1, Math.max(0, S.wallFlash) * 6), low = hp < 0.3 && !S.over;
     const hx = hf > 0 ? Math.sin(t * 95) * 2.6 * hf : 0, hurt = Math.max((S.hurt || 0) * 0.85, low ? 0.32 + 0.18 * Math.sin(t * 5.5) : 0);   // 挨打时血条抖一下、屏幕四周泛红；快破城时一直闪
     if (hurt > 0.01) sp(Lo, TX.vig, 0, 0, W, H, { ax: 0, ay: 0, a: hurt });
+    if (!up) {
     hudG.beginFill(0x000000, 0.65).drawRoundedRect(bx - 3, 51, bw + 6, 26, 13).drawRoundedRect(bx + 17 + hx, 81, bw - 34, 16, 8).endFill();
     const rb = S.rush ? S.enemies.find(e => e.def.id === 'boss' && !e.dead) : null;
     const wp = S.rush ? (rb ? Math.max(0, rb.hp / rb.max) : 0) : S.over && S.win ? 1 : Math.min(1, (S.wave - 1 + (S.waveSize ? S.spawned / S.waveSize : 1)) / CFG.WAVES);   // 过关斩将：上面这条是当前敌将的血
@@ -782,6 +784,7 @@ const GLView = (function () {
     txt(Lh, numH, '城防 ' + Math.ceil(Math.max(0, S.wall)) + '/' + S.wallMax, W / 2 + hx, 93, 11, hf > 0.3 || low ? '#ffe0d8' : '#ffffff', 'center', 2.4);
     sp(Lh, TX.coin, W - 82, 30, 19, 19);
     txt(Lh, numH, String(Math.round(S.coins)), W - 68, 36, 17, '#ffe9a8', 'left');
+    }
     if (S.aim !== null) {
       const h = S.heroes.find(q => q.slot === S.aim), a = 0.5 + Math.sin(t * 8) * 0.3;
       rect(Lo, 0, 120, W, WY - 120, 0x0a0604, 0.35);

@@ -32,6 +32,17 @@
     app.style.setProperty('--safeB', Math.round((parseFloat(cs.paddingBottom) || 0) / s) + 'px');
     app.style.transform = 'translate(' + (iw - CFG.W * s) / 2 + 'px,' + (ih - h * s) / 2 + 'px) scale(' + s + ')';
     document.body.classList.toggle('wide', iw / ih > CFG.W / CFG.H + 0.01);
+    // 右上角小游戏的胶囊按钮（「··· ◎」）底边在界面里的位置：平台给得出就用平台的，给不出按「安全区下面再 46 像素」估；不在小游戏里就是 0
+    const safeT = (parseFloat(cs.paddingTop) || 0) / s, ext = h - CFG.H;
+    let cap = 0;
+    try { const t = typeof tap !== 'undefined' ? tap : null, r = t && t.getMenuButtonBoundingClientRect ? t.getMenuButtonBoundingClientRect() : null; cap = r && r.bottom > 0 ? r.bottom / s : t ? safeT + 96 : 0; } catch (e) { cap = 0; }   // 实测 iPhone 17 Pro Max：安全区 72，胶囊底边有时在 129、有时在 168，按低的那个留
+    if (qs.has('cap')) cap = Number(qs.get('cap')) || 0;      // 本机调试：?cap=128 模拟胶囊按钮
+    // 战斗顶部信息往上挪多少：关卡名（居中，够不着右边的胶囊）落在刘海下面，波次条和金币那一行落在胶囊下面；空白不到 40 像素就不挪
+    const up = Math.max(0, Math.min(104, Math.round(Math.min(ext + 8 - safeT, cap > 0 ? ext + 47 - cap : 999))));
+    CFG.HUD_UP = up >= 40 ? up : 0;
+    app.style.setProperty('--hudUp', CFG.HUD_UP + 'px');
+    // 主城标题往下让：左上角「设置 · 存档 / 排行榜」和云存档状态占两行，胶囊按钮也在这一带
+    app.style.setProperty('--logoTop', (ext >= 60 ? Math.max(64, Math.round(cap - 60 - safeT - 9)) : 18) + 'px');
     if (h - CFG.H !== extH) { extH = h - CFG.H; drawExt(); }
   }
   /* 战斗画面上方延伸出来的那一截：战场背景顶部那一条上下翻过来接上去，再往上逐渐压暗 */

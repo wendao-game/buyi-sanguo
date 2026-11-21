@@ -673,3 +673,10 @@ body.wide::before { content: ""; position: fixed; inset: -40px; background: url(
 .rsrow b.mo, .moname { color: #120c18; text-shadow: 1px 0 #c9a2ff, -1px 0 #c9a2ff, 0 1px #c9a2ff, 0 -1px #c9a2ff, 1px 1px #c9a2ff, -1px -1px #c9a2ff, 1px -1px #c9a2ff, -1px 1px #c9a2ff; }   /* 八个方向不带模糊的影子 = 一圈清楚的描边 */
 /* 神将的名字：七彩渐变 */
 .rsrow b.shen, .shenname { background: linear-gradient(90deg, #ff5a5a, #ffad3a, #ffe84a, #5ae878, #4ab8ff, #b07aff); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 1px #000) drop-shadow(0 1px 1px #000); }
+
+/* ---------- v2.22 长屏：战斗顶部信息挪到上方的空白里；主城标题给左上角的两行字和胶囊按钮让位 ---------- */
+#app { --hudUp: 0px; --logoTop: 18px; }
+#hudcv { position: absolute; left: 0; top: calc(var(--ext) - var(--hudUp)); width: 540px; height: 130px; pointer-events: none; display: none; }
+#app[data-screen="battle"] #hudcv { display: block; }
+#home .logo { margin-top: var(--logoTop); }
+#home .homefoot .cloudnote { max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
