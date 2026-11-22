@@ -233,9 +233,9 @@ textarea.code { width: 100%; height: 150px; margin-top: 4px; padding: 8px; borde
  *   小号说明文字保持系统字体
  * 面板：深漆木底 + 双层金边 + 四角回纹；按钮：有厚度的釉面
  * ============================================================ */
-@font-face { font-family: 'SGRound'; src: url('../assets/fonts/round.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
-@font-face { font-family: 'SGNum'; src: url('../assets/fonts/num.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
-@font-face { font-family: 'SGBrush'; src: url('../assets/fonts/brush.woff2') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'SGRound'; src: url('../assets/fonts/round.woff2?v=20261122') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'SGNum'; src: url('../assets/fonts/num.woff2?v=20261122') format('woff2'); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: 'SGBrush'; src: url('../assets/fonts/brush.woff2?v=20261122') format('woff2'); font-weight: 400 700; font-display: swap; }
 :root {
   --fr: 'SGNum', 'SGRound', "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
   --fb: 'SGBrush', 'SGNum', 'SGRound', "STKaiti", "KaiTi", serif;
@@ -680,3 +680,10 @@ body.wide::before { content: ""; position: fixed; inset: -40px; background: url(
 #app[data-screen="battle"] #hudcv { display: block; }
 #home .logo { margin-top: var(--logoTop); }
 #home .homefoot .cloudnote { max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- 改名「三国·孤城万仞」（11-22）：「三国」是红底小牌子，放在大字「孤城万仞」上面 ---------- */
+.logo span { letter-spacing: 12px; padding: 3px 10px 3px 22px; margin-bottom: 2px; }
+#loading { gap: 0; }
+#loading em { font-style: normal; font-family: var(--fb); font-size: 22px; letter-spacing: 12px; padding: 3px 10px 3px 22px; border-radius: 6px; color: #fff0c8; background: linear-gradient(#c8343a, #8a161c); box-shadow: 0 0 0 1.5px #5a0f12, 0 0 0 3px #e8c15a, 0 4px 10px #000a; }
+#loading b { margin: 6px 0 26px; }
+#loading .bar { margin-bottom: 26px; }

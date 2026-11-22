@@ -34,11 +34,22 @@ const PAGE = async function () {
 
   // —— 第一段：主线第 58 关，第三波敌军压上来，大招连放 ——
   setLv(stageRecommend(58) * 1.3); D.team = bestTeam();
-  Battle.start(58); skip(S => S.wave >= 3 && S.waveT > 3.5, 4000);
-  log.push('第一段从第 ' + Battle.state.wave + ' 波开始');
-  await shoot(13 * FPS);
+  Battle.start(58); skip(S => S.wave >= 3 && S.live.length >= 24 && S.heroes.some(h => h.rage >= 80), 6000);   // 开头第一秒就要热闹：场上人多、马上有人放大招
+  log.push('第一段从第 ' + Battle.state.wave + ' 波开始，场上 ' + Battle.state.live.length + ' 个敌人');
+  await shoot(7 * FPS);
   Battle.stop();
-  // —— 第二段：过关斩将，神·关羽登场（名牌）→ 砸城墙（预警、大招横幅、余韵），雷暴天气 ——
+  // —— 第二段（11-22 加）：无尽第 50 层，魔·甄姬登场（电影黑边、名牌）→ 打到半血化成大蛇 ——
+  setLv(stageRecommend(130) * 1.25); D.team = bestTeam();
+  Battle.start(130);
+  { const S = Battle.state; S.wallMax *= 300; S.wall = S.wallMax; S.heroHit = 1; S.wave = CFG.WAVES - 1; S.queue = []; S.enemies.length = 0; Battle.tick(0.05); }
+  skip(S => { const e = S.enemies.find(x => x.def.id === 'boss'); return e && e.y > 132; }, 4000);
+  await shoot(3 * FPS);
+  skip(S => { const e = S.enemies.find(x => x.def.id === 'boss'); return e && e.y > 300; }, 400);
+  { const e = Battle.state.enemies.find(x => x.def.id === 'boss'); if (e) { e.hp = e.max * 0.49; e.max *= 6; e.hp *= 6; log.push('化蛇前 y ' + Math.round(e.y)); } }
+  await shoot(9 * FPS);
+  { const e = Battle.state.enemies.find(x => x.def.id === 'boss'); log.push('化蛇 ' + (e ? (e.snake ? '成了' : '没变') + ' ' + e.name : '敌将没了')); }
+  Battle.stop();
+  // —— 第三段：过关斩将，神·关羽登场（名牌）→ 砸城墙（预警、大招横幅、余韵），雷暴天气 ——
   setLv(stageRecommend(rushStage(5)) * 1.25); D.team = bestTeam();
   const g = HERO_MAP.god_guanyu, m = MYTH_BOSS.god_guanyu;
   Battle.start(rushStage(5), { rush: true, name: '过关斩将' });
@@ -46,7 +57,7 @@ const PAGE = async function () {
   skip(S => { const e = S.enemies.find(x => x.def.id === 'boss'); return e && e.y > 128; }, 3000);
   await shoot(4 * FPS);
   { const S = Battle.state, e = S.enemies.find(x => x.def.id === 'boss'); if (e) { const w = e.sk.find(x => x.k.k === 'wallhit'); if (w) w.t = 0.62; S.lastBcut = -99; } }
-  await shoot(8 * FPS);
+  await shoot(6 * FPS);
   Battle.stop();
   await enc.flush(); enc.close();
   if (!avcC) throw new Error('编码器没给 avcC');

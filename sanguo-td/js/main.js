@@ -67,7 +67,7 @@
   // 先加载 assets/ 里已有的图片（没有就用程序绘制），再进主城
   // 本地字体（css 里的 SGRound / SGBrush）先加载好，画布和 WebGL 里的文字才用得上；最多等 2.5 秒
   const fontsReady = (document.fonts && document.fonts.load)
-    ? Promise.race([Promise.all([document.fonts.load('20px SGRound', '烽火守城0'), document.fonts.load('20px SGBrush', '烽火守城'), document.fonts.load('20px SGNum', '0123')]), new Promise(r => setTimeout(r, 2500))]).catch(() => {})
+    ? Promise.race([Promise.all([document.fonts.load('20px SGRound', '孤城万仞0'), document.fonts.load('20px SGBrush', '孤城万仞'), document.fonts.load('20px SGNum', '0123')]), new Promise(r => setTimeout(r, 2500))]).catch(() => {})
     : Promise.resolve();
   const bar = document.getElementById('loadBar'), txt = document.getElementById('loadTxt');
   const onProgress = p => { if (bar) bar.style.width = Math.round(p * 100) + '%'; if (txt) txt.textContent = '正在加载 ' + Math.round(p * 100) + '%'; };

@@ -94,7 +94,7 @@ const UI = (function () {
     else if (D0.stage > 1) tip('home2', '打过的关卡可以<b>扫荡</b>直接领金币；金币能升级武将，也能换招募令', 9000);
     const S = Save.data, st = S.pick, ch = chapterOf(st), cleared = st < S.stage, pw = teamPower(), rec = stageRecommend(st);
     $('#home').innerHTML = `
-      <div class="logo"><b>烽火守城</b><span>三国塔防</span></div>
+      <div class="logo"><span>三国</span><b>孤城万仞</b></div>
       <div class="stagecard">
         <div class="chap">${ch.endless ? ch.name + (S.stage > 81 ? ' · 最高第 ' + (S.stage - 81) + ' 层' : '') : '第 ' + ch.index + ' 章 · ' + ch.name}</div>
         <div class="stagesel">
