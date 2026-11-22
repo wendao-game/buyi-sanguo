@@ -51,8 +51,8 @@ const CFG = {
   WEAPON_LV_STEP: 0.05,    // 每强化一级，加成多 5%（20 级是 1 级的 1.95 倍）
   WEAPON_OWNER_MUL: 1.3,   // 专属武将装上：加成 ×1.3
   WEAPON_SHARE: 0.3,       // 招募时每一抽出兵器的概率（其余出武将；品质概率、保底和武将共用）
-  WEAPON_MELT_VAL: [1, 2, 4, 10, 25, 60],       // 一件兵器熔成多少精铁（抽到已有的自动熔掉；手动熔掉另外全额返还强化花的）
-  WEAPON_UP: [1, 1.5, 2, 3, 4.5, 6],            // 强化到下一级 = 此值 × 当前等级
+  WEAPON_MELT_VAL: [1, 2, 4, 10, 25, 60, 80, 100],   // 一件兵器熔成多少精铁（抽到已有的自动熔掉；手动熔掉另外全额返还强化花的）。后两个是黑、彩（神魔兵器）
+  WEAPON_UP: [1, 1.5, 2, 3, 4.5, 6, 7, 8],          // 强化到下一级 = 此值 × 当前等级
 
   // —— 局内操作 ——
   /* —— 长线（v2.15）——
@@ -429,13 +429,14 @@ const WEAPONS = [
   Wp('baihu',      '白虎啸风刀', 5, 'blade',   { atk: 0.24, crit: 0.10 }, null, '西方白虎的利爪所化，刀过处有虎啸声', 'baihu'),
   Wp('zhuque',     '朱雀焚天弓', 5, 'bow',     { atk: 0.20, ult: 0.25 }, null, '南方朱雀的尾羽所化，箭出带火', 'zhuque'),
   Wp('xuanwu',     '玄武镇岳锤', 5, 'hammer',  { atk: 0.20, rage: 0.30 }, null, '北方玄武的甲壳所化，一锤镇山岳', 'xuanwu'),
-  // —— v2.24 神魔兵器：每位神魔一件专属的橙品兵器。平时抽不到，在无尽关击败这位神魔之后，和他本人一起进卡池（还是要自己抽）。数值是橙品预算，和别的橙品兵器同档 ——
-  Wp('tuntian',    '吞天魔戟',   5, 'halberd', { atk: 0.26, crit: 0.06 }, 'god_lvbu',    '方天画戟饮血太多，戟刃上缠着散不掉的黑雷', 'god_lvbu'),
-  Wp('youming',    '幽冥倚天剑', 5, 'sword',   { atk: 0.22, rage: 0.25 }, 'god_caocao',  '倚天剑染了魔气，剑身发黑，出鞘时满营皆寒', 'god_caocao'),
-  Wp('wusheng',    '武圣偃月刀', 5, 'blade',   { atk: 0.22, ult: 0.20 },  'god_guanyu',  '关公显圣时手里那口刀，刀上的青龙像是活的', 'god_guanyu'),
-  Wp('qixingdeng', '七星灯',     5, 'relic',   { atk: 0.20, ult: 0.18, rage: 0.10 }, 'god_zhuge', '五丈原上点过的那盏主灯，灯不灭，人不亡', 'god_zhuge'),
-  Wp('xuanzhu',    '洛水玄珠',   5, 'relic',   { atk: 0.21, spd: 0.13 },  'god_zhenji',  '洛水深处的一颗墨色宝珠，里头盘着一条小蛇的影子', 'god_zhenji'),
-  Wp('yajiao',     '龙魂涯角枪', 5, 'spear',   { atk: 0.23, crit: 0.11 }, 'god_zhaoyun', '海角天涯无对，枪杆里睡着四条龙魂', 'god_zhaoyun'),
+  // —— v2.24 神魔兵器：每位神魔一件专属兵器，品质跟神魔本人一样（魔将的是黑、神将的是彩）。平时抽不到，在无尽关击败这位神魔之后，和他本人一起进卡池（还是要自己抽）。
+  //    黑、彩没有自己的概率：和神魔本人一样，跟橙品共用橙品的概率（见 gachaDraw）。数值照武将品质的倍数给：黑 ≈ 橙 ×1.08、彩 ≈ 橙 ×1.16 ——
+  Wp('tuntian',    '吞天魔戟',   6, 'halberd', { atk: 0.28, crit: 0.07 }, 'god_lvbu',    '方天画戟饮血太多，戟刃上缠着散不掉的黑雷', 'god_lvbu'),
+  Wp('youming',    '幽冥倚天剑', 6, 'sword',   { atk: 0.24, rage: 0.27 }, 'god_caocao',  '倚天剑染了魔气，剑身发黑，出鞘时满营皆寒', 'god_caocao'),
+  Wp('wusheng',    '武圣偃月刀', 7, 'blade',   { atk: 0.26, ult: 0.23 },  'god_guanyu',  '关公显圣时手里那口刀，刀上的青龙像是活的', 'god_guanyu'),
+  Wp('qixingdeng', '七星灯',     7, 'relic',   { atk: 0.23, ult: 0.21, rage: 0.12 }, 'god_zhuge', '五丈原上点过的那盏主灯，灯不灭，人不亡', 'god_zhuge'),
+  Wp('xuanzhu',    '洛水玄珠',   6, 'relic',   { atk: 0.23, spd: 0.14 },  'god_zhenji',  '洛水深处的一颗墨色宝珠，里头盘着一条小蛇的影子', 'god_zhenji'),
+  Wp('yajiao',     '龙魂涯角枪', 7, 'spear',   { atk: 0.27, crit: 0.13 }, 'god_zhaoyun', '海角天涯无对，枪杆里睡着四条龙魂', 'god_zhaoyun'),
 ];
 const WEAPON_MAP = {};
 WEAPONS.forEach(w => { WEAPON_MAP[w.id] = w; });

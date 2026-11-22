@@ -1,5 +1,6 @@
 // 用本机 Chrome（无界面）切九宫格拼图：这台电脑没有 Python 时代替 slice_sheets.py。
-// 做法和 slice_sheets.py 一样，四种拼图都能切（看名字开头）：
+// 做法和 slice_sheets.py 一样，五种拼图都能切（看名字开头）：
+//   weapon_N          兵器图标：抠底（白底、透明底都行，兵器上的光、雾还原成半透明）→ 连光带雾裁外框 → 补成正方形居中 → 192×192 → assets/weapons/<id>.webp
 //   hero_N / enemy_N  立绘：从格子边线往里抠白底（只抠和边缘连通的，人物身上的白色不动）→ 每格只留最大的一块 →
 //                     裁到人物外框 → 缩到 320×320 里高 256、脚底在 y=275 → assets/heroes|enemies/<id>.webp
 //                     身后那种没有描边的淡雾、虚影（白底上画的半透明气）会还原成半透明，定大小时不算它
@@ -18,6 +19,7 @@ for (const m of py.matchAll(/'((?:hero|enemy)_\d+)': \('(\w+)', \[([^\]]*)\]\)/g
   if (m[1].startsWith('hero_')) ORDER['head_' + m[1].slice(5)] = { folder: 'heroes', ids: idsOf(m[3]), mode: 'head' };
 }
 for (const m of py.matchAll(/'(fx_\d+)': \[([^\]]*)\]/g)) ORDER[m[1]] = { folder: 'fx', ids: idsOf(m[2]), mode: 'fx' };
+for (const m of py.matchAll(/'(weapon_\d+)': \[([^\]]*)\]/g)) ORDER[m[1]] = { folder: 'weapons', ids: idsOf(m[2]), mode: 'weapon' };
 // 个别格子的特殊处理。fadeTop：顶上这一截渐渐淡掉（蛇头的脖子是齐口切断的，要和身后一节节的蛇身接上）
 const OPT = { god_zhenji_snake: { fadeTop: 0.2 } };
 let names = process.argv.slice(2);
@@ -71,7 +73,7 @@ const PAGE = function (src, ids, mode, OPT) {
       ids.forEach((id, i) => {
         if (!id) return;
         const [x0, y0, cw, ch] = cellOf(i), opt = OPT[id] || {};
-        const cd = c.getImageData(x0, y0, cw, ch), q = cd.data, A = (x, y) => q[(y * cw + x) * 4 + 3] > 24 && solid[(y0 + y) * w + x0 + x];
+        const cd = c.getImageData(x0, y0, cw, ch), q = cd.data, A = (x, y) => q[(y * cw + x) * 4 + 3] > 24 && (mode === 'weapon' || solid[(y0 + y) * w + x0 + x]);   // 兵器图标：电光、雾气、龙魂这些半透明的也算进外框
         // 只留最大的一段（按行、按列各一次）：伸进来的邻格兵器尖、噪点清掉
         for (const axis of [0, 1]) {
           const n = axis ? cw : ch, m = axis ? ch : cw, cnt = [];
@@ -87,7 +89,10 @@ const PAGE = function (src, ids, mode, OPT) {
         if (opt.fadeTop) { const n = Math.round(bh * opt.fadeTop); for (let y = 0; y < by0 + n; y++) { const f = y < by0 ? 0 : Math.pow((y - by0) / n, 1.4); for (let x = 0; x < cw; x++) q[(y * cw + x) * 4 + 3] = Math.round(q[(y * cw + x) * 4 + 3] * f); } }
         const tmp = document.createElement('canvas'); tmp.width = cw; tmp.height = ch; tmp.getContext('2d').putImageData(cd, 0, 0);
         const o = document.createElement('canvas'), oc = o.getContext('2d');
-        if (mode === 'head') {                                 // 头像：补成正方形，横向居中、头顶对齐
+        if (mode === 'weapon') {                               // 兵器图标：补成正方形居中，四周留一点边
+          const sz = Math.max(bw, bh), k = 180 / sz; o.width = o.height = 192; oc.imageSmoothingQuality = 'high';
+          oc.drawImage(tmp, bx0, by0, bw, bh, Math.round((192 - bw * k) / 2), Math.round((192 - bh * k) / 2), Math.round(bw * k), Math.round(bh * k));
+        } else if (mode === 'head') {                          // 头像：补成正方形，横向居中、头顶对齐
           const sz = Math.max(bw, bh), k = 256 / sz; o.width = o.height = 256; oc.imageSmoothingQuality = 'high';
           oc.drawImage(tmp, bx0, by0, bw, bh, Math.round((sz - bw) / 2 * k), 0, Math.round(bw * k), Math.round(bh * k));
         } else {                                               // 立绘：高 256、脚底在 y=275；外框以外的淡雾照样画上（出了 320 的就裁掉）

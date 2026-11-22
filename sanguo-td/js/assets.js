@@ -74,7 +74,7 @@ const Assets = (function () {
       return d === 'heroes' && head && own[id] ? 10 : d === 'heroes' && head ? 11 : d === 'weapons' ? 12 : d === 'enemies' ? 13 : d === 'heroes' && own[id] ? 14 : 15;
     };
     const list = (Array.isArray(window.ASSET_LIST) ? window.ASSET_LIST : []).filter(f => f.indexOf('sfx/') !== 0 && f.indexOf('voice/') !== 0).sort((a, b) => rank(a) - rank(b));   // sfx/、voice/ 里是音频，归 sfx.js 管
-    list.forEach(f => { known[f.replace(/.(png|jpe?g|webp)$/i, '')] = 1; });
+    list.forEach(f => { known[f.replace(/\.(png|jpe?g|webp)$/i, '')] = 1; });
     const first = list.filter(must).length;
     total = list.length;
     let next = 0, done = 0, busy = 0;

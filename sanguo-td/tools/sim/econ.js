@@ -344,7 +344,7 @@ function fresh(patch) { const G = load(patch), D = G.Save.data; return { G, D, c
 {
   const { G, D, c } = fresh();
   const myths = G.HEROES.filter(h => h.myth).map(h => h.id), mw = G.WEAPONS.filter(w => w.lock && G.HERO_MAP[w.lock]);
-  ok('神魔兵器：每位神魔正好一件，橙品、专属就是他本人', mw.length === myths.length && myths.every(id => { const w = c.mythWeapon(id); return w && w.q === 5 && w.owner === id; }), mw.length + ' / ' + myths.length);
+  ok('神魔兵器：每位神魔正好一件，品质和他本人一样（黑 / 彩）、专属就是他本人', mw.length === myths.length && myths.every(id => { const w = c.mythWeapon(id); return w && w.q === G.HERO_MAP[id].q && w.owner === id; }), mw.length + ' / ' + myths.length);
   ok('神魔兵器：没解锁时不在卡池，解锁了那位神魔才在', mw.every(w => !c.weaponOpen(w, {}) && !c.weaponOpen(w, { [w.id]: 0 }) && c.weaponOpen(w, { [w.lock]: 1 }) && mw.filter(o => c.weaponOpen(o, { [w.lock]: 1 })).length === 1));
   const beast = G.WEAPONS.filter(w => w.lock && !G.HERO_MAP[w.lock]);
   ok('神兽兵器：解锁规则没变（打赢神兽记的是兵器 id）', beast.length === 4 && beast.every(w => !c.weaponOpen(w, {}) && c.weaponOpen(w, { [w.id]: 1 })) && G.WEAPONS.filter(w => !w.lock).every(w => c.weaponOpen(w, {})));
@@ -354,7 +354,7 @@ function fresh(patch) { const G = load(patch), D = G.Save.data; return { G, D, c
   const got = mw.filter(w => D.weapons[w.id]).map(w => w.lock);
   ok('神魔兵器：只打赢第一位神魔，抽 6000 次只会出他那一件', got.length === 1 && got[0] === myths[0], got.join('、') || '一件也没出');
   const i0 = D.iron, wid = c.mythWeapon(myths[0]).id, r = c.grantWeapon(wid);
-  ok('神魔兵器：抽到重复的照常熔成精铁（橙品 ' + G.CFG.WEAPON_MELT_VAL[5] + '）', r.iron === G.CFG.WEAPON_MELT_VAL[5] && D.iron === i0 + r.iron && Object.keys(D.weapons).filter(k => k === wid).length === 1);
+  ok('神魔兵器：抽到重复的照常熔成精铁（黑 ' + G.CFG.WEAPON_MELT_VAL[6] + '、彩 ' + G.CFG.WEAPON_MELT_VAL[7] + '）', r.iron === G.CFG.WEAPON_MELT_VAL[G.WEAPON_MAP[wid].q] && G.CFG.WEAPON_MELT_VAL.length === G.QUALITIES.length && G.CFG.WEAPON_UP.length === G.QUALITIES.length && G.WEAPONS.every(w => fin(G.CFG.WEAPON_MELT_VAL[w.q]) && fin(G.CFG.WEAPON_UP[w.q])) && D.iron === i0 + r.iron && Object.keys(D.weapons).filter(k => k === wid).length === 1);
 }
 
 /* ---------- 9. 广告（platform.js）：看完才发、只发一次、超时补发也只补一次 ---------- */

@@ -594,7 +594,8 @@ function gachaDraw(n) {
     S.pity++;
     const must = S.pity >= CFG.PITY;                        // 保底：这么多抽没出金品以上的武将，这一抽必出金品武将（兵器不算，也不清零；这一抽本来是橙就还是橙）
     if (must && q < CFG.PITY_Q) q = CFG.PITY_Q;
-    const wp = (WEAPON_POOL[q] || []).filter(id => weaponOpen(WEAPON_MAP[id], S.unlocked));   // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将（没解锁的神兽兵器、神魔兵器不在池子里）
+    let wp = (WEAPON_POOL[q] || []).filter(id => weaponOpen(WEAPON_MAP[id], S.unlocked));   // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将（没解锁的神兽兵器、神魔兵器不在池子里）
+    if (q === 5) wp = wp.concat(WEAPONS.filter(w => w.q > 5 && weaponOpen(w, S.unlocked)).map(w => w.id));   // 已解锁的神魔兵器（黑、彩）和橙品兵器共用橙品的概率，和神魔本人一个规矩
     if (!must && wp.length && Math.random() < CFG.WEAPON_SHARE) return grantWeapon(wp[Math.floor(Math.random() * wp.length)]);
     if (q >= CFG.PITY_Q) S.pity = 0;
     let pool = GACHA_POOL[q];

@@ -499,7 +499,7 @@ const UI = (function () {
     const un = Save.data.unlocked || {};
     const rows = QUALITIES.filter(q => q.rate || HEROES.some(h => h.q === q.id && h.myth && un[h.id])).map(q => {   // 黑、彩两行：有解锁的神魔才显示
       const names = HEROES.filter(h => h.q === q.id && !h.locked && (!h.myth || un[h.id])).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id && weaponOpen(w, un)).map(w => w.name).join('、');   // 只列现在抽得到的
-      return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '和橙品武将同池'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
+      return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '和橙品同池'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>
       <p class="mtext" style="font-size:13px;margin-top:10px">每一抽先定品质，再有 ${ws}% 的概率是这个品质的兵器、${100 - ws}% 是武将；同品质里每个概率相同<br>十连必出紫品以上 · 连续 ${CFG.PITY - 1} 抽没出${QUALITIES[CFG.PITY_Q].name}品以上的武将时，第 ${CFG.PITY} 抽必得${QUALITIES[CFG.PITY_Q].name}品武将<br>以上为单抽基础概率，计入保底后紫、金的实际概率更高<br>重复武将转为碎片用于升星；重复兵器熔成精铁用于强化</p></div>`);

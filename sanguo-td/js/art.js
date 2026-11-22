@@ -632,9 +632,11 @@ const Art = (function () {
     const w = WEAPON_MAP[id], q = QUALITIES[w.q], im = Assets.get('weapons/' + id);
     const cv = document.createElement('canvas'); cv.width = cv.height = px * 2;
     const c = cv.getContext('2d'); c.scale(px * 2 / 64, px * 2 / 64);
-    const g = c.createRadialGradient(32, 26, 4, 32, 32, 46); g.addColorStop(0, q.color); g.addColorStop(1, q.dark);
+    let g;
+    if (w.q === 7) { g = c.createLinearGradient(0, 0, 64, 64); ['#ff6a6a', '#ffd24a', '#6adf7a', '#4ea8ff', '#b968ff'].forEach((col, i) => g.addColorStop(i / 4, col)); }   // 彩品（神将的兵器）：和神将头像一样的彩虹底
+    else { g = c.createRadialGradient(32, 26, 4, 32, 32, 46); g.addColorStop(0, q.color); g.addColorStop(1, q.dark); }
     c.fillStyle = g; c.fillRect(0, 0, 64, 64);
-    c.fillStyle = 'rgba(20,12,8,.45)'; c.beginPath(); c.arc(32, 32, 25, 0, TAU); c.fill();
+    c.fillStyle = w.q === 6 ? 'rgba(150,110,225,.34)' : 'rgba(20,12,8,.45)'; c.beginPath(); c.arc(32, 32, 25, 0, TAU); c.fill();   // 黑品（魔将的兵器）：底已经是黑的，中间垫一圈紫光，黑色的兵器才看得清
     c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1.5; c.beginPath(); c.arc(32, 32, 25, 0, TAU); c.stroke();
     if (im) c.drawImage(im, 4, 4, 56, 56);
     else {
