@@ -24,6 +24,13 @@ const Battle = (function () {
   }
 
   /* ---------------- 开局 ---------------- */
+  /* 开战、换敌将时：这一局要用的图（上阵武将的立绘、敌将的图）要是还在后台排队，插到最前面下 */
+  function wantArt() {
+    if (!S || typeof Assets === 'undefined' || !Assets.want) return;
+    const ks = (Save.data.team || []).filter(Boolean).map(id => 'heroes/' + id), b = S.boss;
+    if (b) { ks.push(b.sprite, b.head, b.hero ? 'enemies/' + b.hero : null, b.myth ? 'heroes/' + b.myth + '_head' : null, b.morph ? b.morph.sprite : null); }
+    Assets.want(ks);
+  }
   function start(stage, trial) {
     S = {
       trial: trial || null,                                   // 每日试炼：这一局的规则（TRIALS 里的一条）；普通关卡是 null
@@ -48,6 +55,7 @@ const Battle = (function () {
     calcHit();   // 伤害基准按补强前的血量算，不然加的血量被伤害抵掉   // pk：名将列传人数不满 5 个时的补强   // 敌人打武将的伤害基准：开局定下来，中途换人不变
     nextWave();
     voiceLoad();                                              // 这一局里有神魔将（上阵的、当敌将的）：先把配音下好
+    wantArt();                                                // 这一局要用的图还在后台排队的话，插到最前面下
   }
   /* 神魔将说一句：播配音（Sfx.voice，表在 data.js 的 VOICES），头顶出字幕。没有这句台词什么也不做 */
   function say(id, kind, x, y, rgb) {
@@ -132,7 +140,7 @@ const Battle = (function () {
   /* 过关斩将：每一波只来一个敌将。第 k 将按第 rushStage(k) 关的强度，换天气、加词缀，武将不回血 */
   function rushWave() {
     const k = ++S.wave, R = S.rush; R.k = k;
-    S.stage = rushStage(k); S.boss = rushBoss(R.day, k);
+    S.stage = rushStage(k); S.boss = rushBoss(R.day, k); wantArt();
     S.ch = Object.assign({}, chapterOf(S.stage), { title: '过关斩将 · 第 ' + k + ' 将', boss: S.boss.name });
     const af = rushAffixes(R.day, k); R.af = af;
     S.mods = Object.assign({ rush: true }, mergeMods(af) || {});

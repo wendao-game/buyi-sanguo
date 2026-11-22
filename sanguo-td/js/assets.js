@@ -55,8 +55,10 @@ const Assets = (function () {
   /* 只加载 assets/manifest.js 里列出的图（window.ASSET_LIST），不再逐个去试，没放图时不会有一堆 404。
    * v2.23 起分两批（原来是 500 张、13 MB 全下完才进主城，4G 上要等满 15 秒）：
    *   第一批（进主城前必须有，约 3 MB）：背景、界面、特效、普通敌人、当前上阵武将的立绘和头像——进度条只算这一批，一次下 8 张，最多等 15 秒
-   *   第二批（进了主城在后台接着下，一次 3 张，不和游戏抢）：自己有的武将的头像 → 武将形象的敌人（章节敌将、心魔、神魔将）→ 其余头像 → 其余立绘 → 兵器
-   * 第二批没到的图先用代码画的顶着，到了以后界面自动换上（onLate）；战斗画面每帧都取最新的图 */
+   *   第二批（进了主城在后台一直接着下，直到全部下完；一次 3 张，不和游戏抢）：自己有的武将的头像 → 其余头像 → 兵器图标
+   *     （这三样招募结果、武将页、兵器页马上会用到，约 3 MB）→ 武将形象的敌人（心魔、神魔将）→ 自己有的武将的立绘 → 其余立绘
+   * 第二批没到的图先用代码画的顶着，到了以后界面自动换上（onLate）；战斗画面每帧都取最新的图。
+   * 为了不让玩家看到代码画的图：用到谁先下谁——want() 把要用的插到队伍最前面，need() 再等它们到了才往下走（招募结果用） */
   function load(onProgress) {
     const D = typeof Save !== 'undefined' && Save.data ? Save.data : { heroes: {}, team: [] };
     const heroIds = {}; (typeof HEROES !== 'undefined' ? HEROES : []).forEach(h => { heroIds[h.id] = 1; });
@@ -68,7 +70,7 @@ const Assets = (function () {
     const rank = f => {
       const d = dir(f), id = idOf(f), head = /_head\./.test(f);
       if (must(f)) return d === 'bg' ? 0 : d === 'ui' ? 1 : d === 'heroes' ? 2 : d === 'fx' ? 3 : 4;
-      return d === 'heroes' && head && own[id] ? 10 : d === 'enemies' ? 11 : d === 'heroes' && head ? 12 : d === 'heroes' && own[id] ? 13 : d === 'heroes' ? 14 : 15;
+      return d === 'heroes' && head && own[id] ? 10 : d === 'heroes' && head ? 11 : d === 'weapons' ? 12 : d === 'enemies' ? 13 : d === 'heroes' && own[id] ? 14 : 15;
     };
     const list = (Array.isArray(window.ASSET_LIST) ? window.ASSET_LIST : []).filter(f => f.indexOf('sfx/') !== 0 && f.indexOf('voice/') !== 0).sort((a, b) => rank(a) - rank(b));   // sfx/、voice/ 里是音频，归 sfx.js 管
     const first = list.filter(must).length;
@@ -85,8 +87,25 @@ const Assets = (function () {
       };
       load.pump = pump; pump();
     });
+    // 插队：keys 是图的键（'heroes/guanyu_head'、'weapons/qinglong'…）的数组，或者一个挑文件的函数。还没开始下的那些挪到队伍最前面
+    load.want = keys => {
+      const hit = typeof keys === 'function' ? keys : (set => f => !!set[f.replace(/\.(png|jpe?g|webp)$/i, '')])((keys || []).reduce((m, k) => { if (k) m[alias(k)] = 1; return m; }, {}));
+      const rest = list.slice(next), a = rest.filter(hit); if (!a.length) return 0;
+      list.splice(next, rest.length, ...a, ...rest.filter(f => !hit(f)));
+      if (started && load.pump) load.pump();
+      return a.length;
+    };
     const timeout = new Promise(resolve => setTimeout(resolve, 15000));  // 网络卡住也不挡住进游戏（没加载到的图先用代码画的，到了再换）
     return Promise.race([ready, timeout]).then(() => { started = true; load.pump(); return Object.keys(img); });
+  }
+
+  /* 用到谁先下谁。want：插队，不等；need：插队并等它们到齐（最多等 ms 毫秒），到齐或超时后 resolve(有没有等过) */
+  function want(keys) { return load.want ? load.want(keys) : 0; }
+  function need(keys, ms) {
+    const ks = (keys || []).filter(Boolean).map(alias), miss = () => ks.filter(k => !img[k]);
+    if (!miss().length || !load.want) return Promise.resolve(false);
+    load.want(ks);
+    return new Promise(resolve => { const t0 = Date.now(), iv = setInterval(() => { if (!miss().length || Date.now() - t0 > (ms || 2000)) { clearInterval(iv); resolve(true); } }, 60); });
   }
 
   /* 特效贴图换色：黑底贴图乘上颜色（黑的还是黑，亮的部分变成该颜色），带缓存 */
@@ -109,5 +128,5 @@ const Assets = (function () {
   const put = (key, cv) => { img[key] = cv; };
 
   return { load, get: k => img[alias(k)] || null, keys: () => Object.keys(img), tinted, put,
-    ver, onLate(fn) { lateCb = fn; }, pending: () => Math.max(0, total - loaded) };
+    ver, want, need, onLate(fn) { lateCb = fn; }, pending: () => Math.max(0, total - loaded) };
 })();

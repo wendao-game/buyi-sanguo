@@ -61,6 +61,8 @@ const UI = (function () {
 
   /* ---------------- 页面切换 ---------------- */
   function show(tab) {
+    if (tab === 'arms') Assets.want(f => f.indexOf('weapons/') === 0);                       // 切到哪一页，那一页要用的图先下
+    else if (tab === 'heroes' || tab === 'gacha') Assets.want(f => /^heroes\/.*_head\./.test(f));
     screen = tab; $('#app').dataset.screen = tab; lpDraft = null;
     hideTip();                                              // 上一个页面的提示不带过来
     Sfx.music(tab === 'battle' ? 'battle' : 'home');
@@ -469,7 +471,11 @@ const UI = (function () {
       </div>` : ''}
       <div class="gfoot"><button class="link" data-act="rates">概率公示</button></div>`;
   }
+  /* 招募结果：抽到的头像、兵器图标要是还在后台没下完，先插队下、等到了再亮结果（最多等 3.5 秒），不让玩家看到代码画的顶替图 */
   function showPulls(res) {
+    Assets.need(res.map(r => r.wid ? 'weapons/' + r.wid : 'heroes/' + r.id + '_head'), 3500).then(waited => { if (waited) Art.refresh(); showPullsNow(res); });
+  }
+  function showPullsNow(res) {
     const n = res.length;
     const cards = res.map((r, i) => {
       if (r.wid) {                                            // 这一抽是兵器
