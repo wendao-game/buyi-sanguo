@@ -249,6 +249,7 @@ const UI = (function () {
     const sb = stageBoss(st);
     const af = stageAffixes(st);                               // 无尽关这一层固定的难度词缀
     return `<b>敌将 ${sb.myth ? '<span class="' + (HERO_MAP[sb.myth].q === 6 ? 'moname' : 'shenname') + '">' + ch.boss + '</span>' : ch.boss}</b>` + (sb.res ? `<i class="res">${resText(sb.res)}</i>` : '') + sb.skills.map(k => `「${k.name}」${k.desc}`).join('；')
+      + (sb.myth && !(Save.data.unlocked || {})[sb.myth] ? '<br><b>首次击败</b> <i class="wx">' + HERO_MAP[sb.myth].name + '加入卡池' + (mythWeapon(sb.myth) ? '，专属兵器「' + mythWeapon(sb.myth).name + '」也一起进卡池' : '') + '</i>' : '')   // v2.24：没打赢过的神魔层，敌情里写明打赢了给什么
       + (stageWeather(st) && stageWeather(st).id !== 'clear' ? '<br><b>天气</b> <i class="wx">' + stageWeather(st).name + '：' + stageWeather(st).desc + '</i>' : '')
       + (af.length ? '<br><b>本层词缀</b> ' + af.map(a => `<i class="affix">${a.name}：${a.desc}</i>`).join('') : '')
       + (sp.length ? '<br><b>特殊敌人</b> ' + sp.map(d => d.from === st ? `<i class="new" title="${d.tip}">${d.name} · 新</i>` : `<i>${d.name}</i>`).join('') : '');
@@ -370,7 +371,7 @@ const UI = (function () {
   /* ---------------- 兵器 ---------------- */
   function renderArms() {
     const S = Save.data, W = S.weapons;
-    const shown = WEAPONS.filter(w => !w.lock || (S.unlocked || {})[w.id] || W[w.id]);   // 神兽兵器：解锁之前不显示，让玩家自己碰
+    const shown = WEAPONS.filter(w => weaponOpen(w, S.unlocked) || W[w.id]);   // 神兽兵器、神魔兵器：解锁之前不显示，让玩家自己碰
     const cards = shown.slice().sort((a, b) => (W[b.id] ? 1 : 0) - (W[a.id] ? 1 : 0) || b.q - a.q).map(w => {
       const own = W[w.id], q = QUALITIES[w.q];
       const dot = own && own.lv < CFG.WEAPON_MAX_LV && S.iron >= weaponUpCost(w.id) && own.hero;
@@ -497,7 +498,7 @@ const UI = (function () {
     const total = QUALITIES.reduce((s, q) => s + q.rate, 0), ws = Math.round(CFG.WEAPON_SHARE * 100);
     const un = Save.data.unlocked || {};
     const rows = QUALITIES.filter(q => q.rate || HEROES.some(h => h.q === q.id && h.myth && un[h.id])).map(q => {   // 黑、彩两行：有解锁的神魔才显示
-      const names = HEROES.filter(h => h.q === q.id && !h.locked && (!h.myth || un[h.id])).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id && (!w.lock || (Save.data.unlocked || {})[w.id])).map(w => w.name).join('、');   // 只列现在抽得到的
+      const names = HEROES.filter(h => h.q === q.id && !h.locked && (!h.myth || un[h.id])).map(h => h.name).join('、'), wn = WEAPONS.filter(w => w.q === q.id && weaponOpen(w, un)).map(w => w.name).join('、');   // 只列现在抽得到的
       return `<tr style="--qc:${q.god ? '#c8b08a' : q.color}"><td>${q.name}品</td><td>${q.rate ? (q.rate / total * 100).toFixed(1) + '%' : '和橙品武将同池'}</td><td>${names}${wn ? '<br><span class="dim">兵器：' + wn + '</span>' : ''}</td></tr>`;
     }).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>概率公示</h2><table class="rates">${rows}</table>
@@ -657,7 +658,7 @@ const UI = (function () {
         ${r.again ? (r.legend ? '<li>这一关的首通奖励已经领过了<b>可以随时再战</b></li>' : '<li>今天的试炼奖励已经领过了<b>明天再来</b></li>') : ''}
         ${r.enc ? `<li class="enc">奇遇 · 击败${r.enc.name}<b>金币 +${r.enc.coins}${r.enc.iron ? '　精铁 +' + r.enc.iron : ''}</b></li>` : ''}
       </ul>
-      ${r.myth ? `<div class="encw" style="--qc:${QUALITIES[HERO_MAP[r.myth].q].color}"><img src="${P(r.myth)}"><p>击败<b>${HERO_MAP[r.myth].name}</b><br>已加入卡池，招募有机会抽到</p></div>` : ''}
+      ${r.myth ? `<div class="encw" style="--qc:${QUALITIES[HERO_MAP[r.myth].q].color}"><img src="${P(r.myth)}"><p>击败<b>${HERO_MAP[r.myth].name}</b><br>已加入卡池，招募有机会抽到${mythWeapon(r.myth) ? '<br>专属兵器<b>「' + mythWeapon(r.myth).name + '」</b>也一起进了卡池' : ''}</p></div>` : ''}
       ${r.enc && r.enc.unlock ? `<div class="encw" style="--qc:${QUALITIES[WEAPON_MAP[r.enc.unlock].q].color}"><img src="${WI(r.enc.unlock)}"><p>解锁神兽兵器<b>「${WEAPON_MAP[r.enc.unlock].name}」</b><br>已加入卡池，招募有机会抽到</p></div>` : ''}
       <div class="dmgs">${(() => { const top = Math.max(1, ...r.dmg.map(x => x.dmg)), sum = Math.max(1, r.dmg.reduce((s, x) => s + x.dmg, 0));
         return r.dmg.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join(''); })()}</div>

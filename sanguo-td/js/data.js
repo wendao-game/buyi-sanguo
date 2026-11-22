@@ -365,7 +365,7 @@ const HEROES = [
  * ============================================================ */
 const WEAPON_TYPES = { sword: '剑', blade: '刀', spear: '枪', bow: '弓', fan: '扇', halberd: '戟', axe: '斧', hammer: '锤', relic: '宝物' };
 const WSTATS = { atk: '攻击', spd: '出手速度', crit: '暴击率', rage: '怒气获取', ult: '大招伤害' };
-function Wp(id, name, q, type, eff, owner, desc, lock) { return { id, name, q, type, eff, owner: owner || null, desc: desc || '', lock: lock || null }; }   // lock：要先在「奇遇」里击败这只神兽，这件兵器才会进卡池
+function Wp(id, name, q, type, eff, owner, desc, lock) { return { id, name, q, type, eff, owner: owner || null, desc: desc || '', lock: lock || null }; }   // lock：要先击败谁这件兵器才会进卡池——「奇遇」里的神兽（青龙、白虎…），或者无尽关里的神魔（god_xxx）。见 weaponOpen()
 const WEAPONS = [
   Wp('tiejian',    '铁剑',       0, 'sword',   { atk: 0.04 }, null, '军中最常见的佩剑'),
   Wp('liegong',    '猎弓',       0, 'bow',     { spd: 0.04 }, null, '猎户用的短弓，胜在轻快'),
@@ -429,12 +429,25 @@ const WEAPONS = [
   Wp('baihu',      '白虎啸风刀', 5, 'blade',   { atk: 0.24, crit: 0.10 }, null, '西方白虎的利爪所化，刀过处有虎啸声', 'baihu'),
   Wp('zhuque',     '朱雀焚天弓', 5, 'bow',     { atk: 0.20, ult: 0.25 }, null, '南方朱雀的尾羽所化，箭出带火', 'zhuque'),
   Wp('xuanwu',     '玄武镇岳锤', 5, 'hammer',  { atk: 0.20, rage: 0.30 }, null, '北方玄武的甲壳所化，一锤镇山岳', 'xuanwu'),
+  // —— v2.24 神魔兵器：每位神魔一件专属的橙品兵器。平时抽不到，在无尽关击败这位神魔之后，和他本人一起进卡池（还是要自己抽）。数值是橙品预算，和别的橙品兵器同档 ——
+  Wp('tuntian',    '吞天魔戟',   5, 'halberd', { atk: 0.26, crit: 0.06 }, 'god_lvbu',    '方天画戟饮血太多，戟刃上缠着散不掉的黑雷', 'god_lvbu'),
+  Wp('youming',    '幽冥倚天剑', 5, 'sword',   { atk: 0.22, rage: 0.25 }, 'god_caocao',  '倚天剑染了魔气，剑身发黑，出鞘时满营皆寒', 'god_caocao'),
+  Wp('wusheng',    '武圣偃月刀', 5, 'blade',   { atk: 0.22, ult: 0.20 },  'god_guanyu',  '关公显圣时手里那口刀，刀上的青龙像是活的', 'god_guanyu'),
+  Wp('qixingdeng', '七星灯',     5, 'relic',   { atk: 0.20, ult: 0.18, rage: 0.10 }, 'god_zhuge', '五丈原上点过的那盏主灯，灯不灭，人不亡', 'god_zhuge'),
+  Wp('xuanzhu',    '洛水玄珠',   5, 'relic',   { atk: 0.21, spd: 0.13 },  'god_zhenji',  '洛水深处的一颗墨色宝珠，里头盘着一条小蛇的影子', 'god_zhenji'),
+  Wp('yajiao',     '龙魂涯角枪', 5, 'spear',   { atk: 0.23, crit: 0.11 }, 'god_zhaoyun', '海角天涯无对，枪杆里睡着四条龙魂', 'god_zhaoyun'),
 ];
 const WEAPON_MAP = {};
 WEAPONS.forEach(w => { WEAPON_MAP[w.id] = w; });
 
 const HERO_MAP = {};
 HEROES.forEach((h, i) => { h.seed = i * 1.7; HERO_MAP[h.id] = h; });
+/* 这件兵器现在抽不抽得到（un = Save.data.unlocked）：没有 lock 的随时能抽；
+ * 神兽兵器要先在奇遇里打赢那只神兽（记的是 unlocked[兵器 id]）；
+ * 神魔兵器要先在无尽关里打赢那位神魔（看 unlocked[神魔 id]，和神魔本人进卡池是同一个标记——所以老存档里已经打赢过的，更新后直接就能抽） */
+function weaponOpen(w, un) { un = un || {}; return !w.lock || !!(HERO_MAP[w.lock] ? un[w.lock] : un[w.id]); }
+/* 这位神魔的专属兵器（没有就是 null） */
+function mythWeapon(hid) { return WEAPONS.find(w => w.lock === hid && w.owner === hid) || null; }
 
 const STARTER_HEROES = ['liaohua', 'zhoucang', 'peiyuan'];
 

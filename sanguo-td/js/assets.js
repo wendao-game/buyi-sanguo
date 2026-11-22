@@ -31,6 +31,7 @@ const Assets = (function () {
   const ver = file => (window.ASSET_H && window.ASSET_H[file]) || window.ASSET_VER || '';
   /* 加载一张图：失败了隔一会儿再试，一共试 3 次（国内访问慢，偶尔会断） */
   let started = false, lateCb = null, lateT = 0, total = 0, loaded = 0;
+  const known = {}, gone = {};                              // known：清单里有的图；gone：试了 3 次都没下下来的。need() 只等「清单里有、还没放弃」的图——没画的图（比如刚加的兵器）等也等不来
   function loadOne(file) {
     const key = file.replace(/\.(png|jpe?g|webp)$/i, '');
     return new Promise(resolve => {
@@ -46,7 +47,7 @@ const Assets = (function () {
           }
           resolve(true);
         };
-        im.onerror = () => { if (++n < 3) setTimeout(go, 800 * n * n); else resolve(false); };
+        im.onerror = () => { if (++n < 3) setTimeout(go, 800 * n * n); else { gone[key] = 1; resolve(false); } };
         const v = ver(file); im.src = 'assets/' + file + (v ? '?v=' + v : '') + (n ? (v ? '&' : '?') + 'r=' + n : '');   // 换了图版本号就变，不会用到手机里缓存的旧图
       };
       go();
@@ -73,6 +74,7 @@ const Assets = (function () {
       return d === 'heroes' && head && own[id] ? 10 : d === 'heroes' && head ? 11 : d === 'weapons' ? 12 : d === 'enemies' ? 13 : d === 'heroes' && own[id] ? 14 : 15;
     };
     const list = (Array.isArray(window.ASSET_LIST) ? window.ASSET_LIST : []).filter(f => f.indexOf('sfx/') !== 0 && f.indexOf('voice/') !== 0).sort((a, b) => rank(a) - rank(b));   // sfx/、voice/ 里是音频，归 sfx.js 管
+    list.forEach(f => { known[f.replace(/.(png|jpe?g|webp)$/i, '')] = 1; });
     const first = list.filter(must).length;
     total = list.length;
     let next = 0, done = 0, busy = 0;
@@ -102,7 +104,7 @@ const Assets = (function () {
   /* 用到谁先下谁。want：插队，不等；need：插队并等它们到齐（最多等 ms 毫秒），到齐或超时后 resolve(有没有等过) */
   function want(keys) { return load.want ? load.want(keys) : 0; }
   function need(keys, ms) {
-    const ks = (keys || []).filter(Boolean).map(alias), miss = () => ks.filter(k => !img[k]);
+    const ks = (keys || []).filter(Boolean).map(alias), miss = () => ks.filter(k => !img[k] && known[k] && !gone[k]);
     if (!miss().length || !load.want) return Promise.resolve(false);
     load.want(ks);
     return new Promise(resolve => { const t0 = Date.now(), iv = setInterval(() => { if (!miss().length || Date.now() - t0 > (ms || 2000)) { clearInterval(iv); resolve(true); } }, 60); });

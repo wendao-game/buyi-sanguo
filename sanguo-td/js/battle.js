@@ -438,6 +438,7 @@ const Battle = (function () {
     if (e.def.id === 'boss' && S.boss.myth && !S.rush && !(Save.data.unlocked || {})[S.boss.myth]) {   // 过关斩将里打掉神魔不解锁（还是要在无尽里打）   // 第一次击败神魔：解锁，进卡池
       (Save.data.unlocked = Save.data.unlocked || {})[S.boss.myth] = 1; S.mythNew = S.boss.myth; Save.save();
       text(W / 2, 292, e.name + ' 加入卡池', '#ffe9a8', 24, 2.6, true);
+      const mw = mythWeapon(S.boss.myth); if (mw) text(W / 2, 326, '专属兵器「' + mw.name + '」也进了卡池', '#ffe9a8', 18, 2.6, true);   // v2.24：神魔的专属兵器跟着一起进卡池
     }
     if (e.demon) { for (let i = 0; i < 3; i++) tex('el_hit_dark', e.x + (rand() - 0.5) * 50, e.y - 20 - i * 26, { w: 150, life: 0.9 + i * 0.2, grow: 1.6, vy: -40, force: true }); text(e.x, e.y - 90, '心魔已散', '#d8b4ff', 22, 1.6, true); }
     const dk = e.def.horde ? 1 / CFG.HORDE : 1;                 // 小兵多了，单个掉东西的概率相应低一些，总量不变

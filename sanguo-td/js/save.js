@@ -32,7 +32,7 @@ const Save = {
       soul: 0,             // 将魂（碎片炼化得来，升星时顶碎片用）
       weapons: {},         // 已有的兵器：id → { lv, hero: 装在谁身上 / null }
       tips: {},            // 已经看过的新手提示
-      unlocked: {},        // 奇遇里解锁的神兽兵器：兵器 id → 1（解锁后才会进卡池）
+      unlocked: {},        // 解锁进卡池的东西：奇遇里的神兽兵器（兵器 id → 1）、无尽关里打赢的神魔（神魔 id → 1，他的专属兵器也跟着进卡池，见 weaponOpen）
       enc: { n: 0, kills: {}, seen: {} },   // 奇遇：连着多少局没碰上、各击败过几次、见过哪些（奇遇录）
       earned: 0,           // 累计获得的金币（招募令按兑换价折算），只增不减：云存档合并时取更大的那份
       idle: { t: 0 },      // 挂机军饷：从什么时候开始攒（领完重新攒；只往后走，改回更早的时间不会多给）
@@ -594,7 +594,7 @@ function gachaDraw(n) {
     S.pity++;
     const must = S.pity >= CFG.PITY;                        // 保底：这么多抽没出金品以上的武将，这一抽必出金品武将（兵器不算，也不清零；这一抽本来是橙就还是橙）
     if (must && q < CFG.PITY_Q) q = CFG.PITY_Q;
-    const wp = (WEAPON_POOL[q] || []).filter(id => !WEAPON_MAP[id].lock || (S.unlocked && S.unlocked[id]));   // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将（没解锁的神兽兵器不在池子里）
+    const wp = (WEAPON_POOL[q] || []).filter(id => weaponOpen(WEAPON_MAP[id], S.unlocked));   // 兵器和武将在同一个池子里：先定品质，再看这一抽是兵器还是武将（没解锁的神兽兵器、神魔兵器不在池子里）
     if (!must && wp.length && Math.random() < CFG.WEAPON_SHARE) return grantWeapon(wp[Math.floor(Math.random() * wp.length)]);
     if (q >= CFG.PITY_Q) S.pity = 0;
     let pool = GACHA_POOL[q];

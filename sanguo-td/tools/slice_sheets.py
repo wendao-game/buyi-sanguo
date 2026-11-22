@@ -67,6 +67,7 @@ WEAPON_SHEETS = {
     'weapon_5': ['canglong', 'baihu', 'zhuque', 'xuanwu', None, None, None, None, None],   # 四件神兽兵器
     'weapon_6': ['liandao', 'langya', 'tietai', 'jietou', 'qingnang', 'lvchen', 'baodiao', 'xianglu', 'zidian'],   # v2.2 新加的 9 件
     'weapon_7': ['mugun', 'yaodao', 'tiebian', 'feidao', 'qinglingshu', 'jiguanxia', 'yuxi', 'sizhao', 'qinggang'],   # v2.3 新加的 9 件
+    'weapon_8': ['tuntian', 'youming', 'wusheng', 'qixingdeng', 'xuanzhu', 'yajiao', None, None, None],   # v2.24 六件神魔兵器
 }
 # 大招里冲出去的兵、马、象（透明底，和武将一样的画风）：切出来存 fx/<名字>.png，游戏里有图就用图，没有就用代码画的
 UNIT_SHEETS = {
