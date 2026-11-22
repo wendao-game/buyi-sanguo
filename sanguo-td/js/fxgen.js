@@ -681,8 +681,9 @@ const FXGen = (function () {
   /* 没有对应图片的特效名，用生成的贴图补上 */
   function build(assets) {
     const made = [];
-    for (const k in G) if (!assets.get('fx:' + k)) { assets.put('fx/' + k, G[k]()); made.push(k); }
-    for (const k in SOLID) if (!assets.get('fx:' + k)) { assets.put('fx/' + k, SOLID[k]()); made.push(k); }
+    const later = k => !!(assets.waiting && assets.waiting('fx/' + k));   // 有手绘的图、只是还在路上（按包加载时特效包在进主城之后才到）：不生成，等真图
+    for (const k in G) if (!assets.get('fx:' + k) && !later(k)) { assets.put('fx/' + k, G[k]()); made.push(k); }
+    for (const k in SOLID) if (!assets.get('fx:' + k) && !later(k)) { assets.put('fx/' + k, SOLID[k]()); made.push(k); }
     return made;
   }
   return { build, names: () => Object.keys(G) };

@@ -61,6 +61,8 @@ const Sfx = (function () {
   function loadFiles() {
     if (filesAsked || !ac || !Array.isArray(window.ASSET_LIST) || typeof fetch !== 'function') return;
     filesAsked = true;
+    const pk = typeof Assets !== 'undefined' && Assets.rawPack ? Assets.rawPack('sfx') : null;   // 发布包：13 个音效在一个包里，一个请求取回来
+    if (pk) { pk.then(m => { Object.keys(m).forEach(f => { const mm = /^sfx\/([\w-]+)\./.exec(f); if (mm) ac.decodeAudioData(m[f], buf => { FILES[mm[1]] = buf; }, () => { }); }); }); return; }
     window.ASSET_LIST.forEach(f => {
       const m = /^sfx\/([\w-]+)\.(mp3|ogg|wav|m4a)$/i.exec(f); if (!m) return;
       fetch('assets/' + f + fver(f)).then(r => r.arrayBuffer())

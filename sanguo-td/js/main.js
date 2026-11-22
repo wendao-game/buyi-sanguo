@@ -70,7 +70,7 @@
     ? Promise.race([Promise.all([document.fonts.load('20px SGRound', '孤城万仞0'), document.fonts.load('20px SGBrush', '孤城万仞'), document.fonts.load('20px SGNum', '0123')]), new Promise(r => setTimeout(r, 2500))]).catch(() => {})
     : Promise.resolve();
   const bar = document.getElementById('loadBar'), txt = document.getElementById('loadTxt');
-  const onProgress = p => { if (bar) bar.style.width = Math.round(p * 100) + '%'; if (txt) txt.textContent = '正在加载 ' + Math.round(p * 100) + '%'; };
+  const onProgress = (p, retry) => { if (bar) bar.style.width = Math.round(p * 100) + '%'; if (txt) txt.textContent = (retry ? '网络不太稳，正在重试 ' : '正在加载 ') + Math.round(p * 100) + '%'; };   // retry：有包下断了在重来（按包加载时没有「到点先进去」，下齐为止）
   Promise.all([Assets.load(onProgress), fontsReady]).then(() => {
     FXGen.build(Assets);                       // 没有图片的特效贴图用代码生成
     drawExt();                                 // 背景图到了：重画上方延伸的那一截

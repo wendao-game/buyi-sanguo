@@ -60,9 +60,33 @@ const UI = (function () {
   function closeModal() { const m = $('#modal'); m.classList.remove('on'); m.innerHTML = ''; modalScroll = {}; }
 
   /* ---------------- 页面切换 ---------------- */
-  function show(tab) {
-    if (tab === 'arms') Assets.want(f => f.indexOf('weapons/') === 0);                       // 切到哪一页，那一页要用的图先下
-    else if (tab === 'heroes' || tab === 'gacha') Assets.want(f => /^heroes\/.*_head\./.test(f));
+  /* —— 等图（v2.25）：有图的地方只显示真图。要用的图还没下到，就盖一层「正在加载」等它到齐再往下走；绝不拿代码画的顶 ——
+   * 只有发布包（图片打成包，Assets.packed()）才等；开发时一张张加载，还是老样子。
+   * 等的时候可以点「取消」留在原来的页面（断网时不会被困住）。 */
+  let artWait = null;
+  const teamArt = () => { const ks = []; (Save.data.team || []).filter(Boolean).forEach(id => { ks.push('heroes/' + id, 'heroes/' + id + '_head'); }); return ks; };
+  const pageArt = tab => tab === 'home' ? (Save.data.team || []).filter(Boolean).map(id => 'heroes/' + id)
+    : tab === 'heroes' || tab === 'gacha' || tab === 'arms' ? Assets.allKeys().filter(k => /^heroes\/.*_head$/.test(k) || k.indexOf('weapons/') === 0) : [];
+  /* 一场战斗要用的图：普通关卡只要上阵武将和这一关的敌将；敌将是武将形象（心魔、神魔）或者是试炼、列传、过关斩将，就要全部的图 */
+  function battleArt(stage, mode) {
+    const b = mode ? null : stageBoss(stage);
+    if (!b || b.hero || b.myth || b.head || b.morph) return Assets.allKeys();
+    return teamArt().concat([b.sprite], Assets.allKeys().filter(k => k.indexOf('fx/') === 0 || (k.indexOf('enemies/') === 0 && !HERO_MAP[k.slice(8)])));   // 特效、普通敌人（进主城之后才下的两包）
+  }
+  function waitArt(keys, fn) {
+    if (!Assets.packed || !Assets.packed() || Assets.ready(keys)) return fn();
+    if (artWait) return;
+    const el = document.createElement('div'); el.id = 'artwait';
+    el.innerHTML = '<div><b>正在加载美术资源</b><i><u></u></i><span>0%</span><button type="button">取消</button></div>';
+    $('#app').appendChild(el);
+    const st = artWait = { el, iv: 0, off: false };
+    const done = () => { clearInterval(st.iv); el.remove(); if (artWait === st) artWait = null; };
+    st.iv = setInterval(() => { const p = Math.round(Assets.progress(keys) * 100); el.querySelector('u').style.width = p + '%'; el.querySelector('span').textContent = p + '%'; }, 120);
+    el.querySelector('button').onclick = () => { st.off = true; done(); };
+    Assets.need(keys).then(() => { if (st.off) return; done(); Art.refresh(); fn(); });
+  }
+  function show(tab) { waitArt(pageArt(tab), () => showNow(tab)); }
+  function showNow(tab) {
     screen = tab; $('#app').dataset.screen = tab; lpDraft = null;
     hideTip();                                              // 上一个页面的提示不带过来
     Sfx.music(tab === 'battle' ? 'battle' : 'home');
@@ -178,11 +202,13 @@ const UI = (function () {
     if (!L) return;
     if (!legendOpen(L)) return toast('需要拥有：' + missingNames(L));
     const team = legendTeam(L), rule = legendRule(L, team);
-    Save.data.trialBak = Save.data.team.slice(); Save.data.team = team; Save.save();   // 打完、退出、重开游戏都会换回原阵容（同每日试炼）
-    closeModal(); show('battle');
-    $('#bSpeed').textContent = '×' + Save.data.speed;
-    $('#bAuto').classList.toggle('off', !Save.data.auto);
-    Battle.start(L.stage, rule);
+    waitArt(battleArt(L.stage, 'legend'), () => {
+      Save.data.trialBak = Save.data.team.slice(); Save.data.team = team; Save.save();   // 打完、退出、重开游戏都会换回原阵容（同每日试炼）
+      closeModal(); showNow('battle');
+      $('#bSpeed').textContent = '×' + Save.data.speed;
+      $('#bAuto').classList.toggle('off', !Save.data.auto);
+      Battle.start(L.stage, rule);
+    });
   }
   function facName(f) { return f === 'qun' ? '群雄' : FACTIONS[f].name + '国'; }   // 「魏国」「蜀国」「吴国」，群不叫「群国」
   function startTrial() {
@@ -194,10 +220,12 @@ const UI = (function () {
       Save.data.trialBak = Save.data.team.slice(); Save.data.team = team; Save.save();
     }
     if (!Save.data.team.some(Boolean)) return toast('至少上阵一名武将');
-    closeModal(); show('battle');
-    $('#bSpeed').textContent = '×' + Save.data.speed;
-    $('#bAuto').classList.toggle('off', !Save.data.auto);
-    Battle.start(trialStage(), t);
+    waitArt(battleArt(trialStage(), 'trial'), () => {
+      closeModal(); showNow('battle');
+      $('#bSpeed').textContent = '×' + Save.data.speed;
+      $('#bAuto').classList.toggle('off', !Save.data.auto);
+      Battle.start(trialStage(), t);
+    });
   }
   /* ---------------- 过关斩将（v2.19） ---------------- */
   function rushPanel() {
@@ -214,10 +242,12 @@ const UI = (function () {
   function startRush() {
     if (!rushOpen()) return toast('打进无尽后开放');
     if (!Save.data.team.some(Boolean)) return toast('至少上阵一名武将');
-    closeModal(); show('battle');
-    $('#bSpeed').textContent = '×' + Save.data.speed;
-    $('#bAuto').classList.toggle('off', !Save.data.auto);
-    Battle.start(rushStage(1), { rush: true, name: '过关斩将', desc: '只有敌将，打到守不住为止' });
+    waitArt(battleArt(rushStage(1), 'rush'), () => {
+      closeModal(); showNow('battle');
+      $('#bSpeed').textContent = '×' + Save.data.speed;
+      $('#bAuto').classList.toggle('off', !Save.data.auto);
+      Battle.start(rushStage(1), { rush: true, name: '过关斩将', desc: '只有敌将，打到守不住为止' });
+    });
   }
   /* 排行榜 */
   function rankPanel() {
@@ -524,10 +554,12 @@ const UI = (function () {
   /* ---------------- 战斗 ---------------- */
   function startBattle(stage) {
     if (!Save.data.team.some(Boolean)) return toast('至少上阵一名武将');
-    closeModal(); show('battle');
-    $('#bSpeed').textContent = '×' + Save.data.speed;
-    $('#bAuto').classList.toggle('off', !Save.data.auto);
-    Battle.start(stage);
+    waitArt(battleArt(stage), () => {
+      closeModal(); showNow('battle');
+      $('#bSpeed').textContent = '×' + Save.data.speed;
+      $('#bAuto').classList.toggle('off', !Save.data.auto);
+      Battle.start(stage);
+    });
   }
   function hud(S) {
     if (hudS !== S || hudVer !== S.teamVer) {

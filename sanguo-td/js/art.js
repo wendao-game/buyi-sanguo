@@ -30,6 +30,11 @@ const Art = (function () {
   /* 代码画的小人：先画到离屏画布，描一圈粗黑边、加一点左上亮右下暗的明暗，按 key 缓存。
    * box = [x0, y0, 宽, 高]（本地单位）；返回 { im, x, y, w, h }，直接 drawImage(im, x, y, w, h) */
   const procCache = {};
+  /* 有图、只是还没下到（Assets.waiting）：先空着，绝不拿代码画的顶（用户定的规矩，代码画的太难看）。
+   * 正常走不到这里——进页面、开战之前 UI.waitArt 会等图到齐；这是最后一道保险。真没有图的东西（布景、个别特效）才用代码画。 */
+  const waitingArt = k => !!(typeof Assets !== 'undefined' && Assets.waiting && Assets.waiting(k));
+  let blankCv = null;
+  const blank = () => { if (!blankCv) { blankCv = document.createElement('canvas'); blankCv.width = blankCv.height = 2; } return blankCv; };
   function procSprite(key, box, draw) {
     if (procCache[key]) return procCache[key];
     const K = 4, pad = 2, cw = (box[2] + pad * 2) * K, ch = (box[3] + pad * 2) * K;
@@ -302,6 +307,7 @@ const Art = (function () {
       c.restore();
       return;
     }
+    if (waitingArt('hero:' + d.id)) { c.restore(); return; }   // 立绘还在路上：先空着
     // 没有立绘：代码画的小人，描上粗黑边，和手绘立绘是同一种卡通画法
     const ps = procSprite('hero:' + d.id, [-26, -48, 58, 74], cc => heroBody(cc, d));
     c.translate(0, Math.sin(t * 2.4 + d.seed) * 1.1 - a * 6);
@@ -327,6 +333,7 @@ const Art = (function () {
   function heroSprite(d) {
     const im = Assets.get('hero:' + d.id);
     if (im) { const hU = SPRITE.hero.units; return { im: lit(im), w: hU * im.width / im.height, h: hU, ax: SPRITE.hero.ax, ay: SPRITE.hero.ay, k: 1, proc: false }; }
+    if (waitingArt('hero:' + d.id)) return { im: blank(), w: 1, h: 1, ax: 0.5, ay: 0.86, k: 1, proc: true };   // 立绘还在路上：先空着
     const ps = procSprite('hero:' + d.id, [-26, -48, 58, 74], cc => heroBody(cc, d));
     return { im: ps.im, w: ps.w, h: ps.h, ax: -ps.x / ps.w, ay: (20 - ps.y) / ps.h, k: 1.2, proc: true };
   }
@@ -377,7 +384,8 @@ const Art = (function () {
     const head = Assets.get('head:' + id), spr = Assets.get('hero:' + id);
     if (head) c.drawImage(head, 0, 0, 64, 64);
     else if (spr) { const hh = 92, ww = hh * spr.width / spr.height; c.drawImage(spr, 32 - ww / 2, 3, ww, hh); }   // 没有单独头像：取立绘上半身
-    else hero(c, d, 30, 40, 1.45, 0, 0, true);
+    else if (!waitingArt('head:' + id) && !waitingArt('hero:' + id)) hero(c, d, 30, 40, 1.45, 0, 0, true);
+    else { try { return cv.toDataURL(); } catch (e) { return ''; } }   // 头像还在路上：只有底色，而且不进缓存（到了以后重画）
     if (d.locked) { c.fillStyle = 'rgba(8,6,14,.72)'; c.fillRect(0, 0, 64, 64); c.fillStyle = '#fff'; c.font = 'bold 26px sans-serif'; c.textAlign = 'center'; c.fillText('?', 32, 42); }
     try { return (pCache[key] = cv.toDataURL()); }
     catch (e) { return (pCache[key] = (head || spr).src); }   // 双击打开(file://)时画布不能导出图片，退回直接用原图
@@ -389,6 +397,7 @@ const Art = (function () {
     const d = e.def, im = (e.spr && Assets.get(e.spr)) || Assets.get('enemy:' + d.id);
     if (im && e.bust && e.spr && Assets.get(e.spr)) { const hU = SPRITE.enemy.units * 1.3, wU = hU * im.width / im.height; return { im, x: -wU * 0.5, y: 12.4 - hU * 1.04, w: wU, h: hU, k: 1, top: 3.25 }; }   // 心魔的半身像：底边飘在脚下那团魔焰上
     if (im) { const hU = SPRITE.enemy.units, wU = hU * im.width / im.height; return { im, x: -wU * SPRITE.enemy.ax, y: 12.4 - hU * SPRITE.enemy.ay, w: wU, h: hU, k: 1, top: 2.55 }; }
+    if (waitingArt(e.spr || 'enemy:' + d.id)) return { im: blank(), x: 0, y: 0, w: 1, h: 1, k: 1, top: 2.35 };   // 图还在路上：先空着
     const pd = e.look || d;                                    // 没有立绘的敌将：同一个小人换一套配色
     const ps = procSprite('enemy:' + d.id + (e.look ? ':' + e.look.key : ''), [-20, -30, 44, 54], cc => enemyBody(cc, pd));
     return { im: ps.im, x: ps.x, y: ps.y, w: ps.w, h: ps.h, k: 1.3, top: 2.35 };
@@ -639,6 +648,7 @@ const Art = (function () {
     c.fillStyle = w.q === 6 ? 'rgba(150,110,225,.34)' : 'rgba(20,12,8,.45)'; c.beginPath(); c.arc(32, 32, 25, 0, TAU); c.fill();   // 黑品（魔将的兵器）：底已经是黑的，中间垫一圈紫光，黑色的兵器才看得清
     c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1.5; c.beginPath(); c.arc(32, 32, 25, 0, TAU); c.stroke();
     if (im) c.drawImage(im, 4, 4, 56, 56);
+    else if (waitingArt('weapons/' + id)) { try { return cv.toDataURL(); } catch (e) { return ''; } }   // 图标还在路上：只有底色，不进缓存
     else {
       c.save(); c.translate(32, 32); c.rotate(0.7); c.lineJoin = 'round'; c.lineCap = 'round';
       const OUT = '#1a120e', METAL = '#eef2f6', SHADE = '#aeb8c4', WOOD = '#8a5428', GOLD = '#ffd24a', RED = '#d8423a';

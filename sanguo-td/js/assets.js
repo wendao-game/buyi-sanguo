@@ -60,7 +60,132 @@ const Assets = (function () {
    *     （这三样招募结果、武将页、兵器页马上会用到，约 3 MB）→ 武将形象的敌人（心魔、神魔将）→ 自己有的武将的立绘 → 其余立绘
    * 第二批没到的图先用代码画的顶着，到了以后界面自动换上（onLate）；战斗画面每帧都取最新的图。
    * 为了不让玩家看到代码画的图：用到谁先下谁——want() 把要用的插到队伍最前面，need() 再等它们到了才往下走（招募结果用） */
+  /* ============ 按包加载（v2.25，发布包走这条路；开发时没有 ASSET_PACKS，走下面一张张加载的老路）============
+   * 为什么：TapTap 的 H5 每次都从 CDN 现取文件，没人取过的冷文件每个 0.5～1.8 秒（偶尔 10 秒）；原来进主城前一百五十多个请求，回回撞 15 秒上限。
+   * 现在图片打成十来个包（tools/mk_release.js）：进主城前只取 home 包（背景、界面、开局武将；老玩家再加上阵武将的立绘包）；
+   *   其余进了主城在后台按顺序取（特效、普通敌人最先——开战要用），用到哪包先取哪包。音效也是一个包（raw，原样交给 sfx.js）。
+   *   home 包的请求在 index.html 里就发出去了（window.__PRE），这里接手，不用等 app.js 下完再发。
+   * 规矩（用户定的）：有图的地方只显示真图。没到就等（界面上显示进度），下载失败就一直重试，绝不拿代码画的图顶。
+   *   所以这条路没有「15 秒到了先进去」的上限；need() 也没有超时。 */
+  const packs = [], packOf = {};                            // packOf：图的键 → 它在哪个包
+  let bgOn = false, onStat = null;
+  const mime = f => (/\.png$/i.test(f) ? 'image/png' : /\.webp$/i.test(f) ? 'image/webp' : 'image/jpeg');
+  function unpack(p, buf) {
+    if (p.raw) { p.buf = buf; return Promise.resolve(); }      // 不是图片（音效）：原样留着
+    return Promise.all(p.items.map(it => new Promise(resolve => {
+      const key = it[0].replace(/\.(png|jpe?g|webp)$/i, ''), im = new Image();
+      let n = 0;
+      const go = () => {                                      // 数据已经在手里了，解不出来多半是内存紧：隔一会儿再解，最多 3 次
+        const url = URL.createObjectURL(new Blob([new Uint8Array(buf, it[1], it[2])], { type: mime(it[0]) }));
+        im.onload = () => { img[key] = im; loaded++; resolve(); };
+        im.onerror = () => { URL.revokeObjectURL(url); if (++n < 3) setTimeout(go, 300 * n); else { gone[key] = 1; resolve(); } };
+        im.src = url;
+      };
+      go();
+    })));
+  }
+  /* 下过的包存在手机里（IndexedDB）：下次打开，包的内容没变（哈希一样）就直接从手机里读，不走网络。
+   * TapTap 每传一个新包地址就变、浏览器自己的缓存全部作废；这里按「包名 + 内容哈希」认，换了版本、没改过的图包照样不用重下。
+   * 存不了、读不出（隐私模式、空间不够、个别壳子不支持）就当没有这回事，照常走网络。读最多等 1.5 秒。 */
+  const store = (function () {
+    let dbp = null;
+    const open = () => dbp || (dbp = new Promise(resolve => {
+      try {
+        const rq = indexedDB.open('sg_packs', 1);
+        rq.onupgradeneeded = () => { try { rq.result.createObjectStore('p'); } catch (e) { } };
+        rq.onsuccess = () => resolve(rq.result); rq.onerror = () => resolve(null); rq.onblocked = () => resolve(null);
+      } catch (e) { resolve(null); }
+    }));
+    const flag = (p, on) => { try { if (on) localStorage.setItem('sg_pk_' + p.n, p.h); else localStorage.removeItem('sg_pk_' + p.n); } catch (e) { } };   // index.html 里那段先发请求的脚本看这个：home 包已经存在手机里就不发了
+    return {
+      get(p) {
+        const read = open().then(db => db ? new Promise(resolve => {
+          try { const rq = db.transaction('p', 'readonly').objectStore('p').get(p.n); rq.onsuccess = () => { const v = rq.result; resolve(v && v.h === p.h && v.buf && v.buf.byteLength === p.size ? v.buf : null); }; rq.onerror = () => resolve(null); }
+          catch (e) { resolve(null); }
+        }) : null);
+        return Promise.race([read, new Promise(resolve => setTimeout(() => resolve(null), 1500))]).then(buf => { if (!buf) flag(p, false); return buf; });
+      },
+      put(p, buf) {
+        open().then(db => { if (!db) return; try { const tx = db.transaction('p', 'readwrite'); tx.objectStore('p').put({ h: p.h, buf }, p.n); tx.oncomplete = () => flag(p, true); } catch (e) { } });
+      },
+    };
+  })();
+  function fetchPack(p) {                                     // 取一个包：先看手机里有没有存着；没有就下，成功为止（断了、卡住 20 秒没动静、大小对不上，都重来）
+    if (p.pr) return p.pr;
+    p.st = 1; p.got = 0;
+    p.pr = new Promise(resolve => {
+      let n = 0;
+      const finish = () => {
+        p.st = 2; stat();
+        if (started) {                                        // 进游戏之后才到的包：换色缓存作废，通知界面重画
+          if (p.items.some(it => it[0].indexOf('fx/') === 0)) Object.keys(tintCache).forEach(k => { delete tintCache[k]; });
+          clearTimeout(lateT); lateT = setTimeout(() => { if (lateCb) lateCb(); }, 60);
+        }
+        resolve(); pumpBg();
+      };
+      store.get(p).then(buf => {
+        if (!buf) return go();
+        const url = 'assets/' + p.f + '?v=' + p.h, pre = window.__PRE && window.__PRE[url];
+        if (pre) { delete window.__PRE[url]; try { pre.x.abort(); } catch (e) { } }   // 手机里有：先发出去的那个请求不要了
+        p.got = p.size; p.cached = true; stat(); unpack(p, buf).then(finish);
+      });
+      const go = () => {
+        const url = 'assets/' + p.f + '?v=' + p.h, pre = !n && window.__PRE && window.__PRE[url];   // pre：index.html 里已经先发出去的那个请求
+        if (pre) delete window.__PRE[url];
+        const x = pre ? pre.x : new XMLHttpRequest(); let stall = 0, dead = false;
+        const fail = () => { if (dead) return; dead = true; clearTimeout(stall); try { x.abort(); } catch (e) { } n++; p.got = 0; p.retry = n; stat(); setTimeout(go, Math.min(5000, 700 * n)); };
+        const watch = () => { clearTimeout(stall); stall = setTimeout(fail, 20000); };
+        if (!pre) { x.open('GET', url + (n ? '&r=' + n : '')); x.responseType = 'arraybuffer'; }
+        x.onprogress = e => { p.got = e.loaded; watch(); stat(); };
+        x.onload = () => {
+          if (dead) return;
+          if (x.status >= 200 && x.status < 300 && x.response && x.response.byteLength === p.size) {
+            dead = true; clearTimeout(stall); p.got = p.size; p.retry = 0; stat();
+            const buf = x.response;
+            unpack(p, buf).then(() => { store.put(p, buf); finish(); });
+          } else fail();
+        };
+        x.onerror = fail; x.onabort = () => { if (!dead) fail(); };
+        watch();
+        if (!pre) x.send();
+        else if (x.readyState === 4) { if (x.status) x.onload(); else fail(); }   // 已经下完（或者已经失败）了
+        else { p.got = pre.got || 0; stat(); }
+      };
+    });
+    return p.pr;
+  }
+  function stat() { if (onStat) onStat(); }
+  /* 后台接着下：按包的顺序，一次 3 个；want() / need() 点名的包不排队、立刻开始 */
+  function pumpBg() {
+    if (!bgOn) return;
+    let busy = packs.filter(p => p.st === 1).length;
+    for (const p of packs) { if (busy >= 3) break; if (!p.st) { fetchPack(p); busy++; } }
+  }
+  const packsFor = keys => { const out = []; (keys || []).forEach(k => { const p = k && packOf[alias(k)]; if (p && out.indexOf(p) < 0) out.push(p); }); return out; };
+  function loadPacks(onProgress) {
+    const D = typeof Save !== 'undefined' && Save.data ? Save.data : { team: [] };
+    window.ASSET_PACKS.forEach(p => { p.st = 0; p.got = 0; packs.push(p); if (p.raw) return; p.items.forEach(it => { const k = it[0].replace(/\.(png|jpe?g|webp)$/i, ''); packOf[k] = p; known[k] = 1; total++; }); });
+    // 进主城前必须到的：home 包；老玩家再加上阵武将的立绘所在的包（主城的城楼上站着他们）
+    const first = packs.filter(p => p.core).concat(packsFor((D.team || []).filter(Boolean).map(id => 'heroes/' + id)).filter(p => !p.core));
+    const size = first.reduce((s, p) => s + p.size, 0);
+    onStat = () => { if (onProgress && !started) onProgress(Math.min(1, first.reduce((s, p) => s + (p.st === 2 ? p.size : p.got * 0.97), 0) / Math.max(1, size)), first.some(p => p.retry > 0 && p.st !== 2)); };
+    return Promise.all(first.map(fetchPack)).then(() => { started = true; onStat = null; bgOn = true; pumpBg(); return Object.keys(img); });
+  }
+  /* 这些图是不是都到了（清单里没有的、解不出来的不算——等也等不来） */
+  function ready(keys) { return !(keys || []).some(k => { const a = k && alias(k); return a && known[a] && !img[a] && !gone[a]; }); }
+  /* 有图、但还没下到——画的时候用这个判断：是就先空着，不要拿代码画的顶 */
+  function waiting(k) { const a = alias(k); return !!(known[a] && !img[a] && !gone[a]); }
+  /* 这些图所在的包下了多少（0～1），给「正在加载」的进度条用 */
+  function progress(keys) { const ps = packsFor(keys).filter(p => p.st !== 2); if (!ps.length) return 1; return ps.reduce((s, p) => s + p.got, 0) / Math.max(1, ps.reduce((s, p) => s + p.size, 0)); }
+  const allKeys = () => Object.keys(known);
+  /* 音效包：下到了就给 { 'sfx/boom.mp3': ArrayBuffer, … }；没有这个包（开发时）给 null */
+  function rawPack(name) {
+    const p = packs.filter(q => q.raw && q.n === name)[0]; if (!p) return null;
+    return fetchPack(p).then(() => { const out = {}; p.items.forEach(it => { out[it[0]] = p.buf.slice(it[1], it[1] + it[2]); }); return out; });
+  }
+
   function load(onProgress) {
+    if (Array.isArray(window.ASSET_PACKS) && window.ASSET_PACKS.length) return loadPacks(onProgress);
     const D = typeof Save !== 'undefined' && Save.data ? Save.data : { heroes: {}, team: [] };
     const heroIds = {}; (typeof HEROES !== 'undefined' ? HEROES : []).forEach(h => { heroIds[h.id] = 1; });
     const team = {}; (D.team || []).forEach(id => { if (id) team[id] = 1; });
@@ -102,8 +227,15 @@ const Assets = (function () {
   }
 
   /* 用到谁先下谁。want：插队，不等；need：插队并等它们到齐（最多等 ms 毫秒），到齐或超时后 resolve(有没有等过) */
-  function want(keys) { return load.want ? load.want(keys) : 0; }
+  function want(keys) {
+    if (packs.length) { const ps = (typeof keys === 'function' ? packs.filter(p => p.items.some(it => keys(it[0]))) : packsFor(keys)).filter(p => !p.st); ps.forEach(fetchPack); return ps.length; }
+    return load.want ? load.want(keys) : 0;
+  }
   function need(keys, ms) {
+    if (packs.length) {                                     // 按包：等到齐为止，没有超时（fetchPack 自己会一直重试）
+      if (ready(keys)) return Promise.resolve(false);
+      return Promise.all(packsFor((keys || []).filter(k => k && waiting(k))).map(fetchPack)).then(() => true);
+    }
     const ks = (keys || []).filter(Boolean).map(alias), miss = () => ks.filter(k => !img[k] && known[k] && !gone[k]);
     if (!miss().length || !load.want) return Promise.resolve(false);
     load.want(ks);
@@ -130,5 +262,5 @@ const Assets = (function () {
   const put = (key, cv) => { img[key] = cv; };
 
   return { load, get: k => img[alias(k)] || null, keys: () => Object.keys(img), tinted, put,
-    ver, want, need, onLate(fn) { lateCb = fn; }, pending: () => Math.max(0, total - loaded) };
+    ver, want, need, ready, waiting, progress, allKeys, rawPack, packed: () => packs.length > 0, onLate(fn) { lateCb = fn; }, pending: () => Math.max(0, total - loaded) };
 })();
