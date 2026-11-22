@@ -363,7 +363,7 @@ const GLView = (function () {
           return;
         }
       }
-      if (s.tex && img(Lf, s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang + s.spin * t, 1, s.rgb || undefined)) { light(s.x, s.y, (s.texW || s.w * 2) * 0.5, 0xe8fff0, 0.7); return; }
+      if (s.tex && img(Lf, s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang + s.spin * t, s.a || 1, s.rgb || undefined)) { light(s.x, s.y, (s.texW || s.w * 2) * 0.5, 0xe8fff0, 0.7 * (s.a || 1)); return; }
       if (s.look === 'arrow') img(Lf, 'thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1, s.rgb || undefined);
       else if (s.look === 'ice') img(Lf, 'el_arrow_ice', s.x - Math.cos(ang) * s.w * 0.6, s.y - Math.sin(ang) * s.w * 0.6, Math.max(70, s.w * 2.6), 0, ang, 1);
       else {

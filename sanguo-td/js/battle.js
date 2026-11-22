@@ -896,7 +896,7 @@ const Battle = (function () {
   }
   function shotBlade(h, x, y, ang, o) {
     S.shots.push({ k: 'blade', h, x, y, vx: Math.cos(ang) * (o.spd || 430), vy: Math.sin(ang) * (o.spd || 430), w: o.w || 50, dmg: o.dmg, hit: new Set(), life: o.life || 2.2,
-      big: !!o.big, push: o.push || 0, slow: o.slow || 0, look: o.look || 'blade', el: o.el || 'blade', color: o.color || '', basic: !!o.basic, tex: o.tex || '', texW: o.texW || 0, rgb: o.rgb || '', spin: o.spin || 0, solid: !!o.solid, stun: o.stun || 0 });   // solid：实体小图（直立着画，不跟着方向转；往左飞时镜像）   // rgb 染色；spin 贴图自转（掷出去的兵器）
+      big: !!o.big, push: o.push || 0, slow: o.slow || 0, look: o.look || 'blade', el: o.el || 'blade', color: o.color || '', basic: !!o.basic, tex: o.tex || '', texW: o.texW || 0, rgb: o.rgb || '', spin: o.spin || 0, solid: !!o.solid, stun: o.stun || 0, a: o.a || 1 });   // a：专属贴图画多透（默认 1）   // solid：实体小图（直立着画，不跟着方向转；往左飞时镜像）   // rgb 染色；spin 贴图自转（掷出去的兵器）
   }
   function shotLob(h, el, x0, y0, tx, ty, o) {
     S.shots.push({ k: 'lob', h, el, x: x0, y: y0, px: x0, py: y0, x0, y0, tx, ty, t: 0, dur: o.dur || 0.5, arc: o.arc || 0, r: o.r || 50, dmg: o.dmg, big: !!o.big, size: o.size || 1, slow: o.slow || 0, basic: !!o.basic });
@@ -1553,7 +1553,7 @@ const Battle = (function () {
       c.globalCompositeOperation = 'lighter';
       let done = false;
       if (s.tex && s.solid) { const im2 = Assets.get('fx:' + s.tex); if (im2) { const w2 = s.texW || s.w * 2, h2 = w2 * im2.height / im2.width; c.globalCompositeOperation = 'source-over'; c.save(); c.translate(s.x, s.y); if (s.vx < -1) c.scale(-1, 1); c.drawImage(im2, -w2 / 2, -h2 * 0.6, w2, h2); c.restore(); c.globalCompositeOperation = 'lighter'; done = true; } }   // 实体小图（兵、马、象）：不发光
-      else if (s.tex) done = img(s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang + s.spin * S.t, 1, s.rgb || undefined);   // 青龙、白龙这类专属贴图；没有就按普通刀光 / 冰枪画
+      else if (s.tex) done = img(s.tex, s.x, s.y, s.texW || s.w * 2, 0, ang + s.spin * S.t, s.a || 1, s.rgb || undefined);   // 青龙、白龙这类专属贴图；没有就按普通刀光 / 冰枪画
       if (done) { /* 已画 */ } else if (s.look === 'arrow') done = img('thrust', s.x - Math.cos(ang) * s.w * 0.8, s.y - Math.sin(ang) * s.w * 0.8, Math.max(70, s.w * 3.2), 0, ang, 1, s.rgb || undefined);
       else if (s.look === 'ice') done = img('el_arrow_ice', s.x - Math.cos(ang) * s.w * 0.6, s.y - Math.sin(ang) * s.w * 0.6, Math.max(70, s.w * 2.6), 0, ang, 1);
       else {

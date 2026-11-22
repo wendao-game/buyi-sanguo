@@ -338,7 +338,7 @@ const SKILLS = (function () {
       ult: { desc: '无双乱舞：6 秒内不停向四面八方挥出大型刀气（觉醒 9 秒）',
         cast(B, h, a, k) {
           const n = R(24, k);
-          for (let i = 0; i < n; i++) B.later(i * 0.25, () => B.blade(h, h.x, h.y - 22, -Math.PI / 2 + (Math.random() - 0.5) * 2.2, { w: 120, spd: 520, dmg: a * 1.2, big: true, life: 2.2, color: 'red', tex: 'halberd_slash', texW: 250 }));   // 专属特效：戟形的气刃（没有图时是红色刀气）
+          for (let i = 0; i < n; i++) B.later(i * 0.25, () => B.blade(h, h.x, h.y - 22, -Math.PI / 2 + (Math.random() - 0.5) * 2.2, { w: 120, spd: 520, dmg: a * 1.2, big: true, life: 2.2, color: 'red', tex: 'halberd_slash', texW: 190, a: 0.5 }));   // 专属特效：戟形的气刃（没有图时是红色刀气）。v2.23：贴图 250 → 190、半透明——原来 24 道叠起来把战场盖住了；伤害范围（w）没动
           B.shake(0.3);
         } },
     },
@@ -1299,15 +1299,15 @@ const SKILLS = (function () {
       ult: { desc: '神鬼无前：天色骤暗，一杆缠着黑雷的魔戟砸进战场正中，周围一大片敌人受到 ×6 伤害并麻痹 0.8 秒；魔戟插在场中央 3 秒，黑雷每 0.3 秒劈一次圈里所有敌人 ×0.9（觉醒 4.5 秒）',
         cast(B, h, a, k) {
           const T = 3 * k, x = B.W / 2, y = (B.TOP + B.WY) / 2 + 20, R = 215, P = '185,80,255';
-          B.flash('50,15,90', 0.45, 0.9);
-          B.tex('ghost_mask', h.x, h.y - 120, { w: 300, life: 1.3, grow: 1.25, fadeIn: 0.15, a: 0.75, rgb: P });                 // 身后升起一张魔神的脸
-          for (let i = 0; i < 5; i++) B.tex('el_hit_dark', 60 + i * 105, B.TOP + 30 + (i % 2) * 40, { w: 300, life: T + 0.8, fadeIn: 0.3, a: 0.55, spin: 0.3, rgb: '120,50,200' });   // 压在战场上空的黑云
+          B.flash('50,15,90', 0.3, 0.7);                                                                                            // v2.23：整套压淡（天色、魔神脸、黑云、地上的黑雷圈都更透），原来太占屏幕
+          B.tex('ghost_mask', h.x, h.y - 120, { w: 250, life: 1.2, grow: 1.2, fadeIn: 0.15, a: 0.5, rgb: P });                 // 身后升起一张魔神的脸
+          for (let i = 0; i < 5; i++) B.tex('el_hit_dark', 60 + i * 105, B.TOP + 30 + (i % 2) * 40, { w: 280, life: T + 0.8, fadeIn: 0.3, a: 0.32, spin: 0.3, rgb: '120,50,200' });   // 压在战场上空的黑云
           B.tex('demon_halberd', x, y - 560, { w: 176, ay: 1, life: 0.2, vy: 2800, solid: true });                               // 魔戟从天上砸下来
           B.later(0.2, () => {
-            B.tex('black_ring', x, y, { w: R * 2.15, h: R * 1.35, life: T + 0.2, grow: 1.06, fadeIn: 0.08, solid: true });          // 地上一圈黑雷（先画，魔戟压在它上面）
-            B.tex('demon_halberd', x, y + 16, { w: 176, ay: 1, life: T + 0.25, solid: true });                                   // 插在场中央
-            B.tex('demon_flame', x, y + 12, { w: 260, ay: 1, life: 0.9, grow: 1.3, fadeIn: 0.05, rgb: P }); B.tex('el_hit_thunder', x, y - 6, { w: 420, life: 0.4, grow: 1.4, rgb: '210,140,255' });
-            B.ring(x, y, 20, R, 0.45, '#b060ff', 7); B.shake(0.55); B.shock(x, y, 380, 1.4);
+            B.tex('black_ring', x, y, { w: R * 2.15, h: R * 1.35, life: T + 0.2, grow: 1.06, fadeIn: 0.08, solid: true, a: 0.42 });          // 地上一圈黑雷（先画，魔戟压在它上面）
+            B.tex('demon_halberd', x, y + 16, { w: 156, ay: 1, life: T + 0.25, solid: true, a: 0.9 });                                   // 插在场中央
+            B.tex('demon_flame', x, y + 12, { w: 260, ay: 1, life: 0.9, grow: 1.3, fadeIn: 0.05, rgb: P }); B.tex('el_hit_thunder', x, y - 6, { w: 340, life: 0.4, grow: 1.3, a: 0.7, rgb: '210,140,255' });
+            B.ring(x, y, 20, R, 0.45, '#b060ff', 5); B.shake(0.55); B.shock(x, y, 320, 1.1);
             B.area(x, y, R, e => { B.hit(e, a * 6, 'thunder', h); B.stun(e, 0.8); });                                              // 砸下来的那一下
             const n = Math.round(T / 0.3);
             for (let i = 0; i < n; i++) B.later(0.3 + i * 0.3, () => {                                                            // 黑雷一下下劈圈里的敌人
