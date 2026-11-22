@@ -32,7 +32,7 @@ const Art = (function () {
   const procCache = {};
   /* 有图、只是还没下到（Assets.waiting）：先空着，绝不拿代码画的顶（用户定的规矩，代码画的太难看）。
    * 正常走不到这里——进页面、开战之前 UI.waitArt 会等图到齐；这是最后一道保险。真没有图的东西（布景、个别特效）才用代码画。 */
-  const waitingArt = k => !!(typeof Assets !== 'undefined' && Assets.waiting && Assets.waiting(k));
+  const waitingArt = k => { const r = !!(typeof Assets !== 'undefined' && Assets.waiting && Assets.waiting(k)); if (r) { (window.__blank = window.__blank || {})[k] = 1; Assets.want([k]); } return r; };   // 空着的同时让它所在的包马上去下；__blank：记下哪些图被空着画过（查问题用）
   let blankCv = null;
   const blank = () => { if (!blankCv) { blankCv = document.createElement('canvas'); blankCv.width = blankCv.height = 2; } return blankCv; };
   function procSprite(key, box, draw) {

@@ -942,10 +942,19 @@ const UI = (function () {
     resRetry: () => { Battle.stop(); if (lastRes && lastRes.legend) startLegend(lastRes.legendId); else if (lastRes && lastRes.rush) startRush(); else if (lastRes && lastRes.trial) startTrial(); else startBattle(lastRes.stage); },
   };
 
+  /* 主城、战斗里会弹出带头像或兵器图标的窗口的按钮（武将、兵器、招募三页进页面时已经等过了，不用列） */
+  const ART_ACT = { legends: 1, legendGo: 1, trial: 1, rush: 1, lineup: 1, daily: 1, idle: 1, idleGet: 1, idleAd: 1, settings: 1, rank: 1, encLog: 1, sweep: 1, sweepAd: 1, ad: 1 };
   function init() {
     $('#app').addEventListener('click', e => {
       const t = e.target.closest('[data-act]');
-      if (t) { if (!t.disabled && ACT[t.dataset.act]) { if (t.dataset.act !== 'ult' && t.dataset.act !== 'tipClose') Sfx.play(t.dataset.act === 'nav' || t.dataset.act === 'htab' ? 'tab' : 'click'); ACT[t.dataset.act](t.dataset, t); } return; }
+      if (t) {
+        if (!t.disabled && ACT[t.dataset.act]) {
+          const a = t.dataset.act;
+          if (a !== 'ult' && a !== 'tipClose') Sfx.play(a === 'nav' || a === 'htab' ? 'tab' : 'click');
+          if (ART_ACT[a]) waitArt(pageArt('heroes'), () => ACT[a](t.dataset, t)); else ACT[a](t.dataset, t);   // 会弹出带头像、兵器图标的窗口的按钮：图没到齐先等（只会在第一次进游戏的头几秒碰上）
+        }
+        return;
+      }
       if (e.target.id === 'modal' && closable) ACT.close();
     });
     show('home');
