@@ -57,22 +57,46 @@ const Sfx = (function () {
     return true;
   }
   /* assets/sfx/ 里的音频文件（素材清单里列出来的）：下载、解码，之后同名的音效就播文件 */
+  const fver = f => { const v = (window.ASSET_H && window.ASSET_H[f]) || window.ASSET_VER; return v ? '?v=' + v : ''; };   // 每个文件各用各的版本号（见 assets.js 的 ver）
   function loadFiles() {
     if (filesAsked || !ac || !Array.isArray(window.ASSET_LIST) || typeof fetch !== 'function') return;
     filesAsked = true;
     window.ASSET_LIST.forEach(f => {
       const m = /^sfx\/([\w-]+)\.(mp3|ogg|wav|m4a)$/i.exec(f); if (!m) return;
-      fetch('assets/' + f + (window.ASSET_VER ? '?v=' + window.ASSET_VER : '')).then(r => r.arrayBuffer())
+      fetch('assets/' + f + fver(f)).then(r => r.arrayBuffer())
         .then(b => new Promise((ok, no) => ac.decodeAudioData(b, ok, no))).then(buf => { FILES[m[1]] = buf; }).catch(() => { /* 下不到或解不了就用合成的 */ });
     });
   }
-  let hushed = false;
-  function unlock() { if (!hushed && ensure() && ac.state === 'suspended') ac.resume().catch(() => {}); }
+  let hushed = false, away = false, stuckAt = 0, rebuilt = 0;
+  const running = () => !!ac && ac.state === 'running';
+  /* 把声音叫醒。iOS 上切出去再回来（来电话、切到别的软件、锁屏），AudioContext 的状态是 'interrupted' 而不是 'suspended'，
+   * 原来只认 'suspended'，所以回来以后再也不响（v2.23 修）。现在只要不是 'running' 就 resume；
+   * iOS 有时 resume 了也不响、或者一直卡在 interrupted：手指点下去以后过 0.7 秒还没活过来，就把 AudioContext 扔掉重建一个（下一次点屏幕时生效），
+   * 已经解码好的音效、配音（AudioBuffer）不依赖旧的 AudioContext，接着用 */
+  function wake(byTouch) {
+    if (hushed || away || !ensure()) return;
+    if (running()) { stuckAt = 0; return; }
+    try { const p = ac.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* 忽略 */ }
+    if (!byTouch) return;
+    const now = Date.now(); if (!stuckAt) stuckAt = now;
+    setTimeout(() => {
+      if (hushed || away || running() || !stuckAt || Date.now() - stuckAt < 650 || rebuilt >= 6) return;
+      rebuilt++; stuckAt = 0;
+      const old = ac; ac = null; master = null; mbus = null; noiseBuf = null; voices = 0; out = null;
+      try { old.close().catch(() => {}); } catch (e) { /* 忽略 */ }
+      if (ensure()) { try { const p = ac.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* 等下一次点屏幕 */ } mNext = 0; }
+    }, 700);
+  }
+  function unlock() { away = false; wake(true); }           // 手指点到了：人肯定回来了（有的容器回来时不发任何「回来了」的事件）
   /* 放广告时整个停声（音乐和音效都停），放完接着响 */
-  function hush(on) { hushed = !!on; if (!ac) return; try { (on ? ac.suspend() : ac.resume()).catch(() => {}); } catch (e) { /* 不支持就算了 */ } }
-  ['pointerdown', 'touchend', 'keydown'].forEach(ev => addEventListener(ev, unlock, { passive: true }));
-  // 切到后台就静音，回来再恢复
-  document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) ac.suspend().catch(() => {}); else ac.resume().catch(() => {}); });
+  function hush(on) { hushed = !!on; if (!ac) return; if (on) { try { ac.suspend().catch(() => {}); } catch (e) { /* 不支持就算了 */ } } else wake(false); }
+  ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach(ev => addEventListener(ev, unlock, { passive: true }));
+  // 切到后台就静音，回来再恢复。回来的信号各家不一样：网页是 visibilitychange / pageshow / focus，TapTap 小游戏是 tap.onShow / onHide
+  const goAway = () => { away = true; if (ac) { try { ac.suspend().catch(() => {}); } catch (e) { /* 忽略 */ } } };
+  const comeBack = () => { away = false; stuckAt = 0; wake(false); setTimeout(() => wake(false), 300); setTimeout(() => wake(false), 1200); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) goAway(); else comeBack(); });
+  addEventListener('pageshow', comeBack); addEventListener('focus', comeBack); addEventListener('pagehide', goAway);
+  try { if (typeof tap !== 'undefined' && tap) { if (tap.onShow) tap.onShow(comeBack); if (tap.onHide) tap.onHide(goAway); if (tap.onAudioInterruptionEnd) tap.onAudioInterruptionEnd(comeBack); } } catch (e) { /* 不在小游戏里 */ }
 
   function env(g, t, vol, atk, dur) {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + atk); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -306,7 +330,7 @@ const Sfx = (function () {
   function voiceLoad(id) {
     const V = typeof VOICES !== 'undefined' && VOICES[id]; if (!V || VO[V.file] !== undefined || typeof fetch !== 'function' || !ensure()) return;
     VO[V.file] = null;
-    fetch('assets/voice/' + V.file + '.mp3' + (window.ASSET_VER ? '?v=' + window.ASSET_VER : '')).then(r => r.arrayBuffer())
+    fetch('assets/voice/' + V.file + '.mp3' + fver('voice/' + V.file + '.mp3')).then(r => r.arrayBuffer())
       .then(b => new Promise((ok, no) => ac.decodeAudioData(b, ok, no))).then(buf => { VO[V.file] = buf; }).catch(() => { delete VO[V.file]; });   // 没下到：下次再试
   }
   /* 说一句。返回字幕（没开声音、文件还没到也返回，字幕照出）；这一类没有台词返回 '' */

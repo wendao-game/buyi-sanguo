@@ -571,9 +571,9 @@ td[data-bq="7"], .bqn[data-bq="7"] { animation: bqHue 4s linear infinite; text-s
 .bqn { font-weight: normal; }
 .bskill { color: #ffd9f0; font-size: 12px; }
 @keyframes bqHue { to { filter: hue-rotate(360deg); } }
-#bRock.bondbtn { font-size: 21px; color: #fff; background: conic-gradient(#ff6ec7 var(--p), #00000000 0), radial-gradient(circle at 50% 28%, #5a2a6a, #24102e 72%); box-shadow: inset 0 1.5px 0 #ffffff50, 0 0 0 2px #ff6ec7, 0 2px 8px #000a; }
-#bRock.bondbtn.empty { color: #c8b0d0; }
-#bRock.bondbtn.ready { animation: bqHue 3s linear infinite, bondPulse 1s ease-in-out infinite; }
+#bBond { font-size: 21px; color: #fff; background: conic-gradient(#ff6ec7 var(--p), #00000000 0), radial-gradient(circle at 50% 28%, #5a2a6a, #24102e 72%); box-shadow: inset 0 1.5px 0 #ffffff50, 0 0 0 2px #ff6ec7, 0 2px 8px #000a; }
+#bBond.empty { color: #c8b0d0; }
+#bBond.ready { animation: bqHue 3s linear infinite, bondPulse 1s ease-in-out infinite; }
 @keyframes bondPulse { 50% { transform: scale(1.1); box-shadow: inset 0 1.5px 0 #ffffff60, 0 0 0 2px #ff9ad8, 0 0 16px #ff6ec7; } }
 .intel .res { display: inline-block; margin: 0 6px; padding: 0 7px; border-radius: 8px; font-style: normal; font-size: 12px; color: #bfe4ff; background: #1c2c40; box-shadow: inset 0 0 0 1px #4a7aa8; }
 .bond.off { opacity: 0.55; } .bond.off b { color: #a89880; text-decoration: line-through; }
@@ -687,3 +687,7 @@ body.wide::before { content: ""; position: fixed; inset: -40px; background: url(
 #loading em { font-style: normal; font-family: var(--fb); font-size: 22px; letter-spacing: 12px; padding: 3px 10px 3px 22px; border-radius: 6px; color: #fff0c8; background: linear-gradient(#c8343a, #8a161c); box-shadow: 0 0 0 1.5px #5a0f12, 0 0 0 3px #e8c15a, 0 4px 10px #000a; }
 #loading b { margin: 6px 0 26px; }
 #loading .bar { margin-bottom: 26px; }
+
+/* ---------- v2.23 合击大招单独一个按钮（礌石照留）：放在「阵」下面，没有彩色缘分时不显示 ---------- */
+#bBond { --p: 100%; top: 522px; display: none; }
+#bBond.on { display: block; }

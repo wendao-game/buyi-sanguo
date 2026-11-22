@@ -36,6 +36,7 @@ function fight(G, stage, rocks) {
   while (B.state && !B.state.over && f < 40000) {
     const S = B.state;
     if (rocks && f % 10 === 0 && S.rock.n > 0 && S.live.length >= 4) { let best = null, bs = -1; for (const e of S.live) { let n = e.y / 300; for (const o of S.live) if (Math.hypot(o.x - e.x, o.y - e.y) < 60) n++; if (n > bs) { bs = n; best = e; } } if (best) B.tapAt(best.x, best.y); }
+    if (S.bond && S.bond.t >= S.bond.cd && (S.live.length >= 3 || S.live.some(e => e.def && (e.def.id === 'boss' || e.def.elite)))) B.bond();   // 合击大招要玩家自己点（v2.23）：模拟里攒满、场上有三个敌人就放
     B.tick(0.05); f++;
   }
   const S = B.state, r = { win: S.win, wave: S.wave, t: S.t, kills: S.kills, wall: S.wall / S.wallMax, buffs: (S.picks || []).map(b => b.id), enc: S.enc ? (S.enc.killed ? 2 : 1) : 0 };   // enc：0 没碰上奇遇，1 碰上没打掉，2 打掉了

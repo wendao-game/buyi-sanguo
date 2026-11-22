@@ -356,7 +356,7 @@ const UI = (function () {
     const team = lpDraft || Save.data.team, b = teamBonus(team), on = {};          // 局中换将时按面板里调整后的阵容算
     b.active.forEach(a => { if (!a.off) on[a.name] = 1; });
     const act = b.active.slice().sort((x, y) => (y.q || 0) - (x.q || 0)).map(a => `<tr class="${a.off ? 'offrow' : 'on'}"><td data-bq="${a.q || 0}">${a.name}</td><td>${a.desc}${a.off && !lpDraft ? ` <button class="mini" data-act="rbPick" data-n="${a.name}">换成这组</button>` : ''}${a.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[a.skill].name}」：${BOND_SKILLS[a.skill].desc}</span>` : ''}${a.who && a.who.length ? `<br><span class="who">（${a.who.map(x => HERO_MAP[x].name).join('、')}）</span>` : ''}</td></tr>`).join('');
-    const combo = COMBOS.slice().sort((x, y) => y.q - x.q).map(c => `<tr class="${on[c.name] ? 'on' : ''}"><td data-bq="${c.q}">${c.name}${on[c.name] ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${own[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}${c.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[c.skill].name}」（顶替礌石）：${BOND_SKILLS[c.skill].desc}</span>` : ''}</td></tr>`).join('');
+    const combo = COMBOS.slice().sort((x, y) => y.q - x.q).map(c => `<tr class="${on[c.name] ? 'on' : ''}"><td data-bq="${c.q}">${c.name}${on[c.name] ? ' ✓' : ''}</td><td>${c.ids.map(x => `<span class="${own[x] ? '' : 'dim'}">${HERO_MAP[x].name}</span>`).join('、')}${c.need < c.ids.length ? ' 中任意 ' + c.need + ' 人' : ''}${c.must ? '（须有' + HERO_MAP[c.must].name + '）' : ''}：${c.desc}${c.skill ? `<br><span class="bskill">合击大招「${BOND_SKILLS[c.skill].name}」（要自己点左边的按钮放，礌石照用）：${BOND_SKILLS[c.skill].desc}</span>` : ''}</td></tr>`).join('');
     const roles = SLOT_ROLES.filter((r, i) => i <= 2).map(r => `<tr><td>${r.name}</td><td>${r.desc}</td></tr>`).join('');
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>羁绊一览</h2>
       <h4 class="sub">当前阵容已激活（${b.active.length}）</h4>${act ? `<table class="rates wrap lpc">${act}</table>` : '<p class="mtext">还没有激活的羁绊</p>'}
@@ -531,15 +531,17 @@ const UI = (function () {
     }
     const sec = Math.floor(S.t);
     if (sec !== hudSec) { hudSec = sec; $('#bTime').textContent = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
-    const bd = S.bond;                                        // 彩色缘分：礌石的按钮换成合击大招（转一圈 = 冷却好了）
-    const rk = bd ? 'b' + bd.id + '/' + Math.floor(bd.t / bd.cd * 40) : S.rock.n + '/' + S.rock.max + '/' + (S.rock.n < S.rock.max ? Math.floor(S.rock.t / CFG.ROCK_CD * 20) : 20);
+    const bd = S.bond;                                        // 彩色缘分的合击大招：单独一个按钮「合」（转一圈 = 冷却好了），礌石照留（v2.23）
+    const rk = (bd ? 'b' + bd.id + '/' + Math.floor(bd.t / bd.cd * 40) : '-') + '|' + S.rock.n + '/' + S.rock.max + '/' + (S.rock.n < S.rock.max ? Math.floor(S.rock.t / CFG.ROCK_CD * 20) : 20);
     if (rk !== hudRock) {
       hudRock = rk;
-      const b = $('#bRock'), p = bd ? bd.t / bd.cd * 100 : S.rock.n < S.rock.max ? S.rock.t / CFG.ROCK_CD * 100 : 100;
-      b.innerHTML = bd ? bd.def.short : '石<small>' + S.rock.n + '</small>'; b.style.setProperty('--p', p + '%');
-      b.classList.toggle('empty', bd ? bd.t < bd.cd : S.rock.n <= 0); b.classList.toggle('bondbtn', !!bd); b.classList.toggle('ready', !!bd && bd.t >= bd.cd);
+      const b = $('#bRock'), p = S.rock.n < S.rock.max ? S.rock.t / CFG.ROCK_CD * 100 : 100;
+      b.innerHTML = '石<small>' + S.rock.n + '</small>'; b.style.setProperty('--p', p + '%'); b.classList.toggle('empty', S.rock.n <= 0);
+      const c = $('#bBond'); c.classList.toggle('on', !!bd);
+      if (bd) { c.textContent = bd.def.short; c.style.setProperty('--p', bd.t / bd.cd * 100 + '%'); c.classList.toggle('empty', bd.t < bd.cd); c.classList.toggle('ready', bd.t >= bd.cd); }
     }
-    if (!bd && S.t > 4 && S.live.length >= 4 && !tipShown()) tip('rock1', '<b>点战场</b>任意位置可以投下礌石，砸晕扎堆的敌人（左边「石」是剩余块数）', 8000);
+    if (bd && bd.t >= bd.cd && S.live.length >= 3 && !tipShown()) tip('bond1', '合击大招<b>「' + bd.def.name + '」</b>攒好了：点左边<b>亮起来的「' + bd.def.short + '」</b>放出去（要自己点，不会自动放）', 9000);
+    if (S.t > 4 && S.live.length >= 4 && !tipShown()) tip('rock1', '<b>点战场</b>任意位置可以投下礌石，砸晕扎堆的敌人（左边「石」是剩余块数）', 8000);
     if (S.t > 16 && !tipShown() && S.heroes.some(h => h.rage >= 60)) tip('ult1', '怒气满了会<b>自动放大招</b>。关掉左边的「自动」，可以自己点右边头像选时机，带「可瞄准」的还能选落点', 9000);
     if (S.wave >= 3 && S.t > 40 && !tipShown() && Object.keys(Save.data.heroes).length > 5) tip('swap1', '打不动的时候点左边<b>「阵」</b>：战斗中可以随时<b>换武将、换站位</b>，留在场上的人怒气不变', 8000);
     const btns = $('#ultbar').children;
@@ -890,7 +892,8 @@ const UI = (function () {
         <div class="dmgs statlist">${list.map(x => `<div class="dmg" style="--qc:${qc(x.id)}"><img src="${P(x.id)}"><span>${HERO_MAP[x.id].name}</span><i style="width:${x.dmg / top * 100}%"></i><b>${fmt(x.dmg)} · ${Math.round(x.dmg / sum * 100)}%</b></div>`).join('')}</div>
         <div class="mrow"><button class="btn red" data-act="resume">继续战斗</button></div></div>`, false);
     },
-    rock: () => { const S = Battle.state; if (S && S.bond) { if (!Battle.bond()) toast('「' + S.bond.def.name + '」还没准备好'); } else toast('点击战场任意位置投下礌石：伤害并眩晕敌人'); },
+    rock: () => toast('点击战场任意位置投下礌石：伤害并眩晕敌人'),
+    bond: () => { const S = Battle.state; if (S && S.bond && !Battle.bond()) toast(S.bond.t < S.bond.cd ? '「' + S.bond.def.name + '」还没攒好' : '现在放不了'); },
     tipClose: () => hideTip(),
     musicsw: () => { Save.data.music = Save.data.music === false; Save.save(); settings(); },
     sound: () => { Save.data.sound = Save.data.sound === false; Save.save(); settings(); if (Save.data.sound) Sfx.play('up'); },

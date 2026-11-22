@@ -131,12 +131,7 @@ const PAGE = function (src, ids, mode, OPT) {
     mtxt = mtxt.replace(m[0], 'window.ASSET_LIST = [\n' + [...new Set(list)].map(s => '  ' + s + ',').join('\n') + '\n];');
     console.log('素材清单补了', added.length, '个');
   }
-  {                                                           // 素材版本号：清单里所有文件内容的哈希（和 slice_sheets.py 一个算法），换了任何一张图就会变，手机不会用到缓存的旧图
-    const crypto = require('crypto'), files = [...mtxt.match(/window\.ASSET_LIST = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)].map(m => m[1]), hs = crypto.createHash('sha1');
-    for (const f of files) { const fp = path.join(ROOT, 'assets', f); if (!fs.existsSync(fp)) { console.log('  清单里有、文件没有：' + f); continue; } hs.update(Buffer.concat([Buffer.from(f), crypto.createHash('sha1').update(fs.readFileSync(fp)).digest()])); }
-    const ver = hs.digest('hex').slice(0, 10);
-    mtxt = /window\.ASSET_VER = '[^']*';/.test(mtxt) ? mtxt.replace(/window\.ASSET_VER = '[^']*';/, "window.ASSET_VER = '" + ver + "';") : mtxt.trimEnd() + "\nwindow.ASSET_VER = '" + ver + "';\n";
-    fs.writeFileSync(man, mtxt); console.log('素材版本号', ver);
-  }
+  if (added.length) fs.writeFileSync(man, mtxt);
+  { const r = require('./mk_manifest.js').build(); console.log('素材清单', r.n, '个文件，版本号', r.ver); }   // 清单整个重写一遍：整体版本号 + 每个文件各自的版本号
   sock.close(); ch.kill();
 })().catch(e => { console.error(e); process.exit(1); });

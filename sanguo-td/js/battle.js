@@ -91,7 +91,7 @@ const Battle = (function () {
     const oldMax = S.wallMax;
     const wf = S.mods && S.mods.wall || 1;                   // 试炼规则 / 无尽词缀的城防倍率：>1 是上限变高（铁甲连营）；<1 是开局就残了（孤城死守、残垣），上限不变
     S.wallMax = Math.round((400 + basePower()) * (1 + S.wallBonus) * (wf > 1 ? wf : 1));
-    const bs = bonus.active.find(a => a.skill && BOND_SKILLS[a.skill]), bd = bs ? BOND_SKILLS[bs.skill] : null;   // 彩色缘分：礌石换成合击大招（凑齐了几组就用排在前面的那组）
+    const bs = bonus.active.find(a => a.skill && BOND_SKILLS[a.skill]), bd = bs ? BOND_SKILLS[bs.skill] : null;   // 彩色缘分：多一个合击大招（凑齐了几组就用排在前面的那组）
     S.bond = bd ? { id: bs.skill, def: bd, bond: bs.name, cd: bd.cd, t: S.bond && S.bond.id === bs.skill ? S.bond.t : bd.cd * 0.5 } : null;
     S.wall = first || !oldMax ? Math.round(S.wallMax * (wf < 1 ? wf : 1) * (S.mods && S.mods.wallStart || 1)) : Math.max(1, Math.round(S.wallMax * S.wall / oldMax));   // 开局：城防残了的规则从残血开始（以前是把上限砍掉、血条却是满的，玩家以为没生效）；换将后按原来的比例折算
     S.wallLag = S.wall;
@@ -1087,14 +1087,16 @@ const Battle = (function () {
     const r = ev.currentTarget.getBoundingClientRect();
     tapAt((ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * H);
   }
-  /* 彩色缘分的合击大招（左边原来放礌石的那个按钮）。威力按场上活着的武将的平均攻击算，吃全军攻击和大招伤害的加成 */
+  /* 彩色缘分的合击大招（左边单独一个按钮「合」；v2.23 起礌石照留，不再是拿礌石换的）。只能自己点着放（和礌石一样，开着「自动」也不会自己放）。
+   * 威力：基数 a = 场上活着的武将的平均攻击（吃全军攻击和大招伤害的加成），但不低于「当前关卡黄巾兵血量 × CFG.BOND_BASE」——
+   * 和礌石一个口径、跟着关卡走，这样 ×2 的全场招式能把小兵打掉八成血，×3 以上的直接清掉小兵 */
   function castBond() {
     const b = S && S.bond;
     if (!b || S.over || S.choosing || S.paused || b.t < b.cd) return false;
     if (!S.live.some(e => !e.dead)) return false;
     const L = S.heroes.filter(h => !h.dead); if (!L.length) return false;
     b.t = 0;
-    const a = L.reduce((s, h) => s + h.atk / (h.boostK || 1), 0) / L.length * S.buffs.atk * S.buffs.ult;
+    const a = Math.max(L.reduce((s, h) => s + h.atk / (h.boostK || 1), 0) / L.length * S.buffs.atk * S.buffs.ult, ENEMIES.grunt.hp * stageHpMul(S.stage, S.wave) * CFG.BOND_BASE);
     Sfx.play('ult'); Sfx.play('awake');
     S.dim = { t: 0.6, max: 0.6 }; S.flash = { color: '255,235,180', a: 0.22, t: 0.5, max: 0.5 }; S.shake = Math.max(S.shake, 0.3);
     S.banner = { text: b.def.name, sub: '缘分 · ' + b.bond, t: 1.6, max: 1.6 };
@@ -1112,7 +1114,6 @@ const Battle = (function () {
       return;
     }
     if (y < RANGE_Y - 10) return;
-    if (S.bond) return;                                        // 有合击大招的队伍没有礌石
     if (S.rock.n <= 0) { text(x, y, '礌石未备好', '#d8c8a8', 14, 0.7, true); return; }
     S.rock.n--; Sfx.play('rock_throw');
     // 伤害跟着关卡走（黄巾兵当前血量的 CFG.ROCK_DMG 倍）：操作的价值不随战力变化，专门对付扎堆的小兵，对敌将只是刮痧
@@ -1159,9 +1160,8 @@ const Battle = (function () {
         hit(tg, atk * 2.5, 'thunder', null);
       }
     }
-    if (S.bond) {                                              // 彩色缘分的合击大招：攒满了，开着自动就自己放
+    if (S.bond) {                                              // 彩色缘分的合击大招：攒满了等玩家自己点（不自动放）
       if (S.bond.t < S.bond.cd) S.bond.t = Math.min(S.bond.cd, S.bond.t + dt);
-      else if (Save.data.auto && (S.live.length >= 3 || S.live.some(e => isBig(e)))) castBond();
       if (S.over) return;
     }
     if (S.regenK > 0 && (S.regenT = (S.regenT || 0) + dt) >= 4) { S.regenT = 0; for (const h of S.heroes) if (!h.dead && h.hp < h.maxHp) { h.hp = Math.min(h.maxHp, h.hp + Math.round(h.maxHp * S.regenK)); if (S.fx.length < 120) tex('el_hit_wind', h.x, h.y - 20, { w: 60, life: 0.5, grow: 1.3, a: 0.6, rgb: '150,255,170' }); } }   // 吴国太的被动：每 4 秒给全体武将回一点血
