@@ -1466,13 +1466,13 @@ const SKILLS = (function () {
           });
           B.later(0.75, () => {                                                                                                    // 魔焰焚城
             B.flash(P, 0.42, 0.6); B.shake(0.6); B.sfx('boom'); B.shock(x, y, 460, 1.4);
-            if (B.has('burning_city')) B.tex('burning_city', x, y + 20, { w: B.W * 1.02, life: 4.8, fadeIn: 0.2, a: 0.8 });
+            if (B.has('burning_city')) B.tex('burning_city', x, y + 20, { w: B.W * 1.02, life: 4.8, fadeIn: 0.2, a: 0.3 });   // 铺满战场的火海：压到三成透明、零散的火苗也少放，不然把敌人全盖住了（吕布那次的教训：大招别太占屏幕）
             const flame = () => B.tex(B.has('demon_flame') ? 'demon_flame' : 'flame', 40 + Math.random() * (B.W - 80), B.TOP + 60 + Math.random() * (B.WY - B.TOP - 120), B.has('demon_flame') ? { w: 150, ay: 1, life: 1.4, fadeIn: 0.1, a: 0.95 } : { w: 100, h: 190, ay: 1, life: 1.4, fadeIn: 0.1, a: 0.8 });
-            for (let i = 0; i < 18; i++) B.later(i * 0.04, flame);
+            for (let i = 0; i < 10; i++) B.later(i * 0.05, flame);
             B.lives().forEach(e => { B.hit(e, a * 4 * k, 'fire', h); B.burn(e, 8, a * 0.5, h); });
             for (let i = 0; i < 8; i++) B.later(0.5 + i * 0.5, () => {                                                             // 火海接着烧 4 秒
               B.lives().forEach(e => B.hit(e, a * 0.45, 'fire', h, { dot: true }));
-              for (let j = 0; j < 4; j++) flame();
+              for (let j = 0; j < 2; j++) flame();
             });
           });
         } },
@@ -1483,12 +1483,12 @@ const SKILLS = (function () {
         cast(B, h, a, k) {
           const x = B.W / 2, y = (B.TOP + B.WY) / 2, C = '170,205,255', own = B.has('star_board'), T = 0.3 + 9 * 0.26;
           B.flash('110,140,255', 0.32, 0.6);
-          if (own) B.tex('star_board', x, y, { w: 500, life: T + 1, fadeIn: 0.25, a: 0.8, spin: 0.12 });                               // 星盘（棋盘）
+          if (own) B.tex('star_board', x, y, { w: 500, life: T + 1, fadeIn: 0.25, a: 0.55, spin: 0.12 });                               // 星盘（棋盘）
           else { B.tex('seven_stars', x, y - 20, { w: 420, life: T + 1, fadeIn: 0.25, a: 0.65 }); B.tex('circle', x, y, { w: 520, h: 330, life: T + 1, spin: 0.5, rgb: C, a: 0.5, fadeIn: 0.25 }); }
           for (let i = 0; i < 9; i++) B.later(0.3 + i * 0.26, () => {                                                              // 九子依次落下
             const t = B.dense(80) || B.rnd(); if (!t) return;
             const px = Math.max(40, Math.min(B.W - 40, t.x + (Math.random() - 0.5) * 40)), py = t.y + (Math.random() - 0.5) * 30, black = i % 2 === 0, st = black ? 'go_black' : 'go_white';
-            if (B.has(st)) B.tex(st, px, py - 4, { w: 86, life: 0.9, fadeIn: 0.03, grow: 0.92 });
+            if (B.has(st)) B.tex(st, px, py - 4, { w: 92, life: 0.9, fadeIn: 0.03, grow: 0.92, solid: true });   // 棋子是抠成透明底的实体图（黑子用叠加混合画不出来）
             else B.tex('circle', px, py, { w: 78, h: 48, life: 0.8, rgb: black ? '70,80,140' : '235,240,255', a: 0.95 });
             B.tex('el_hit_thunder', px, py - 6, { w: 150, life: 0.3, grow: 1.3, rgb: C });
             B.ring(px, py, 10, 86, 0.3, black ? '#8a9cff' : '#ffffff', 4); B.shake(0.1);

@@ -21,7 +21,10 @@ for (const m of py.matchAll(/'((?:hero|enemy)_\d+)': \('(\w+)', \[([^\]]*)\]\)/g
 for (const m of py.matchAll(/'(fx_\d+)': \[([^\]]*)\]/g)) ORDER[m[1]] = { folder: 'fx', ids: idsOf(m[2]), mode: 'fx' };
 for (const m of py.matchAll(/'(weapon_\d+)': \[([^\]]*)\]/g)) ORDER[m[1]] = { folder: 'weapons', ids: idsOf(m[2]), mode: 'weapon' };
 // 个别格子的特殊处理。fadeTop：顶上这一截渐渐淡掉（蛇头的脖子是齐口切断的，要和身后一节节的蛇身接上）
-const OPT = { god_zhenji_snake: { fadeTop: 0.2 } };
+//                solidDisc：黑底特效里的「实心圆东西」（棋子）——黑色的本体用叠加混合画不出来，所以把它抠成透明底、按实体画（技能里 tex 要带 solid: true）。
+//                做法：从四边往里把纯黑的底淹掉，剩下的是光圈和本体；以光圈外沿半径 × 这个比例为界，里面全不透明，外面按亮度给透明度。存成 .webp
+//                hazeMin：白底上的淡雾，透明度低于这个值的当成底色扔掉（默认 0.03）。有的图整格蒙着一层很淡的灰，还原出来是一块方形的脏底，还会把隔壁格子伸过来的碎片连在一起，调高它
+const OPT = { god_zhenji_snake: { fadeTop: 0.2 }, go_black: { solidDisc: 0.76 }, go_white: { solidDisc: 0.76 }, god_dongzhuo: { hazeMin: 0.21 }, god_guojia: { hazeMin: 0.36 } };
 let names = process.argv.slice(2);
 if (!names.length) names = Object.keys(ORDER).filter(n => n.startsWith('enemy_') && Number(n.slice(6)) >= 11);
 const jobs = names.map(n => { const f = ['.png', '.webp'].map(e => path.join(SHEETS, n + e)).find(p => fs.existsSync(p)); return f && ORDER[n] ? { n, f, ...ORDER[n] } : null; }).filter(Boolean);
@@ -45,6 +48,27 @@ const PAGE = function (src, ids, mode, OPT) {
           const m = Math.max(4, Math.floor((bx1 - bx0) / 25)); bx0 = Math.max(0, bx0 - m); by0 = Math.max(0, by0 - m); bx1 = Math.min(cw - 1, bx1 + m); by1 = Math.min(ch - 1, by1 + m);
           const bw = bx1 - bx0 + 1, bh = by1 - by0 + 1, k = Math.min(1, 512 / Math.max(bw, bh)), o = document.createElement('canvas'); o.width = Math.round(bw * k); o.height = Math.round(bh * k);
           const oc = o.getContext('2d'); oc.fillStyle = '#000'; oc.fillRect(0, 0, o.width, o.height); oc.imageSmoothingQuality = 'high'; oc.drawImage(cv, x0 + bx0, y0 + by0, bw, bh, 0, 0, o.width, o.height);
+          const opt = OPT[id] || {};
+          if (opt.solidDisc) {
+            const od = oc.getImageData(0, 0, o.width, o.height), q2 = od.data, W2 = o.width, H2 = o.height, L = n => Math.max(q2[n * 4], q2[n * 4 + 1], q2[n * 4 + 2]);
+            const bg = new Uint8Array(W2 * H2), st = [];
+            const push = (x, y) => { if (x < 0 || y < 0 || x >= W2 || y >= H2) return; const n = y * W2 + x; if (bg[n] || L(n) >= 28) return; bg[n] = 1; st.push(n); };
+            for (let x = 0; x < W2; x++) { push(x, 0); push(x, H2 - 1); } for (let y = 0; y < H2; y++) { push(0, y); push(W2 - 1, y); }
+            while (st.length) { const n = st.pop(), x = n % W2, y = (n / W2) | 0; push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1); }
+            let sx = 0, sy = 0, cnt = 0; for (let n = 0; n < W2 * H2; n++) if (!bg[n]) { sx += n % W2; sy += (n / W2) | 0; cnt++; }
+            const cx = sx / cnt, cy = sy / cnt, rs = [];
+            for (let a = 0; a < 72; a++) { const dx = Math.cos(a * Math.PI / 36), dy = Math.sin(a * Math.PI / 36); let r = 0; for (; r < Math.max(W2, H2); r++) { const x = Math.round(cx + dx * r), y = Math.round(cy + dy * r); if (x < 0 || y < 0 || x >= W2 || y >= H2 || bg[y * W2 + x]) break; } rs.push(r); }
+            rs.sort((u, v) => u - v); const Rc = rs[Math.floor(rs.length * 0.25)] * opt.solidDisc;
+            for (let n = 0; n < W2 * H2; n++) {
+              const d = Math.hypot(n % W2 - cx, ((n / W2) | 0) - cy), l = L(n), glow = Math.min(255, l * 2.2);
+              const al = d <= Rc ? 255 : d <= Rc + 3 ? Math.max(glow, 255 * (1 - (d - Rc) / 3)) : glow;
+              if (al < 255 && al > 0) for (let j = 0; j < 3; j++) q2[n * 4 + j] = Math.min(255, Math.round(q2[n * 4 + j] * 255 / al));   // 光圈：把颜色还原成没叠黑底之前的
+              q2[n * 4 + 3] = Math.round(al);
+            }
+            oc.putImageData(od, 0, 0);
+            out[id] = o.toDataURL('image/webp', 0.92);
+            return;
+          }
           out[id] = o.toDataURL('image/jpeg', 0.93);
         });
         return res(out);
@@ -65,10 +89,13 @@ const PAGE = function (src, ids, mode, OPT) {
         for (const k of bg) { const x = k % w, y = (k / w) | 0; push2(x + 1, y); push2(x - 1, y); push2(x, y + 1); push2(x, y - 1); }
         while (st2.length) {
           const k = st2.pop(), x = k % w, y = (k / w) | 0, o = k * 4, a = 1 - Math.min(p[o], p[o + 1], p[o + 2]) / 255;
-          if (a < 0.03) p[o + 3] = 0; else { for (let j = 0; j < 3; j++) p[o + j] = Math.max(0, Math.min(255, Math.round((p[o + j] - 255 * (1 - a)) / a))); p[o + 3] = Math.round(255 * Math.min(1, a * 1.15)); }
+          const ci = Math.min(2, (x / (w / 3)) | 0) + 3 * Math.min(2, (y / (h / 3)) | 0), hm = (OPT[ids[ci]] || {}).hazeMin || 0.03;
+          if (a < hm) p[o + 3] = 0; else { for (let j = 0; j < 3; j++) p[o + j] = Math.max(0, Math.min(255, Math.round((p[o + j] - 255 * (1 - a)) / a))); p[o + 3] = Math.round(255 * Math.min(1, a * 1.15)); }
           solid[k] = 0; push2(x + 1, y); push2(x - 1, y); push2(x, y + 1); push2(x, y - 1);
         }
-      } else for (let i = 0; i < w * h; i++) { if (p[i * 4 + 3] < 16) p[i * 4 + 3] = 0; if (p[i * 4 + 3] < 140) solid[i] = 0; }
+      } else for (let i = 0; i < w * h; i++) {                 // 本来就是透明底的图：很淡的那层（默认透明度 16 以下；个别格子用 hazeMin 调高）当成底色扔掉
+        const ci = Math.min(2, ((i % w) / (w / 3)) | 0) + 3 * Math.min(2, (((i / w) | 0) / (h / 3)) | 0), hm = (OPT[ids[ci]] || {}).hazeMin;
+        if (p[i * 4 + 3] < (hm ? hm * 255 : 16)) p[i * 4 + 3] = 0; if (p[i * 4 + 3] < 140) solid[i] = 0; }
       c.putImageData(d, 0, 0);
       ids.forEach((id, i) => {
         if (!id) return;
@@ -117,16 +144,18 @@ const PAGE = function (src, ids, mode, OPT) {
   let id = 0; const wait = {};
   sock.addEventListener('message', ev => { const m = JSON.parse(ev.data); if (m.id && wait[m.id]) { wait[m.id](m); delete wait[m.id]; } });
   const send = (method, params) => new Promise(r => { const i = ++id; wait[i] = r; sock.send(JSON.stringify({ id: i, method, params })); });
-  const man = path.join(ROOT, 'assets', 'manifest.js'); let mtxt = fs.readFileSync(man, 'utf8'); const added = [];
+  const man = path.join(ROOT, 'assets', 'manifest.js'); let mtxt = fs.readFileSync(man, 'utf8'), dropped = false; const added = [];
   for (const j of jobs) {
     const b64 = fs.readFileSync(j.f).toString('base64'), mime = j.f.endsWith('.webp') ? 'image/webp' : 'image/png';
     const r = await send('Runtime.evaluate', { expression: '(' + PAGE.toString() + ')(' + JSON.stringify('data:' + mime + ';base64,' + b64) + ',' + JSON.stringify(j.ids) + ',' + JSON.stringify(j.mode) + ',' + JSON.stringify(OPT) + ')', awaitPromise: true, returnByValue: true });
     if (r.result.exceptionDetails) { console.log(j.n, '出错', JSON.stringify(r.result.exceptionDetails).slice(0, 300)); continue; }
     const out = r.result.result.value; let n = 0;
     for (const cid in out) {
-      const ext = j.mode === 'fx' ? '.jpg' : '.webp';
+      const ext = /^data:image\/jpeg/.test(out[cid]) ? '.jpg' : '.webp';   // 特效一般是黑底 jpg；抠成实体的（solidDisc）是带透明的 webp
       const file = path.join(ROOT, 'assets', j.folder, cid + ext); fs.writeFileSync(file, Buffer.from(out[cid].split(',')[1], 'base64')); n++;
-      for (const e2 of ['.png', '.jpg', '.webp']) if (e2 !== ext && fs.existsSync(path.join(ROOT, 'assets', j.folder, cid + e2))) console.log('  注意：同名的 ' + e2 + ' 也在：' + cid + e2);
+      for (const e2 of ['.png', '.jpg', '.webp']) { const other = path.join(ROOT, 'assets', j.folder, cid + e2); if (e2 === ext || !fs.existsSync(other)) continue;
+        if (j.mode === 'fx') { fs.rmSync(other); const k2 = "'" + j.folder + '/' + cid + e2 + "'"; mtxt = mtxt.split('  ' + k2 + ',\n').join(''); dropped = true; console.log('  换了格式，删掉旧的：' + cid + e2); }
+        else console.log('  注意：同名的 ' + e2 + ' 也在：' + cid + e2); }
       const key = "'" + j.folder + '/' + cid + ext + "'"; if (!mtxt.includes(key)) added.push(key);
     }
     console.log(j.n, '切出', n, '张');
@@ -136,7 +165,7 @@ const PAGE = function (src, ids, mode, OPT) {
     mtxt = mtxt.replace(m[0], 'window.ASSET_LIST = [\n' + [...new Set(list)].map(s => '  ' + s + ',').join('\n') + '\n];');
     console.log('素材清单补了', added.length, '个');
   }
-  if (added.length) fs.writeFileSync(man, mtxt);
+  if (added.length || dropped) fs.writeFileSync(man, mtxt);
   { const r = require('./mk_manifest.js').build(); console.log('素材清单', r.n, '个文件，版本号', r.ver); }   // 清单整个重写一遍：整体版本号 + 每个文件各自的版本号
   sock.close(); ch.kill();
 })().catch(e => { console.error(e); process.exit(1); });
