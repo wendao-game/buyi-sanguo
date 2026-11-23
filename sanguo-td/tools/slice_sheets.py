@@ -30,6 +30,8 @@ SHEETS_ORDER = {
     'hero_10': ('heroes', ['jianggan', 'mizhu', 'panzhang', 'liushan', 'xuyou', 'kongrong', 'manchong', 'guanxing', 'zhangbao2']),   # v2.3 新加的 18 名
     'hero_11': ('heroes', ['dingfeng', 'miheng', 'huangyueying', 'zhurong', 'caozhang', 'yuji', 'sunjian', 'yuanshao', 'caoren']),
     'hero_12': ('heroes', ['chenlin', 'wuguotai', 'zhangsong', 'feiyi', 'xunyou', 'xusheng', 'xinxianying', 'lusu', 'simahui']),   # v2.9 新加的 9 名辅助武将
+    'hero_14': ('heroes', ['god_dongzhuo', 'god_guojia', None, None, None, None, None, None, None]),   # v2.27 魔·董卓、神·郭嘉
+    'enemy_23': ('enemies', ['god_dongzhuo', 'god_guojia', None, None, None, None, None, None, None]),   # v2.27 当敌将时的正面图
     'hero_13': ('heroes', ['god_zhenji', 'god_zhaoyun', None, None, None, None, None, None, None]),   # v2.21 新神魔将
     'enemy_22': ('enemies', ['god_zhenji', 'god_zhaoyun', 'god_zhenji_snake', None, None, None, None, None, None]),   # v2.21 新神魔将当敌将时的正面图
     'enemy_1': ('enemies', ['grunt', 'archer', 'shield', 'rider', 'elite', 'grunt_2', 'archer_2', 'boss_1', 'boss_2']),
@@ -67,6 +69,7 @@ WEAPON_SHEETS = {
     'weapon_5': ['canglong', 'baihu', 'zhuque', 'xuanwu', None, None, None, None, None],   # 四件神兽兵器
     'weapon_6': ['liandao', 'langya', 'tietai', 'jietou', 'qingnang', 'lvchen', 'baodiao', 'xianglu', 'zidian'],   # v2.2 新加的 9 件
     'weapon_7': ['mugun', 'yaodao', 'tiebian', 'feidao', 'qinglingshu', 'jiguanxia', 'yuxi', 'sizhao', 'qinggang'],   # v2.3 新加的 9 件
+    'weapon_9': ['jiuzun', 'tianji', None, None, None, None, None, None, None],   # v2.27 魔·董卓、神·郭嘉的专属兵器
     'weapon_8': ['tuntian', 'youming', 'wusheng', 'qixingdeng', 'xuanzhu', 'yajiao', None, None, None],   # v2.24 六件神魔兵器
 }
 # 大招里冲出去的兵、马、象（透明底，和武将一样的画风）：切出来存 fx/<名字>.png，游戏里有图就用图，没有就用代码画的
@@ -84,6 +87,7 @@ FX_SHEETS = {
     'fx_5': ['thunder_ring', 'moon', 'halberd', 'tiger', 'wolf', 'chain', 'snowflake', 'cross_slash', 'red_arrow'],
     'fx_6': ['demon_flame', 'blood_eye', None, None, None, None, None, None, None],
     'fx_7': ['skyfire', 'fissure', 'meteor', 'vortex', 'soul', 'guandao', 'god_phantom', None, None],   # 神魔的专属大招
+    'fx_9': ['sky_chain', 'burning_city', 'star_board', 'go_black', 'go_white', None, None, None, None],   # v2.27 魔·董卓、神·郭嘉的
     'fx_8': ['water_vortex', 'demon_snake', 'four_dragons', None, None, None, None, None, None],   # v2.21 魔·甄姬、神·赵云的专属大招
 }
 FX_SIZE = {'slash': 384, 'bolt': 384, 'pillar': 384, 'thrust': 384, 'circle': 320, 'whirl': 256, 'flame': 256,

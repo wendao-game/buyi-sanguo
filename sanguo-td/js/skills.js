@@ -1449,6 +1449,58 @@ const SKILLS = (function () {
           });
         } },
     },
+    /* —— v2.27：魔·董卓（无尽第 70 层）、神·郭嘉（第 80 层）。专属特效图（sky_chain、burning_city、star_board、go_black、go_white）没画之前用现成的手绘贴图顶着 —— */
+    god_dongzhuo: {
+      passive: { name: '酒池肉林', desc: '攻击 +12%；对燃烧中的敌人伤害 +35%；燃烧中的敌人倒下时火星溅开，把旁边的敌人点燃 3 秒', mod: { atk: 0.12 },
+        dmg(B, h, e) { return e.burn > 0 ? 1.35 : 1; },
+        onAnyKill(B, h, e) { if (e.burn > 0 && !h.dead) B.area(e.x, e.y, 64, o => { if (o !== e) B.burn(o, 3, h.atk * 0.35, h); }); } },
+      ult: { desc: '魔王降临：天子的锁链从地下窜出，锁住全场敌人 1.5 秒（校尉、敌将 0.5 秒）；随后魔焰焚城，全场敌人 ×4（觉醒 ×6）并灼烧 8 秒；火海在战场上再烧 4 秒，每 0.5 秒 ×0.45',
+        cast(B, h, a, k) {
+          const x = B.W / 2, y = (B.TOP + B.WY) / 2, P = '255,90,40', chain = B.has('sky_chain');
+          B.flash('70,10,20', 0.42, 0.8);
+          B.tex(B.has('ghost_mask') ? 'ghost_mask' : 'el_hit_dark', x, y - 70, { w: 330, life: 1.5, grow: 1.15, fadeIn: 0.2, a: 0.5, rgb: '255,70,40' });   // 火光里浮出魔王的脸
+          B.lives().forEach(e => {                                                                                                 // 天子锁链：全场锁住
+            B.stun(e, B.isBig(e) ? 0.5 : 1.5);
+            if (chain) B.tex('sky_chain', e.x, e.y - 8, { w: B.isBig(e) ? 110 : 64, life: 1.3, fadeIn: 0.06, a: 0.95 });
+            else B.tex('circle', e.x, e.y + 6, { w: B.isBig(e) ? 90 : 52, h: B.isBig(e) ? 54 : 32, life: 1.3, spin: 3, rgb: '150,60,200', a: 0.85, fadeIn: 0.06 });
+          });
+          B.later(0.75, () => {                                                                                                    // 魔焰焚城
+            B.flash(P, 0.42, 0.6); B.shake(0.6); B.sfx('boom'); B.shock(x, y, 460, 1.4);
+            if (B.has('burning_city')) B.tex('burning_city', x, y + 20, { w: B.W * 1.02, life: 4.8, fadeIn: 0.2, a: 0.8 });
+            const flame = () => B.tex(B.has('demon_flame') ? 'demon_flame' : 'flame', 40 + Math.random() * (B.W - 80), B.TOP + 60 + Math.random() * (B.WY - B.TOP - 120), B.has('demon_flame') ? { w: 150, ay: 1, life: 1.4, fadeIn: 0.1, a: 0.95 } : { w: 100, h: 190, ay: 1, life: 1.4, fadeIn: 0.1, a: 0.8 });
+            for (let i = 0; i < 18; i++) B.later(i * 0.04, flame);
+            B.lives().forEach(e => { B.hit(e, a * 4 * k, 'fire', h); B.burn(e, 8, a * 0.5, h); });
+            for (let i = 0; i < 8; i++) B.later(0.5 + i * 0.5, () => {                                                             // 火海接着烧 4 秒
+              B.lives().forEach(e => B.hit(e, a * 0.45, 'fire', h, { dot: true }));
+              for (let j = 0; j < 4; j++) flame();
+            });
+          });
+        } },
+    },
+    god_guojia: {
+      passive: { name: '算无遗策', desc: '全军伤害 +10%；队友每放一次大招，郭嘉怒气 +10', aura(ctx) { ctx.S.buffs.atk *= 1.1; }, onAllyUlt(B, h) { B.rage(h, 10); } },
+      ult: { desc: '天地为枰：星盘在战场上空展开，九枚黑白棋子依次落在敌人最密的地方，每枚 ×2.2 并定住 1 秒（校尉、敌将 0.4 秒）；九子落定，星盘收官——全场敌人 ×3（觉醒 ×4.5），血量不到两成的小兵直接斩杀',
+        cast(B, h, a, k) {
+          const x = B.W / 2, y = (B.TOP + B.WY) / 2, C = '170,205,255', own = B.has('star_board'), T = 0.3 + 9 * 0.26;
+          B.flash('110,140,255', 0.32, 0.6);
+          if (own) B.tex('star_board', x, y, { w: 500, life: T + 1, fadeIn: 0.25, a: 0.8, spin: 0.12 });                               // 星盘（棋盘）
+          else { B.tex('seven_stars', x, y - 20, { w: 420, life: T + 1, fadeIn: 0.25, a: 0.65 }); B.tex('circle', x, y, { w: 520, h: 330, life: T + 1, spin: 0.5, rgb: C, a: 0.5, fadeIn: 0.25 }); }
+          for (let i = 0; i < 9; i++) B.later(0.3 + i * 0.26, () => {                                                              // 九子依次落下
+            const t = B.dense(80) || B.rnd(); if (!t) return;
+            const px = Math.max(40, Math.min(B.W - 40, t.x + (Math.random() - 0.5) * 40)), py = t.y + (Math.random() - 0.5) * 30, black = i % 2 === 0, st = black ? 'go_black' : 'go_white';
+            if (B.has(st)) B.tex(st, px, py - 4, { w: 86, life: 0.9, fadeIn: 0.03, grow: 0.92 });
+            else B.tex('circle', px, py, { w: 78, h: 48, life: 0.8, rgb: black ? '70,80,140' : '235,240,255', a: 0.95 });
+            B.tex('el_hit_thunder', px, py - 6, { w: 150, life: 0.3, grow: 1.3, rgb: C });
+            B.ring(px, py, 10, 86, 0.3, black ? '#8a9cff' : '#ffffff', 4); B.shake(0.1);
+            B.area(px, py, 86, e => { B.hit(e, a * 2.2, 'thunder', h); B.stun(e, B.isBig(e) ? 0.4 : 1); });
+          });
+          B.later(T + 0.35, () => {                                                                                                // 收官
+            B.flash('210,225,255', 0.35, 0.5); B.shake(0.5); B.sfx('thunder'); B.shock(x, y, 440, 1.4);
+            B.tex('burst', x, y, { w: 460, life: 0.4, grow: 1.6, rgb: '220,232,255' }); rainbow(B, x, y, 60, 22, 2.6, 1.0);
+            B.lives().forEach(e => { if (!B.isBig(e) && !e.def.siege && e.hp < e.max * 0.2) B.execute(e, h); else B.hit(e, a * 3 * k, 'thunder', h); });
+          });
+        } },
+    },
   };
 })();
 

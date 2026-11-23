@@ -14,7 +14,7 @@
 // 开发时不用跑这个：直接开源码目录（没有 ASSET_PACKS），assets.js 走原来一张张加载的路。
 const fs = require('fs'), path = require('path'), crypto = require('crypto'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
-const OUT = process.argv[2], MODS = process.argv[3];
+const OUT = process.argv[2], MODS = process.argv[3] && process.argv[3].indexOf('--') !== 0 ? process.argv[3] : null;
 if (!OUT) { console.error('用法：node tools/mk_release.js <输出目录> [装了 terser 的 node_modules 目录]'); process.exit(1); }
 const terser = MODS && fs.existsSync(path.join(MODS, 'terser')) ? require(path.join(MODS, 'terser')) : null;
 const DST = path.join(OUT, 'fenghuo-td');
@@ -28,9 +28,23 @@ const md5 = b => crypto.createHash('md5').update(b).digest('hex').slice(0, 8);
   const win = {}; vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'assets', 'manifest.js'), 'utf8'), { window: win });
   const LIST = win.ASSET_LIST;
   const dctx = {}; vm.createContext(dctx);
-  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', 'data.js'), 'utf8') + '\n;globalThis.__H = HEROES; globalThis.__S = STARTER_HEROES;', dctx);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', 'data.js'), 'utf8') + '\n;globalThis.__H = HEROES; globalThis.__S = STARTER_HEROES; globalThis.__W = WEAPONS;', dctx);
   const HQ = {}; dctx.__H.forEach(h => { HQ[h.id] = h.q; });
   const STARTER = {}; dctx.__S.forEach(id => { STARTER[id] = 1; });
+
+  /* ---------- 没图的不许出包 ----------
+   * 规矩（用户定的）：代码画的图不能让玩家看到。武将的立绘和头像、兵器图标、神魔将当敌将时的正面图，只要清单里缺一张就停下，
+   * 免得新做的武将图还没画就跟着别的改动一起上了线。确实要带着缺图出包（比如只是本机看看），命令最后加 --allow-missing。 */
+  {
+    const K = {}; LIST.forEach(f => { K[f.replace(/\.\w+$/, '')] = 1; });
+    const miss = [];
+    dctx.__H.forEach(h => { if (h.locked) return; if (!K['heroes/' + h.id]) miss.push(h.name + ' 的立绘'); if (!K['heroes/' + h.id + '_head']) miss.push(h.name + ' 的头像'); if (h.myth && !K['enemies/' + h.id]) miss.push(h.name + ' 当敌将的正面图'); });
+    dctx.__W.forEach(w => { if (!K['weapons/' + w.id]) miss.push(w.name + ' 的图标'); });
+    if (miss.length) {
+      console.error('这些图还没画（或者没切进游戏），出了包玩家会看到代码画的顶替图：\n  ' + miss.join('\n  '));
+      if (process.argv.indexOf('--allow-missing') < 0) { console.error('已停止。图到了再出包；一定要现在出，命令最后加 --allow-missing。'); process.exit(2); }
+    }
+  }
 
   /* ---------- 分包 ----------
    * home     进主城前必须到：背景、界面、开局三员武将的立绘和头像（老玩家再加上阵武将立绘所在的那一包）
