@@ -331,10 +331,11 @@ function fresh(patch) { const G = load(patch), D = G.Save.data; return { G, D, c
   const G2 = fresh().G, D2 = G2.Save.data, c2 = G2.ctx; D2.stage = 81;
   const mm = money(D2), un0 = JSON.stringify(D2.unlocked || {});
   G2.Battle.start(c2.rushStage(1), { rush: true, name: '过关斩将' });
-  for (let f = 0; f < 600 && !G2.Battle.state.over; f++) G2.Battle.tick(0.05);
+  for (let f = 0; f < 60 && !G2.Battle.state.over; f++) G2.Battle.tick(0.05);   // 只打 3 秒就退出。原来打 30 秒：碰上当天第一将厉害，新号 20 来秒就守不住，变成正常打完结算，「中途退出」这条就误报了
+  const midway = !G2.Battle.state.over;
   ok('过关斩将：开局是第 1 将、只来一个敌将', G2.Battle.state.wave === 1 && G2.Battle.state.enemies.filter(e => e.def.id === 'boss').length <= 1);
   G2.Battle.stop();
-  ok('过关斩将：中途退出什么也不给、不算今天的首局', D2.tickets === mm.tickets && D2.soul === mm.soul && D2.coins === mm.coins && c2.rushRec().best === 0 && !c2.rushDayDone());
+  ok('过关斩将：中途退出什么也不给、不算今天的首局', midway && D2.tickets === mm.tickets && D2.soul === mm.soul && D2.coins === mm.coins && c2.rushRec().best === 0 && !c2.rushDayDone());
   const src = fs.readFileSync(path.join(JS, 'battle.js'), 'utf8');
   ok('过关斩将：不能看广告复活（排行榜公平）', /if \(S\.rush \|\| S\.revived/.test(src));
   ok('过关斩将：打掉神魔不解锁（神魔还是要在无尽里打）', /S\.boss\.myth && !S\.rush/.test(src) && un0 === JSON.stringify(D2.unlocked || {}));
@@ -350,10 +351,11 @@ function fresh(patch) { const G = load(patch), D = G.Save.data; return { G, D, c
   ok('神兽兵器：解锁规则没变（打赢神兽记的是兵器 id）', beast.length === 4 && beast.every(w => !c.weaponOpen(w, {}) && c.weaponOpen(w, { [w.id]: 1 })) && G.WEAPONS.filter(w => !w.lock).every(w => c.weaponOpen(w, {})));
   D.unlocked = {}; D.weapons = {}; D.tickets = 6000; while (D.tickets >= 10) c.gachaDraw(10);
   ok('神魔兵器：什么都没解锁时抽 6000 次，一件锁着的兵器也抽不到', !G.WEAPONS.some(w => w.lock && D.weapons[w.id]), G.WEAPONS.filter(w => w.lock && D.weapons[w.id]).map(w => w.name).join('、'));
-  D.unlocked = { [myths[0]]: 1 }; D.tickets = 6000; while (D.tickets >= 10) c.gachaDraw(10);
+  D.unlocked = { [myths[0]]: 1 }; D.tickets = 60000; while (D.tickets >= 10) c.gachaDraw(10);   // 一抽出这件的概率约万分之三（橙品 1% × 兵器三成 × 九件里的一件）：6000 抽有一成多的可能一件不出，会误报，所以抽 60000
   const got = mw.filter(w => D.weapons[w.id]).map(w => w.lock);
-  ok('神魔兵器：只打赢第一位神魔，抽 6000 次只会出他那一件', got.length === 1 && got[0] === myths[0], got.join('、') || '一件也没出');
-  const i0 = D.iron, wid = c.mythWeapon(myths[0]).id, r = c.grantWeapon(wid);
+  ok('神魔兵器：只打赢第一位神魔，抽 60000 次只会出他那一件', got.length === 1 && got[0] === myths[0], got.join('、') || '一件也没出');
+  const wid = c.mythWeapon(myths[0]).id; if (!D.weapons[wid]) c.grantWeapon(wid);   // 先确认手里有这一件，再发一件重复的
+  const i0 = D.iron, r = c.grantWeapon(wid);
   ok('神魔兵器：抽到重复的照常熔成精铁（黑 ' + G.CFG.WEAPON_MELT_VAL[6] + '、彩 ' + G.CFG.WEAPON_MELT_VAL[7] + '）', r.iron === G.CFG.WEAPON_MELT_VAL[G.WEAPON_MAP[wid].q] && G.CFG.WEAPON_MELT_VAL.length === G.QUALITIES.length && G.CFG.WEAPON_UP.length === G.QUALITIES.length && G.WEAPONS.every(w => fin(G.CFG.WEAPON_MELT_VAL[w.q]) && fin(G.CFG.WEAPON_UP[w.q])) && D.iron === i0 + r.iron && Object.keys(D.weapons).filter(k => k === wid).length === 1);
 }
 
