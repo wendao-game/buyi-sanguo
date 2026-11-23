@@ -351,7 +351,7 @@ const UI = (function () {
       ${skillHtml(id, own)}${legendLine(id)}`;
     if (own && !picking) {
       const wid = heroWeapon(id), w = wid && WEAPON_MAP[wid];
-      h += w ? `<div class="wrow" style="--wq:${QUALITIES[w.q].color}" data-act="heroWeapon" data-id="${id}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${weaponOwn(wid).lv}${w.owner === id ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, id))}</div><span class="go">更换 ›</span></div>`
+      h += w ? `<div class="wrow" style="--wq:${QUALITIES[w.q].color}" data-act="heroWeapon" data-id="${id}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${weaponOwn(wid).lv}${w.owner === id ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, id))}</div>${weaponOwn(wid).lv < CFG.WEAPON_MAX_LV ? `<span class="go up" data-act="wgo" data-id="${wid}">强化</span>` : ''}<span class="go">更换 ›</span></div>`
         : `<div class="wrow" data-act="heroWeapon" data-id="${id}"><div class="wi"><b>兵器</b>还没有装备</div><span class="go">选择 ›</span></div>`;
     }
     if (!own) h += `<p class="mtext" style="margin-top:14px">尚未获得 · 可通过招募获得</p>`;   // 这里要另起一个 if：接成 else 的话，上面画了兵器那一行，下面升级、升星、上阵就都不画了
@@ -432,8 +432,9 @@ const UI = (function () {
     } else {
       h += `<div class="mrow"><button class="btn gold" data-act="wup" data-id="${wid}">${maxed ? '已强化到顶' : '强化<small>精铁 ' + weaponUpCost(wid) + '（现有 ' + fmt(S.iron) + '）</small>'}</button>
           <button class="btn gray" data-act="wmelt" data-id="${wid}">熔掉<small>返还精铁 ${weaponMeltBack(wid)}</small></button></div>
-        <p class="mtext" style="font-size:13px;margin-top:12px">装给上阵的武将（其他武将在武将详情里装）</p>
-        <div class="pick">${S.team.filter(Boolean).map(tid => `<button style="--qc:${own.hero === tid ? '#ffe08a' : qc(tid)}" data-act="wequip" data-id="${wid}" data-h="${tid}"><img src="${P(tid)}">${own.hero === tid ? '已装备' : HERO_MAP[tid].name}</button>`).join('')}</div>
+        <p class="mtext" style="font-size:13px;margin-top:12px">装给上阵的武将（头像右下角是他现在装的兵器；其他武将在武将详情里装）</p>
+        <div class="pick wpk">${S.team.filter(Boolean).map(tid => { const hw = heroWeapon(tid);   // v2.26：头像上标出已装的兵器，不然看不出谁还空着
+          return `<button style="--qc:${own.hero === tid ? '#ffe08a' : qc(tid)}" data-act="wequip" data-id="${wid}" data-h="${tid}"><span class="ph"><img src="${P(tid)}">${hw ? `<img class="wb" src="${WI(hw)}" style="--wq:${QUALITIES[WEAPON_MAP[hw].q].color}"><i class="wl">+${weaponOwn(hw).lv}</i>` : '<i class="wn">无兵器</i>'}</span>${own.hero === tid ? '已装备' : HERO_MAP[tid].name}</button>`; }).join('')}</div>
         ${own.hero ? `<div class="mrow"><button class="btn" data-act="wequip" data-id="${wid}" data-h="">卸下</button></div>` : ''}`;
     }
     modal(h + '</div>');
@@ -445,7 +446,7 @@ const UI = (function () {
       return `<div class="wrow ${wid === curW ? 'on' : ''}" style="--wq:${QUALITIES[w.q].color}" data-act="wpick" data-id="${wid}" data-h="${hid}"><img src="${WI(wid)}"><div class="wi"><b>${w.name}</b>+${own.lv}${w.owner === hid ? ' <em>专属</em>' : ''}<br>${wtext(weaponStats(wid, hid))}</div>${own.hero && own.hero !== hid ? `<img class="who" src="${P(own.hero)}">` : `<span class="go">${wid === curW ? '已装备' : '装上'}</span>`}</div>`; }).join('');
     modal(`<div class="mbox"><button class="x" data-act="hero" data-id="${hid}">×</button><h2>${HERO_MAP[hid].name} · 兵器</h2>
       ${ids.length ? `<div class="wlist">${rows}</div><p class="mtext" style="font-size:12.5px;margin-top:8px">带头像的兵器正装在别人身上，点了会换过来</p>` : '<p class="mtext">还没有兵器。兵器在「招募」里和武将一起抽。</p>'}
-      <div class="mrow">${curW ? `<button class="btn gray" data-act="wpick" data-id="${curW}" data-h="">卸下</button>` : ''}<button class="btn" data-act="nav" data-tab="arms">去兵器页强化</button></div></div>`);
+      <div class="mrow">${curW ? `<button class="btn gray" data-act="wpick" data-id="${curW}" data-h="">卸下</button>` : ''}${curW ? `<button class="btn" data-act="wgo" data-id="${curW}">强化「${WEAPON_MAP[curW].name}」</button>` : '<button class="btn" data-act="nav" data-tab="arms">去兵器页</button>'}</div></div>`);
   }
   function settings() {
     modal(`<div class="mbox"><button class="x" data-act="close">×</button><h2>设置 · 存档</h2>
@@ -701,7 +702,8 @@ const UI = (function () {
 
   /* ---------------- 点击处理 ---------------- */
   const ACT = {
-    nav: d => { pickSlot = -1; show(d.tab); },
+    nav: d => { pickSlot = -1; closeModal(); show(d.tab); },   // 从窗口里的按钮跳页（去招募、去兵器页）：先把窗口关掉，不然它还盖在新页面上
+    wgo: d => waitArt(pageArt('arms'), () => { pickSlot = -1; closeModal(); showNow('arms'); weaponDetail(d.id); }),   // 从武将那边跳来强化某件兵器：关掉原来的窗口，切到兵器页，直接打开这件兵器
     close: () => { if (lpDraft) return renderLineup(); closeModal(); if (screen !== 'battle') render(); },   // 换将面板里打开的子窗口：关掉回到换将面板
     stage: d => { const S = Save.data; S.pick = Math.max(1, Math.min(S.stage, S.pick + Number(d.d))); Save.save(); render(); },
     fight: () => startBattle(Save.data.pick),
