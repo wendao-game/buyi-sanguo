@@ -134,6 +134,13 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #lu-skip { flex: none; margin-left: 4px; padding: 3px 10px; font: inherit; font-size: 12px; line-height: 1.4; color: var(--muted); background: transparent;
   border: 1px solid var(--muted); border-radius: 3px; cursor: pointer; touch-action: manipulation; }
 #lu-skip.armed { color: #fff; background: var(--seal); border-color: var(--seal); }
+/* 看广告换一批：金边，和「收起」一样大 */
+#lu-reroll { flex: none; order: 3; margin-left: auto; padding: 3px 10px; /* 排在最后：一行放不下就自己换到下一行靠右，不把「收起」挤下去 */ font: inherit; font-size: 12px; line-height: 1.4; color: #ffd98a; background: rgba(207,163,74,.14);
+  border: 1px solid var(--gold); border-radius: 3px; cursor: pointer; touch-action: manipulation; }
+#lu-reroll:disabled { opacity: .6; cursor: default; }
+#levelup.folded #lu-reroll { display: none; }
+/* 主页「看广告重置军需」：点一下变红「再点一次」 */
+#btn-gear-reset.armed { color: #fff; background: var(--seal); border-color: var(--seal); }
 #levelup.folded #lu-skip { display: none; }
 #levelup.folded { width: auto; padding: 5px 7px; }
 #levelup.folded #lu-cards, #levelup.folded #lu-crit, #levelup.folded #lu-sub { display: none; }
@@ -400,6 +407,7 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
   display: flex; flex-direction: column; gap: 8px; transition: transform .12s; }
 .card::before { content: ''; position: absolute; inset: 5px; border: 1px solid rgba(42,33,22,.25); pointer-events: none; }
 .card:hover { transform: translateY(-4px); }
+.card.qy-leave { opacity: .72; } /* 奇遇的「离开」：淡一点，不抢眼 */
 .card.gen { background: linear-gradient(var(--paper), #e3cf9f); box-shadow: 0 0 0 2px var(--gold), 0 6px 22px rgba(207,163,74,.35); }
 .card .top { display: flex; align-items: center; gap: 10px; }
 .seal { width: 44px; height: 44px; flex: none; display: grid; place-items: center; background: var(--seal); color: var(--paper);
@@ -471,6 +479,20 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
 /* 遗忘：暂停界面里点兵器、技能，点一下选中（变红），3 秒内再点一次才遗忘 */
 .build .forget-tip { width: 100%; text-align: center; font-size: 12px; color: var(--gold); }
 .build .chip.forget { cursor: pointer; border-style: dashed; }
+/* 战报：每件兵器、技能、神兵打了多少（结算页按钮下面、暂停「查看战报」） */
+.report { width: min(520px, 100%); display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+.report .rp-head { color: var(--gold); font-weight: 900; font-size: 15px; margin-top: 4px; display: flex; align-items: baseline; gap: 8px; }
+.report .rp-head small { color: var(--muted); font-weight: 400; font-size: 12px; }
+.report .rp-row { display: grid; grid-template-columns: 24px minmax(0, 8em) minmax(36px, 1fr) 2.6em minmax(4em, auto); align-items: center; gap: 8px; }
+.report .slot { width: 24px; height: 24px; font-size: 13px; box-shadow: none; }
+.report .rp-txt { color: var(--muted); }
+.report .rp-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report .rp-bar { height: 8px; background: rgba(235,224,197,.1); }
+.report .rp-bar i { display: block; height: 100%; background: linear-gradient(90deg, #8e2a20, #e0a050); }
+.report .rp-heal .rp-bar i { background: linear-gradient(90deg, #2f7a4c, #8ef0a0); }
+.report b { text-align: right; font-variant-numeric: tabular-nums; }
+.report em { font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+@media (max-width: 560px) { .report .rp-dps { display: none; } .report .rp-row { grid-template-columns: 22px minmax(0, 7em) minmax(30px, 1fr) 2.6em minmax(3.4em, auto); gap: 6px; } }
 .build .chip.forget.armed { background: rgba(181,55,42,.55); border: 1px solid var(--seal); color: #fff; }
 #levelup.under-pause { display: none; } /* 遗忘的时候正开着的选项栏先藏起来，别盖住列表；继续游戏后再出来 */
 #tip { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); text-align: center; font-size: 13px; color: var(--muted); pointer-events: none; text-shadow: 0 1px 2px #000; }
@@ -488,6 +510,8 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
   #lu-title { font-size: 19px; }
   #lu-crit { margin-left: 0; width: 100%; order: 2; }
   #lu-hide { order: 1; } /* 手机上暴击行单独占一行：放弃、收起按钮留在第一行最右边 */
+  #lu-reroll { order: 2; } /* 手机上和暴击那一行并排，靠右 */
+  #levelup.rr #lu-crit { width: auto; flex: 1 1 0; }
   #lu-skip { order: 1; margin-left: auto; }
   #lu-skip[hidden] + #lu-hide { margin-left: auto; }
   #levelup.folded { left: 6px; transform: none; animation: none; } /* 收起后靠左，别碰到右上角的声音 / 暂停按钮 */
@@ -592,6 +616,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="cards" id="origins"></div>
     <div class="btns">
       <button class="btn" id="btn-shop">军需 · 装备<span id="title-gold"></span></button>
+      <button class="btn" id="btn-gear-reset" hidden>看广告重置军需</button>
       <button class="btn" id="btn-ups">名将升级 · 封神入魔</button>
       <button class="btn" id="btn-codex">武将图鉴</button>
       <button class="btn" id="btn-rank" hidden>排行榜</button>
@@ -650,6 +675,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <div id="lu-portrait" hidden></div>
       <b id="lu-title">升级</b><span id="lu-sub">选择一项</span>
       <span id="lu-crit"></span>
+      <button id="lu-reroll" type="button" title="看一条广告，这次的三张卡重抽" hidden>看广告换一批</button>
       <button id="lu-skip" type="button" title="这一次什么都不要（点两下：防误触）" hidden>放弃</button>
       <button id="lu-hide" type="button" title="先收起选项看战场，点「展开」再选">收起</button>
     </div>
@@ -660,6 +686,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <h2>暂停</h2>
     <div class="build" id="pause-build"></div>
     <div class="stats" id="pause-stats" hidden></div>
+    <div class="report" id="pause-report" hidden></div>
     <div class="btns">
       <button class="btn primary" id="btn-resume">继续</button>
       <button class="btn" id="btn-quit">回到标题</button>
@@ -673,6 +700,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <button class="btn" id="btn-fx">特效：自动</button>
       <button class="btn" id="btn-glow">光效：完整</button>
       <button class="btn" id="btn-stats">查看属性</button>
+      <button class="btn" id="btn-report">查看战报</button>
       <button class="btn" id="btn-forget">遗忘兵器技能</button>
     </div>
   </div>
@@ -684,6 +712,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="lb" id="end-lb" hidden></div>
     <div class="build" id="end-build"></div>
     <div class="btns" id="end-btns"></div>
+    <div class="report" id="end-report"></div>
   </div>
 </div>
 

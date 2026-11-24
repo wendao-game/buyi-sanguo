@@ -18,7 +18,8 @@ window.GAME_DATA = {
   // 看广告复活每局只有一次：满血、短暂无敌、震开身边的敌人；结算时看广告，本局金币再加 adGoldBonus
   // shuraLeaderboardId：修罗无尽的榜（2026-11-11 建好并发布，后台名称「修罗最高等级」，也是按等级、降序、保留历史最高；空着就只报总榜）
   // （这句说明原来插在下面那一行中间，把后面的 reviveKnockR、adGoldBonus 注释掉了：看广告加的金币成了 NaN，军需随便买。说明一律单独写一行）
-  taptap: { rewardedAdUnitId: '1054324', leaderboardId: 'gwy1u779jhgau3z3er', shuraLeaderboardId: '7hys9nuhnh3pauetiw', reviveIframes: 3, reviveKnockR: 320, adGoldBonus: 0.4,
+  taptap: { rewardedAdUnitId: '1054324', leaderboardId: 'gwy1u779jhgau3z3er', shuraLeaderboardId: '7hys9nuhnh3pauetiw', reviveIframes: 3, reviveKnockR: 320, adGoldBonus: 0.4, adRerolls: 3, // adRerolls：升级选卡「看广告换一批」每局几次
+   
     // 云存档：局外进度（金币、装备）、最佳纪录、图鉴存到玩家的 TapTap 账号里，换手机、清缓存都不丢（没打完的那一局只存在本机）。
     // TapTap 限制每分钟最多上传一次，所以有变化后至少隔 every 秒才传；name 是云端存档名（不能有空格和中文）
     cloudSave: { name: 'buyi_save', every: 65 },
@@ -561,6 +562,31 @@ window.GAME_DATA = {
       ],
     },
     // 木鸢（黄月英，2026-11-19）：同双铁戟飞出去再飞回来（kite），一路每飞 gap 远往下扔一个小火罐（半径 bombR，伤害是这一下的 bomb 倍）。冷却不随等级变
+    // 锦帆铃（甘宁）：地公符的走法，甩出去的是铜铃：朝身边的敌人甩出 count 个，delay 秒后落地炸响（半径 radius）；
+    //   铃声在原地再荡一圈（echo 秒后，半径 ×1.3、伤害 ×echoK），同一处打两下
+    jinfanling: {
+      name: '锦帆铃', icon: '铃', type: 'meteor', bell: true, general: '甘宁',
+      desc: '甘宁腰间的铜铃。朝身边的敌人甩出铜铃，落地一响炸开，铃声在原地再荡一圈，同一处会打两下。',
+      levels: [
+        { dmg: 32, cd: 1.5, count: 2, radius: 60, delay: 0.45, echo: 0.35, echoK: 0.6 },
+        { dmg: 39, cd: 1.45, count: 2, radius: 64, delay: 0.45, echo: 0.35, echoK: 0.6, note: '伤害 +7，范围扩大' },
+        { dmg: 44, cd: 1.35, count: 3, radius: 66, delay: 0.4, echo: 0.35, echoK: 0.65, note: '多甩一个铃' },
+        { dmg: 53, cd: 1.3, count: 3, radius: 72, delay: 0.4, echo: 0.35, echoK: 0.7, note: '伤害 +9，铃声更响' },
+        { dmg: 64, cd: 1.15, count: 4, radius: 78, delay: 0.4, echo: 0.3, echoK: 0.8, note: '锦帆贼来了：四铃齐响' },
+      ],
+    },
+    // 白衣袖剑（吕蒙）：丈八蛇矛的走法，刺得短，每次连刺两下（隔 twin 秒），第二下暴击率 +critAdd
+    baiyijian: {
+      name: '白衣袖剑', icon: '袖', type: 'thrust', general: '吕蒙',
+      desc: '吕蒙藏在白衣袖里的短剑。贴身连刺两下，第二下更容易暴击。',
+      levels: [
+        { dmg: 22, cd: 0.9, len: 160, width: 32, count: 1, kb: 90, twin: 0.12, critAdd: 0.2 },
+        { dmg: 27, cd: 0.85, len: 168, width: 34, count: 1, kb: 95, twin: 0.12, critAdd: 0.22, note: '伤害 +5，刺得更远' },
+        { dmg: 31, cd: 0.8, len: 175, width: 34, count: 2, kb: 100, twin: 0.12, critAdd: 0.25, note: '左右各刺一剑' },
+        { dmg: 37, cd: 0.75, len: 185, width: 36, count: 2, kb: 105, twin: 0.1, critAdd: 0.28, note: '伤害 +6，出手更快' },
+        { dmg: 46, cd: 0.65, len: 200, width: 40, count: 3, kb: 110, twin: 0.1, critAdd: 0.35, note: '白衣渡江：三剑齐出，第二下几乎必暴' },
+      ],
+    },
     muyuan: {
       name: '木鸢', icon: '鸢', type: 'boomerang', general: '黄月英', kite: true,
       desc: '黄月英造的机关木鸢。飞出去再飞回来，一路往下扔小火罐，飞过的地方都挨炸。',
@@ -1231,6 +1257,30 @@ window.GAME_DATA = {
     },
     // 木牛流马（黄月英，2026-11-19）：每 cd 秒放出一头木牛，只走直线、只拐直角，一段段朝敌人最密处拱过去（每段最长 segL，每秒 speed），
     //   撞到的敌人挨 dmg、被撞开（同一个敌人 0.5 秒最多挨一下）；走 life 秒后卸下粮草，你回 heal 比例的生命。冷却不随等级变
+    // 夜袭（甘宁）：定时四下一暗，身边 radius 内的敌人「惊营」：受 dmg 伤害，小兵乱跑 fear 秒；惊营的敌人 dur 秒内多受 vuln 伤害（名将、精英也算，但不乱跑）
+    yexi: {
+      name: '夜袭', icon: '袭', type: 'nightRaid', general: '甘宁',
+      desc: '百骑劫营：定时四下一暗，身边一圈敌人「惊营」——受伤、小兵乱跑一阵，惊营中的敌人多受伤害。',
+      levels: [
+        { cd: 9, radius: 210, dmg: 40, fear: 1.5, vuln: 0.15, dur: 3 },
+        { cd: 8.5, radius: 225, dmg: 50, fear: 1.6, vuln: 0.17, dur: 3, note: '伤害 +10，范围扩大' },
+        { cd: 8, radius: 240, dmg: 60, fear: 1.8, vuln: 0.2, dur: 3.5, note: '惊得更久' },
+        { cd: 7.5, radius: 260, dmg: 74, fear: 2, vuln: 0.22, dur: 3.5, note: '伤害 +14，范围扩大' },
+        { cd: 7, radius: 290, dmg: 92, fear: 2.2, vuln: 0.25, dur: 4, note: '百骑劫营，片甲不还' },
+      ],
+    },
+    // 攻心（吕蒙）：定时攻心 range 内最强的一个敌人（名将 > 精英 > 血最多的）：受 dmg 伤害，dur 秒内多受 vuln 伤害、移速 −slow
+    gongxin: {
+      name: '攻心', icon: '心', type: 'mindAttack', general: '吕蒙',
+      desc: '攻心为上：定时攻心身边最强的一个敌人（名将也算）——它一阵子多受伤害、走不快。',
+      levels: [
+        { cd: 8, range: 420, dmg: 60, vuln: 0.2, slow: 0.25, dur: 5 },
+        { cd: 7.5, range: 440, dmg: 75, vuln: 0.22, slow: 0.27, dur: 5, note: '伤害 +15' },
+        { cd: 7, range: 460, dmg: 90, vuln: 0.25, slow: 0.3, dur: 5.5, note: '攻得更狠' },
+        { cd: 6.5, range: 480, dmg: 110, vuln: 0.27, slow: 0.32, dur: 6, note: '伤害 +20' },
+        { cd: 6, range: 520, dmg: 135, vuln: 0.3, slow: 0.35, dur: 6.5, note: '士别三日：攻心为上，攻城为下' },
+      ],
+    },
     muniu: {
       name: '木牛流马', icon: '牛', type: 'oxCart', general: '黄月英',
       desc: '黄月英的木牛。定时放出来，拐着直角往敌群里拱，撞到的都被顶开；走完卸下一袋粮草，给你回一点血。',
@@ -1385,6 +1435,10 @@ window.GAME_DATA = {
     // 巧夺天工（黄月英，2026-11-19）：兵器伤害 +base；身上每有一把升满的兵器再 +per，最多再加 max（见 game.js 的 wStatsRaw）
     // 蛇蜕（魔甄姬，2026-11-19）：伤害 +20%，最大生命 -10%；每 shed.cd 秒蜕一层皮，挡掉下一次受到的伤害（见 game.js 的 hurtPlayer）
     shetui: { name: '蛇蜕', icon: '蜕', max: 1, unique: true, general: '魔甄姬', desc: '魔甄姬的蛇蜕：伤害 +20%，每 12 秒蜕一层皮、挡掉下一次受到的伤害；但最大生命 -10%', effects: { dmgMul: 0.2, maxHpMul: -0.1 }, shed: { cd: 12 } },
+    jinfanzei: { name: '锦帆贼', icon: '帆', max: 1, unique: true, general: '甘宁', desc: '游侠出身，腰挂铜铃：闪现时在起点留下一串铃铛，敌人踩到被震晕一下、受伤；移动速度 +6%',
+      effects: { speedMul: 0.06 }, bells: { n: 4, gap: 34, r: 30, stun: 0.8, dmg: 30, life: 8 } }, // 铃铛 n 个、间隔 gap、碰到的半径 r；伤害按你的等级涨（同神兵）
+    shibie: { name: '士别三日', icon: '蒙', max: 1, unique: true, general: '吕蒙', desc: '士别三日，即更刮目相待：这一局每过 3 分钟，伤害永久 +4%（最多 +32%）',
+      effects: {}, grow: { every: 180, per: 0.04, max: 0.32 } }, // 从拿到时算起
     qiaoduo: { name: '巧夺天工', icon: '巧', max: 1, unique: true, general: '黄月英', desc: '机巧之极：兵器伤害 +10%；身上每有一把升满的兵器，再 +2%（最多再 +20%）', effects: {}, craft: { base: 0.1, per: 0.02, max: 0.2 } },
     // 胆大如卵（姜维，2026-11-14）：一下挨的伤害超过生命上限 big.at，超出的部分只吃 big.keep（原定「身边敌人越多越痛」，和魔董卓的暴政魔印重了，改成这个）
     danda: { name: '胆大如卵', icon: '胆', max: 1, unique: true, general: '姜维', desc: '剖腹见胆，胆大如卵：生命上限 +50，伤害 +8%；一下挨的伤害超过生命上限 15% 时，超出的部分减半', effects: { maxHp: 50, dmgMul: 0.08 }, big: { at: 0.15, keep: 0.5 } },
@@ -1471,6 +1525,8 @@ window.GAME_DATA = {
   enemies: {
     foot: { name: '步卒', icon: '卒', hp: 11, speed: 62, dmg: 8, xp: 1, r: 13, color: '#7b5a3c', h: 40,
       look: { skin: '#d9a878', robe: '#7b5a3c', trim: '#4a3423', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'cap', headColor: '#a8322a', weapon: 'spear' } },
+    baiyi: { name: '白衣商人', icon: '商', hp: 11, speed: 70, dmg: 8, xp: 1, r: 13, color: '#e8e2d4', h: 40,
+      look: { skin: '#d9a878', robe: '#e8e2d4', trim: '#b8b0a0', armor: false, beard: 'short', eyes: 'normal', brows: 'flat', head: 'hood', headColor: '#f0ece2', weapon: 'staff' } },
     shield: { name: '盾兵', icon: '盾', hp: 48, speed: 44, dmg: 12, xp: 3, r: 17, color: '#56606b', kbResist: 0.7, h: 44,
       look: { skin: '#d0a070', robe: '#4a525c', armor: true, armorColor: '#6b7480', beard: 'short', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#5a626c', trim: '#8a8f94', weapon: 'shield' } },
     archer: { name: '弓手', icon: '弓', hp: 15, speed: 56, dmg: 6, xp: 2, r: 13, color: '#66733a', ranged: { range: 290, cd: 2.4, speed: 230, dmg: 9 }, h: 40,
@@ -1660,6 +1716,7 @@ window.GAME_DATA = {
       desc: '铜雀台 · 挟天子以令诸侯……' },
     // 锦囊：神郭嘉的「遗计」（大招）和「遗计定辽东」（第一次打空血）放出来的，打碎它（不算杀敌、不掉东西）
     jinnang: { name: '锦囊', icon: '囊', hp: 300, r: 20, xp: 0, special: true, bag: true, desc: '遗计锦囊 · 打碎它' },
+    shujuan: { name: '兵书', icon: '书', hp: 300, r: 20, xp: 0, special: true, tome: true, desc: '吕蒙的兵书 · 打碎它' }, // 士别三日：走到跟前才打得动
     // 广宗魔坛：玩家 80 级时正东升起（张角病死广宗、被开棺戮尸的地方）；走近了黄符引雷劈在你身边（rocks 带 bolt），坛边疫气缭绕、你的回血只剩 plague
     // 攻破后魔张角现身（mojiao），被击败 again 秒后再起，每多一轮血量 +roundHp、伤害 +roundDmg。坛边刷黄巾兵（魔张角的「信众」）
     guangzong: { name: '广宗魔坛', icon: '坛', seal: '坛门紧闭', hp: 9000, r: 66, xp: 75, special: true, noSeal: true, aggroR: 600, unlockLv: 80, again: 480, roundHp: 0.5, roundDmg: 0.25, plague: 0.5,
@@ -2279,6 +2336,50 @@ window.GAME_DATA = {
     },
     // —— 黄月英：诸葛亮之妻、沔南名士黄承彦之女，第六章魏延之后、姜维之前登场（2026-11-19 加；相传木牛流马、连弩机关出自她手）。蜀，无属性。
     //   黄发、赭黄短褐配墨绿、背着机关匣，手持连弩；平时放连弩、扔火油罐、召机关木人。大招见 game.js 的「黄月英 · 机巧」 ——
+    // 甘宁（2026-11-20 加入第四章抽签池）：冲过来连砍、甩铜铃。大招尽量不和张辽「辽来辽来」（变暗、隐身、直线冲）重复：
+    //   百骑劫营是一队插白鹅翎的骑兵在黑暗里兜着弧线扫过，只看得见白翎；闻铃是铃挂到你身上，一动就招来箭；楼船横江是两艘船开过去、侧舷放箭
+    ganning: {
+      name: '甘宁', title: '锦帆游侠 · 江表虎臣', icon: '宁', hp: 8000, speed: 122, dmg: 25, r: 31, color: '#a8322a',
+      attacks: ['charge3', 'meteor', 'cleave', 'charge', 'meteor'], interval: 2.3, cleaveR: 200, cleaveHalf: 1.0, chargeSpeed: 800, // 双刀连砍、冲阵
+      meteor: { count: 4, radius: 62, delay: 0.9, dmg: 20, rgb: '230,180,90' },                 // 甩铜铃
+      rewards: ['jinfanling', 'yexi', 'jinfanzei'],
+      ultRgb: '240,190,90', ultEvery: 10,
+      ults: [
+        // （尺寸叫 arcR、colLen、stepD、bellR、laneOff、shipL、shipW、arrowL，不叫 R / r / w / len / range / radius / delay：名将强化会把那几个放大）
+        // 百骑劫营：四下变暗（你身边留一圈 light 半径的火光），sweeps 轮：一队 riders 骑兵插着白鹅翎，沿半径 arcR 的弧线兜着扫过你站的地方，
+        //   黑暗里只看得见白翎；每轮先在弧线的起点响铃、亮出整条弧线 tele 秒，再冲（每秒 speed）；撞上受伤（dmg 倍，同一轮只算一下），轮与轮隔 gap 秒
+        { id: 'baiqi', name: '百骑劫营', type: 'featherRaid', sweeps: 3, riders: 12, arcR: 620, colLen: 70, speed: 760, tele: 1.0, gap: 0.5, light: 210, riderW: 54, dmg: 1.1 },
+        // 闻铃：在你身上挂一串铜铃，dur 秒内你每走 stepD 远铃就响一声，按你那一刻的走向往前 lead 秒处落一阵箭（半径 bellR，fall 秒后落下，dmg 倍）；
+        //   站住或拐弯就躲得开
+        { id: 'wenling', name: '闻铃', type: 'bellHunt', dur: 5, stepD: 150, lead: 0.7, bellR: 80, fall: 0.7, dmg: 0.6, tele: 0.6 },
+        // 楼船横江（血过半，只一次）：两艘楼船隔 laneOff 平行开过你身边（长 shipL、宽 shipW、每秒 speed、全程 lineL），撞上被撞开（dmg 倍）；
+        //   每隔 volley 秒朝两侧放一排箭（每排 arrows 支、射程 arrowL，先亮 tele 秒，arrow 倍伤害），箭和箭之间有空当
+        { id: 'louchuan', name: '楼船横江', type: 'shipLine', hpBelow: 0.5, once: true, laneOff: 300, shipL: 300, shipW: 90, speed: 150, lineL: 1500, volley: 1.1, arrows: 4, arrowL: 560, arrowSp: 560, tele: 0.45, dmg: 1.0, arrow: 0.6 },
+      ],
+      banner: '江表虎臣 · 甘宁', line: '“锦帆贼甘兴霸在此——听见铃声，就该逃命了！”', rage: '“百骑劫营，片甲不还！”',
+      look: { skin: '#d6a273', skinShade: '#ae7c50', robe: '#a8322a', trim: '#d8b040', armor: true, armorColor: '#6b4a2e', beard: 'short', eyes: 'fierce', brows: 'sharp', head: 'band', headColor: '#c8302a', plume: '#f4f0e8', weapon: 'dao', aura: '#e0a050', artFace: [0.48, 0.215, 0.36] },
+    },
+    // 吕蒙（2026-11-20 加入第五章，刘备之后、孙权之前：白衣渡江袭荆州）：近身砍、退开放箭。白衣渡江的商人走到你身边才亮刀；
+    //   攻心封你一件兵器；血过半时士别三日，身边浮起兵书，打碎了他晕住，打不碎他刮目相看
+    lvmeng: {
+      name: '吕蒙', title: '白衣渡江 · 士别三日', icon: '蒙', hp: 10500, speed: 106, dmg: 25, r: 31, color: '#d8d4c4',
+      attacks: ['cleave', 'volley', 'charge', 'cleave', 'volley'], interval: 2.4, cleaveR: 190, cleaveHalf: 0.95, chargeSpeed: 720,
+      volley: { count: 5, spread: 0.5, speed: 560, dmg: 14, arrow: true, wrgb: '230,225,205' },
+      rewards: ['baiyijian', 'gongxin', 'shibie'],
+      ultRgb: '220,215,195', ultEvery: 10,
+      ults: [
+        // 白衣渡江：身边 ringD 远处冒出 merchants 个白衣商人慢慢走过来（血很薄、碰到也不伤人）；走到你 revealD 以内，或 hide 秒后，
+        //   扯掉白衣亮刀：脚下先亮一圈 slashR 半径 tele 秒，再一齐砍下（dmg 倍），之后变成普通的兵
+        { id: 'baiyi', name: '白衣渡江', type: 'whiteRobes', merchants: 8, ringD: 460, revealD: 110, hide: 5, slashR: 95, tele: 0.45, walk: 70, dmg: 0.8 },
+        // 攻心：casts 次，每次在你脚下亮一个半径 mindR 的圈 tele 秒（越收越紧的光），时间到你还在圈里：被攻心，随机一件兵器 seal 秒不出手，受 dmg 倍伤害
+        { id: 'gongxin', name: '攻心', type: 'mindSeal', casts: 2, mindR: 250, tele: 1.6, gap: 0.6, seal: 6, dmg: 0.5 },
+        // 士别三日（血过半，只一次）：身边 bookD 远处浮起 books 本兵书（血是他最大血量的 bookHp，你走到 near 以内才打得动，一秒最多掉自己血量的 cap），
+        //   time 秒内全打碎：他晕 stun 秒、vulnT 秒内多受 vuln 伤害；打不碎：刮目相看，伤害 ×buffDmg、移速 ×buffSpd、大招间隔 ×buffUlt，直到倒下
+        { id: 'shibie', name: '士别三日', type: 'tomeRead', hpBelow: 0.5, once: true, books: 3, bookD: 260, bookHp: 0.03, near: 150, cap: 0.4, time: 15, stun: 3, vuln: 0.35, vulnT: 6, buffDmg: 1.3, buffSpd: 1.2, buffUlt: 0.7 },
+      ],
+      banner: '白衣渡江 · 吕蒙', line: '“吴下阿蒙？今日的吕子明，早已不是当年了！”', rage: '“白衣渡江，荆州已是囊中之物！”',
+      look: { skin: '#d9a878', skinShade: '#b08050', robe: '#e6e0d0', trim: '#3a6a8a', armor: true, armorColor: '#5a6a7a', beard: 'short', eyes: 'calm', brows: 'sharp', head: 'scholar', headColor: '#2a3a4a', weapon: 'dao', aura: '#d8d0b8', artFace: [0.49, 0.185, 0.36] },
+    },
     huangyueying: {
       name: '黄月英', title: '机巧 · 沔南才女', icon: '英', hp: 12000, speed: 100, dmg: 24, r: 30, color: '#7a5a2a',
       attacks: ['volley', 'meteor', 'summon', 'volley', 'meteor'], interval: 2.5, kite: 280, summon: 3, summonType: 'muren',
@@ -2795,6 +2896,8 @@ window.GAME_DATA = {
     weiyan: { death: '背后……是谁……', ult: { ziwu: '子午谷——直取长安！', tideng: '什么七星灯——给我灭！', shuigan: '谁敢杀我！谁敢杀我！' } },
     xuchu: { death: '主公……末将……护不住了……', ult: { tuoniu: '九头牛也拽得动——何况是你！', weishui: '主公莫慌——有许褚在！', luoyi: '裸衣上阵——来斗！' } },
     sunce: { death: '仲谋……江东……交给你了……', ult: { shenting: '子义，再来斗一场！', hengsao: '横扫江东，谁敢挡我！', yuji: '于吉妖道——滚出我的镜子！' } },
+    ganning: { death: '一百骑……都回来了……兴霸……却回不去了……', ult: { baiqi: '百骑劫营——插好白翎，跟我冲！', wenling: '听见铃声了？那就是你的丧钟！', louchuan: '锦帆楼船，横江而来！' } },
+    lvmeng: { death: '白衣渡江……终究……还是……', ult: { baiyi: '白衣渡江——脱下商衣，亮出刀来！', gongxin: '攻心为上——你的兵器，听我的了！', shibie: '士别三日，即更刮目相待！' } },
     huangyueying: { death: '夫君……北伐的粮道……月英守不住了……', ult: { muniu: '木牛流马——给我开过去！', muyuan: '木鸢起，火油落！', jiguan: '机关城，合！' } },
     jiangwei: { death: '吾计不成……乃天命也……', ult: { jiufa: '九伐中原——丞相，看着！', tielong: '铁笼山中，插翅难飞！', jiange: '剑阁一夫当关——你过不去！' } },
     menghuo: { death: '丞相天威……南人……不复反矣……', ult: { xiangbing: '象兵——给我踏平他！', duquan: '南中四泉，喝一口就别想走！', nanman: '藤甲在身，刀枪不入！' }, capture: '不服！放我回去，再战一场！' },
@@ -2882,6 +2985,8 @@ window.GAME_DATA = {
       xunyu: { note: '第五章「三分天下」里张辽之后、曹操之前登场。留香：他走过的地方留下淡紫色香雾，雾里的敌人受到的伤害减少。', ults: { quhu: '放一头猛虎追你一阵；猛虎撞上别的敌人会停下撕咬，往敌群里跑能甩开它。', erhu: '你脚下放一块肉，左右两头猛虎一起扑向那块肉；两虎撞在一起会互咬，他也跟着掉血；还站在肉旁边就会被两只一起扑。暴怒时连放两轮。', juzhong: '血过半后退到前方坐镇，筑起一圈城墙，城门轮流开合；在城外打他伤害大减，从开着的城门进去才打得满。' } },
       xuchu: { note: '第三章「群雄逐鹿」抽签池里的名将（郭嘉之后）。虎痴：血厚、劈得狠，平时会召一队盾兵。', ults: { tuoniu: '甩绳索套住你拔河：往远离他的方向走，头顶的拉条就往你这边涨；拉赢了他摔个跟头、晕两秒，拉输了被他一把拽过去摔在地上。', weishui: '朝一侧举起马鞍，箭雨从那边一排排射过整个画面，只有他身后马鞍的影子里不挨箭；他还会时不时回身砍一刀，别贴得太近。', luoyi: '血过半后脱掉重甲：护盾没了、更好打，但跑得更快、出手更勤；接着连扑三次，扑中就把你举起来扔出去，落地处还会炸一圈。' } },
       sunce: { note: '第三章「群雄逐鹿」抽签池里的名将（夏侯惇之后）。小霸王：冲得快，平时会召一队弓手。', ults: { shenting: '太史慈的身影杀来，两人从两侧同时朝你冲锋，路线在你身上交叉成 X，一共三轮；往两条线中间的空当躲。', hengsao: '原地抡起长枪，两道枪影像风车一样绕着他转、越转越快；贴到他脚下或跑出枪影外才躲得开。', yuji: '血过半后于吉的鬼魂立起三面铜镜，孙策连冲五次扑你；站到铜镜后面，引他冲过来撞上镜子，他就在镜中看见于吉，晕住好一阵、还更好打。' } },
+      ganning: { note: '第四章「赤壁之战」的抽签名将（七位里抽四位）。锦帆游侠：冲过来连砍、隔一阵甩铜铃，铃落地一响就炸。', ults: { baiqi: '四下一暗，一队插着白鹅翎的骑兵在黑暗里兜着弧线扫过你；每一轮先在起点响铃、亮出整条弧线，看准弧线躲开，黑暗里只看得见白翎。', wenling: '在你身上挂一串铜铃，几秒内你每走一段铃就响一声，箭照你那一刻跑的方向往前落；站住或者拐弯就躲得开。', louchuan: '血过半后两艘楼船从你两边平行开过，撞上会被撞开；船一边开一边朝两侧放一排排箭，箭和箭之间有空当。' } },
+      lvmeng: { note: '第五章「三分天下」里刘备之后、孙权之前登场（白衣渡江袭取荆州）。近身砍，退开时回身放箭。', ults: { baiyi: '身边冒出一群白衣商人慢慢走过来，碰到也不伤人；走到你身边或过几秒就扯掉白衣亮刀，脚下亮一圈后一齐砍下。商人血很薄，可以趁早打掉，也可以拉开距离。', gongxin: '你脚下亮一个圈，时间到还在圈里就被攻心：随机一件兵器几秒不出手。跑出圈就没事，一共两次。', shibie: '血过半后身边浮起三本兵书，要走到跟前才打得动；限时全打碎他就晕住、多受伤害，打不碎他「刮目相看」，伤害、速度都提高，大招放得更勤，直到倒下。' } },
       huangyueying: { note: '第六章「南征北伐」里魏延之后、姜维之前登场。机巧：远远放连弩、扔火油罐，平时会召几个走得慢、血很厚的机关木人。', ults: { muniu: '一头木牛、一匹流马从两边开过来，只走横竖直线、只拐直角；每次拐弯前停一下，地上亮出下一段的路线。木牛慢、撞得远，流马快、拐得多。', muyuan: '三轮木鸢沿平行的直线飞过，一路按顺序往下扔火油罐，落地炸开、留一小片火；赶在木鸢飞到之前离开那条线。', jiguan: '血过半后缩进两圈反向转动的齿轮墙里，在里面打不到她；钻过齿轮墙的缺口进到内圈，打碎她身边的机关枢纽，她就晕住、多受伤害；打不碎她会回血。' } },
       jiangwei: { note: '第六章「南征北伐」里魏延之后、孟获之前登场。幼麟：冲得快、枪长，平时会召一队弩手。', ults: { jiufa: '朝你连冲八次，每次先在地上亮一道枪线，一次比一次快；第九下站定，朝你刺出一道贯穿全屏的大枪芒。', tielong: '你脚下落一圈铁笼，走不出去，笼外弩箭往里射；笼上有一根锈红的栏杆，打断它就开个口子，八秒后笼子自己散。', jiange: '血过半后退到一道横贯画面的关墙后面，墙头一排排放箭；只有关门能过去，门里的拒马枪阵会定时刺出。在墙这边打他伤害大减，十秒后关墙倒塌。' } },
       weiyan: { note: '第六章「南征北伐」里陆逊之后登场。脑后反骨：站在他背后打，伤害 +50%——他冲过头、放完招收招时会背对你。', ults: { ziwu: '以你为中心铺开一条山谷，两边石壁走不出去；他从谷口一路冲到谷尾，整条谷道都挨打，躲进石壁上的凹洞才安全。每趟凹洞换位置。', tideng: '你身边按北斗摆出七盏灯，他从勺口到勺柄一盏盏踢翻，每盏炸开一片火油并留火，最后一盏最大。', shuigan: '血过半后横刀立定连喊三声，每声朝正面震出一道气浪；这时从正面打他不掉血，绕到背后打够伤害，马岱会从背后给他一刀。' } },
@@ -2911,7 +3016,7 @@ window.GAME_DATA = {
   // swap：本章把通用兵种换成别的兵（黄巾章全是黄巾军）；elites：本章精英与解锁秒数；ground：地面配色
   chapters: [
     {
-      id: 'huangjin', name: '第一章 · 黄巾之乱', sub: '公元 184 年 · 苍天已死，黄天当立',
+      id: 'huangjin', name: '第一章 · 黄巾之乱', sub: '公元 184 年 · 苍天已死，黄天当立', terrain: 'wheat', // terrain：本章的地形（见下面的 terrain）
       clear: '黄巾平定', swap: { foot: 'yt_foot', shield: 'yt_brute', archer: 'yt_archer', cavalry: 'yt_foot' },
       elites: { sorcerer: 35, brute: 110 },
       ground: { bg: '#2c2617', grass: 'rgba(176,150,72,0.5)', blot: 'rgba(16,12,4,0.16)', flag: 'rgba(214,170,40,0.55)' },
@@ -2931,7 +3036,7 @@ window.GAME_DATA = {
       ],
     },
     {
-      id: 'taodong', name: '第二章 · 讨董之战', sub: '公元 190 年 · 汜水关 → 连环计 → 虎牢关 → 洛阳',
+      id: 'taodong', name: '第二章 · 讨董之战', sub: '公元 190 年 · 汜水关 → 连环计 → 虎牢关 → 洛阳', terrain: 'ruins',
       clear: '董卓伏诛',
       elites: { captain: 10, brute: 30, crossbow: 60 },
       ground: { bg: '#27231a', grass: 'rgba(126,130,74,0.4)', blot: 'rgba(12,10,6,0.16)', flag: 'rgba(150,45,35,0.45)' },
@@ -2952,7 +3057,7 @@ window.GAME_DATA = {
       ],
     },
     {
-      id: 'qunxiong', name: '第三章 · 群雄逐鹿', sub: '公元 197–211 年 · 宛城 → 白马 → 官渡 → 潼关 → 过五关',
+      id: 'qunxiong', name: '第三章 · 群雄逐鹿', sub: '公元 197–211 年 · 宛城 → 白马 → 官渡 → 潼关 → 过五关', terrain: 'road',
       clear: '千里走单骑',
       elites: { captain: 0, brute: 0, crossbow: 0 },
       ground: { bg: '#22261a', grass: 'rgba(112,142,72,0.45)', blot: 'rgba(8,12,6,0.16)', flag: 'rgba(50,72,128,0.5)' },
@@ -2980,7 +3085,7 @@ window.GAME_DATA = {
       ],
     },
     {
-      id: 'chibi', name: '第四章 · 赤壁之战', sub: '公元 208 年 · 博望坡 → 长坂坡 → 甘露寺 → 赤壁',
+      id: 'chibi', name: '第四章 · 赤壁之战', sub: '公元 208 年 · 博望坡 → 长坂坡 → 甘露寺 → 赤壁', terrain: 'water',
       clear: '火烧赤壁',
       elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
       ground: { bg: '#1e231f', grass: 'rgba(96,136,104,0.42)', blot: 'rgba(40,74,96,0.24)', flag: 'rgba(170,50,40,0.5)', reeds: true },
@@ -2989,7 +3094,7 @@ window.GAME_DATA = {
         { t: 80, rates: { foot: 4.4, shield: 0.7, archer: 0.8, cavalry: 1.0 } },
         { t: 140, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } },
       ],
-      draw: { n: 3, slots: [45, 85, 125] }, // 同第三章：pool 里抽 3 位
+      draw: { n: 4, slots: [45, 85, 125, 165] }, // 同第三章：pool 里抽；2026-11-20 甘宁进池，抽 3 → 4（池子 6 → 7），周瑜往后挪
       events: [
         { t: 20, type: 'qiaofu' }, // 乔府出现在右下方，什么时候去打都行
         { t: 45, type: 'boss', id: 'zhugeliang', pool: true },
@@ -3000,11 +3105,12 @@ window.GAME_DATA = {
         { t: 210, type: 'boss', id: 'sunshangxiang', pool: true },
         { t: 240, type: 'boss', id: 'huangzhong', pool: true }, // 赤壁之后刘备取长沙，老将黄忠归附
         { t: 265, type: 'boss', id: 'pangtong', pool: true }, // 凤雏献连环，紧接着火烧赤壁（放在最后，老存档的 evIdx 不错位）
-        { t: 165, type: 'boss', id: 'zhouyu', final: true },
+        { t: 205, type: 'boss', id: 'zhouyu', final: true },
+        { t: 285, type: 'boss', id: 'ganning', pool: true }, // 锦帆游侠（2026-11-20 加入，放在最后，老存档的 evIdx 不错位）
       ],
     },
     {
-      id: 'sanfen', name: '第五章 · 三分天下', sub: '公元 215–220 年 · 汉中称王，威震逍遥津，魏武挥鞭', music: 'endless', // 还没有本章的配乐：先用天下三分那首
+      id: 'sanfen', name: '第五章 · 三分天下', sub: '公元 215–220 年 · 汉中称王，威震逍遥津，魏武挥鞭', terrain: 'juma', music: 'endless', // 还没有本章的配乐：先用天下三分那首
       clear: '三分天下',
       elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
       ground: { bg: '#221e1c', grass: 'rgba(120,112,90,0.4)', blot: 'rgba(30,20,40,0.22)', flag: 'rgba(110,80,160,0.5)' },
@@ -3015,16 +3121,17 @@ window.GAME_DATA = {
       events: [
         { t: 20, type: 'ambush', enemy: 'hubao', count: 12, text: '虎豹骑 · 天下骁锐' },
         { t: 35, type: 'boss', id: 'liubei' }, // 219 年汉中称王
-        { t: 70, type: 'boss', id: 'sunquan' }, // 219 年袭取荆州
-        { t: 105, type: 'boss', id: 'zhangliao' }, // 215 年逍遥津：孙权倒下后张辽杀出（2026-11-06 加入，孙权、曹操各往后挪，名将之间隔 35～40 秒）
-        { t: 125, type: 'ambush', enemy: 'foot', count: 50, text: '青州兵' },
-        { t: 135, type: 'boss', id: 'xunyu' }, // 曹操的谋主（2026-11-12 加入，曹操往后挪）
-        { t: 170, type: 'boss', id: 'caocao', final: true },
+        { t: 70, type: 'boss', id: 'lvmeng' }, // 219 年白衣渡江（2026-11-20 加入，后面各往后挪 35 秒）
+        { t: 105, type: 'boss', id: 'sunquan' }, // 219 年袭取荆州
+        { t: 140, type: 'boss', id: 'zhangliao' }, // 215 年逍遥津：孙权倒下后张辽杀出（2026-11-06 加入，孙权、曹操各往后挪，名将之间隔 35～40 秒）
+        { t: 160, type: 'ambush', enemy: 'foot', count: 50, text: '青州兵' },
+        { t: 170, type: 'boss', id: 'xunyu' }, // 曹操的谋主（2026-11-12 加入，曹操往后挪）
+        { t: 205, type: 'boss', id: 'caocao', final: true },
       ],
     },
     // 第六章（2026-11-07 加）：先夷陵之战的陆逊，再南中的孟获（七擒七纵，祝融夫人随行）作章末名将；打完进无尽
     {
-      id: 'nanzheng', name: '第六章 · 南征北伐', sub: '公元 222–228 年 · 火烧连营七百里，七擒孟获，北伐收姜维', music: 'chibi', // 还没有本章的配乐：先用赤壁那首（都是火攻）
+      id: 'nanzheng', name: '第六章 · 南征北伐', sub: '公元 222–228 年 · 火烧连营七百里，七擒孟获，北伐收姜维', terrain: 'swamp', music: 'chibi', // 还没有本章的配乐：先用赤壁那首（都是火攻）
       clear: '平定南中',
       elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
       ground: { bg: '#1c2218', grass: 'rgba(96,140,70,0.45)', blot: 'rgba(20,40,20,0.22)', flag: 'rgba(160,60,40,0.5)' }, // 南中密林：偏绿
@@ -3046,6 +3153,7 @@ window.GAME_DATA = {
   // 战役打完之后：天下三分，无尽征途（所有武将轮番再战，敌人强度加速增长）
   endless: {
     name: '天下三分 · 无尽征途', sub: '群雄轮番再战，看你能走多远',
+    terrain: ['wheat', 'ruins', 'road', 'water', 'juma', 'swamp'], // 无尽征途里六种地形混着出（修罗无尽没有）
     elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
     ground: { bg: '#27231a', grass: 'rgba(126,130,74,0.4)', blot: 'rgba(12,10,6,0.16)', flag: 'rgba(150,45,35,0.45)' },
     waves: [{ t: 0, rates: { foot: 4.8, shield: 0.8, archer: 0.9, cavalry: 1.2 } }],
@@ -3112,7 +3220,7 @@ window.GAME_DATA = {
     upsTabs: [
       { id: 'wei', name: '魏', ids: ['dianwei', 'xiahoudun', 'zhenji', 'guojia', 'zhangliao', 'caocao', 'simayi', 'caiwenji', 'xunyu', 'xuchu'] },
       { id: 'shu', name: '蜀', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'zhugeliang', 'huangzhong', 'pangtong', 'liubei', 'machao', 'weiyan', 'huangyueying', 'jiangwei'] },
-      { id: 'wu', name: '吴', ids: ['sunshangxiang', 'zhouyu', 'sunquan', 'daqiao', 'xiaoqiao', 'luxun', 'sunce'] },
+      { id: 'wu', name: '吴', ids: ['sunshangxiang', 'zhouyu', 'sunquan', 'daqiao', 'xiaoqiao', 'luxun', 'sunce', 'ganning', 'lvmeng'] },
       { id: 'qun', name: '群雄', ids: ['chengyuanzhi', 'zhangbao', 'zhangjiao', 'huaxiong', 'lubu', 'diaochan', 'dongzhuo', 'yanliang', 'wenchou', 'yuanshao', 'huatuo', 'menghuo'] },
       { id: 'camp', name: '神魔', camp: true },
     ],
@@ -3240,7 +3348,53 @@ window.GAME_DATA = {
   // 神兵：击败名将时小概率掉落的专属兵器（奖励里出现一张金色卡）。
   // 拿到后悬浮在身边，定时自动放出这位名将的招牌招式。再次掉落同一件 → 升级（伤害 +30%、冷却 -6%）。
   // 伤害还会随你的等级成长：每级 +3.5%。iconFrom 是还没有神兵美术图时借用的兵器图标。
+  // 章节地形（2026-11-20 用户定）：不是全场。地图按 cell 分格，约 density 的格子里有一块（整块落在格子里），离出生点 clear 以内不放。
+  // 一 麦田、二 洛阳残垣、三 官道、四 浅滩、五 拒马阵、六 瘴气沼泽；无尽征途混着出，修罗无尽没有。
+  // 对你和小兵起作用（名将、精英不受地形影响）；名将放大招时你不受地形减速
+  terrain: {
+    cell: 900, density: 0.3, clear: 450,
+    wheat: { name: '麦田', tip: '里面走得慢；火属性打中里面的敌人，整片麦田烧起来（不伤你）',
+      w: [380, 540], h: [260, 380], slowE: 0.3, slowP: 0.1, // 长宽范围；小兵慢 slowE、你慢 slowP
+      burn: { dur: 6, tick: 0.5, k: 0.8 }, burnt: 45 },     // 烧 dur 秒，每 tick 秒烧一下里面所有敌人（点火那一下的基础伤害 × k）；烧完 burnt 秒是焦土，之后长回来
+    water: { name: '浅滩', tip: '里面谁都走得慢；雷属性打中水里的敌人，同一片水里的敌人一起触电',
+      rx: [220, 330], ry: [150, 230], slow: 0.25,             // 椭圆半径范围；你和小兵都慢 slow
+      zap: { k: 0.6, cd: 0.8 } },                             // 触电：那一下基础伤害 × k，同一片水 cd 秒最多电一次
+    ruins: { name: '洛阳残垣', tip: '断墙土垒：你和小兵都过不去，小兵、精英的箭和法球也打不穿（名将的招挡不住）',
+      n: [3, 6], r: [38, 64], spread: 240 },                  // 几个土垒、半径范围、排开多宽
+    road: { name: '官道', tip: '走在官道上你快 25%；敌人在上面也快，骑兵冲得最快',
+      len: [640, 760], w: [96, 124], fastP: 0.25, fastE: 0.15, fastCav: 0.35 }, // 长、宽范围；你快 fastP，小兵快 fastE、骑兵快 fastCav
+    juma: { name: '拒马阵', tip: '小兵撞上拒马会受伤、被弹开；你能直接穿过去',
+      segs: [4, 6], len: 92, gap: 48, hurt: 0.12, cd: 0.6, kb: 520 }, // 几架拒马、每架多长、中间的缝；撞上掉生命上限的 hurt，cd 秒一次，弹开 kb
+    swamp: { name: '瘴气沼泽', tip: '里面谁都慢、一直掉血（毒不死你，最多剩 1 血）；冰属性打中里面的敌人，整片冻成冰面，瘴气散掉',
+      rx: [210, 320], ry: [150, 220], slow: 0.15, hurtP: 0.03, hurtE: 0.05, freeze: 20 }, // 你每秒掉生命上限的 hurtP、小兵掉 hurtE；冻住 freeze 秒
+  },
+
   shenbingDrop: { base: 0.12, pity: 0.05, max: 0.45 }, // 基础掉率 12%，每次没掉 +5%，最高 45%，掉了就重置
+
+  // 奇遇（2026-11-20 用户定）：地图上冒出一处奇遇（屏幕边上有箭头），走过去站 stand 秒弹出选择（一律暂停），每个都有「离开」。
+  // first：开局几秒后出第一处；gap：之后每隔多少秒一处（随机）；life：不去多少秒消失；R：站多近算到了；dist：离你多远冒出来。
+  // 修罗无尽里不出（修罗已经有随机军令）；名将放大招时晚一点再出。不做和随从有关的奇遇（才女是随从流，用户说会被影响）；不碰冷却
+  qiyu: {
+    first: 90, gap: [150, 200], life: 60, stand: 1, R: 80, dist: [650, 950],
+    list: {
+      langzhong: { name: '游方郎中', icon: '医', rgb: '140,230,160', line: '一位背着药箱的郎中拦住了你。',
+        hpUp: 0.1, hpCut: 0.5 },                    // 妙手回春：回满血；脱胎换骨：生命上限 +hpUp，但现在掉 hpCut 的血；护身符：下一次致命伤害留 1 血
+      yelu: { name: '山野铁炉', icon: '炉', rgb: '255,160,80', line: '山脚下一座无人看守的铁炉，炉火正旺。',
+        forge: 2 },                                 // 添柴：随机一件兵器 +1 级；回炉：随机一件兵器先 −1 级，再重铸 forge 次（任选兵器各 +1）
+      dufang: { name: '赌坊', icon: '赌', rgb: '255,215,90', line: '路边赌坊的伙计朝你招手：「客官，押一把？」',
+        stake: 0.5, win: 0.5, minGold: 20 },        // 押本局已得金币的 stake：win 的几率翻倍，否则输光；本局金币不到 minGold 不出
+      guanxing: { name: '观星台', icon: '星', rgb: '170,190,255', line: '一座荒废的观星台，夜观天象，可以借来一阵天时。',
+        dur: 90, fire: 1, gold: 1, view: 0.42, eLife: 0.6, arrow: 0.65 }, // 东风：火伤 +fire；月食：视野只剩 view、斩敌金币 +gold；大雾：敌人飞弹射程 ×eLife、你的箭 ×arrow
+      qiuyuan: { name: '百姓求援', icon: '援', rgb: '255,130,100', line: '一队乱兵围住了村子，百姓在呼救。',
+        time: 60, foot: 20, elites: 1, R: 300, hp: 1.5 }, // time 秒内清掉 foot 个兵、elites 个精英（血量 ×hp）：给一次斩将奖励（三选一）
+      gumu: { name: '古墓', icon: '墓', rgb: '190,160,230', line: '一座半塌的古墓，棺盖上刻着将军的名号。',
+        hp: 3, pity: 4 },                           // 开棺：召出守墓精英（血量 ×hp），打赢了下一位名将掉神兵的几率提高（保底 +pity 次）
+      jinnang: { name: '隐士锦囊', icon: '囊', rgb: '120,200,255', line: '一位隐士留下三个锦囊，只说「各安天命」。',
+        bad: 0.25, gold: 0.3, goldMin: 30, dmg: 0.06, ups: 2, hpCut: 0.3, ambush: 24 }, // 每个锦囊 bad 的几率是坑（伏兵 ambush 个 / 掉 hpCut 的血），否则回满血、多 ups 次升级、金币、本局伤害 +dmg
+      bingshu: { name: '兵书残卷', icon: '书', rgb: '230,210,150', line: '断简残编，只剩三卷还能读。',
+        dmg: 0.15 },                                // 读一卷：本局近战兵器 / 远程兵器 / 技能的伤害 +dmg（可以叠）
+    },
+  },
   // 神兵融合：同一组名将的神兵凑齐（members 每一项各有一件），就合成一件融合神兵 sb：
   //   神将、魔将的神兵不参与融合，永远单独一件（2026-11-11 改：以前算本人，冷艳锯这类神兵一到手就被并掉、自己的招式没了，论坛当成 bug 报）。
   //   原来几件消失、等级相加，只放这一招合击（伤害约是几件加起来的 1.3 倍）。融合后再掉组里任何一位的神兵，融合神兵 +1 级。
@@ -3364,6 +3518,10 @@ window.GAME_DATA = {
     moxiahoudun: { name: '血瞳魔刃', icon: '瞳', iconFrom: 'xuetong', rgb: '235,50,50', cd: 5.5, type: 'bloodGaze', dmg: 100, beamL: 440, beamW: 70, sweep: 3.14, dur: 0.55, stun: 0.6,
       desc: '血瞳魔刃悬在身边：定时射出一道血光，绕着你扫过半圈，扫中的敌人全部受重伤，小兵僵住片刻。' },
     // 九曲蛇骨笛（2026-11-19）：打倒魔甄姬小概率掉（同普通名将的保底）。一条蛇影绕住敌人最密的那一团（半径 coilR），coilT 秒后勒紧：圈里的都挨一下，小兵僵住 stun 秒
+    ganning: { name: '锦帆楼船', icon: '船', iconFrom: 'jinfanling', rgb: '235,185,95', cd: 7, type: 'sbShip', dmg: 38, shotEvery: 0.18, shipLen: 220, run: 900, speed: 520,
+      desc: '召一艘挂锦帆的楼船从你身边开过，一路朝两侧最近的敌人放箭。' },
+    lvmeng: { name: '江东白衣', icon: '衣', iconFrom: 'baiyijian', rgb: '235,232,215', cd: 6, type: 'whiteRobe', dmg: 90, n: 8, ringR: 150, kb: 420,
+      desc: '一队白衣兵在你身边现身，扯掉白衣一齐砍下：身边一圈敌人受重伤、被打退。' },
     mozhenji: { name: '九曲蛇骨笛', icon: '笛', iconFrom: 'lingshe', rgb: '120,220,190', cd: 6, type: 'serpentBind', dmg: 95, coilR: 170, coilT: 0.45, stun: 1.2,
       desc: '九曲蛇骨笛悬在身边：定时吹出一条蛇影，绕住敌人最密的那一团再猛地勒紧，圈里的敌人全部受重伤，小兵僵住片刻。' },
     // 七星灯：打倒神诸葛小概率掉（同普通名将的保底；再打一次就升级）。七道星光按北斗的形状砸进敌群；续命：受到致死伤害时回到 guard.heal 的生命（每 guard.cd 秒一次）
