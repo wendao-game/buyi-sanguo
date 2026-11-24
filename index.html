@@ -130,6 +130,11 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #lu-hide { flex: none; padding: 3px 12px; font: inherit; font-size: 12px; line-height: 1.4; color: var(--paper); background: rgba(255,255,255,.06);
   border: 1px solid var(--gold); border-radius: 3px; cursor: pointer; touch-action: manipulation; }
 #lu-hide:hover { filter: brightness(1.25); }
+/* 放弃：这一次升级 / 斩将奖励什么都不要；点一下变红「再点放弃」，2 秒内再点才算（防误触） */
+#lu-skip { flex: none; margin-left: 4px; padding: 3px 10px; font: inherit; font-size: 12px; line-height: 1.4; color: var(--muted); background: transparent;
+  border: 1px solid var(--muted); border-radius: 3px; cursor: pointer; touch-action: manipulation; }
+#lu-skip.armed { color: #fff; background: var(--seal); border-color: var(--seal); }
+#levelup.folded #lu-skip { display: none; }
 #levelup.folded { width: auto; padding: 5px 7px; }
 #levelup.folded #lu-cards, #levelup.folded #lu-crit, #levelup.folded #lu-sub { display: none; }
 #lu-portrait { position: relative; width: 30px; height: 30px; flex: none; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px var(--gold); }
@@ -409,6 +414,11 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
 .build { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; }
 .build .chip { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; background: rgba(235,224,197,.08); border: 1px solid rgba(235,224,197,.18); font-size: 13px; }
 .build .chip .slot { width: 24px; height: 24px; font-size: 13px; box-shadow: none; }
+/* 遗忘：暂停界面里点兵器、技能，点一下选中（变红），3 秒内再点一次才遗忘 */
+.build .forget-tip { width: 100%; text-align: center; font-size: 12px; color: var(--gold); }
+.build .chip.forget { cursor: pointer; border-style: dashed; }
+.build .chip.forget.armed { background: rgba(181,55,42,.55); border: 1px solid var(--seal); color: #fff; }
+#levelup.under-pause { display: none; } /* 遗忘的时候正开着的选项栏先藏起来，别盖住列表；继续游戏后再出来 */
 #tip { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); text-align: center; font-size: 13px; color: var(--muted); pointer-events: none; text-shadow: 0 1px 2px #000; }
 
 @media (max-width: 560px) {
@@ -423,7 +433,9 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
   #levelup { width: calc(100% - 12px); padding: 6px; gap: 5px; }
   #lu-title { font-size: 19px; }
   #lu-crit { margin-left: 0; width: 100%; order: 2; }
-  #lu-hide { order: 1; margin-left: auto; } /* 手机上暴击行单独占一行：收起按钮留在第一行最右边 */
+  #lu-hide { order: 1; } /* 手机上暴击行单独占一行：放弃、收起按钮留在第一行最右边 */
+  #lu-skip { order: 1; margin-left: auto; }
+  #lu-skip[hidden] + #lu-hide { margin-left: auto; }
   #levelup.folded { left: 6px; transform: none; animation: none; } /* 收起后靠左，别碰到右上角的声音 / 暂停按钮 */
   #lu-cards { gap: 5px; }
   #levelup.legend #lu-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 4 张卡时手机上排两行 */
@@ -579,6 +591,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <div id="lu-portrait" hidden></div>
       <b id="lu-title">升级</b><span id="lu-sub">选择一项</span>
       <span id="lu-crit"></span>
+      <button id="lu-skip" type="button" title="这一次什么都不要（点两下：防误触）" hidden>放弃</button>
       <button id="lu-hide" type="button" title="先收起选项看战场，点「展开」再选">收起</button>
     </div>
     <div id="lu-cards"></div>
@@ -601,6 +614,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <button class="btn" id="btn-fx">特效：自动</button>
       <button class="btn" id="btn-glow">光效：完整</button>
       <button class="btn" id="btn-stats">查看属性</button>
+      <button class="btn" id="btn-forget">遗忘兵器技能</button>
     </div>
   </div>
 

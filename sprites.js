@@ -485,6 +485,25 @@ window.Sprites = (() => {
         shape(g, '#bfeedd', s => { s.moveTo(96, 30); s.quadraticCurveTo(110, 26, 108, 44); s.quadraticCurveTo(102, 38, 96, 40); s.closePath(); }, 1);
         g.fillStyle = 'rgba(150,255,210,.45)'; g.beginPath(); g.ellipse(102, 36, 12, 14, 0, 0, Math.PI * 2); g.fill();
         break;
+      case 'tushan': // 袁绍的高橹：一座黄土堆起的土山，山顶一座木橹，挂袁字旗
+        shape(g, '#8a7048', s => { s.moveTo(14, 104); s.quadraticCurveTo(60, 56, 106, 104); s.closePath(); });
+        g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(60, 70); g.quadraticCurveTo(92, 82, 106, 104); g.lineTo(66, 104); g.closePath(); g.fill();
+        line(g, 46, 80, 50, 30, '#5a3e26', 4); line(g, 74, 80, 70, 30, '#5a3e26', 4);
+        line(g, 48, 66, 72, 50, '#6b4a2e', 2.2); line(g, 72, 66, 48, 50, '#6b4a2e', 2.2);
+        wallBlock(g, 42, 20, 36, 14, '#7a5a3a');
+        for (const x of [48, 58, 68]) shape(g, '#15110c', s => rr(s, x, 24, 4, 6, 1), 0.8);
+        line(g, 76, 20, 76, 2, '#4a3a2a', 1.6);
+        shape(g, '#c9a046', s => { s.moveTo(77, 3); s.lineTo(96, 6); s.lineTo(92, 11); s.lineTo(96, 16); s.lineTo(77, 15); s.closePath(); }, 1);
+        break;
+      case 'wuchao': // 乌巢粮囤：两座草顶圆仓、堆成小山的粮袋，插着袁字旗
+        for (const [x, w, c] of [[16, 40, '#b89a6a'], [62, 44, '#c4a676']]) {
+          wallBlock(g, x, 58, w, 44, c);
+          shape(g, '#c9a862', s => { s.moveTo(x - 6, 62); s.quadraticCurveTo(x + w / 2, 20, x + w + 6, 62); s.closePath(); });
+        }
+        for (const [x, y] of [[30, 98], [46, 98], [62, 98], [78, 98], [38, 90], [54, 90], [70, 90], [46, 82], [62, 82]]) shape(g, '#e8d8a8', s => s.ellipse(x, y, 9, 6, 0, 0, Math.PI * 2), 1.1);
+        line(g, 104, 100, 104, 30, '#4a3a2a', 2);
+        shape(g, '#a8322a', s => { s.moveTo(105, 31); s.lineTo(118, 34); s.lineTo(114, 40); s.lineTo(118, 46); s.lineTo(105, 45); s.closePath(); }, 1);
+        break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
         wallBlock(g, 34, 52, 52, 36, '#a8322a');
