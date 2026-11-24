@@ -839,7 +839,7 @@ function recomputeStats() {
   const p = S.player, b = D.player.base, o = S.origin.stats;
   const add = { maxHp: 0, maxHpMul: 0, speedMul: 0, armor: 0, regen: 0, pickupMul: 0, dmgMul: 0, cdMul: 0, areaMul: 0, crit: 0, critMul: 0,
     arrowCount: 0, arrowDmg: 0, arrowPierce: 0, spellDmg: 0, skillCd: 0, spellArea: 0, blinkDist: 0, blinkCd: 0, allyHp: 0, allyDmg: 0,
-    allyAtk: 0, allyRange: 0, allySpeed: 0, allyRevive: 0, meatMul: 0, goldMul: 0, bldDmg: 0 };
+    allyAtk: 0, allyRange: 0, allySpeed: 0, allyRevive: 0, meatMul: 0, goldMul: 0, bldDmg: 0, blinkSlash: 0, blinkCrit: 0 };
   for (const [id, lv] of Object.entries(S.passives)) {
     const def = D.passives[id], ef = def.effects, n = passiveEff(def, lv);
     for (const k in ef) add[k] += ef[k] * n;
@@ -868,7 +868,9 @@ function recomputeStats() {
   p.areaMul = 1 + add.areaMul;
   p.crit = Math.min(CAP.crit, critRaw);
   p.capped = { cdMul: cdRaw <= CAP.cdMul, crit: critRaw >= CAP.crit, speedMul: add.speedMul >= CAP.speedMul, skillCd: add.skillCd >= CAP.skillCd }; // 哪些属性已经到顶
-  p.critMul = b.critMul + add.critMul;
+  p.critMul = b.critMul + (o.critMul || 0) + add.critMul; // 侠客：出身爆伤 +30%
+  p.blinkSlash = o.blinkSlash ? o.blinkSlash * (1 + add.blinkSlash) : 0; // 侠客闪身出剑：沿途那一剑是青锋剑伤害的几倍（剑穗加）
+  p.blinkCrit = o.blinkSlash ? (o.blinkCrit || 0) + add.blinkCrit : 0;    // 落地后几秒内青锋剑必暴（剑穗加）
   if (S.passives.laodang) p.dmgMul += D.passives.laodang.perTen * Math.floor(p.level / 10); // 老当益壮：每 10 级伤害 +3%，不封顶
   if (S.passives.jianxiong) { const J = D.passives.jianxiong; p.dmgMul += Math.min(J.cap, J.perKill * (S.jxKills || 0)); } // 奸雄：本局每斩一将伤害 +5%
   p.blinkDist = D.blink.dist * (1 + add.blinkDist);                        // 铜雀春深：闪现更远
@@ -1377,6 +1379,7 @@ function hurtPlayer(amount, el = atkEl, src = atkSrc) {
   if (S.xzK) amount *= 1 - S.xzK;                           // 信众（物品）：身边敌人越多越抗打
   if (S.t < S.smjDrT) amount *= 1 - S.smjDr;                // 神魔技「七探」：冲刺中减伤（不是无敌）
   if (S.t < S.sanceT) amount *= 1 - S.sanceDr;              // 三策「下策」：退守时减伤
+  if (S.t < (S.yxT || 0)) amount *= 1 - S.yxGuard;          // 游侠：闪现后几秒受到的伤害降低
   if (S.endless) amount = lethalFloor(amount, src);
   if (S.orderFx) amount *= S.orderFx.dealt;          // 修罗军令「血战」：敌人打得更疼
   const cs = src && (src.campSrc || (src.def && src.def.camp && src.gid)), CF = cs && S.campFx && S.campFx[cs]; // campSrc：放出这东西的神魔将
@@ -1961,7 +1964,7 @@ const ACH_CAMP = { mozhangjiao: 'beatMojiao', modongzhuo: 'beatMowang', shenzhao
 const ACH_ALLCAMP = ['mozhangjiao', 'molubu', 'modiaochan', 'shenzhaoyun', 'modongzhuo', 'shenzhuge', 'shenguanyu'];
 function achBoss(e) {
   achGet('firstBoss');
-  if (e.gid === 'lubu') { achGet('beatLubu'); achGet({ farmer: 'farmerLubu', hunter: 'hunterLubu', scholar: 'scholarLubu', cainv: 'cainvLubu' }[S.origin.id]); }
+  if (e.gid === 'lubu') { achGet('beatLubu'); const oa = { farmer: 'farmerLubu', hunter: 'hunterLubu', scholar: 'scholarLubu', cainv: 'cainvLubu' }[S.origin.id]; if (oa) achGet(oa); } // 侠客没有这条成就（成就已发布，不能再加）
   if (ACH_CAMP[e.gid]) achGet(ACH_CAMP[e.gid]); // 魔吕布、魔貂蝉是另一条「斩魔」（见 twinDefeated）
   if (ACH_ALLCAMP.every(g => S.defeated.includes(D.generals[g].name))) achGet('fengshenbang'); // 封神榜：一局把全部神魔将打过一遍
   if (e.bornT !== undefined && S.t - e.bornT <= 20) achGet('quickKill');
@@ -2865,7 +2868,8 @@ function updatePlayer(dt) {
   }
   const bound = !!S.hook || S.t < S.rootT;
   const ctl = bound ? 0 : ch ? 0.45 : 1;
-  let vx = mx * p.speed * rampage * slowed * ctl, vy = my * p.speed * rampage * slowed * ctl;
+  const yx = S.t < (S.yxT || 0) ? 1 + S.yxSpeed : 1; // 游侠：闪现后几秒跑得更快
+  let vx = mx * p.speed * rampage * slowed * ctl * yx, vy = my * p.speed * rampage * slowed * ctl * yx;
   const F = S.iceField;
   if (F && !F.melt && Math.hypot(p.x - F.x, p.y - F.y) < F.r) { // 甄姬「冰封千里」的冰面：速度慢慢跟上摇杆——起步慢、松手停不住、转弯带着惯性往外甩
     const k = Math.min(1, F.u.grip * dt);
@@ -2920,6 +2924,7 @@ function updatePlayer(dt) {
       const wq = S.passives.wuqinxi && D.passives.wuqinxi.blinkHeal; // 五禽戏：闪现后几秒内慢慢回血（有冷却）
       if (wq && S.t >= S.wqT) { S.wqT = S.t + wq.cd; S.wqHeal = { until: S.t + wq.dur, rate: wq.heal / wq.dur }; addNumber(p.x, p.y - 50, '五禽戏 · 回春', '#8ef0a0', 16); embers(p.x, p.y - 10, 8, '150,240,160', 70, 60, 6, 0.8); }
       if (S.passives.jinfanzei) gnDropBells(x0, y0, a); // 锦帆贼：起点往后留一串铃铛
+      if (p.blinkSlash) xiakeBlink(x0, y0, a, dist); // 侠客：闪身出剑
       const fly = S.shenbing.find(sb => D.shenbing[sb.gid].blinkFly); // 流光蝶钗：起点留下几只蝴蝶扑向敌人
       if (fly) { const def = D.shenbing[fly.gid]; for (let k = 0; k < def.blinkFly; k++) S.proj.push({ kind: 'butterfly', x: x0, y: y0 - 12, a: rand(0, TAU), speed: 340, vx: 0, vy: 0, r: 9, dmg: sbDmg(def, fly) * 0.6, pierce: 2, life: 2.4, hit: new Set(), homing: true, target: null, kb: 40, spin: rand(0, TAU), rgb: def.rgb }); }
       // 起点一团残烟，路径上一道光，落点一圈气浪
@@ -2997,6 +3002,42 @@ function swing(a, range, L, def, rgbOver, o = {}) { // rgbOver：雌雄双股剑
 function fireCrescent(a, dmg, r, look, dim) {
   const p = S.player, sp = 460;
   S.proj.push({ kind: 'crescent', x: p.x, y: p.y, a, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: r * p.areaMul, dmg, pierce: 9999, life: 1.1, hit: new Set(), kb: 140, seed: rand(0, 9), look, dim });
+}
+// ---------- 侠客（2026-11-23）----------
+// 青锋剑这一刺：落地必暴（闪身出剑后 p.blinkCrit 秒内）、十步一杀（每第 every 刺伤害 ×(1 + base + per×(级-1))）、每 qi 刺放 qiN 道剑气。返回这一刺用的数值
+function qingfengStrike(w, L, def, a0) {
+  const p = S.player, crit = S.t < (S.xkCritT || 0), SB = D.passives.shibu;
+  const kill = S.passives.shibu && (w.n10 = (w.n10 || 0) + 1) % SB.every === 0;
+  let LL = L;
+  if (crit || kill) LL = Object.assign({}, L, crit ? { critPlus: 1 } : null,
+    kill ? { dmg: L.dmg * (1 + SB.base + SB.per * (passiveEff(SB, S.passives.shibu) - 1)), len: L.len * 1.15, width: L.width * 1.7, kb: L.kb * 1.8 } : null);
+  if (kill) { addNumber(p.x, p.y - 46, '一杀', '#e6f0ff', 18); glint(p.x + Math.cos(a0) * LL.len * p.areaMul, p.y - 10 + Math.sin(a0) * LL.len * p.areaMul, 26, '225,238,255', 0.2); }
+  if (L.qi && (w.nq = (w.nq || 0) + 1) % L.qi === 0) xiakeQi(a0, LL, def);
+  return LL;
+}
+// 剑气：一道细细的淡青色剑光往前飞，穿透所有敌人（剑气纵横：更远、更痛）
+function xiakeQi(a0, L, def) {
+  const p = S.player, Q = def.qiFly, JQ = D.passives.jianqi, j = S.passives.jianqi ? passiveEff(JQ, S.passives.jianqi) : 0;
+  const range = Q.range * (1 + JQ.range * j) * p.areaMul, dmg = L.dmg * Q.k * (1 + JQ.dmg * j), n = L.qiN || 1;
+  for (let i = 0; i < n; i++) {
+    const a = a0 + (i - (n - 1) / 2) * 0.22;
+    S.proj.push({ kind: 'crescent', look: 'jian', x: p.x, y: p.y, a, vx: Math.cos(a) * Q.speed, vy: Math.sin(a) * Q.speed, r: Q.r * p.areaMul, dmg, pierce: 9999, life: range / Q.speed, hit: new Set(), kb: 60, seed: rand(0, 9), critAdd: L.critPlus });
+  }
+}
+// 闪身出剑：闪现那一下斩伤路上的敌人（青锋剑这一级伤害 × p.blinkSlash），落地后 p.blinkCrit 秒内青锋剑必暴；游侠：几秒内更快、更抗打
+function xiakeBlink(x0, y0, a, dist) {
+  const p = S.player, w = S.weapons.find(x => x.id === 'qingfeng'), def = D.weapons.qingfeng;
+  const base = wStatsRaw(def, w ? w.lv : 1).dmg, dmg = base * p.blinkSlash, seg = { x1: x0, y1: y0, x2: p.x, y2: p.y }, R = 34;
+  asSrc('x:blinkSlash', () => near((x0 + p.x) / 2, (y0 + p.y) / 2, dist / 2 + R + 40, e => {
+    const [qx, qy] = segNear(e.x, e.y, seg);
+    if (dist2(qx, qy, e.x, e.y) <= (R + e.r) ** 2) hitEnemy(e, dmg, { kb: 110, kbAngle: a + (Math.random() < 0.5 ? 1.57 : -1.57) });
+  }));
+  S.xkCritT = S.t + p.blinkCrit;
+  fxTex('thrust', (x0 + p.x) / 2, (y0 + p.y) / 2 - 14, { w: dist * 1.15, h: 16, rot: a, rgb: '220,236,255', life: 0.3, core: 0.8 }); // 一道细剑光（淡，不晃眼）
+  if (S.passives.youxia) {
+    const Y = D.passives.youxia, n = passiveEff(Y, S.passives.youxia);
+    S.yxT = S.t + Y.dur; S.yxSpeed = Y.speed * n; S.yxGuard = Math.min(Y.guardCap, Y.guard * n);
+  }
 }
 // 直刺：命中从玩家出发、朝向 a 的一条长矩形内的所有敌人
 function thrust(a, L, def) {
@@ -3416,10 +3457,11 @@ function weaponTick(w, def, L, dt, p) {
         w.t = L.cd * p.cdMul;
         const a0 = angleTo(p.x, p.y, tgt.x, tgt.y);
         const big = L.nine && (w.n9 = (w.n9 || 0) + 1) % L.nine === 0; // 麒麟枪：每第九次出手，正中那一枪换成大刺
+        const LL = def.id === 'qingfeng' ? qingfengStrike(w, L, def, a0) : L; // 侠客的青锋剑：落地必暴、十步一杀、剑气
         for (let i = 0; i < L.count; i++) {
           const a = a0 + (i - (L.count - 1) / 2) * 0.32;
           if (big && i === Math.floor(L.count / 2)) thrust(a, Object.assign({}, L, { dmg: L.dmg * L.nineK, len: L.len * L.nineLen, width: L.width * L.nineW, kb: L.kb * 1.6 }), Object.assign({}, def, { rgb: '225,255,215' }));
-          else thrust(a, L, def);
+          else thrust(a, LL, def);
           if (L.twin) later(L.twin, () => thrust(a, Object.assign({}, L, { critPlus: L.critAdd }), def)); // 白衣袖剑：连刺第二下，更容易暴击
         }
         sfx('swing');
@@ -13565,7 +13607,7 @@ function updateProjectiles(dt) {
           b.dead = true;
           return;
         }
-        hitEnemy(e, b.far ? b.dmg * (1 + b.far * Math.min(1, Math.hypot(b.x - b.x0, b.y - b.y0) / 600)) : b.dmg, { kb: b.kb, kbAngle: Math.atan2(b.vy, b.vx), el: b.el || null, ally: b.ally }); // 落日弓：飞出 600 以外伤害最多 +far
+        hitEnemy(e, b.far ? b.dmg * (1 + b.far * Math.min(1, Math.hypot(b.x - b.x0, b.y - b.y0) / 600)) : b.dmg, { kb: b.kb, kbAngle: Math.atan2(b.vy, b.vx), el: b.el || null, ally: b.ally, critAdd: b.critAdd }); // critAdd：侠客落地必暴时放的剑气 // 落日弓：飞出 600 以外伤害最多 +far
         if (b.slow && !e.building) { e.slowF = e.slowT > S.t ? Math.min(e.slowF, b.slow) : b.slow; e.slowT = Math.max(e.slowT, S.t + 1.2); } // 胡笳：扫到的走不快
         if (b.stick && !e.dead) stickFeather(e, b); // 凤翎：钉进敌人身上，片刻后炸开
         if (--b.pierce <= 0) b.dead = true;
@@ -15698,7 +15740,7 @@ function gearReset() {
   if (!sp || !adOK() || b.disabled) return;
   if (performance.now() > gearResetArm) {
     gearResetArm = performance.now() + 3000;
-    b.classList.add('armed'); b.textContent = `再点一次：看广告，四个出身的军需全部清空，返还 ${sp} 金`;
+    b.classList.add('armed'); b.textContent = `再点一次：看广告，所有出身的军需全部清空，返还 ${sp} 金`;
     setTimeout(() => { if (performance.now() > gearResetArm && !b.disabled) gearResetLabel(); }, 3050);
     return;
   }
@@ -15854,7 +15896,7 @@ function buildList() {
 // —— 战报（2026-11-20，论坛玩家说「一把下来也不知道哪些神器、武器、技能造成了多少伤害、回了多少血」）——
 // 结算页、暂停「查看战报」：每件兵器、技能、神兵、物品打了多少有效伤害（溢出的不算）、占多少、出手以来每秒多少；下面是回血从哪来
 const SRC_TXT = {
-  ally: ['随从', '从'], 'x:other': ['其他', '杂'], 'x:camp': ['封神 · 入魔', '封'], 'x:po': ['破盾 · 碎盾', '破'],
+  ally: ['随从', '从'], 'x:other': ['其他', '杂'], 'x:camp': ['封神 · 入魔', '封'], 'x:po': ['破盾 · 碎盾', '破'], 'x:blinkSlash': ['闪身出剑', '闪'],
   'e:fire': ['灼烧 · 焚身'], 'e:thunder': ['雷电跳链'], 'e:wind': ['旋风'], 'e:dark': ['幽冥鬼火'],
   'h:regen': ['生命回复', '回'], 'h:meat': ['肉包', '肉'], 'h:fushui': ['符水', '符'], 'h:feast': ['粮屋', '粮'], 'h:jiu': ['庆功酒', '酒'], 'h:pot': ['药鼎', '鼎'], 'h:bagua': ['八门 · 生门', '生'], 'h:qiyu': ['奇遇', '遇'], 'x:wheat': ['麦田大火', '火'], 'x:water': ['浅滩导电', '电'], 'x:juma': ['拒马', '拒'], 'x:swamp': ['瘴气', '瘴'],
 };
@@ -16147,7 +16189,8 @@ function gearEffectText(g, lv) {
     const v = g.effects[k] * lv, pct = x => `${Math.round(x * 1000) / 10}%`;
     parts.push({ startDmg: `起手武器伤害 +${pct(v)}`, maxHp: `生命 +${Math.round(v)}`, regen: `回复 +${v.toFixed(1)}/秒`, speedMul: `移速 +${pct(v)}`,
       crit: `暴击 +${pct(v)}`, critMul: `爆伤 +${pct(v)}`, cdMul: `冷却 ${pct(v)}`, pickupMul: `拾取 +${pct(v)}`, xpMul: `经验 +${pct(v)}`,
-      allyHp: `随从血量 +${pct(v)}`, allyDmg: `随从伤害 +${pct(v)}`, meatMul: `肉包 +${pct(v)}` }[k] || '');
+      allyHp: `随从血量 +${pct(v)}`, allyDmg: `随从伤害 +${pct(v)}`, meatMul: `肉包 +${pct(v)}`,
+      blinkSlash: `闪身出剑伤害 +${pct(v)}`, blinkCrit: `落地必暴 +${(Math.round(v * 10) / 10).toFixed(1)} 秒` }[k] || ''); // 侠客的剑穗
   }
   if (g.armorEvery && lv >= g.armorEvery) parts.push(`护甲 +${Math.floor(lv / g.armorEvery)}`);
   if (g.startLvEvery && lv >= g.startLvEvery) parts.push(`开局武器 +${Math.floor(lv / g.startLvEvery)} 级`);
@@ -16156,15 +16199,15 @@ function gearEffectText(g, lv) {
 function renderShop() {
   const m = loadMeta();
   $('shop-gold').textContent = `金币 ${m.gold} · 每个出身各有三件专属装备，开局就带着`;
-  $('shop-list').innerHTML = D.origins.map(o => `<div class="shop-col"><h3>${o.name}<small>${o.focusName || ''}</small></h3>` +
+  $('shop-list').innerHTML = D.origins.map(o => { const open = originOpen(o); return `<div class="shop-col"><h3>${o.name}<small>${o.focusName || ''}${open ? '' : ' · 未解锁'}</small></h3>` + // 没解锁的出身先不让买，免得新玩家白花金币
     D.meta.gear[o.id].map(g => {
       const lv = gearLv(g.id), cost = gearCost(lv), st = gearStage(lv), R = st ? D.meta.rarity[st - 1] : null;
       const nx = `<br>下一级：<b>${gearTierName(g, lv + 1)}</b> · ${gearEffectText(g, lv + 1)}`;
       return `<div class="gear${st ? ' r' + st : ''}"><div class="seal" ${R ? `style="box-shadow: 0 0 0 2px ${R.color}, 0 0 8px ${R.color}"` : ''}>${gearIconHtml(g, lv)}</div>
         <div class="gn">${gearTierName(g, lv)}<small>${g.slot}${R ? ` · <span style="color:${R.color}">${R.name}</span>` : ''} · Lv ${lv}</small></div>
-        <button class="buy" data-g="${g.id}" ${m.gold >= cost ? '' : 'disabled'}>${lv ? '升级' : '购买'} · 金 ${cost}</button>
+        <button class="buy" data-g="${g.id}" ${open && m.gold >= cost ? '' : 'disabled'}>${!open ? '未解锁' : lv ? '升级' : '购买'} · 金 ${cost}</button>
         <div class="gd">${g.desc}<br>当前：<b>${gearEffectText(g, lv)}</b>${nx}</div></div>`;
-    }).join('') + '</div>').join('');  $('shop-list').querySelectorAll('.buy').forEach(b => b.addEventListener('click', () => buyGear(b.dataset.g)));
+    }).join('') + '</div>'; }).join('');  $('shop-list').querySelectorAll('.buy').forEach(b => b.addEventListener('click', () => buyGear(b.dataset.g)));
 }
 function buyGear(id) {
   const m = loadMeta(), lv = gearLv(id), cost = gearCost(lv);
@@ -16643,17 +16686,21 @@ function toTitle() {
   refreshTitle();
 }
 
+// 要解锁的出身（侠客 lock: 'endless'）：任一出身打进过无尽征途才能选。斩过孟获（第六章最后一位）就算打进过：斩将图鉴跟着云存档走，老玩家一更新就能玩
+const LOCK_TXT = { endless: '任一出身打进无尽征途（斩孟获）后解锁' };
+function originOpen(o) { return !o.lock || (o.lock === 'endless' && (loadSlain().menghuo || 0) > 0); }
 function renderOrigins() {
   const box = $('origins');
   box.innerHTML = '';
   D.origins.forEach((o, i) => {
     const b = document.createElement('button');
-    b.className = 'card origin';
+    const open = originOpen(o);
+    b.className = 'card origin' + (open ? '' : ' locked');
     b.innerHTML = `<span class="key">${i + 1}</span>
       <div class="oart">${window.Portrait.html('origin', o.id)}</div>
       <div class="top"><div><div class="nm">${o.name}</div><div class="kind">初始武器 · ${D.weapons[o.weapon].name}</div></div></div>
       <div class="ds">${o.desc}</div><ul>${o.perks.map(x => `<li>${x}</li>`).join('')}</ul>
-      <div class="kit">${D.meta.gear[o.id].map(g => { const lv = gearLv(g.id), st = gearStage(lv); return lv ? `<span style="color:${D.meta.rarity[st - 1].color}">${gearTierName(g, lv)}</span>` : ''; }).filter(Boolean).join(' · ') || '尚无军需装备'}</div>`;
+      <div class="kit">${open ? D.meta.gear[o.id].map(g => { const lv = gearLv(g.id), st = gearStage(lv); return lv ? `<span style="color:${D.meta.rarity[st - 1].color}">${gearTierName(g, lv)}</span>` : ''; }).filter(Boolean).join(' · ') || '尚无军需装备' : `<span class="lock-tip">${LOCK_TXT[o.lock] || '尚未解锁'}</span>`}</div>`;
     b.addEventListener('click', () => pickOrigin(o.id, b));
     box.appendChild(b);
   });
@@ -16662,6 +16709,8 @@ function renderOrigins() {
 let originArm = null;
 function pickOrigin(id, card) {
   const now = performance.now();
+  const lo = D.origins.find(x => x.id === id);
+  if (lo && !originOpen(lo)) { toast('', '', `「${lo.name}」还没解锁`, LOCK_TXT[lo.lock] || ''); return; }
   if (loadRun() && !(originArm && originArm.id === id && now < originArm.until)) {
     const o = D.origins.find(x => x.id === id);
     document.querySelectorAll('#origins .card.origin.arm').forEach(c => c.classList.remove('arm'));
@@ -17887,6 +17936,14 @@ function drawProjectiles() {
         ctx.beginPath(); ctx.arc(b.x - Math.cos(a) * back, b.y - Math.sin(a) * back, b.r, a - 0.75, a + 0.75); ctx.stroke();
       }
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+    } else if (b.kind === 'crescent' && b.look === 'jian') { // 侠客的剑气：一道细长的淡青剑光（按偏好画得细、淡）
+      const a = Math.atan2(b.vy, b.vx), fade = Math.min(1, b.life * 4), L = b.r * 3.2, ux = Math.cos(a), uy = Math.sin(a);
+      ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.35 * fade * fxK; ctx.strokeStyle = 'rgb(150,190,235)'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(b.x - ux * L, b.y - 10 - uy * L); ctx.lineTo(b.x + ux * L * 0.6, b.y - 10 + uy * L * 0.6); ctx.stroke();
+      ctx.globalAlpha = 0.85 * fade * fxK; ctx.strokeStyle = 'rgb(232,242,255)'; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(b.x - ux * L * 0.8, b.y - 10 - uy * L * 0.8); ctx.lineTo(b.x + ux * L * 0.6, b.y - 10 + uy * L * 0.6); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.lineCap = 'butt';
     } else if (b.kind === 'crescent' && b.look === 'moon') { // 青龙刀、倚天剑每刀的刀气（武圣那一圈的一半）：一道往前推的青色月牙刀光
       const a = Math.atan2(b.vy, b.vx), fade = Math.min(1, b.life * 2.5), R = b.r * 1.6, lw = Math.max(1, b.r / 24);
       ctx.globalCompositeOperation = 'lighter';

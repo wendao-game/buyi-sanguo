@@ -100,6 +100,14 @@ window.GAME_DATA = {
       recruitMax: 3, allyCap: 12, // 随从上限 12（别的出身 8，见 D.allyCap）；营寨、箭楼、马厩不给才女兵，每名改成全体随从伤害 +15%
       look: { skin: '#f4e4d2', skinShade: '#dcc2a8', robe: '#e6ebe8', trim: '#8fb8a8', armor: false, beard: 'none', eyes: 'calm', brows: 'thin', head: 'bun', hairColor: '#16181e', pin: '#b08a5a', weapon: 'flute', aura: '#7aa89a', female: true, artFace: [0.5, 0.24, 0.34] },
     },
+    { // 侠客（2026-11-23 用户定）：第五个出身，女侠，靠闪现进攻。lock: 'endless'：任一出身打进过无尽（斩过孟获）才解锁，见 game.js 的 originOpen
+      id: 'xiake', name: '侠客', icon: '侠', weapon: 'qingfeng', focus: 'sword', focusName: '剑术', lock: 'endless',
+      desc: '仗剑游历四方，身法轻灵。',
+      perks: ['移动速度 +6%，暴击伤害 +30%，伤害 +6%', '闪身出剑：闪现时斩伤沿途敌人（青锋剑伤害 ×1.5），落地后 2 秒内青锋剑必定暴击', '剑术：更容易刷到剑法与身法'],
+      // blinkSlash：闪现沿途那一剑 = 青锋剑这一级的伤害 × 它（剑穗再加）；blinkCrit：落地后几秒内青锋剑（连剑气）必定暴击（剑穗再加）
+      stats: { speedMul: 1.06, critMul: 0.3, dmg: 0.06, blinkSlash: 1.5, blinkCrit: 2 },
+      look: { skin: '#f2dfc8', skinShade: '#d4b89a', robe: '#3c5266', trim: '#c9d6de', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'bun', hairColor: '#121419', pin: '#9fb6c6', weapon: 'sword', aura: '#7f9fb8', female: true, artFace: [0.545, 0.25, 0.42] },
+    },
   ],
 
   // 武器：type 决定攻击方式，levels 是每一级的数值
@@ -125,6 +133,19 @@ window.GAME_DATA = {
         { dmg: 20, cd: 0.52, count: 2, speed: 620, pierce: 1, note: '一次射出 2 支箭' },
         { dmg: 25, cd: 0.46, count: 2, speed: 640, pierce: 2, note: '箭矢可穿透 2 个敌人' },
         { dmg: 32, cd: 0.4, count: 3, speed: 680, pierce: 3, note: '一次射出 3 支箭，穿透 3 个' },
+      ],
+    },
+    // 侠客的起手剑：快刺一条线；qi：每刺几下放一道剑气（qiN 道），剑气飞 qiFly.range、穿透所有敌人、伤害 = 这一刺 × qiFly.k
+    qingfeng: {
+      name: '青锋剑', icon: '剑', type: 'thrust', common: true, tags: ['sword'], rgb: '215,232,255',
+      desc: '朝最近的敌人快刺，刺穿一条线上的敌人。练到 3 级起，出剑时放出剑气。',
+      qiFly: { range: 380, r: 16, k: 1, speed: 640 },
+      levels: [
+        { dmg: 15, cd: 0.45, len: 150, width: 26, count: 1, kb: 70 },
+        { dmg: 19, cd: 0.42, len: 155, width: 26, count: 1, kb: 75, note: '伤害 +4，出剑更快' },
+        { dmg: 23, cd: 0.42, len: 160, width: 28, count: 1, kb: 80, qi: 3, qiN: 1, note: '每刺 3 下放出一道剑气，穿透所有敌人' },
+        { dmg: 28, cd: 0.38, len: 165, width: 28, count: 1, kb: 85, qi: 2, qiN: 1, note: '每刺 2 下放出一道剑气' },
+        { dmg: 36, cd: 0.35, len: 175, width: 30, count: 1, kb: 90, qi: 2, qiN: 2, note: '每次放出两道剑气' },
       ],
     },
     scroll: {
@@ -1334,7 +1355,7 @@ window.GAME_DATA = {
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
   passives: {
-    sandals: { tags: [], name: '草鞋', icon: '履', max: 5, desc: '移动速度 +10%', effects: { speedMul: 0.1 } },
+    sandals: { tags: ['sword'], name: '草鞋', icon: '履', max: 5, desc: '移动速度 +10%', effects: { speedMul: 0.1 } },
     leather: { tags: ['body'], name: '皮甲', icon: '甲', max: 5, desc: '护甲 +1（每次受伤减少 1 点）', effects: { armor: 1 } },
     manual: { tags: ['spell'], name: '兵书', icon: '典', max: 5, desc: '所有冷却 -8%', effects: { cdMul: -0.08 } },
     wine: { name: '烈酒', icon: '酒', max: 5, desc: '伤害 +10%', effects: { dmgMul: 0.1 } },
@@ -1343,8 +1364,8 @@ window.GAME_DATA = {
     purse: { name: '钱袋', icon: '袋', max: 5, desc: '拾取范围 +25%', effects: { pickupMul: 0.25 } },
     vigor: { tags: ['body'], name: '强身', icon: '身', max: 5, desc: '生命上限 +20', effects: { maxHp: 20 } },
     // 暴击：三种出身都能刷到
-    eagle: { tags: [], name: '鹰眼', icon: '眼', max: 5, desc: '暴击率 +4%', effects: { crit: 0.04 } },
-    vital: { tags: [], name: '要害', icon: '刺', max: 5, desc: '暴击伤害 +20%', effects: { critMul: 0.2 } },
+    eagle: { tags: ['sword'], name: '鹰眼', icon: '眼', max: 5, desc: '暴击率 +4%', effects: { crit: 0.04 } }, // 草鞋、鹰眼、要害算侠客的「剑术」（2026-11-23）
+    vital: { tags: ['sword'], name: '要害', icon: '刺', max: 5, desc: '暴击伤害 +20%', effects: { critMul: 0.2 } },
     // 农夫 · 炼体
     lianti: { origin: 'farmer', tags: ['body'], name: '炼体', icon: '体', max: 5, desc: '生命上限 +10%，每秒回复 +0.2', effects: { maxHpMul: 0.1, regen: 0.2 } },
     // 铁布衫：挨打后下一次挥砍（锄头和近战兵器）伤害 +rage.base，每多一级再 +rage.perLv
@@ -1356,6 +1377,10 @@ window.GAME_DATA = {
     // 猎户 · 弓箭（对猎弓、连弩生效）
     lianzhu: { origin: 'hunter', tags: ['bow'], name: '连珠箭', icon: '珠', max: 3, desc: '弓弩每轮接着朝同一个目标多连射 1 支箭', effects: { arrowCount: 1 } },
     chuanyang: { origin: 'hunter', tags: ['bow'], name: '百步穿杨', icon: '杨', max: 5, desc: '弓弩伤害 +15%，穿透 +1', effects: { arrowDmg: 0.15, arrowPierce: 1 } },
+    // 侠客专属（2026-11-23）：都不碰冷却
+    jianqi: { origin: 'xiake', tags: ['sword'], name: '剑气纵横', icon: '气', max: 3, desc: '青锋剑的剑气飞得更远 +25%、伤害 +15%（青锋剑 3 级起才有剑气）', effects: {}, range: 0.25, dmg: 0.15 },
+    shibu: { origin: 'xiake', tags: ['sword'], name: '十步一杀', icon: '杀', max: 3, desc: '青锋剑每第 10 刺是「一杀」：这一刺伤害 ×3，往后每级再多 1 倍，对名将也有效', effects: {}, every: 10, base: 2, per: 1 },
+    youxia: { origin: 'xiake', tags: ['sword'], name: '游侠', icon: '游', max: 3, desc: '闪现后 2 秒内移动速度 +20%、受到的伤害 -15%', effects: {}, dur: 2, speed: 0.2, guard: 0.15, guardCap: 0.6 },
     // 书生 · 计策（对竹简、羽扇、符咒、法杖、古琴、火把和所有技能生效）
     zhiyin: { origin: 'cainv', tags: ['art'], name: '知音', icon: '音', max: 3, desc: '随从每次出手都带出一小段琴音，震伤身边的敌人（每级范围、伤害提高）', effects: {}, wave: { r: 55, dmg: 0.5, perLv: 0.25 } },
     shicai: { origin: 'cainv', tags: ['art'], name: '诗才', icon: '诗', max: 3, desc: '你每升 5 级，全体随从多算 1 级（每级再多算 1 级）', effects: {} },
@@ -3271,6 +3296,14 @@ window.GAME_DATA = {
           look: '才女的衣裙，从素布襦裙到霞帔羽衣', tiers: ['素布襦裙', '青衣长裙', '月白襦裙', '绣花罗裙', '云锦长裙', '霞帔', '凤纹霞帔', '流光羽裙', '九天云裳'] },
         { id: 'g_yuzan', name: '玉簪', icon: '簪', slot: '饰品', effects: { speedMul: 0.015, allyDmg: 0.03 }, desc: '移动速度 +1.5%、随从伤害 +3%/级',
           look: '才女的发饰和随身香囊', tiers: ['布香囊', '木簪', '银簪', '玉簪', '珠花步摇', '翡翠簪', '凤钗', '金凤步摇', '九凤朝阳钗'] },
+      ],
+      xiake: [ // 侠客（2026-11-23）：剑穗加的是闪身出剑，不和猎户的护符撞
+        { id: 'g_jian', name: '剑', icon: '剑', slot: '武器', effects: { startDmg: 0.1 }, startLvEvery: 3, desc: '青锋剑伤害 +10%/级；每 3 级开局青锋剑 +1 级',
+          look: '女侠手里的长剑', tiers: ['铁剑', '青钢剑', '秋水剑', '龙泉剑', '寒光剑', '七星剑', '紫电剑', '龙渊剑', '太阿剑'] },
+        { id: 'g_xiayi', name: '侠衣', icon: '衣', slot: '护甲', effects: { maxHp: 10, speedMul: 0.02 }, desc: '生命上限 +10、移动速度 +2%/级',
+          look: '女侠的劲装和软甲，从粗布到宝衣', tiers: ['粗布劲装', '青布侠衣', '鹿皮软甲', '鲨皮软甲', '细鳞软甲', '乌金软甲', '天蚕软甲', '金丝软甲', '流云宝衣'] },
+        { id: 'g_suisui', name: '剑穗', icon: '穗', slot: '饰品', effects: { blinkSlash: 0.1, blinkCrit: 0.2 }, desc: '闪身出剑伤害 +10%、落地必暴多 0.2 秒/级',
+          look: '系在剑柄上的剑穗和玉坠', tiers: ['麻绳剑穗', '红绳剑穗', '流苏剑穗', '玉坠剑穗', '同心结穗', '翡翠剑穗', '金丝剑穗', '凤羽剑穗', '游龙剑穗'] },
       ],
     },
   },
