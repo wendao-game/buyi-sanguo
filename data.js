@@ -651,7 +651,7 @@ window.GAME_DATA = {
     },
     chongzhen: {
       name: '冲阵', icon: '冲', type: 'dash', general: '颜良',
-      desc: '定时朝敌人最密集处策马突进，沿途的敌人全部受伤并被撞开，冲刺中无敌。',
+      desc: '定时召出颜良的英魂，骑白马从你身后朝敌人最密集处冲阵，沿途的敌人全部受伤并被撞开。',
       levels: [
         { dmg: 50, cd: 6, len: 300, w: 60 },
         { dmg: 62, cd: 5.6, len: 320, w: 64, note: '伤害 +12，冲得更远' },
@@ -1908,8 +1908,7 @@ window.GAME_DATA = {
     liubei: { death: '云长……翼德……大哥来了……', ult: { taoyuan: '桃园结义，生死与共！', dilu: '的卢，今日厄矣，可努力！', rende: '百姓归心，此乃吾之盾！' } },
     sunquan: { death: '父兄……仲谋……愧对江东……', ult: { shehu: '虎来了，看你往哪跑！', shuishi: '江东水师，万弩齐发！', zhiheng: '子布、公瑾，助我！' } },
     pangtong: { death: '落凤坡……原来，是我的坡……', ult: { lianhuan: '这一条连环，可是我亲手献的！', fenghuo: '凤鸣九天，火燎八荒！', luofeng: '落凤坡下……今日落的，是你！' } },
-    // 天刀、温酒斩、玉泉显圣先借原来三句的录音（字幕跟录音一致）；新台词在提示词页第 32 批，录好后换成新的
-    shenguanyu: { death: '玉泉山下……关某，终得解脱……', ult: { tiandao: '青龙出海，翻江倒海！', wenjiu: '一关一将，挡我者斩！', shuiyan: '水淹七军，尔等休走！', xiansheng: '威震华夏，谁与争锋！', qianli: '千里走单骑——赤兔，随我来！' } },
+    shenguanyu: { death: '玉泉山下……关某，终得解脱……', ult: { tiandao: '天刀悬顶，劈山断海！', wenjiu: '酒尚温——汝头已落！', shuiyan: '水淹七军，尔等休走！', xiansheng: '还我头来——！', qianli: '千里走单骑——赤兔，随我来！' } },
     modongzhuo: { death: '奉先……奉先何在……', ult: { fenshao: '烧！给我烧个干净！', suolian: '天子的锁链，谁也挣不脱！', jiuchi: '酒池肉林，与孤同醉！', mowang: '魔王临世，天下皆奴！' } },
     shenzhuge: { death: '悠悠苍天，曷此其极……', ult: { bamen: '八门已闭，生门只有一扇。', bamen2: '八阵随天转，生门亦无常。', tianfu: '八阵随天转，生门亦无常。', guanxing: '夜观天象，星落如雨。', kongcheng: '城门大开，请君入城。', rangxing: '七星灯明，吾命未绝！', pozhen: '好！竟能识破生门……' } },
     caocao: { death: '大业未竟……孤……不甘……', ult: { duange: '对酒当歌，人生几何！', hengshuo: '横槊赋诗，固一世之雄也！', mengzhong: '吾好梦中杀人……', mengzhong_wake: '谁！' } },

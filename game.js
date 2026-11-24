@@ -582,7 +582,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') { if (S && !S.over) { e.preventDefault(); S.blinkReq = true; } } // 闪现
   if (e.code === 'KeyE' && S && !S.over && S.smj) S.smjReq = true; // 神魔技（WASD 旁边，空格已经给了闪现）
   const m = /^(?:Digit|Numpad)([1-4])$/.exec(e.code);
-  if (m && !$('levelup').hidden && $('lu-cards').style.pointerEvents !== 'none') { const el = $('lu-cards').children[+m[1] - 1]; if (el) el.click(); }
+  if (m && !$('levelup').hidden && !$('levelup').classList.contains('folded') && $('lu-cards').style.pointerEvents !== 'none') { const el = $('lu-cards').children[+m[1] - 1]; if (el) el.click(); }
 });
 addEventListener('keyup', e => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -801,7 +801,7 @@ function newState(originId) {
     strikes: [], erings: [], lust: 0, lustT: 0, dash: null,
     shenbing: [], sbPity: 0, later: [], sbWhirl: null,   // 神兵：悬浮在身边的名将专属兵器
     goldRun: 0, startDmg: 0, xpMul: 0, saveT: 15, bakT: BAK.every, // 本局金币、局外装备加成、自动存档倒计时、本机文件备份倒计时
-    pendingLevels: 0, pendingReward: null, rewardReady: null, choice: null, cycle: 0,
+    pendingLevels: 0, rewards: [], choice: null, cycle: 0, // rewards：排队的斩将奖励 { gid, t 还要等几秒, legend }（以前只有一个位置，两位名将前后脚倒下，前一位的奖励会被顶掉）
     slowmo: 0, shake: 0, camX: 0, camY: 0, wsb: 0, buildDirty: true,
   };
   recomputeStats();
@@ -1333,8 +1333,10 @@ function onBossDeath(e) {
     addNumber(e.x, e.y - 90, `神兵现世 · ${D.shenbing[e.gid].name}`, '#ffd75a', 24);
     screenFlash('255,220,120', 0.25);
   } else S.sbPity++;
-  S.pendingReward = { gid: e.gid, t: legend ? 0.8 : 0.35, legend };
+  queueReward(e.gid, legend ? 0.8 : 0.35, legend);
 }
+// 斩将奖励排进队里：t 秒后轮到它，选择栏空着时按顺序弹出
+function queueReward(gid, t, legend) { S.rewards.push({ gid, t, legend: !!legend }); }
 // 进入下一章；全部打完则进入无尽征途
 function nextChapter() {
   S.chapterT = 0;
@@ -1865,6 +1867,9 @@ function revive() {
 function gameOver() {
   S.over = true;
   S.modal = true;
+  // 倒下时正开着的选项放回队里：看广告复活后还能接着选（以前直接丢掉，复活后少一次升级 / 奖励）
+  const ch = S.choice;
+  if (ch) { if (ch.mode === 'level') S.pendingLevels++; else if (ch.mode === 'forge') S.forgeReady++; else if (ch.mode === 'reward') S.rewards.unshift({ gid: ch.gid, t: 0, legend: !!ch.legend }); }
   S.choice = null;
   clearRun(); saveMeta(true); // 战死：这一局的存档作废，金币已经存好
   backupWrite(); // 本机文件也去掉这一局（不然闪退后会把打完的局找回来）
@@ -2033,7 +2038,7 @@ function rgbOf(hex) {
   return rgbCache[hex] || (rgbCache[hex] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)).join(','));
 }
 function say(e, text) {
-  S.numbers.push({ x: e.x, y: (e.topY || e.y - e.r) - 30, text, color: '#ffe2b0', size: 18, life: 1.6, max: 1.6, float: 10 });
+  S.numbers.push({ x: e.x, y: (e.topY || e.y - e.r) - (e.boss ? 39 : 30), text, color: '#ffe2b0', size: 18, life: 1.6, max: 1.6, float: 10 }); // 武将头顶有名字 + 小血条，再往上一点
 }
 
 // ============ 掉落 ============
@@ -2185,7 +2190,7 @@ function bossPhase(e) {
   if (k <= (e.phase || 0)) return;
   e.phase = k; e.dr = Math.round(ph[k - 1].dr * (0.5 + 0.5 * genK()) * 100) / 100; // 第一章的名将减伤只有一半，之后全额
   const rgb = k > 1 ? '255,120,80' : '255,210,110';
-  addNumber(e.x, (e.topY || e.y - 80) - 30, `${ph[k - 1].text} · 减伤 ${Math.round(e.dr * 100)}%`, k > 1 ? '#ff9a7a' : '#ffd98a', 22);
+  addNumber(e.x, (e.topY || e.y - 80) - 39, `${ph[k - 1].text} · 减伤 ${Math.round(e.dr * 100)}%`, k > 1 ? '#ff9a7a' : '#ffd98a', 22);
   fxTex('circle', 0, 0, { follow: e, oy: e.r * 0.6, w: e.r * 6, h: e.r * 6, rgb, under: true, flat: 0.5, life: 1.2, spin: 2.5, grow: 1.3, fadeIn: 0.05 });
   fxTex('pillar', 0, 0, { follow: e, oy: -e.r * 3, w: e.r * 3, h: e.r * 8, rgb, life: 0.7, sx: 0.4, core: 0.6 });
   glint(e.x, e.y - e.r * 1.5, 60, rgb, 0.3);
@@ -3096,8 +3101,8 @@ function updateSkills(dt) {
         }
         break;
       }
-      case 'dash': { // 冲阵：朝敌人最多的方向突进
-        s.t -= dt; if (s.t > 0 || S.dash) break;
+      case 'dash': { // 冲阵：颜良的英魂骑白马从你身后冲出，朝敌人最多的方向冲过去（你自己不动，也不无敌）
+        s.t -= dt; if (s.t > 0) break;
         const len = L.len * p.areaMul;
         let best = null, bc = 0;
         for (let k = 0; k < 12; k++) { // 12 个方向里挑沿途敌人最多的
@@ -3108,9 +3113,11 @@ function updateSkills(dt) {
         }
         if (best === null) { s.t = 0.25; break; }
         s.t = L.cd * p.cdMul;
-        S.dash = { a: best, t: 0.22, dur: 0.22, len, w: L.w, dmg: L.dmg, hit: new Set() };
+        const back = 110; // 从你身后 110 处起跑，冲到你前方 len 处为止（和以前你自己冲的那一段一样长）
+        S.riders.push({ x: p.x - Math.cos(best) * back, y: p.y - Math.sin(best) * back, a: best, speed: 1500, left: len + back, hostile: false, dmg: L.dmg, w: L.w, hitSet: new Set(), seed: rand(0, 9),
+          gid: 'yanliang', mount: true, side: true, rgb: '140,180,255', born: S.t });
         fxTex('thrust', p.x + Math.cos(best) * len * 0.5, p.y - 18 + Math.sin(best) * len * 0.5, { w: len * 1.15, h: L.w * 1.4, rot: best, rgb: '140,180,255', life: 0.3, sx: 1.2, core: 0.7 });
-        punch(0.35);
+        punch(0.2);
         sfx('swing');
         break;
       }
@@ -5332,7 +5339,11 @@ function updateBossFx2(dt) {
     if (r.hostile) {
       if (!r.hit && dist2(r.x, r.y, p.x, p.y) < (r.w / 2 + p.r) ** 2) { r.hit = true; hurtPlayer(r.dmg); p.kvx += ux * 700; p.kvy += uy * 700; }
     } else {
-      near(r.x, r.y, r.w + 48, e => { if (r.hitSet.has(e.id) || dist2(r.x, r.y, e.x, e.y) > (r.w / 2 + e.r) ** 2) return; r.hitSet.add(e.id); hitEnemy(e, r.dmg, { kb: 320, kbAngle: r.a, quiet: true }); });
+      near(r.x, r.y, r.w + 48, e => { // side：往两边撞开（冲阵），否则往前推
+        if (r.hitSet.has(e.id) || dist2(r.x, r.y, e.x, e.y) > (r.w / 2 + e.r) ** 2) return;
+        r.hitSet.add(e.id);
+        hitEnemy(e, r.dmg, { kb: 320, kbAngle: r.side ? r.a + (angDiff(r.a, angleTo(r.x, r.y, e.x, e.y)) > 0 ? 1 : -1) : r.a, quiet: true });
+      });
     }
     if (Math.random() < 0.7) fxp({ type: 'dust', x: r.x + rand(-10, 10), y: r.y + 10, vx: -ux * 120, vy: -uy * 120, drag: 3, grow: 24, life: 0.45, rgb: '120,110,96', size: rand(8, 12) });
     if (Math.random() < 0.5) fxp({ type: 'spark', x: r.x + rand(-14, 14), y: r.y - rand(10, 40), vx: -ux * 260, vy: -uy * 260, drag: 3, life: 0.3, rgb: '190,215,255', size: 2 });
@@ -5752,8 +5763,8 @@ function twinDefeated(e) {
   banner('魔吕布 · 魔貂蝉 伏诛', `炼狱虎牢关 ${Math.round(G.again / 60)} 分钟后再起`);
   fxTex('pillar', e.x, e.y - 160, { w: 140, h: 460, rgb: '255,60,70', life: 1.4, sx: 0.5, fadeIn: 0.05, core: 0.8 });
   screenFlash('255,80,90', 0.3);
-  applyChoice({ kind: 'shenbing', id: 'molubu' }); // 神兵直接到手
-  S.pendingReward = { gid: 'molubu', t: 0.8, legend: false };
+  gainChoice({ kind: 'shenbing', id: 'molubu' }); // 神兵直接到手（不碰正开着的选项）
+  queueReward('molubu', 0.8, false);
   campGain('mo', CU.win); // 魔血：封神用
 }
 // 黑血侵蚀：这一帧回的血打折（扣血不受影响）
@@ -6015,8 +6026,8 @@ function shenDefeated(e) {
   banner('神赵云 伏诛', `枪魂冢 ${Math.round(G.again / 60)} 分钟后再起`);
   fxTex('pillar', e.x, e.y - 160, { w: 140, h: 460, rgb: '200,225,255', life: 1.4, sx: 0.5, fadeIn: 0.05, core: 0.8 });
   screenFlash('210,230,255', 0.3);
-  applyChoice({ kind: 'shenbing', id: 'shenzhaoyun' }); // 神兵直接到手
-  S.pendingReward = { gid: 'shenzhaoyun', t: 0.8, legend: false };
+  gainChoice({ kind: 'shenbing', id: 'shenzhaoyun' }); // 神兵直接到手（不碰正开着的选项）
+  queueReward('shenzhaoyun', 0.8, false);
   campGain('shen', CU.win); // 神魂：入魔用
 }
 // 龙魂涯角枪「绝境」：受到致死伤害时 dur 秒内不会倒下（每 cd 秒一次；这几秒里不倒见 lastStand）。check：只看现在能不能触发
@@ -6165,8 +6176,8 @@ function wolongDefeated(e) {
   banner(e.starFall ? '星落五丈原 · 神诸葛 伏诛' : '神诸葛 伏诛', `鱼腹浦八阵 ${Math.round(G.again / 60)} 分钟后再起`);
   fxTex('pillar', e.x, e.y - 160, { w: 140, h: 460, rgb: '255,214,120', life: 1.4, sx: 0.5, fadeIn: 0.05, core: 0.8 });
   screenFlash('255,225,150', 0.3);
-  applyChoice({ kind: 'shenbing', id: 'shenzhuge' }); // 神兵直接到手
-  S.pendingReward = { gid: 'shenzhuge', t: 0.8, legend: false };
+  gainChoice({ kind: 'shenbing', id: 'shenzhuge' }); // 神兵直接到手（不碰正开着的选项）
+  queueReward('shenzhuge', 0.8, false);
   campGain('shen', CU.win); // 神魂：入魔用
 }
 // —— 八门金锁：困住你的八角石阵 ——
@@ -6611,8 +6622,8 @@ function mowangDefeated(e) {
   banner('魔董卓 伏诛', `郿坞 ${Math.round(G.again / 60)} 分钟后再起`);
   fxTex('pillar', e.x, e.y - 160, { w: 140, h: 460, rgb: '255,90,60', life: 1.4, sx: 0.5, fadeIn: 0.05, core: 0.8 });
   screenFlash('255,120,90', 0.3);
-  applyChoice({ kind: 'shenbing', id: 'modongzhuo' }); // 神兵直接到手
-  S.pendingReward = { gid: 'modongzhuo', t: 0.8, legend: false };
+  gainChoice({ kind: 'shenbing', id: 'modongzhuo' }); // 神兵直接到手（不碰正开着的选项）
+  queueReward('modongzhuo', 0.8, false);
   campGain('mo', CU.win); // 魔血：封神用
 }
 // 焚烧洛阳：以 (cx, cy) 为中心，在转了 th 的坐标里，u 轴垂直于走廊、v 轴沿着走廊；走廊是 |u - u0| < w/2
@@ -7193,8 +7204,8 @@ function guanDefeated(e) {
   banner('神关羽 伏诛', `玉泉山 ${Math.round(G.again / 60)} 分钟后再起`);
   fxTex('pillar', e.x, e.y - 160, { w: 140, h: 460, rgb: '90,240,170', life: 1.4, sx: 0.5, fadeIn: 0.05, core: 0.8 });
   screenFlash('120,240,190', 0.3);
-  applyChoice({ kind: 'shenbing', id: 'shenguanyu' }); // 神兵直接到手
-  S.pendingReward = { gid: 'shenguanyu', t: 0.8, legend: false };
+  gainChoice({ kind: 'shenbing', id: 'shenguanyu' }); // 神兵直接到手（不碰正开着的选项）
+  queueReward('shenguanyu', 0.8, false);
   campGain('shen', CU.win); // 神魂：入魔用
 }
 // 玉泉显圣：画面后方的关圣法相每 every 秒举刀，朝你劈一道巨型扇形（先亮扇形预警）；每 waveEvery 秒从他身上推出一圈带缺口的威压。
@@ -7773,10 +7784,14 @@ function drawBossFx2Under() {
   }
 }
 function drawBossFx2() {
-  for (const r of S.riders) { // 铁骑英灵：半透明的骑兵，外面一层银蓝光；五虎神兵的将魂是那位上将本人的小人，外面一层他的颜色
-    const spr = r.gid ? unitSprite(r.gid, D.generals[r.gid].look, 70, false) : unitSprite('cavalry', D.enemies.cavalry.look, 62, false, D.enemies.cavalry.mount || '#5a3a24');
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, r.x, r.y - 26, 60, r.rgb || (r.hostile ? '120,170,255' : '255,215,130'), 0.55); ctx.restore();
-    ctx.globalAlpha = 0.85; drawUnit(spr, r.x, r.y, 16, Math.cos(r.a) >= 0 ? 1 : -1, Math.sin(S.t * 30 + r.seed) * 2); ctx.globalAlpha = 1;
+  for (const r of S.riders) { // 铁骑英灵：半透明的骑兵，外面一层银蓝光；五虎神兵的将魂是那位上将本人的小人，外面一层他的颜色；冲阵是骑白马的颜良，带残影
+    const G = r.gid && D.generals[r.gid];
+    const spr = !G ? unitSprite('cavalry', D.enemies.cavalry.look, 62, false, D.enemies.cavalry.mount || '#5a3a24')
+      : r.mount ? unitSprite(r.gid + '_mounted', G.look, 80, false, G.mount) : unitSprite(r.gid, G.look, 70, false);
+    const fade = r.born === undefined ? 1 : clamp(Math.min((S.t - r.born) / 0.1, r.left / 140), 0, 1), fx = Math.cos(r.a) >= 0 ? 1 : -1;
+    if (r.mount && S.t - (r.ghostT || 0) > 0.04) { addGhost(spr, r.x, r.y + 16 * 0.6, fx, 0.4 * fade); r.ghostT = S.t; }
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, r.x, r.y - 26, 60, r.rgb || (r.hostile ? '120,170,255' : '255,215,130'), 0.55 * fade); ctx.restore();
+    ctx.globalAlpha = 0.85 * fade; drawUnit(spr, r.x, r.y, 16, fx, Math.sin(S.t * 30 + r.seed) * 2); ctx.globalAlpha = 1;
   }
   for (const b of S.boulders) FX.rock(ctx, b.x, b.y - b.r * 0.3, b.r, b.rot);
   for (const c of S.coils) { // 白龙
@@ -9279,16 +9294,13 @@ function update(dt) {
   const p = S.player, k = Math.min(1, dt * 10);
   S.camX += (p.x - S.camX) * k;
   S.camY += (p.y - S.camY) * k;
-  if (S.pendingReward) {
-    S.pendingReward.t -= dt;
-    if (S.pendingReward.t <= 0) { S.rewardReady = S.pendingReward.gid; S.rewardLegend = S.pendingReward.legend; S.pendingReward = null; }
-  }
+  for (const r of S.rewards) r.t -= dt;
   if (S.rankUp) { banner(`晋升 · ${S.rankUp}`, `Lv ${p.level}`); S.rankUp = null; }
   S.saveT -= dt; if (S.saveT <= 0) { S.saveT = 15; saveRun(); } // 每 15 秒自动存档
   S.bakT -= dt; if (S.bakT <= 0) { S.bakT = BAK.every; backupWrite(true); } // 每 30 秒（斩将、名将登场后提前）写一次本机文件：闪退了金币和这一局也还在
   achTick(dt); // TapTap 成就：每秒查一次这一局的条件
   // 选择栏默认不暂停游戏（设置里可以改成暂停）：有待选的升级 / 斩将奖励 / 铁匠铺时，在屏幕上方弹出
-  if (!S.over && !S.choice && (S.rewardReady || S.forgeReady || S.pendingLevels > 0)) nextModal();
+  if (!S.over && !S.choice && (S.rewards.some(r => r.t <= 0) || S.forgeReady || S.pendingLevels > 0)) nextModal();
 }
 
 // ============ 升级 / 武将奖励 ============
@@ -9386,7 +9398,8 @@ function rewardOptions(gid, legend) {
 
 function nextModal() {
   if (S.over) return;
-  if (S.rewardReady) { const gid = S.rewardReady; S.rewardReady = null; openChoices('reward', gid, S.rewardLegend); S.rewardLegend = false; return; }
+  const ri = S.rewards.findIndex(r => r.t <= 0);
+  if (ri >= 0) { const r = S.rewards.splice(ri, 1)[0]; openChoices('reward', r.gid, r.legend); return; }
   if (S.forgeReady > 0) { S.forgeReady--; openChoices('forge'); return; }
   if (S.pendingLevels > 0) { S.pendingLevels--; openChoices('level'); return; }
 }
@@ -9396,7 +9409,7 @@ function openChoices(mode, gid, legend) {
   const opts = mode === 'reward' ? rewardOptions(gid, legend)
     : mode === 'forge' ? byLevel(pickWeighted(S.weapons.map(w => ({ kind: 'weapon', id: w.id, cur: w.lv, w: 1 })), 3))
     : levelOptions();
-  S.choice = { mode, gid, opts };
+  S.choice = { mode, gid, opts, legend: !!legend };
   $('lu-portrait').hidden = mode !== 'reward';
   if (mode === 'reward') {
     const g = D.generals[gid];
@@ -9419,6 +9432,7 @@ function openChoices(mode, gid, legend) {
   box.style.pointerEvents = 'none';
   setTimeout(() => { box.style.pointerEvents = ''; }, 320);
   $('lu-crit').innerHTML = critLine();
+  foldChoices(false); // 每次新的选择都先展开
   $('levelup').hidden = false;
 }
 // 属性卡上的具体数值
@@ -9429,6 +9443,11 @@ function elementLine(id, lv) {
   if (id === 'thunder') return `引雷几率 ${pc(L.chance)} · 跳 ${L.jumps} 个 · 每跳 ${pc(L.pct)} 伤害`;
   if (id === 'dark') return `印记增伤 ${pc(L.vuln)} · 化作死士 ${pc(L.raise)} · 最多 ${L.max} 个`;
   return `风刃伤害 +${pc(L.dmg)} · 击退 +${pc(L.kb)} · 穿透 +${L.pierce}${L.gust ? ` · 旋风每 ${L.gust.every} 秒` : ''}`;
+}
+// 选择栏「收起 / 展开」：收起时只留标题一条，看得见战场；游戏照常进行（暂停设置照旧），收起时按 1/2/3 不选
+function foldChoices(on) {
+  $('levelup').classList.toggle('folded', on);
+  $('lu-hide').textContent = on ? '展开' : '收起';
 }
 // 当前暴击率与暴击伤害（选择栏右上角）
 const critLine = () => `暴击 <b>${Math.round(S.player.crit * 100)}%</b> · 爆伤 <b>${Math.round(S.player.critMul * 100)}%</b>`;
@@ -9502,7 +9521,16 @@ function makeCard(o, i) {
   return btn;
 }
 
+// 选了一张卡：生效，关掉选择栏，弹下一个
 function applyChoice(o) {
+  gainChoice(o);
+  $('levelup').hidden = true;
+  S.choice = null;
+  nextModal();
+}
+// 只让这张卡生效，不碰选择栏。神魔将倒下时直接发神兵用这个：以前用 applyChoice，会把那一刻正开着的升级 / 奖励选项关掉、白白丢一次
+// （论坛反馈「打完神魔将，很大概率卡掉之前一个没升完的」）
+function gainChoice(o) {
   const p = S.player;
   if (o.kind === 'heal') {
     p.hp = Math.min(p.maxHp, p.hp + o.amount);
@@ -9534,9 +9562,6 @@ function applyChoice(o) {
   }
   recomputeStats();
   S.buildDirty = true;
-  $('levelup').hidden = true;
-  S.choice = null;
-  nextModal();
 }
 
 // ============ 界面 ============
@@ -9933,6 +9958,8 @@ function campExchange(id) { // 金币换魔血 / 神魂（只能这个方向换�
 
 // ---------- 存档：自动保存这一局，下次“继续征战” ----------
 const RUN_KEY = 'buyi-run';
+// 存档里的斩将奖励队列：正开着的奖励选项排最前，后面是还在排队的
+const savedRewards = ch => [...(ch && ch.mode === 'reward' ? [{ gid: ch.gid, legend: !!ch.legend }] : []), ...S.rewards.map(r => ({ gid: r.gid, legend: r.legend }))];
 function snapshot() {
   if (!S || S.over) return null;
   const p = S.player, ch = S.choice;
@@ -9948,8 +9975,8 @@ function snapshot() {
     defeated: S.defeated, seen: S.seen, sbPity: S.sbPity, goldRun: S.goldRun, startDmg: S.startDmg, xpMul: S.xpMul,
     forgeReady: S.forgeReady + (ch && ch.mode === 'forge' ? 1 : 0),
     pendingLevels: S.pendingLevels + (ch && ch.mode === 'level' ? 1 : 0),
-    reward: S.rewardReady || (S.pendingReward && S.pendingReward.gid) || (ch && ch.mode === 'reward' ? ch.gid : null),
-    rewardLegend: !!(S.rewardLegend || (S.pendingReward && S.pendingReward.legend) || (ch && ch.mode === 'reward' && $('levelup').classList.contains('legend'))),
+    rewards: savedRewards(ch), // 排队的斩将奖励（正开着的排最前）
+    reward: (savedRewards(ch)[0] || {}).gid || null, rewardLegend: !!(savedRewards(ch)[0] || {}).legend, // 旧版本只认一个
     bosses: S.bossList.map(e => ({ gid: e.gid, hp: e.hp / e.maxHp, final: e.final, dx: e.x - p.x, dy: e.y - p.y, rv: e.revived || undefined })), // rv：神赵云已经用过绝境 // dx/dy：华佗离你多远（读档时放回原处）
     eliteT: S.eliteT, buildingT: S.buildingT,
     noRank: S.noRank || undefined, // 存档码读进来的一局：一直不计排行榜
@@ -9982,7 +10009,7 @@ function continueRun() {
   // 剧情据点还没打：放回原来的方向（前几章的药庐、西凉营地、孤冢也一直留在地图上）
   D.chapters.forEach((c, ci) => { if (S.endless || ci <= S.ch) chEvents(ci).forEach((ev, i) => { if (ev.type === 'special' && (S.endless || ci < S.ch || i < S.evIdx)) placeSpecial(ev.bid, ev.dx, ev.dy); }); });
   S.seen = r.seen || S.seen;
-  if (r.reward) { S.rewardReady = r.reward; S.rewardLegend = r.rewardLegend; }
+  S.rewards = (r.rewards || (r.reward ? [{ gid: r.reward, legend: r.rewardLegend }] : [])).filter(x => D.generals[x.gid]).map(x => ({ gid: x.gid, t: 0, legend: !!x.legend })); // 旧存档只有一个 reward
   S.buildDirty = true; S.saveT = 15; $('crash-note').hidden = true;
   for (const id of ['title', 'end', 'levelup', 'pause', 'shop', 'savecode']) $(id).hidden = true;
   $('hud').hidden = false; blinkRestore();
@@ -10323,6 +10350,17 @@ aimLabel();
 // 神魔技按钮：按下就放（不触发摇杆）
 $('btn-smj').addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); if (S && !S.over && S.smj) S.smjReq = true; });
 $('btn-smj').addEventListener('contextmenu', e => e.preventDefault());
+// 选择栏的「收起 / 展开」：和选项卡一样，触屏在手指抬起时生效（一根手指按着摇杆时另一根点，浏览器常常不发 click）
+// 触屏抬起时已经切过了，紧跟着来的 click 不再切一次；切完把焦点拿掉，免得之后按空格闪现又把它按了
+{
+  const b = $('lu-hide');
+  let touchAt = -1e9;
+  const flip = () => { foldChoices(!$('levelup').classList.contains('folded')); b.blur(); };
+  b.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') b.dataset.pid = e.pointerId; });
+  b.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse' && b.dataset.pid === String(e.pointerId)) { delete b.dataset.pid; touchAt = performance.now(); flip(); } });
+  b.addEventListener('pointercancel', () => { delete b.dataset.pid; });
+  b.addEventListener('click', () => { if (performance.now() - touchAt > 600) flip(); });
+}
 var blinkRestore = () => {}; // 开局时再放一次位置（页面刚打开时窗口大小可能还没就绪）
 {
   const bb = $('btn-blink'), POS_KEY = 'buyi-blink-pos', HOLD = 0.45;
@@ -11191,6 +11229,10 @@ function drawEnemies() {
       const a = S.t * 6;
       ctx.beginPath(); ctx.ellipse(e.x, top - 3, 9, 3.5, 0, a, a + 4.5); ctx.stroke();
     }
+    // 小兵血条：挨过打、还没死的才显示，最后一次挨打（flashT）后 2 秒内淡出。一下就打死的、没挨打的都不画：
+    // 前期几乎看不到，后期也只有正在磨的那些有，不会几百个兵头上全挂着（随从是蓝色，敌人用红色）
+    const hitAgo = S.t - (e.flashT || -9);
+    if (hitAgo < 2 && e.maxHp && e.hp < e.maxHp) { ctx.globalAlpha = Math.min(1, (2 - hitAgo) / 0.5); headBar(e.x, top - 6, 24, e.hp / e.maxHp, '#d8483a'); ctx.globalAlpha = 1; }
   }
   for (const e of S.bossList) {
     const g = e.def, h = e.r * 2.6;
@@ -11245,14 +11287,18 @@ function drawEnemies() {
     const top = drawUnit(spr, e.x, e.y, e.r, fx, walkBob(e.id, moving) * 1.6 + (e.leapH || 0));
     e.topY = top;
     drawShieldAura(e, e.y + e.r * 0.6 - top);
+    // 头顶小血条（名字下面）：顶部大血条只显示最后出场的那位，几位武将同场时（刘备 + 魔吕布魅貂蝉、华佗 + 别的名将）每位都看得到自己还剩多少；
+    // 有护盾时上面再贴一条细的浅蓝护盾条（和精英一样），盾回满了一眼看得出来
+    headBar(e.x, top - 8, 72, Math.min(1, e.hp / e.maxHp), '#d8483a');
+    if (e.shieldMax) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(e.x - 36, top - 12, 72, 3); ctx.fillStyle = '#a9c8ff'; ctx.fillRect(e.x - 36, top - 12, 72 * clamp(e.shield / e.shieldMax, 0, 1), 3); }
     ctx.font = `20px ${DISPLAY}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
     ctx.lineWidth = 4; ctx.strokeStyle = '#15120d'; ctx.fillStyle = '#ebe0c5';
-    ctx.strokeText(g.name, e.x, top - 6); ctx.fillText(g.name, e.x, top - 6);
+    ctx.strokeText(g.name, e.x, top - 15); ctx.fillText(g.name, e.x, top - 15);
     if (g.shen) { // 神赵云：头顶亮着现在是哪一色龙魂（发光的小珠子，绝境复生后四色一起亮）
       const list = e.juejing ? [] : e.revived ? SUITS : [SUITS[e.suitIdx]];
       ctx.font = `14px ${DISPLAY}`; ctx.textBaseline = 'middle';
       list.forEach((s, i) => {
-        const x = e.x + (i - (list.length - 1) / 2) * 24, y = top - 34, su = SUIT[s];
+        const x = e.x + (i - (list.length - 1) / 2) * 24, y = top - 43, su = SUIT[s]; // 名字和小血条上面
         ctx.globalCompositeOperation = 'lighter'; FX.glow(ctx, x, y, 22, su.rgb, 0.55 + 0.15 * Math.sin(S.t * 5 + i)); ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = 'rgba(16,14,20,.85)'; ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.fill();
         ctx.lineWidth = 2; ctx.strokeStyle = su.col; ctx.stroke();
@@ -12015,7 +12061,7 @@ const DEBUG_API = {
   skipTo(t) { if (S) S.t = t; },
   boss(id, final) { if (S) spawnBoss(id, final); },
   chapter(i) { if (S) { S.ch = i - 1; S.endless = false; nextChapter(); } }, // 跳到第 i 章（0 起）
-  shenbing(gid) { if (S) { applyChoice({ kind: 'shenbing', id: gid }); } }, // 直接拿到一件神兵（测试用）
+  shenbing(gid) { if (S) { gainChoice({ kind: 'shenbing', id: gid }); } }, // 直接拿到一件神兵（测试用）
   xp(v) { if (S) addXp(v); },
   god(on = true) { if (S) S.god = on; },
   rebuildAudio() { rebuildAudio(); }, // 调试：模拟切后台回来重建音频
