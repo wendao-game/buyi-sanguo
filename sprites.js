@@ -516,6 +516,18 @@ window.Sprites = (() => {
         g.fillStyle = '#1a0204'; g.beginPath(); g.ellipse(60, 60, 1.3, 4, 0, 0, Math.PI * 2); g.fill();
         for (const x of [24, 96]) { line(g, x, 100, x, 26, '#2a1a12', 2); shape(g, '#a81818', s => { s.moveTo(x + 1, 27); s.lineTo(x + 16, 30); s.lineTo(x + 12, 36); s.lineTo(x + 16, 42); s.lineTo(x + 1, 41); s.closePath(); }, 1); } // 血红大旗
         break;
+      case 'luoshuiyuan': // 洛水魔渊：一汪黑水，岸边乱石，一条黑鳞水蛇从水里探出 S 形的身子，岸上插两面暗紫幡
+        g.fillStyle = 'rgba(80,200,170,.14)'; g.beginPath(); g.ellipse(60, 70, 56, 38, 0, 0, Math.PI * 2); g.fill();
+        shape(g, '#0c1a1c', s => s.ellipse(60, 82, 44, 20, 0, 0, Math.PI * 2), 1.4);                                                   // 黑水
+        g.strokeStyle = 'rgba(120,220,190,.5)'; g.lineWidth = 1.2;
+        for (const r of [14, 26, 36]) { g.beginPath(); g.ellipse(60, 82, r, r * 0.45, 0, 0, Math.PI * 2); g.stroke(); }                 // 水纹
+        for (const [x, y, s] of [[18, 88, 9], [100, 86, 10], [30, 98, 7], [92, 98, 8], [14, 76, 6]]) shape(g, '#4a5258', q => q.ellipse(x, y, s, s * 0.7, 0, 0, Math.PI * 2), 1); // 乱石
+        g.lineCap = 'round';
+        for (const [c, w] of [['#0e2a26', 10], ['#2a6a5a', 4]]) { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(52, 84); g.bezierCurveTo(40, 64, 74, 56, 62, 36); g.stroke(); } // 水蛇的身子
+        shape(g, '#0e2a26', s => s.ellipse(63, 32, 9, 6, -0.3, 0, Math.PI * 2), 1);                                                    // 蛇头
+        g.fillStyle = '#7ae0c0'; g.beginPath(); g.arc(66, 30, 1.6, 0, Math.PI * 2); g.fill();                                             // 蛇眼
+        for (const x of [22, 98]) { line(g, x, 96, x, 30, '#2a2030', 2); shape(g, '#4a2a5a', s => { s.moveTo(x + 1, 31); s.lineTo(x + 15, 34); s.lineTo(x + 11, 40); s.lineTo(x + 15, 46); s.lineTo(x + 1, 45); s.closePath(); }, 1); } // 暗紫幡
+        break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
         wallBlock(g, 34, 52, 52, 36, '#a8322a');
