@@ -42,7 +42,8 @@ window.GAME_DATA = {
   sonicCap: { area: 1.3, cd: 1.6, areaDmg: 0.5 }, // 玩家反馈后期音波圈太多太亮：半径最多 1.3 倍、两轮至少隔 1.6 秒
   // 冷却上限：武器、技能最快到满级冷却的 minCd 倍（原来兵书 × 孙子兵法 × 突破能压到 14%，一秒放好几轮，满屏光污染）；
   // 超出上限的那部分按比例折算成伤害，总伤害基本不变。神兵同样最快到自身冷却的 minCd 倍
-  cdCap: { minCd: 0.4 },
+  // scholar：书生的技能和带「计策」的兵器放宽到满级冷却的 0.3 倍（2026-11-14，玩家反馈兵书一满孙子兵法就看不出用处）
+  cdCap: { minCd: 0.4, scholar: 0.3 },
 
   // 升级所需经验：前期很快，越往后越慢（指数增长，到 capLv 级后改为每级固定多加 latePerLv）
   // = base + (等级-1)×perLv + expA×(expG^(等级-1) - 1)
@@ -521,6 +522,18 @@ window.GAME_DATA = {
         { dmg: 23, cd: 0.5, range: 112, angle: 120, kb: 100, seven: 7, sevenK: 2.2, note: '伤害 +4，第七刀更狠' },
         { dmg: 27, cd: 0.5, range: 116, angle: 125, kb: 105, seven: 7, sevenK: 2.2, note: '伤害 +4，范围扩大' },
         { dmg: 34, cd: 0.5, range: 124, angle: 135, kb: 115, seven: 7, sevenK: 2.5, note: '伤害 +7：第七刀伤害 ×2.5' },
+      ],
+    },
+    // 麒麟枪（姜维，2026-11-14）：直刺（同丈八蛇矛的走法），出手间隔不随等级变；每第 nine 次出手，正中那一枪换成大刺：长 ×nineLen、宽 ×nineW、伤害 ×nineK，枪芒青金色
+    qilinqiang: {
+      name: '麒麟枪', icon: '麟', type: 'thrust', general: '姜维', rgb: '160,235,205',
+      desc: '姜维的麒麟纹长枪。朝最近的敌人连刺，每第九次出手是一记又长又粗的大刺，一条线上的敌人全部贯穿。',
+      levels: [
+        { dmg: 26, cd: 0.55, len: 220, width: 30, count: 1, kb: 120, nine: 9, nineK: 3, nineLen: 1.8, nineW: 1.8 },
+        { dmg: 32, cd: 0.55, len: 230, width: 30, count: 1, kb: 125, nine: 9, nineK: 3, nineLen: 1.8, nineW: 1.8, note: '伤害 +6，刺得更远' },
+        { dmg: 36, cd: 0.55, len: 240, width: 32, count: 2, kb: 130, nine: 9, nineK: 3, nineLen: 1.8, nineW: 1.8, note: '一次刺两枪' },
+        { dmg: 44, cd: 0.55, len: 255, width: 34, count: 2, kb: 140, nine: 9, nineK: 3.5, nineLen: 2, nineW: 2, note: '伤害 +8，大刺更狠' },
+        { dmg: 54, cd: 0.55, len: 275, width: 36, count: 3, kb: 160, nine: 9, nineK: 4, nineLen: 2.2, nineW: 2.2, note: '一次刺三枪：九伐中原，大刺伤害 ×4' },
       ],
     },
     guding: {
@@ -1144,6 +1157,32 @@ window.GAME_DATA = {
         { cd: 7, dmg: 88, radius: 156, len: 560, boom: 2, note: '二虎相争：相撞时伤害 ×2' },
       ],
     },
+    // 铁笼（姜维，2026-11-14）：每 cd 秒罩住 range 以内最强的 n 个敌人（名将 > 精英 > 血最厚的），罩 dur 秒：笼子半径 cageR，它走不出笼子、受到的伤害 +vuln；
+    //   铁栏每 tick 秒扎笼里的敌人一下（dmg）。名将只罩 bossK 那么久。冷却不随等级变（新掉落不碰冷却）
+    tielong: {
+      name: '铁笼', icon: '笼', type: 'cageTrap', general: '姜维', tags: ['spell'],
+      desc: '铁笼山困住司马昭的那座铁笼。定时罩住附近最强的敌人：它走不出笼子，受到的伤害 +20%，还不断被铁栏扎伤。',
+      levels: [
+        { cd: 8, n: 1, range: 420, cageR: 80, dur: 4, vuln: 0.2, dmg: 14, tick: 0.5, bossK: 0.6 },
+        { cd: 8, n: 1, range: 430, cageR: 84, dur: 4.5, vuln: 0.2, dmg: 18, tick: 0.5, bossK: 0.6, note: '罩得更久，扎得更狠' },
+        { cd: 8, n: 2, range: 440, cageR: 86, dur: 4.5, vuln: 0.2, dmg: 21, tick: 0.5, bossK: 0.6, note: '一次罩两个' },
+        { cd: 8, n: 2, range: 460, cageR: 90, dur: 5, vuln: 0.25, dmg: 26, tick: 0.5, bossK: 0.6, note: '受伤 +25%，罩得更久' },
+        { cd: 8, n: 3, range: 480, cageR: 96, dur: 5.5, vuln: 0.3, dmg: 32, tick: 0.5, bossK: 0.6, note: '铁笼山：一次罩三个，受伤 +30%' },
+      ],
+    },
+    // 拔矢还射（魔夏侯惇，2026-11-14）：每 cd 秒朝身边 range 以内的 count 个敌人各掷一支血箭（没那么多敌人就随便掷），箭插在敌人身后 past 处；
+    //   wait 秒后所有箭一起沿直线飞回你手里（宽 w），一路上的敌人都挨 dmg。冷却不随等级变
+    bashi: {
+      name: '拔矢还射', icon: '矢', type: 'arrowBack', general: '魔夏侯惇', tags: ['spell'],
+      desc: '拔下眼中的箭掷向四周的敌人，箭插在地上片刻，再一起沿直线飞回手中，来回两趟一路上的敌人都被射穿。',
+      levels: [
+        { cd: 3.5, count: 4, range: 380, past: 90, wait: 0.5, w: 34, dmg: 30 },
+        { cd: 3.5, count: 5, range: 390, past: 90, wait: 0.5, w: 34, dmg: 36, note: '多掷一支' },
+        { cd: 3.5, count: 6, range: 400, past: 100, wait: 0.5, w: 38, dmg: 42, note: '多掷一支，箭更粗' },
+        { cd: 3.5, count: 7, range: 420, past: 110, wait: 0.45, w: 40, dmg: 50, note: '多掷一支，伤害 +8' },
+        { cd: 3.5, count: 9, range: 450, past: 120, wait: 0.45, w: 44, dmg: 62, note: '拔矢啖睛：一次九支，伤害 +12' },
+      ],
+    },
   },
 
   // 物品（被动）：每级效果叠加；unique 物品只能从武将处获得；origin 物品只有这个出身能刷到
@@ -1242,6 +1281,12 @@ window.GAME_DATA = {
     manwang: { name: '南蛮王', icon: '蛮', max: 1, unique: true, general: '孟获', desc: '七擒七纵也不服的蛮王之躯：生命上限 +120，护甲 +3，每秒回复 +1', effects: { maxHp: 120, armor: 3, regen: 1 } },
     sigong: { name: '四世三公', icon: '袁', max: 1, unique: true, general: '袁绍', desc: '“袁氏树恩四世，门生故吏遍于天下”：金币 +12%，随从伤害 +15%', effects: { goldMul: 0.12, allyDmg: 0.15 } },
     wangzuo: { name: '王佐之才', icon: '佐', max: 1, unique: true, general: '荀彧', desc: '“吾之子房也”：技能和带「计策」的兵器伤害 +20%，随从伤害 +10%', effects: { spellDmg: 0.2, allyDmg: 0.1 } },
+    // 胆大如卵（姜维，2026-11-14）：一下挨的伤害超过生命上限 big.at，超出的部分只吃 big.keep（原定「身边敌人越多越痛」，和魔董卓的暴政魔印重了，改成这个）
+    danda: { name: '胆大如卵', icon: '胆', max: 1, unique: true, general: '姜维', desc: '剖腹见胆，胆大如卵：生命上限 +50，伤害 +8%；一下挨的伤害超过生命上限 15% 时，超出的部分减半', effects: { maxHp: 50, dmgMul: 0.08 }, big: { at: 0.15, keep: 0.5 } },
+    // 血瞳（魔夏侯惇）：你面朝方向（走动的方向）两侧各 gaze.half 弧度以内的敌人，受到的伤害 +gaze.dmg
+    xuetong: { name: '血瞳', icon: '瞳', max: 1, unique: true, general: '魔夏侯惇', desc: '左眼化作一只血瞳：你面朝方向扇面里的敌人受到的伤害 +15%；暴击率 +5%', effects: { crit: 0.05 }, gaze: { half: 0.6, dmg: 0.15 } },
+    // 刚烈魔印（魔夏侯惇）：每挨一下叠一层（最多 stack.max 层），每层伤害 +stack.per，stack.dur 秒没挨打就清零；受到的伤害 +hurt（同其他魔印）
+    ganglieyin: { name: '刚烈魔印', icon: '烈', max: 1, unique: true, general: '魔夏侯惇', desc: '魔夏侯惇的血印：每挨一下伤害 +6%（最多 5 层，3 秒没挨打清零）；但受到的伤害 +10%', effects: {}, hurt: 0.1, stack: { per: 0.06, max: 5, dur: 3 } },
   },
 
   // 属性：冰火雷风。升级时有几率刷到（Lv 3 起），每种最高 5 级，四种都能学。
@@ -1515,6 +1560,15 @@ window.GAME_DATA = {
     // 袁绍「土山高橹」的高橹、「屯粮乌巢」的粮囤（2026-11-12）：血量放出来时按袁绍的最大血量重设；不算杀敌、不掉东西
     tushan: { name: '高橹', icon: '橹', hp: 300, r: 28, xp: 0, special: true, gaolu: true, desc: '土山高橹 · 拆掉它' },
     wuchao: { name: '乌巢粮囤', icon: '巢', hp: 300, r: 44, xp: 0, special: true, grain: true, desc: '乌巢 · 烧掉粮囤' },
+    // 血瞳营（2026-11-14）：玩家 120 级时西北升起（离别的神魔关隘太近会换方向）；走近了营中冷箭如雨（rocks 同郿坞，血红色）
+    // 攻破后魔夏侯惇现身（moxia），被击败 again 秒后再起，每多一轮血量 +roundHp、伤害 +roundDmg
+    xuetongying: { name: '血瞳营', icon: '瞳', seal: '营门紧闭', hp: 12500, r: 66, xp: 92, special: true, noSeal: true, aggroR: 620, unlockLv: 120, again: 480, roundHp: 0.5, roundDmg: 0.25,
+      wake: ['血瞳营 · 盲将', '营门上那只血红的独眼睁开了，冷箭如雨……'], reward: { type: 'moxia', gid: 'moxiahoudun', msg: '营门崩开……魔夏侯惇拔矢啖睛，杀了出来！' },
+      rocks: { every: 1.5, count: 4, r: 72, delay: 0.9, spread: 170, dmg: 40, rgb: '235,50,50' }, spawn: { type: 'cavalry', every: 4, max: 6 },
+      desc: '血瞳营 · 营门上悬着一只血红的独眼……' },
+    // 姜维「铁笼山」笼子上那根锈红的栏杆（打断它笼子就开个口子）；魔夏侯惇「啖睛化魔」飞出来的血瞳（打碎它他就倒下）。血量放出来时按名将的最大血量重设；不算杀敌、不掉东西
+    tielan: { name: '锈栏', icon: '栏', hp: 300, r: 24, xp: 0, special: true, cageBar: true, desc: '铁笼 · 打断锈栏开个口子' },
+    xuetongyan: { name: '血瞳', icon: '瞳', hp: 300, r: 28, xp: 0, special: true, bloodEye: true, desc: '啖睛化魔 · 打碎血瞳' },
   },
 
   // 神祠祝福：随机给一项，可以叠加
@@ -2079,6 +2133,29 @@ window.GAME_DATA = {
       banner: '汉中 · 镇北将军 魏文长', line: '“丞相不用我的子午谷之计——那便由我自己来取！”', rage: '“谁敢杀我！”',
       look: { skin: '#b85a48', skinShade: '#8e3e30', robe: '#5a1e1a', trim: '#c9a046', armor: true, armorColor: '#4a2a26', beard: 'short', beardColor: '#1a1210', eyes: 'fierce', brows: 'sharp', head: 'helmet', headColor: '#4a2a26', plume: '#c83a2a', weapon: 'guandao', aura: '#e0704a' },
     },
+    // —— 姜维：姜伯约，第六章魏延之后、孟获之前登场（2026-11-14 加。228 年天水降蜀，诸葛亮称他「凉州上士」；后来九伐中原、铁笼山困司马昭、剑阁拒钟会）。蜀将，无属性。
+    //   幼麟：银白甲配蜀绿袍、麒麟纹长枪；平时突刺冲锋、横扫、召蜀军弩手。大招见 game.js 的「姜维 · 幼麟」 ——
+    jiangwei: {
+      name: '姜维', title: '幼麟 · 姜伯约', icon: '维', hp: 12500, speed: 108, dmg: 28, r: 32, color: '#2a4a3a',
+      attacks: ['charge', 'cleave', 'summon', 'charge', 'cleave'], interval: 2.3, cleaveR: 220, cleaveHalf: 1.0, chargeSpeed: 820, summon: 4, summonType: 'archer',
+      rewards: ['qilinqiang', 'tielong', 'danda'],
+      ultRgb: '160,235,205', ultEvery: 10,
+      ults: [
+        // （尺寸叫 laneW、dashL、over、beamW、beamL、cageR、shotR、standOff、wallOff、behind、gateW、gateShift、pikeD，不叫 R / r / w / len / range / radius / delay：名将强化会把那几个放大）
+        // 九伐中原：朝你连冲 count - 1 次：每次先亮一道枪线（宽 laneW，先亮 tele0 秒，之后每次少 teleStep、最少 teleMin），冲过你再冲 over 远（最长 dashL），
+        //   第一次每秒 sp0，之后每次快 spStep，每次隔 gap 秒；二、四、六、八伐冲你要去的地方（按你的走向往前算，最多 lead 远）；第 count 下站定，朝你刺出一道贯穿全屏的大枪芒（宽 beamW、长 beamL，先亮 beamTele 秒，伤害 beam 倍）
+        { id: 'jiufa', name: '九伐中原', type: 'nineDash', count: 9, laneW: 90, dashL: 760, over: 240, lead: 260, tele0: 0.75, teleStep: 0.06, teleMin: 0.32, sp0: 1100, spStep: 80, gap: 0.12, beamW: 150, beamL: 2400, beamTele: 1.0, beam: 1.6, dmg: 1.0 },
+        // 铁笼山：你脚下落一圈铁笼（半径 cageR，bars 根栏杆），走不出去（闪现也出不去）；其中一根是锈栏（血是他最大血量的 barHp），打断它就开个口子（半角 gapHalf）；
+        //   每 shot 秒笼外 archers 个方向（离笼心 shotR）各射来一支弩箭（每秒 arrowSp）；dur 秒后笼子散掉。他退到离笼心 standOff 处督阵
+        { id: 'tielong', name: '铁笼山', type: 'ironCage', cageR: 230, bars: 20, barHp: 0.012, gapHalf: 0.42, dur: 8, shot: 1.0, archers: 4, shotR: 520, arrowSp: 520, standOff: 460, dmg: 0.7 },
+        // 剑阁天险（血过半）：他退到你前方 wallOff + behind 处，你们之间横起一道关墙（看作无限长，闪现也翻不过），只有一道关门（宽 gateW，离你正前方最多偏 gateShift）；
+        //   每 shot 秒墙头朝你射一排 volleyN 支弩箭（沿墙每隔 volleyGap 一支，每秒 arrowSp）；关门里每 pikeEvery 秒拒马枪阵往外刺一下（先亮 pikeTele 秒，
+        //   门两边各 pikeD 深都挨打，伤害 pike 倍，把你推回墙这边）；你在墙这边打他伤害 -outside；dur 秒后关墙塌了
+        { id: 'jiange', name: '剑阁天险', type: 'passWall', hpBelow: 0.5, wallOff: 210, behind: 230, gateW: 150, gateShift: 260, dur: 10, shot: 1.3, volleyN: 7, volleyGap: 90, arrowSp: 560, pikeEvery: 1.7, pikeTele: 0.6, pikeD: 70, pike: 1.3, outside: 0.6, dmg: 0.8 },
+      ],
+      banner: '天水 · 幼麟 姜伯约', line: '“丞相以国士待我——维当以此枪相报！”', rage: '“九伐中原，至死方休！”',
+      look: { skin: '#efd2ae', skinShade: '#cfae88', robe: '#2f6a4a', trim: '#e8ecef', armor: true, armorColor: '#c8d0d8', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#d8dee4', plume: '#3a8a5a', weapon: 'spear', aura: '#a0ecd0', artFace: [0.47, 0.29, 0.3] },
+    },
     // —— 陆逊：陆伯言，第六章的第一位名将（222 年夷陵之战：火烧连营七百里）。吴将，书生拜大都督，火属性。
     //   白袍青甲、手执羽扇；平时离你远远地射一扇火箭、落几团火，隔一阵召一队弓手。大招见 game.js 的「陆逊 · 火烧连营」 ——
     luxun: {
@@ -2248,6 +2325,26 @@ window.GAME_DATA = {
       banner: '郿坞 · 炼狱魔王 董卓', line: '“天下之事，岂不在我！炼狱亦然！”', rage: '“竖子敢尔！”',
       look: { skin: '#c99478', skinShade: '#98684e', robe: '#140a0e', trim: '#d04030', armor: true, armorColor: '#2a0a12', beard: 'tiger', beardColor: '#1a0a0a', eyes: 'round', brows: 'bushy', head: 'helmet', headColor: '#120a0e', plume: '#d02030', weapon: 'dao', aura: '#a01020', artFace: [0.54, 0.34, 0.36] },
     },
+    // —— 魔夏侯惇：120 级后西北方的血瞳营放出（魔将，2026-11-14 加；封神线上排在魔吕布魔貂蝉之后、魔董卓之前）。玄黑铁甲配血红，左眼眶里一颗燃着的血瞳。
+    //   平时劈砍、冲锋、召铁骑。血瞳凝视（下面的 xuetong.gaze）：面前一道红色视线扇面，站在里面「瞳印」会涨，涨满他闪过来砍一刀「血眼斩」；
+    //   第一次打空血「啖睛化魔」见 xuetong.tunjing。规则见 game.js 的「血瞳营：魔夏侯惇」 ——
+    moxiahoudun: {
+      name: '魔夏侯惇', title: '血瞳魔将 · 夏侯元让', icon: '魔', hp: 36000, speed: 96, dmg: 32, r: 38, color: '#2a0a0e', camp: 'mo', xuetong: true,
+      attacks: ['cleave', 'charge', 'cleave', 'summon'], interval: 2.4, cleaveR: 230, cleaveHalf: 1.05, chargeSpeed: 760, summon: 5, summonType: 'cavalry',
+      rewards: ['bashi', 'xuetong', 'ganglieyin'],
+      ultRgb: '235,50,50', ultEvery: 11,
+      ults: [
+        // （尺寸叫 ringIn、ringOut、laneW、lit、standR、over，不叫 R / r / w / len：名将强化会把那几个放大）
+        // 拔矢还射：你身边（离你 ringIn 到 ringOut）插下 n 支血箭，每支和他之间亮一道线（宽 laneW），tele 秒后一起沿线飞回他身上（每秒 arrowSp）；
+        //   线和线之间是空当。一共 rounds 轮（暴怒多一轮），每轮隔 gap 秒，每轮插在你那时的位置
+        { id: 'bashi', name: '拔矢还射', type: 'arrowReturn', rounds: 3, n: 9, ringIn: 110, ringOut: 340, tele: 1.1, arrowSp: 1500, laneW: 40, gap: 0.45, dmg: 1.1, pct: 0.1 },
+        // 盲斗：天地变暗（不是全黑），只剩你身边 lit 半径是亮的；他隐进黑暗，count 次从离你 standR 远的地方扑过来：
+        //   每次先闪一下血瞳、亮一道细线 eyeTele 秒，然后沿线扑过你再冲 over 远（宽 laneW，每秒 lungeSp），每次隔 gap 秒
+        { id: 'mangdou', name: '盲斗', type: 'blindFight', lit: 280, count: 4, standR: 520, eyeTele: 0.8, lungeSp: 1600, laneW: 110, over: 260, gap: 0.45, dmg: 1.3, pct: 0.14 },
+      ],
+      banner: '血瞳营 · 魔夏侯惇', line: '“盲夏侯？哼——这只眼，看得见你的死期！”', rage: '“血瞳已开，你逃不出我的视线！”',
+      look: { skin: '#c8a080', skinShade: '#98704e', robe: '#160a0e', trim: '#d02a2a', armor: true, armorColor: '#1e1418', beard: 'short', beardColor: '#0e0808', eyes: 'fierce', brows: 'bushy', head: 'helmet', headColor: '#140c10', plume: '#c01818', weapon: 'dao', aura: '#c01020', scar: true, artFace: [0.55, 0.285, 0.3] },
+    },
     // —— 神诸葛：160 级后正西方的鱼腹浦八阵放出。深靛配月白、金色点缀。八门金锁（找生门）、七星灯续命一次，规则见 wolong ——
     shenzhuge: {
       name: '神诸葛', title: '星罗八阵 · 卧龙孔明', icon: '卧', hp: 46000, speed: 95, dmg: 34, r: 34, color: '#2a3460', wolong: true, camp: 'shen',
@@ -2381,6 +2478,18 @@ window.GAME_DATA = {
   // 魏延的规则 · 脑后反骨：他有朝向，平时每秒最多转 turn 弧度对着你（冲锋时朝冲的方向，收招、「谁敢杀我」时不转）；
   //   你站在他背后（背向两侧各 half 弧度以内）打，伤害 +back
   weiyan: { fangu: { back: 0.5, half: 1.1, turn: 1.4 } },
+  // 魔夏侯惇的规则（2026-11-14）
+  //   血瞳凝视：他有朝向（平时每秒最多转 turn 弧度对着你，比你绕圈慢），面前一道看得见的红色视线扇面（半径 gazeR、半角 half）；
+  //     你站在扇面里，「瞳印」每秒涨 1 / fill，出了扇面每秒退 1 / ebb；涨满了他闪到你身边（先在你脚下亮 tele 秒）砍一刀「血眼斩」（半径 cutR、dmg 倍），之后 cd 秒不涨。他放大招时不看
+  //   啖睛化魔：第一次打空血不死，吞下血瞳（打不到）；血瞳飞出来，离你远了就飞过来（每秒 eyeSpeed），停在你 hover 远处（在 near 外面）；
+  //     你走近它就往后退（还带点绕圈），退的速度是你移速的 flee 倍，追得上但要追一阵；每 beamEvery 秒朝你射一道血光（先亮 beamTele 秒，长 beamLen、宽 beamW、beam 倍）；
+  //     血瞳的血是他最大血量的 eyeHp，走到 near 以内才打得动、一秒最多掉自己血量的 cap（同锦囊护体）；time 秒内打碎，他直接倒下；
+  //     （11-15 用户：血瞳太弱一下就打掉了——原来停在你 200 远、正好在 near 里，不用走就能打，cap 0.4 两秒多就碎；改成躲着你、cap 0.2、时间 10 → 12）
+  //     没打碎就带 revive 的血复生（封神「禁疗」打折，时间也短），之后视线扇面半角 ×wide、出手间隔 ×fast
+  xuetong: {
+    gaze: { gazeR: 520, half: 0.36, turn: 0.35, fill: 1.2, ebb: 0.6, tele: 0.55, cutR: 150, dmg: 1.4, cd: 2.5 },
+    tunjing: { time: 12, eyeHp: 0.04, eyeSpeed: 170, hover: 380, flee: 0.6, beamEvery: 1.6, beamTele: 0.7, beamLen: 900, beamW: 60, beam: 1.0, near: 240, cap: 0.2, revive: 0.4, wide: 1.5, fast: 0.8 },
+  },
   // 神郭嘉的规则
   //   天妒英才：每秒自己掉 drain 最大血量（被擒、化鬼时不掉）；血越少出招越快——出招和大招的计时快到最多 fastMax 倍（满血 1 倍，空血 fastMax 倍）
   //   遗计定辽东：第一次打空血不死，化作鬼魂（打不到）；你身边 ringR 处留下 bags 个锦囊（每个的血是他最大血量的 bagHp），time 秒内打碎；
@@ -2447,7 +2556,9 @@ window.GAME_DATA = {
     yuanshao: { death: '悔不听田丰之言……', ult: { xiandeng: '先登死士，弩箭齐发！', gaolu: '筑土山，立高橹——射！', wuchao: '乌巢屯粮在此，看你如何破我！' } },
     xunyu: { death: '空食盒……文若……明白了……', ult: { quhu: '驱虎吞狼——去吧。', erhu: '二虎竞食，必有一伤。', juzhong: '居中持重，以待天时。' } },
     weiyan: { death: '背后……是谁……', ult: { ziwu: '子午谷——直取长安！', tideng: '什么七星灯——给我灭！', shuigan: '谁敢杀我！谁敢杀我！' } },
+    jiangwei: { death: '吾计不成……乃天命也……', ult: { jiufa: '九伐中原——丞相，看着！', tielong: '铁笼山中，插翅难飞！', jiange: '剑阁一夫当关——你过不去！' } },
     menghuo: { death: '丞相天威……南人……不复反矣……', ult: { xiangbing: '象兵——给我踏平他！', duquan: '南中四泉，喝一口就别想走！', nanman: '藤甲在身，刀枪不入！' }, capture: '不服！放我回去，再战一场！' },
+    moxiahoudun: { death: '这只眼……终究……还给天了……', ult: { bashi: '箭来——箭回！', mangdou: '黑暗里，我看得比你清楚！', tunjing: '父精母血——吞了它，化作魔！' } },
     modongzhuo: { death: '奉先……奉先何在……', ult: { fenshao: '烧！给我烧个干净！', suolian: '天子的锁链，谁也挣不脱！', jiuchi: '酒池肉林，与孤同醉！', mowang: '魔王临世，天下皆奴！' } },
     shenzhuge: { death: '悠悠苍天，曷此其极……', ult: { bamen: '八门已闭，生门只有一扇。', bamen2: '八阵随天转，生门亦无常。', tianfu: '八阵随天转，生门亦无常。', guanxing: '夜观天象，星落如雨。', kongcheng: '城门大开，请君入城。', rangxing: '七星灯明，吾命未绝！', pozhen: '好！竟能识破生门……' } },
     caocao: { death: '大业未竟……孤……不甘……', ult: { duange: '对酒当歌，人生几何！', hengshuo: '横槊赋诗，固一世之雄也！', mengzhong: '吾好梦中杀人……', mengzhong_wake: '谁！' } },
@@ -2528,9 +2639,11 @@ window.GAME_DATA = {
       shencaocao: { note: '175 级时在东南方的铜雀台里。奸雄：血每掉一成，他受到的伤害就少 4%、打人更痛，最多叠八层。下诏令时天子在侧，他受到的伤害减半。说曹操曹操到：你每次闪现落地，他会瞬移过来横扫一刀。第一次打空血「割发代首」不会死，曹兵从四面赶来护驾，每走到他身边一个就回一截血——要在半路砍掉。', ults: { zhaoling: '天上落下传国玉玺，连下三道诏令：近前（待在他身边的圈里）、退避（待在圈外）、止步（不许动）、疾行（不许停）。照做没事，抗旨不停掉血。', hubao: '六骑虎豹骑从你背后的两翼包抄冲过来，先亮红线。', canghai: '血量七成以下：四周变成夜海，海潮往里涨，能站的岸越来越小，海里走不快、不停掉血；一轮红日、一轮明月轮流朝你砸下来。', weicai: '血量四成半以下：张辽、夏侯惇、典韦、郭嘉、司马懿的将魂围着你依次出招——直线突骑、一箭、落石、落雷、扇形的鹰视，一招接一招。' } },
       yuanshao: { note: '第三章「群雄逐鹿」里河北铁骑之后、关羽之前登场。优柔寡断：每次放大招前先犹豫一下（头顶冒「……」），这时打掉他一截血，他就举棋不定、愣在原地，这一招也作废。', ults: { xiandeng: '在你和他之间列出一排先登弩手，连射三轮平行弩箭，每轮留一两道空当，先亮预警。', gaolu: '你四周升起四座高橹，一齐朝你放箭，一阵子后自己倒塌；高橹打得掉。', wuchao: '血过半后远处立起乌巢粮囤（画面边上有箭头）：粮囤在时他慢慢回血、身边不断来大戟士；打掉粮囤就乌巢火起，他晕住一阵、受到的伤害增加，大戟士溃散。不去打的话，粮囤过一阵自己撤走。' } },
       xunyu: { note: '第五章「三分天下」里张辽之后、曹操之前登场。留香：他走过的地方留下淡紫色香雾，雾里的敌人受到的伤害减少。', ults: { quhu: '放一头猛虎追你一阵；猛虎撞上别的敌人会停下撕咬，往敌群里跑能甩开它。', erhu: '你脚下放一块肉，左右两头猛虎一起扑向那块肉；两虎撞在一起会互咬，他也跟着掉血；还站在肉旁边就会被两只一起扑。暴怒时连放两轮。', juzhong: '血过半后退到前方坐镇，筑起一圈城墙，城门轮流开合；在城外打他伤害大减，从开着的城门进去才打得满。' } },
+      jiangwei: { note: '第六章「南征北伐」里魏延之后、孟获之前登场。幼麟：冲得快、枪长，平时会召一队弩手。', ults: { jiufa: '朝你连冲八次，每次先在地上亮一道枪线，一次比一次快；第九下站定，朝你刺出一道贯穿全屏的大枪芒。', tielong: '你脚下落一圈铁笼，走不出去，笼外弩箭往里射；笼上有一根锈红的栏杆，打断它就开个口子，八秒后笼子自己散。', jiange: '血过半后退到一道横贯画面的关墙后面，墙头一排排放箭；只有关门能过去，门里的拒马枪阵会定时刺出。在墙这边打他伤害大减，十秒后关墙倒塌。' } },
       weiyan: { note: '第六章「南征北伐」里陆逊之后登场。脑后反骨：站在他背后打，伤害 +50%——他冲过头、放完招收招时会背对你。', ults: { ziwu: '以你为中心铺开一条山谷，两边石壁走不出去；他从谷口一路冲到谷尾，整条谷道都挨打，躲进石壁上的凹洞才安全。每趟凹洞换位置。', tideng: '你身边按北斗摆出七盏灯，他从勺口到勺柄一盏盏踢翻，每盏炸开一片火油并留火，最后一盏最大。', shuigan: '血过半后横刀立定连喊三声，每声朝正面震出一道气浪；这时从正面打他不掉血，绕到背后打够伤害，马岱会从背后给他一刀。' } },
       menghuo: { note: '第六章「南征北伐」的章末名将，祝融夫人随行。七擒七纵：前六次打空血都不死，被擒走几秒后放回来，一次比一次强，第七次才真倒下。', ults: { xiangbing: '画面一侧亮出几条冲锋道，战象一波波冲过来，每波都有空道，每波换一边。', duquan: '你身边冒出四眼毒泉，慢慢往外漫，踩进去会中毒、走不快。', nanman: '血过半后一圈藤甲兵围上来，刀枪不入，只怕火。' } },
       zhangliao: { ults: { hubei: '领着一队骑兵排成箭头形冲过你，冲过去以后两翼的骑兵在两侧掉头冲回来，中间那条路是空的。', liaolai: '四下变暗，他隐去身形，几次从画面外横冲过你，画面边上会先亮红箭头，最后一次两个方向一起冲。', xiaoyao: '血过半后一圈魏军盾兵把你围住，他在圈里冲进冲出几趟，最后一趟冲向你；冲完盾兵一起往里压。' } },
+      moxiahoudun: { note: '120 级时在西北方的血瞳营里。血瞳凝视：他面前有一道红色视线扇面，站在里面头上的「瞳印」会涨，涨满他闪过来砍一刀；他转身慢，绕出去瞳印就退。', ults: { bashi: '你身边插下一圈血箭，每支和他之间亮一道线，片刻后一起飞回他身上；站在线和线之间的空当里。一共三轮。', mangdou: '天地变暗，只剩你身边一小圈是亮的；他隐进黑暗，血瞳一闪就从暗处扑过来，一共扑四次。', tunjing: '第一次打空血时吞下血瞳，血瞳飞出来放血光，还躲着你；要追到它跟前才打得动。十二秒内打碎他就倒下，打不碎他带着血复生，视线更宽、出手更快。' } },
       modongzhuo: { note: '130 级时在西南方的郿坞里；黑血护盾，回血有上限。', ults: { fenshao: '四面火墙往里推，只留一条安全走廊，每一轮走廊换个地方。', suolian: '锁链从画面外的天上依次射向你，锁中就被拖到他跟前，落点烧起一片火。', jiuchi: '在你身边泼下几个毒酒池，踩进去走不快、掉血；他会泡在池里回血，池心的酒瓮打碎池子就干了。', mowang: '体型变大、从此狂暴，每掉一成血就召一队西凉铁骑冲阵。' } },
       shenzhuge: { note: '八卦护体：你站在他哪个方位，打他的伤害就按那道门打折，生门不打折；第一次打空血会点起七星灯续命。', ults: { bamen: '把你困进八门阵：从生门出去就破阵，他会发愣、受伤更多；走别的门各有惩罚。', guanxing: '北斗七星一颗颗砸向你要走到的地方。', kongcheng: '原地抚琴，琴声把你往外推；走进他身边站够两秒就识破空城，没识破伏兵四起。', tianfu: '以他为中心把地面分成八格，除了生门，其余七格顺时针接连炸开。' } },
     },
@@ -2664,7 +2777,7 @@ window.GAME_DATA = {
     },
     // 第六章（2026-11-07 加）：先夷陵之战的陆逊，再南中的孟获（七擒七纵，祝融夫人随行）作章末名将；打完进无尽
     {
-      id: 'nanzheng', name: '第六章 · 南征北伐', sub: '公元 222–225 年 · 火烧连营七百里，七擒孟获平南中', music: 'chibi', // 还没有本章的配乐：先用赤壁那首（都是火攻）
+      id: 'nanzheng', name: '第六章 · 南征北伐', sub: '公元 222–228 年 · 火烧连营七百里，七擒孟获，北伐收姜维', music: 'chibi', // 还没有本章的配乐：先用赤壁那首（都是火攻）
       clear: '平定南中',
       elites: { captain: 0, brute: 0, crossbow: 0, sorcerer: 0 },
       ground: { bg: '#1c2218', grass: 'rgba(96,140,70,0.45)', blot: 'rgba(20,40,20,0.22)', flag: 'rgba(160,60,40,0.5)' }, // 南中密林：偏绿
@@ -2676,8 +2789,9 @@ window.GAME_DATA = {
         { t: 20, type: 'ambush', enemy: 'archer', count: 16, text: '夷陵伏兵 · 东吴弓手' },
         { t: 40, type: 'boss', id: 'luxun' }, // 222 年夷陵之战：火烧连营七百里
         { t: 75, type: 'boss', id: 'weiyan' }, // 北伐：魏延请兵出子午谷
-        { t: 95, type: 'ambush', enemy: 'shield', count: 30, text: '南中蛮兵' },
-        { t: 110, type: 'boss', id: 'menghuo', final: true }, // 225 年诸葛亮南征：七擒七纵
+        { t: 105, type: 'boss', id: 'jiangwei' }, // 228 年天水：姜维降蜀（2026-11-14 加入，蛮兵、孟获往后挪）
+        { t: 125, type: 'ambush', enemy: 'shield', count: 30, text: '南中蛮兵' },
+        { t: 140, type: 'boss', id: 'menghuo', final: true }, // 225 年诸葛亮南征：七擒七纵
       ],
     },
   ],
@@ -2736,6 +2850,23 @@ window.GAME_DATA = {
       ],
     },
     gold: 2, camp: 1.5,
+    // 修罗魂（2026-11-12，群友：普通地图给新手刷钱，修罗才掉碎片、才有局外升级，大家才会去修罗刷）：只有修罗无尽里斩名将才掉（普通无尽、战役都不掉），
+    //   普通名将每位 general 个，神魔将 camp 个（魔吕布魔貂蝉两人算一次）；存在 META.shurahun，跟着云存档走。
+    //   在武将图鉴里给这位名将掉的兵器、技能（宝物不算）和他的专属神兵升级，最高 max 级，第 n 级的价钱是 cost[n-1]，神兵 ×sbCostK。
+    //   第三版（11-14 群友：每位名将的魂单独算、不通用；升级的在什么地方都生效，只是魂只在修罗掉）：斩谁掉谁的魂（META.souls[名将]），
+    //   在标题页「名将升级」里花这位名将的魂升他掉的兵器、技能（每级伤害 +dmg）、专属神兵（每级 +sbDmg，价钱 ×sbCostK，融合神兵按组员平均级）
+    //   和「破盾」（对这位名将的护盾伤害每级 +po），升了在哪儿都生效。
+    //   （试过「修罗斩」按百分比扣名将血量，用户觉得时间到了就死、太简单，没用）
+    soul: { general: 2, camp: 10 },
+    up: { max: 10, cost: [4, 6, 8, 10, 13, 16, 20, 24, 29, 35], sbCostK: 2, dmg: 0.15, sbDmg: 0.15, po: 0.1 },
+    // 名将升级界面的分页（11-14 用户：按魏蜀吴群雄归类）；带 camp 的神魔将单独一页；新名将记得加进来，没写的普通名将算群雄
+    upsTabs: [
+      { id: 'wei', name: '魏', ids: ['dianwei', 'xiahoudun', 'zhenji', 'guojia', 'zhangliao', 'caocao', 'simayi', 'caiwenji', 'xunyu'] },
+      { id: 'shu', name: '蜀', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'zhugeliang', 'huangzhong', 'pangtong', 'liubei', 'machao', 'weiyan', 'jiangwei'] },
+      { id: 'wu', name: '吴', ids: ['sunshangxiang', 'zhouyu', 'sunquan', 'daqiao', 'xiaoqiao', 'luxun'] },
+      { id: 'qun', name: '群雄', ids: ['chengyuanzhi', 'zhangbao', 'zhangjiao', 'huaxiong', 'lubu', 'diaochan', 'dongzhuo', 'yanliang', 'wenchou', 'yuanshao', 'huatuo', 'menghuo'] },
+      { id: 'camp', name: '神魔', camp: true },
+    ],
   },
 
   // 局外成长：金币跨局保存，在开局界面给三个出身各自购买、升级专属装备，开局就带着。
@@ -2788,26 +2919,28 @@ window.GAME_DATA = {
   },
 
   // 封神 / 入魔：局外成长，专门对付神魔将（generals 里带 camp 的）。封神用魔血、只对魔将生效；入魔用神魂、只对神将生效，两条线词条一样，普通名将不受影响。
+  //   2026-11-14 起每位神魔将单独一级（价格表 cost 每位各走一遍），界面在「名将升级」的神魔页；没单独升过的沿用原来整条线的等级。
   // 魔血、神魂：打赢一轮掉 win 份；一局结束时他们还没倒下，按打掉的血量比例给 0 ~ lose 份；也能用 gold 金币换 1 份（只能金币换货币）。
   // levels：第 n 级解锁的词条，后面写的同名词条覆盖前面的：dmg 对它的伤害加成；shield 打它护盾的伤害倍率；pct 每秒结算一次、额外扣它最大血量的比例（一秒里打一下和打两百下都只算一次）；
   //   hurt 受它的伤害减少；heal 它回血、复生回复的倍率；time 它倒地、复生的时间缩短。9 级以后还能升：每级伤害再 +late.dmg，价格每级 ×late.cost
   campUp: {
     lines: [
-      { id: 'feng', camp: 'mo', name: '封神', cur: 'moxue', curName: '魔血', vs: '魔将', who: '魔张角、魔董卓、魔吕布、魔貂蝉', rgb: '255,90,100' },
+      { id: 'feng', camp: 'mo', name: '封神', cur: 'moxue', curName: '魔血', vs: '魔将', who: '魔张角、魔吕布、魔貂蝉、魔夏侯惇、魔董卓', rgb: '255,90,100' },
       { id: 'ru', camp: 'shen', name: '入魔', cur: 'shenhun', curName: '神魂', vs: '神将', who: '神赵云、神诸葛、神关羽、神郭嘉、神曹操', rgb: '170,215,255' },
     ],
     win: 3, lose: 2, gold: 500,
     cost: [3, 5, 8, 12, 17, 23, 30, 38, 48],
+    // 2026-11-14：原来第 3、7、9 级是「每秒额外扣其最大血量 0.3% / 0.6% / 1%」，修罗里神魔将因此比名将还好打（用户），改成固定加伤害
     levels: [
       { dmg: 0.15, text: '伤害 +15%' },
       { shield: 1.3, text: '破护：对其护盾伤害 ×1.3' },
-      { pct: 0.003, text: '每秒额外扣其最大血量 0.3%' },
+      { dmg: 0.2, text: '伤害 +20%' },
       { hurt: 0.1, text: '受其伤害 -10%' },
       { dmg: 0.3, text: '伤害 +30%' },
       { heal: 0.5, time: 0.2, text: '禁疗：其回血、复生回复减半，倒地、复生时间 -20%' },
-      { pct: 0.006, text: '每秒额外扣其最大血量 0.6%' },
+      { dmg: 0.4, text: '伤害 +40%' },
       { shield: 1.6, hurt: 0.2, text: '破护：对其护盾伤害 ×1.6，受其伤害 -20%' },
-      { dmg: 0.5, pct: 0.01, heal: 0.3, text: '伤害 +50%，每秒额外扣其最大血量 1%，禁疗：其回复只剩三成' },
+      { dmg: 0.6, heal: 0.3, text: '伤害 +60%，禁疗：其回复只剩三成' },
     ],
     late: { dmg: 0.05, cost: 1.12 },
   },
@@ -2841,6 +2974,9 @@ window.GAME_DATA = {
       // 十胜：十道天雷依次劈向身边最强的 n 个敌人（半径 r、伤害 dmg）；劈中的名将、精英易伤 vuln 秒（受伤 +champion.breakVuln）
       shisheng: { name: '十胜', icon: '胜', gid: 'shenguojia', cur: 'shenhun', rgb: '120,200,255', desc: '十道天雷依次劈向身边最强的十个敌人；劈中的名将和精英片刻内受到的伤害增加。',
         levels: [{ cd: 40, n: 10, r: 90, dmg: 160, vuln: 4 }, { cd: 37, n: 10, r: 95, dmg: 175, vuln: 4 }, { cd: 34, n: 10, r: 100, dmg: 190, vuln: 4.5 }, { cd: 31, n: 10, r: 105, dmg: 210, vuln: 5 }, { cd: 28, n: 10, r: 110, dmg: 230, vuln: 5.5 }] },
+      // 魔骑冲阵（魔夏侯惇）：一队 n 骑魔骑从你身后朝敌人最密处冲过前方（长 len、宽 w），踩到的敌人挨 dmg、被震飞；名将、精英定住 root 秒
+      moqi: { name: '魔骑冲阵', icon: '骑', gid: 'moxiahoudun', cur: 'moxue', rgb: '235,60,60', desc: '一队魔骑从你身后冲过前方的敌群，踩到的敌人被远远震飞；名将和精英被冲得定住片刻。',
+        levels: [{ cd: 40, n: 5, len: 900, w: 300, dmg: 150, root: 1 }, { cd: 37, n: 5, len: 950, w: 320, dmg: 165, root: 1.1 }, { cd: 34, n: 6, len: 1000, w: 340, dmg: 180, root: 1.2 }, { cd: 31, n: 6, len: 1050, w: 360, dmg: 200, root: 1.3 }, { cd: 28, n: 7, len: 1100, w: 400, dmg: 220, root: 1.5 }] },
       xianling: { name: '武圣显灵', icon: '圣', gid: 'shenguanyu', cur: 'shenhun', rgb: '90,240,170', desc: '武圣法相在你身后显灵，朝敌人最密处劈出一道巨大的扇形刀光；劈中的名将和精英破甲，片刻内受到的伤害增加。',
         levels: [{ cd: 40, R: 460, half: 0.8, dmg: 200, dur: 5 }, { cd: 37, R: 490, half: 0.82, dmg: 220, dur: 5 }, { cd: 34, R: 520, half: 0.85, dmg: 240, dur: 5.5 }, { cd: 31, R: 560, half: 0.88, dmg: 260, dur: 6 }, { cd: 28, R: 600, half: 0.9, dmg: 290, dur: 6.5 }] },
       // 天下归心：把身边 r 以内的小兵吸到你跟前并定住 stun 秒；名将、精英定住 root 秒（不吸过来）
@@ -2972,6 +3108,9 @@ window.GAME_DATA = {
     // 黄天魔诏：打倒魔张角直接到手（再打一次就升级；融合「黄天当立」时算张角那一件）。在敌人最密处写一张雷符（边长 size），strokes 笔按笔顺一笔接一笔劈下雷电（每笔隔 step 秒，宽 w）
     mozhangjiao: { name: '黄天魔诏', icon: '诏', iconFrom: 'tianlei', rgb: '255,220,90', cd: 5.5, type: 'talisman', dmg: 85, size: 320, w: 54, step: 0.07,
       desc: '一卷黄天魔诏悬在身边：定时在敌人最密处写一张雷符，雷电顺着符上的笔画一笔接一笔劈下。' },
+    // 血瞳魔刃：打倒魔夏侯惇直接到手（再打一次就升级）。从敌人最密的方向偏开半圈起，一道血光（长 beamL、宽 beamW）绕着你扫过 sweep 弧度（用 dur 秒），每个敌人只挨一下；扫中的小兵僵住 stun 秒
+    moxiahoudun: { name: '血瞳魔刃', icon: '瞳', iconFrom: 'xuetong', rgb: '235,50,50', cd: 5.5, type: 'bloodGaze', dmg: 100, beamL: 440, beamW: 70, sweep: 3.14, dur: 0.55, stun: 0.6,
+      desc: '血瞳魔刃悬在身边：定时射出一道血光，绕着你扫过半圈，扫中的敌人全部受重伤，小兵僵住片刻。' },
     // 七星灯：打倒神诸葛直接到手（再打一次就升级）。七道星光按北斗的形状砸进敌群；续命：受到致死伤害时回到 guard.heal 的生命（每 guard.cd 秒一次）
     shenzhuge: { name: '七星灯', icon: '灯', iconFrom: 'qimen', rgb: '255,214,120', cd: 6, type: 'sevenStars', dmg: 80, radius: 80, span: 280, guard: { heal: 0.2, cd: 180 },
       desc: '七星灯绕身：定时按北斗七星的形状在敌群里落下七道星光。续命：受到致死伤害时，七星灯替你续命，回到 20% 生命（每 180 秒一次）。' },

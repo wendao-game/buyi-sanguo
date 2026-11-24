@@ -504,6 +504,18 @@ window.Sprites = (() => {
         line(g, 104, 100, 104, 30, '#4a3a2a', 2);
         shape(g, '#a8322a', s => { s.moveTo(105, 31); s.lineTo(118, 34); s.lineTo(114, 40); s.lineTo(118, 46); s.lineTo(105, 45); s.closePath(); }, 1);
         break;
+      case 'xuetongying': // 血瞳营：黑木栅栏围着的营门，门楼上悬一只血红的独眼，两边插血红大旗
+        g.fillStyle = 'rgba(235,40,40,.16)'; g.beginPath(); g.ellipse(60, 66, 56, 40, 0, 0, Math.PI * 2); g.fill();
+        for (let x = 6; x <= 110; x += 9) { if (x > 40 && x < 80) continue; shape(g, '#2a1a16', s => { s.moveTo(x, 104); s.lineTo(x, 66); s.lineTo(x + 3.5, 58); s.lineTo(x + 7, 66); s.lineTo(x + 7, 104); s.closePath(); }, 1); } // 削尖的木栅
+        wallBlock(g, 40, 50, 40, 54, '#3a1e1a');                                                                 // 营门楼
+        roof(g, 32, 34, 56, 18, '#1a1012');
+        shape(g, '#120a0a', s => rr(s, 50, 78, 20, 26, 2), 1.2);                                                // 门洞
+        g.fillStyle = 'rgba(255,60,60,.45)'; g.beginPath(); g.arc(60, 60, 12, 0, Math.PI * 2); g.fill();         // 门楼上的血瞳
+        shape(g, '#f0e2d8', s => s.ellipse(60, 60, 10, 6, 0, 0, Math.PI * 2), 1);
+        shape(g, '#c01818', s => s.arc(60, 60, 4.5, 0, Math.PI * 2), 0.8);
+        g.fillStyle = '#1a0204'; g.beginPath(); g.ellipse(60, 60, 1.3, 4, 0, 0, Math.PI * 2); g.fill();
+        for (const x of [24, 96]) { line(g, x, 100, x, 26, '#2a1a12', 2); shape(g, '#a81818', s => { s.moveTo(x + 1, 27); s.lineTo(x + 16, 30); s.lineTo(x + 12, 36); s.lineTo(x + 16, 42); s.lineTo(x + 1, 41); s.closePath(); }, 1); } // 血红大旗
+        break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
         wallBlock(g, 34, 52, 52, 36, '#a8322a');

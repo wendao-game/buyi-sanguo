@@ -237,6 +237,60 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .gcard .tt { font-size: 12px; color: #7a6a4c; letter-spacing: .08em; }
 .gcard .drops { display: flex; flex-wrap: wrap; gap: 4px; }
 .gcard .drops span { font-size: 12px; padding: 2px 6px; background: rgba(42,33,22,.08); border: 1px solid rgba(42,33,22,.18); }
+/* 图鉴：招式介绍收起来，点立绘才展开 */
+.gcard .art[data-mv] { cursor: pointer; }
+/* 名将升级：上面一排分页（魏蜀吴群雄神魔），左边（手机上是上面）一格格名将头像，右边是选中那位的升级 */
+.ups-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.utab { padding: 6px 14px; font: inherit; font-size: 14px; color: var(--paper); background: rgba(235,224,197,.06); border: 1px solid rgba(235,224,197,.25); border-radius: 2px; cursor: pointer; }
+.utab.on { border-color: var(--gold); background: rgba(201,160,70,.22); color: #ffe3a0; }
+.utab i { font-style: normal; font-size: 11px; color: #ff9a8a; margin-left: 4px; }
+.ups-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 14px; width: 100%; max-width: 920px; align-items: start; }
+.ups-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.uhead { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px 4px; background: rgba(235,224,197,.06); border: 1px solid rgba(235,224,197,.15); border-radius: 2px; color: var(--paper); font: inherit; cursor: pointer; }
+.uhead b { font-size: 12px; font-weight: 400; white-space: nowrap; }
+.uhead i { font-style: normal; font-size: 10px; color: #ff9a8a; min-height: 12px; }
+.uhead.on { border-color: var(--gold); background: rgba(201,160,70,.2); }
+.uhead.unseen .uface { filter: brightness(0) opacity(.5); }
+.uface { position: relative; display: block; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px rgba(201,160,70,.6); flex: none; }
+.uface.big { width: 64px; height: 64px; box-shadow: 0 0 0 2px var(--gold); }
+.uface > * { width: 100%; height: 100%; }
+.ups-detail { background: var(--paper); color: var(--paper-ink); border-radius: 2px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+.ups-detail .uhd { display: flex; align-items: center; gap: 12px; padding-bottom: 6px; border-bottom: 1px dashed rgba(42,33,22,.3); }
+.ups-detail .nm { font-family: var(--display); font-size: 26px; line-height: 1.1; }
+.ups-detail .tt { font-size: 12px; color: #7a6a4c; letter-spacing: .06em; }
+.ups-detail .soul { font-size: 13px; color: var(--seal); margin-top: 2px; }
+.ups-detail .soul b { font-size: 17px; }
+.ups-detail .up { display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 36px; }
+.ups-detail .up .ico, .ups-detail .up img { width: 30px; height: 30px; flex: none; border-radius: 3px; }
+.ups-detail .up .ico.po { display: grid; place-items: center; background: #5a6a7a; color: #e8f0ff; font-weight: 700; }
+.ups-detail .up .un { flex: 1; min-width: 0; line-height: 1.25; }
+.ups-detail .up .un i { font-style: normal; font-size: 10px; margin-left: 4px; padding: 0 3px; border: 1px solid rgba(42,33,22,.3); color: #7a6a4c; }
+.ups-detail .up .un small { display: block; font-size: 11px; color: #7a6a4c; }
+.ups-detail .up b { font-size: 12px; color: var(--seal); white-space: nowrap; }
+.ups-detail .up button { flex: none; font: inherit; font-size: 12px; padding: 5px 9px; border: 1px solid var(--seal); background: var(--seal); color: var(--paper); border-radius: 2px; cursor: pointer; white-space: nowrap; }
+.ups-detail .up button.poor { background: transparent; color: var(--seal); }
+.ups-detail .up button:disabled { background: transparent; border-color: rgba(42,33,22,.25); color: #8a7a5c; cursor: default; }
+.ups-detail .up.plain { color: #7a6a4c; }
+#ups-sub .warn { color: #ffb070; }
+#ups-sub b { color: #ffd75a; }
+#ups-sub .coin, .ups-detail .usec .coin { width: 18px; height: 18px; vertical-align: -4px; margin-right: 3px; border-radius: 3px; }
+.uhead.pk { box-shadow: inset 0 0 0 2px #e2b24a; } /* 带着他的神魔技 */
+.ups-detail .usec { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(42,33,22,.3); font-family: var(--display); font-size: 17px; color: var(--seal); }
+.ups-detail .usec span { font-family: var(--body); font-size: 11px; color: #7a6a4c; }
+.ups-detail .usec span b { font-size: 15px; color: var(--seal); }
+.ups-detail .up .ico.cmp { display: grid; place-items: center; background: #6b4a2a; color: #ffe3a0; font-weight: 700; }
+.ups-detail .up .ubtns { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.ups-detail .up.smj.picked { outline: 2px solid #e2b24a; outline-offset: 2px; }
+.ups-detail .clv { font-size: 12px; color: #4a3e2c; }
+.ups-detail .clv summary { cursor: pointer; color: #7a6a4c; padding: 2px 0; }
+.ups-detail .clv div { display: flex; gap: 6px; padding: 2px 0; opacity: .6; }
+.ups-detail .clv div.got { opacity: 1; color: var(--seal); }
+.ups-detail .clv div b { flex: none; width: 16px; text-align: center; }
+@media (max-width: 560px) {
+  .ups-wrap { grid-template-columns: minmax(0, 1fr); }
+  .ups-list { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); }
+  .uface { width: 40px; height: 40px; }
+}
 /* 招式介绍：斩够 5 次才显示（没斩够只写还差几次） */
 .gcard .moves { border-top: 1px dashed rgba(42,33,22,.3); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 1.5; }
 .gcard .moves p { margin: 0; }
@@ -538,7 +592,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="cards" id="origins"></div>
     <div class="btns">
       <button class="btn" id="btn-shop">军需 · 装备<span id="title-gold"></span></button>
-      <button class="btn" id="btn-camp">封神 · 入魔</button>
+      <button class="btn" id="btn-ups">名将升级 · 封神入魔</button>
       <button class="btn" id="btn-codex">武将图鉴</button>
       <button class="btn" id="btn-rank" hidden>排行榜</button>
       <button class="btn" id="btn-rank-shura" hidden>修罗榜</button>
@@ -557,14 +611,6 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <button class="btn primary" id="btn-shop-close">返回</button>
   </div>
 
-  <!-- 封神 · 入魔：用魔血、神魂（或金币换）升级，只对神魔将生效（局外成长） -->
-  <div id="camp" class="overlay" hidden>
-    <h2>封神 · 入魔</h2>
-    <div class="sub" id="camp-sub"></div>
-    <div class="shop camp2" id="camp-list"></div>
-    <button class="btn primary" id="btn-camp-close">返回</button>
-  </div>
-
   <!-- 存档码：把金币、装备、图鉴和当前这一局打包成一段文字，换设备时粘贴进来 -->
   <div id="savecode" class="overlay" hidden>
     <h2>存档码</h2>
@@ -576,6 +622,19 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <button class="btn" id="btn-save-load">读取粘贴的存档码</button>
       <button class="btn" id="btn-save-close">返回</button>
     </div>
+  </div>
+
+  <!-- 名将升级：每位名将的魂单独算（只在修罗里斩他才掉），升他的兵器、技能、神兵和破盾，升了在哪儿都生效；
+       神魔页里还有每位神魔将单独的封神 / 入魔（花魔血、神魂）和他的神魔技（2026-11-14 原来的「封神 · 入魔」页并进来） -->
+  <div id="ups" class="overlay" hidden>
+    <h2>名将升级</h2>
+    <div class="sub" id="ups-sub"></div>
+    <div class="ups-tabs" id="ups-tabs"></div>
+    <div class="ups-wrap">
+      <div class="ups-list" id="ups-list"></div>
+      <div class="ups-detail" id="ups-detail"></div>
+    </div>
+    <button class="btn primary" id="btn-ups-close">返回</button>
   </div>
 
   <div id="codex" class="overlay" hidden>
