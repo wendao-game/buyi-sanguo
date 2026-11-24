@@ -455,6 +455,25 @@ window.Sprites = (() => {
         shape(g, '#ffd36a', s => { s.moveTo(60, 26); s.quadraticCurveTo(70, 48, 60, 62); s.quadraticCurveTo(50, 48, 60, 26); s.closePath(); }, 1);
         g.fillStyle = '#fff6d8'; g.beginPath(); g.ellipse(60, 52, 3.5, 6, 0, 0, Math.PI * 2); g.fill();
         break;
+      case 'bailang': // 白狼山：雪山脚下一座营帐，山间飘着幽蓝的鬼火
+        g.fillStyle = 'rgba(120,200,255,.18)'; g.beginPath(); g.ellipse(60, 66, 56, 40, 0, 0, Math.PI * 2); g.fill();
+        shape(g, '#5a6470', s => { s.moveTo(4, 104); s.lineTo(44, 30); s.lineTo(62, 52); s.lineTo(80, 22); s.lineTo(116, 104); s.closePath(); });
+        shape(g, '#eef4f8', s => { s.moveTo(36, 45); s.lineTo(44, 30); s.lineTo(52, 42); s.lineTo(46, 46); s.closePath(); }, 1);
+        shape(g, '#eef4f8', s => { s.moveTo(72, 36); s.lineTo(80, 22); s.lineTo(90, 38); s.lineTo(82, 42); s.closePath(); }, 1);
+        shape(g, '#c8b88a', s => { s.moveTo(34, 104); s.lineTo(54, 70); s.lineTo(74, 104); s.closePath(); });
+        shape(g, '#2a1e14', s => { s.moveTo(50, 104); s.lineTo(54, 86); s.lineTo(58, 104); s.closePath(); }, 1.2);
+        line(g, 54, 70, 54, 56, '#4a3a2a', 2);
+        shape(g, '#2a4a6a', s => rr(s, 54, 56, 14, 8, 1), 1);
+        g.fillStyle = 'rgba(140,210,255,.55)'; for (const [x, y, r] of [[26, 58, 6], [96, 50, 7], [86, 74, 5]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+        break;
+      case 'jinnang': // 锦囊：一只扎口的红锦袋，袋口系金绳，罩着一层幽蓝的光
+        g.fillStyle = 'rgba(140,210,255,.35)'; g.beginPath(); g.arc(60, 72, 26, 0, Math.PI * 2); g.fill();
+        shape(g, '#6a6458', s => s.ellipse(60, 100, 20, 5, 0, 0, Math.PI * 2), 1.2);
+        shape(g, '#b8302a', s => { s.moveTo(46, 98); s.quadraticCurveTo(38, 70, 52, 56); s.lineTo(68, 56); s.quadraticCurveTo(82, 70, 74, 98); s.closePath(); }, 1.4);
+        shape(g, '#d8b040', s => rr(s, 50, 52, 20, 6, 2), 1);
+        shape(g, '#b8302a', s => { s.moveTo(52, 52); s.lineTo(48, 40); s.lineTo(60, 46); s.lineTo(72, 40); s.lineTo(68, 52); s.closePath(); }, 1.2);
+        g.strokeStyle = '#e8c860'; g.lineWidth = 1.5; g.beginPath(); g.arc(60, 78, 8, 0, Math.PI * 2); g.stroke();
+        break;
       case 'yuquan': // 玉泉山：山坡上一座红墙绿瓦的关帝庙，庙前立着青龙偃月刀，四周青光
         g.fillStyle = 'rgba(90,240,170,.18)'; g.beginPath(); g.ellipse(60, 70, 56, 40, 0, 0, Math.PI * 2); g.fill();
         shape(g, '#4a5a44', s => { s.moveTo(2, 104); s.quadraticCurveTo(60, 50, 118, 104); s.closePath(); });    // 山坡

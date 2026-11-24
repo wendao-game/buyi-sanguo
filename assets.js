@@ -79,13 +79,16 @@ window.Assets = (() => {
     // 精英立绘、据点建筑、道具
     for (const id in D.buildings) load('building:' + id, `${ASSET_BASE}buildings/${id}${IMG}`);
     load('prop:caltrop', `${ASSET_BASE}props/caltrop${IMG}`);
+    load('prop:gostone', `${ASSET_BASE}props/gostone${IMG}`); // 神郭嘉「天地为枰」的白子（斜俯视、透明底；没有图时代码画白色渐变圆片）
     // 骑马的小人：吕布骑赤兔
     load('sprite:lubu_mounted', `${ASSET_BASE}sprites/lubu_mounted${IMG}`);
     load('sprite:machao_mounted', `${ASSET_BASE}sprites/machao_mounted${IMG}`); // 马超骑白马
     load('sprite:molubu_mounted', `${ASSET_BASE}sprites/molubu_mounted${IMG}`); // 魔吕布骑魔赤兔（没有图时用代码画的马驮着魔吕布的小人）
     load('sprite:shenzhaoyun_mounted', `${ASSET_BASE}sprites/shenzhaoyun_mounted${IMG}`); // 神赵云骑照夜玉狮子
     load('sprite:liubei_mounted', `${ASSET_BASE}sprites/liubei_mounted${IMG}`); // 刘备骑的卢（的卢飞渡时用）
+    load('sprite:zhangliao_mounted', `${ASSET_BASE}sprites/zhangliao_mounted${IMG}`); // 张辽骑黑鬃马（冲锋、八百虎贲、辽来辽来、逍遥津）
     load('sprite:tiger', `${ASSET_BASE}sprites/tiger${IMG}`); // 猛虎（孙权的合肥射虎、射虎技能、紫髯古锭刀的冰虎；没有图时代码画）
+    load('sprite:elephant', `${ASSET_BASE}sprites/elephant${IMG}`); // 战象（孟获的象兵冲阵、驯象技能；没有图时代码画，见 game.js 的 drawElephant）
     load('sprite:zhangzhao', `${ASSET_BASE}sprites/zhangzhao${IMG}`); // 张昭（孙权「制衡」的虚影；不是名将，不在上面的清单里）
     // 特效贴图：龙首（白龙 = 赵云七进七出，青龙 = 关羽刀气）、坐骑
     for (const id of ['dragon_white', 'dragon_azure', 'dragon_shen']) load('fx:' + id, `${ASSET_BASE}fx/${id}${IMG}`); // dragon_shen：神赵云龙魂·四象的龙首（没画好时借白龙）

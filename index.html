@@ -3,10 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>布衣三国</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- 字体不挡住页面：国内网络连谷歌可能很慢或连不上，先用系统字体显示，字体到了再换上 -->
-<!-- 谷歌字体由 game.js 在页面 load 之后再加（见 loadAll）：写在这里的话 load 事件要等它，国内连不上谷歌就一直等，图片也就一直不开始下 -->
+<!-- 不要在这里连外网：TapTap 审核曾以「检测到联网功能」驳回；外网资源还会拖住 load 事件，国内玩家会卡在 0% -->
 <style>
 /* Layout: full-bleed battlefield canvas; DOM overlays float above it as paper slips with vermilion seals. */
 :root {
@@ -391,6 +388,9 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
 #title .lede { max-width: 30em; text-align: center; color: var(--muted); line-height: 1.8; margin: 0; font-size: 15px; }
 .howto { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.8; max-width: 36em; }
 .howto b { color: var(--text); font-weight: 700; }
+/* TapTap「AI 接入声明」要求游戏内有 AI 合成内容的标识，审核要截这一行的图 */
+.ai-note { margin: 0; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.6; }
+.ai-note b { display: inline-block; margin-right: 6px; padding: 0 6px; border: 1px solid currentColor; border-radius: 3px; color: var(--text); font-weight: 700; }
 
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 28px; font-size: 15px; min-width: min(320px, 100%); }
 #end-lb { font-size: 13px; color: var(--gold); opacity: .9; } /* TapTap 排行榜提交结果；失败时红字带错误码 */
@@ -530,7 +530,8 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <button class="btn" id="btn-ach" hidden>成就</button>
       <button class="btn" id="btn-save">存档码</button>
     </div>
-    <div class="howto"><b>WASD / 方向键</b> 移动 · 手机上 <b>按住拖动</b> 移动 · 攻击全自动 · <b>Esc</b> 暂停<br>击败武将可夺取其兵器或技能 · 武器满级后还能继续突破 · 黄巾 → 讨董 → 群雄 → 赤壁 → 三分，之后征途无尽</div>
+    <div class="howto"><b>WASD / 方向键</b> 移动 · 手机上 <b>按住拖动</b> 移动 · 攻击全自动 · <b>Esc</b> 暂停<br>击败武将可夺取其兵器或技能 · 武器满级后还能继续突破 · 黄巾 → 讨董 → 群雄 → 赤壁 → 三分 → 南征，之后征途无尽</div>
+    <p class="ai-note"><b>AI 合成内容</b>游戏中的美术与配音含 AI 生成内容</p>
   </div>
 
   <!-- 军需：用金币给三个出身买专属装备（局外成长） -->
