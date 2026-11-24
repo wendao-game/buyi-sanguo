@@ -3,10 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>布衣三国</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- 字体不挡住页面：国内网络连谷歌可能很慢或连不上，先用系统字体显示，字体到了再换上 -->
-<!-- 谷歌字体由 game.js 在页面 load 之后再加（见 loadAll）：写在这里的话 load 事件要等它，国内连不上谷歌就一直等，图片也就一直不开始下 -->
+<!-- 不要在这里连外网：TapTap 审核曾以「检测到联网功能」驳回；外网资源还会拖住 load 事件，国内玩家会卡在 0% -->
 <style>
 /* Layout: full-bleed battlefield canvas; DOM overlays float above it as paper slips with vermilion seals. */
 :root {
@@ -65,6 +62,7 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #best { margin: 0; color: var(--gold); font-size: 14px; letter-spacing: .05em; text-align: center; }
 #cloud-note { margin: 0; color: var(--muted); font-size: 11px; text-align: center; } /* 云存档同步到哪了（只在 TapTap 里显示） */
 #crash-note { margin: 0; max-width: 34em; color: var(--muted); font-size: 11px; line-height: 1.45; text-align: center; white-space: pre-line; } /* 上次闪退时的情况：给玩家截图 */
+#fix-note { margin: 0; max-width: 34em; color: var(--gold); font-size: 12px; line-height: 1.45; text-align: center; } /* 广告金币出错的补偿说明（补到的那一次进游戏才显示） */
 .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-shadow: 0 1px 2px #000; }
 #time { font-family: var(--display); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
 #kills { font-size: 13px; color: var(--muted); }
@@ -128,6 +126,24 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #lu-sub { font-size: 12px; color: var(--gold); letter-spacing: .06em; }
 #lu-crit { margin-left: auto; font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #lu-crit b { color: #ffcf5a; font-weight: 700; }
+/* 收起：只留标题一条，三张卡和暴击行藏起来，挡不住战场；点「展开」再选（玩家评价里要的） */
+#lu-hide { flex: none; padding: 3px 12px; font: inherit; font-size: 12px; line-height: 1.4; color: var(--paper); background: rgba(255,255,255,.06);
+  border: 1px solid var(--gold); border-radius: 3px; cursor: pointer; touch-action: manipulation; }
+#lu-hide:hover { filter: brightness(1.25); }
+/* 放弃：这一次升级 / 斩将奖励什么都不要；点一下变红「再点放弃」，2 秒内再点才算（防误触） */
+#lu-skip { flex: none; margin-left: 4px; padding: 3px 10px; font: inherit; font-size: 12px; line-height: 1.4; color: var(--muted); background: transparent;
+  border: 1px solid var(--muted); border-radius: 3px; cursor: pointer; touch-action: manipulation; }
+#lu-skip.armed { color: #fff; background: var(--seal); border-color: var(--seal); }
+/* 看广告换一批：金边，和「收起」一样大 */
+#lu-reroll { flex: none; order: 3; margin-left: auto; padding: 3px 10px; /* 排在最后：一行放不下就自己换到下一行靠右，不把「收起」挤下去 */ font: inherit; font-size: 12px; line-height: 1.4; color: #ffd98a; background: rgba(207,163,74,.14);
+  border: 1px solid var(--gold); border-radius: 3px; cursor: pointer; touch-action: manipulation; }
+#lu-reroll:disabled { opacity: .6; cursor: default; }
+#levelup.folded #lu-reroll { display: none; }
+/* 主页「看广告重置军需」：点一下变红「再点一次」 */
+#btn-gear-reset.armed { color: #fff; background: var(--seal); border-color: var(--seal); }
+#levelup.folded #lu-skip { display: none; }
+#levelup.folded { width: auto; padding: 5px 7px; }
+#levelup.folded #lu-cards, #levelup.folded #lu-crit, #levelup.folded #lu-sub { display: none; }
 #lu-portrait { position: relative; width: 30px; height: 30px; flex: none; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px var(--gold); }
 #lu-portrait svg { display: block; width: 100%; height: 100%; }
 #lu-cards { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 6px; }
@@ -228,6 +244,60 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .gcard .tt { font-size: 12px; color: #7a6a4c; letter-spacing: .08em; }
 .gcard .drops { display: flex; flex-wrap: wrap; gap: 4px; }
 .gcard .drops span { font-size: 12px; padding: 2px 6px; background: rgba(42,33,22,.08); border: 1px solid rgba(42,33,22,.18); }
+/* 图鉴：招式介绍收起来，点立绘才展开 */
+.gcard .art[data-mv] { cursor: pointer; }
+/* 名将升级：上面一排分页（魏蜀吴群雄神魔），左边（手机上是上面）一格格名将头像，右边是选中那位的升级 */
+.ups-tabs { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.utab { padding: 6px 14px; font: inherit; font-size: 14px; color: var(--paper); background: rgba(235,224,197,.06); border: 1px solid rgba(235,224,197,.25); border-radius: 2px; cursor: pointer; }
+.utab.on { border-color: var(--gold); background: rgba(201,160,70,.22); color: #ffe3a0; }
+.utab i { font-style: normal; font-size: 11px; color: #ff9a8a; margin-left: 4px; }
+.ups-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 14px; width: 100%; max-width: 920px; align-items: start; }
+.ups-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.uhead { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px 4px; background: rgba(235,224,197,.06); border: 1px solid rgba(235,224,197,.15); border-radius: 2px; color: var(--paper); font: inherit; cursor: pointer; }
+.uhead b { font-size: 12px; font-weight: 400; white-space: nowrap; }
+.uhead i { font-style: normal; font-size: 10px; color: #ff9a8a; min-height: 12px; }
+.uhead.on { border-color: var(--gold); background: rgba(201,160,70,.2); }
+.uhead.unseen .uface { filter: brightness(0) opacity(.5); }
+.uface { position: relative; display: block; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px rgba(201,160,70,.6); flex: none; }
+.uface.big { width: 64px; height: 64px; box-shadow: 0 0 0 2px var(--gold); }
+.uface > * { width: 100%; height: 100%; }
+.ups-detail { background: var(--paper); color: var(--paper-ink); border-radius: 2px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+.ups-detail .uhd { display: flex; align-items: center; gap: 12px; padding-bottom: 6px; border-bottom: 1px dashed rgba(42,33,22,.3); }
+.ups-detail .nm { font-family: var(--display); font-size: 26px; line-height: 1.1; }
+.ups-detail .tt { font-size: 12px; color: #7a6a4c; letter-spacing: .06em; }
+.ups-detail .soul { font-size: 13px; color: var(--seal); margin-top: 2px; }
+.ups-detail .soul b { font-size: 17px; }
+.ups-detail .up { display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 36px; }
+.ups-detail .up .ico, .ups-detail .up img { width: 30px; height: 30px; flex: none; border-radius: 3px; }
+.ups-detail .up .ico.po { display: grid; place-items: center; background: #5a6a7a; color: #e8f0ff; font-weight: 700; }
+.ups-detail .up .un { flex: 1; min-width: 0; line-height: 1.25; }
+.ups-detail .up .un i { font-style: normal; font-size: 10px; margin-left: 4px; padding: 0 3px; border: 1px solid rgba(42,33,22,.3); color: #7a6a4c; }
+.ups-detail .up .un small { display: block; font-size: 11px; color: #7a6a4c; }
+.ups-detail .up b { font-size: 12px; color: var(--seal); white-space: nowrap; }
+.ups-detail .up button { flex: none; font: inherit; font-size: 12px; padding: 5px 9px; border: 1px solid var(--seal); background: var(--seal); color: var(--paper); border-radius: 2px; cursor: pointer; white-space: nowrap; }
+.ups-detail .up button.poor { background: transparent; color: var(--seal); }
+.ups-detail .up button:disabled { background: transparent; border-color: rgba(42,33,22,.25); color: #8a7a5c; cursor: default; }
+.ups-detail .up.plain { color: #7a6a4c; }
+#ups-sub .warn { color: #ffb070; }
+#ups-sub b { color: #ffd75a; }
+#ups-sub .coin, .ups-detail .usec .coin { width: 18px; height: 18px; vertical-align: -4px; margin-right: 3px; border-radius: 3px; }
+.uhead.pk { box-shadow: inset 0 0 0 2px #e2b24a; } /* 带着他的神魔技 */
+.ups-detail .usec { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(42,33,22,.3); font-family: var(--display); font-size: 17px; color: var(--seal); }
+.ups-detail .usec span { font-family: var(--body); font-size: 11px; color: #7a6a4c; }
+.ups-detail .usec span b { font-size: 15px; color: var(--seal); }
+.ups-detail .up .ico.cmp { display: grid; place-items: center; background: #6b4a2a; color: #ffe3a0; font-weight: 700; }
+.ups-detail .up .ubtns { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.ups-detail .up.smj.picked { outline: 2px solid #e2b24a; outline-offset: 2px; }
+.ups-detail .clv { font-size: 12px; color: #4a3e2c; }
+.ups-detail .clv summary { cursor: pointer; color: #7a6a4c; padding: 2px 0; }
+.ups-detail .clv div { display: flex; gap: 6px; padding: 2px 0; opacity: .6; }
+.ups-detail .clv div.got { opacity: 1; color: var(--seal); }
+.ups-detail .clv div b { flex: none; width: 16px; text-align: center; }
+@media (max-width: 560px) {
+  .ups-wrap { grid-template-columns: minmax(0, 1fr); }
+  .ups-list { grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); }
+  .uface { width: 40px; height: 40px; }
+}
 /* 招式介绍：斩够 5 次才显示（没斩够只写还差几次） */
 .gcard .moves { border-top: 1px dashed rgba(42,33,22,.3); padding-top: 6px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 1.5; }
 .gcard .moves p { margin: 0; }
@@ -330,13 +400,19 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 .overlay h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(34px, 6vw, 52px); color: var(--paper); text-wrap: balance; text-align: center; line-height: 1.1; }
 .overlay .sub { margin: -8px 0 0; color: var(--gold); letter-spacing: .15em; font-size: 14px; text-align: center; }
 .cards { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 760px; }
-#origins { max-width: 1040px; } /* 四个出身：宽屏一行四张；不够宽就两张一行，不会落单 */
-@media (max-width: 1080px) { #origins { max-width: 520px; } }
+#origins { max-width: 1320px; } /* 五个出身（2026-11-23 加了侠客）：宽屏一行五张；不够宽就三张一行（3 + 2）；手机上一张一行 */
+#origins .card.origin { flex-basis: 196px; }
+@media (max-width: 1080px) { #origins { max-width: 780px; } }
+@media (max-width: 560px) { #origins .card.origin { flex-basis: 100%; } } /* 上面那条比下面手机的 .card 规则优先，手机上要再写一遍，不然宽一点的手机会挤成两列（11-23 上线后玩家截图） */
+.card.origin.locked { filter: grayscale(.85); opacity: .72; }
+.card.origin.locked:hover { transform: none; }
+.card.origin .lock-tip { color: var(--seal); font-weight: 700; }
 .card { position: relative; flex: 1 1 200px; max-width: 240px; min-width: 0; text-align: left; border: 0; padding: 18px 16px 16px;
   background: var(--paper); color: var(--paper-ink); border-radius: 2px; box-shadow: 0 6px 18px rgba(0,0,0,.5);
   display: flex; flex-direction: column; gap: 8px; transition: transform .12s; }
 .card::before { content: ''; position: absolute; inset: 5px; border: 1px solid rgba(42,33,22,.25); pointer-events: none; }
 .card:hover { transform: translateY(-4px); }
+.card.qy-leave { opacity: .72; } /* 奇遇的「离开」：淡一点，不抢眼 */
 .card.gen { background: linear-gradient(var(--paper), #e3cf9f); box-shadow: 0 0 0 2px var(--gold), 0 6px 22px rgba(207,163,74,.35); }
 .card .top { display: flex; align-items: center; gap: 10px; }
 .seal { width: 44px; height: 44px; flex: none; display: grid; place-items: center; background: var(--seal); color: var(--paper);
@@ -385,6 +461,9 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
 #title .lede { max-width: 30em; text-align: center; color: var(--muted); line-height: 1.8; margin: 0; font-size: 15px; }
 .howto { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.8; max-width: 36em; }
 .howto b { color: var(--text); font-weight: 700; }
+/* TapTap「AI 接入声明」要求游戏内有 AI 合成内容的标识，审核要截这一行的图 */
+.ai-note { margin: 0; font-size: 12px; color: var(--muted); text-align: center; line-height: 1.6; }
+.ai-note b { display: inline-block; margin-right: 6px; padding: 0 6px; border: 1px solid currentColor; border-radius: 3px; color: var(--text); font-weight: 700; }
 
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 28px; font-size: 15px; min-width: min(320px, 100%); }
 #end-lb { font-size: 13px; color: var(--gold); opacity: .9; } /* TapTap 排行榜提交结果；失败时红字带错误码 */
@@ -402,6 +481,25 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
 .build { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; }
 .build .chip { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; background: rgba(235,224,197,.08); border: 1px solid rgba(235,224,197,.18); font-size: 13px; }
 .build .chip .slot { width: 24px; height: 24px; font-size: 13px; box-shadow: none; }
+/* 遗忘：暂停界面里点兵器、技能，点一下选中（变红），3 秒内再点一次才遗忘 */
+.build .forget-tip { width: 100%; text-align: center; font-size: 12px; color: var(--gold); }
+.build .chip.forget { cursor: pointer; border-style: dashed; }
+/* 战报：每件兵器、技能、神兵打了多少（结算页按钮下面、暂停「查看战报」） */
+.report { width: min(520px, 100%); display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+.report .rp-head { color: var(--gold); font-weight: 900; font-size: 15px; margin-top: 4px; display: flex; align-items: baseline; gap: 8px; }
+.report .rp-head small { color: var(--muted); font-weight: 400; font-size: 12px; }
+.report .rp-row { display: grid; grid-template-columns: 24px minmax(0, 8em) minmax(36px, 1fr) 2.6em minmax(4em, auto); align-items: center; gap: 8px; }
+.report .slot { width: 24px; height: 24px; font-size: 13px; box-shadow: none; }
+.report .rp-txt { color: var(--muted); }
+.report .rp-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report .rp-bar { height: 8px; background: rgba(235,224,197,.1); }
+.report .rp-bar i { display: block; height: 100%; background: linear-gradient(90deg, #8e2a20, #e0a050); }
+.report .rp-heal .rp-bar i { background: linear-gradient(90deg, #2f7a4c, #8ef0a0); }
+.report b { text-align: right; font-variant-numeric: tabular-nums; }
+.report em { font-style: normal; color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; text-align: right; }
+@media (max-width: 560px) { .report .rp-dps { display: none; } .report .rp-row { grid-template-columns: 22px minmax(0, 7em) minmax(30px, 1fr) 2.6em minmax(3.4em, auto); gap: 6px; } }
+.build .chip.forget.armed { background: rgba(181,55,42,.55); border: 1px solid var(--seal); color: #fff; }
+#levelup.under-pause { display: none; } /* 遗忘的时候正开着的选项栏先藏起来，别盖住列表；继续游戏后再出来 */
 #tip { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); text-align: center; font-size: 13px; color: var(--muted); pointer-events: none; text-shadow: 0 1px 2px #000; }
 
 @media (max-width: 560px) {
@@ -415,7 +513,13 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
   /* 手机竖屏：选择栏三张卡并排，字小一号，名字和图标上下排 */
   #levelup { width: calc(100% - 12px); padding: 6px; gap: 5px; }
   #lu-title { font-size: 19px; }
-  #lu-crit { margin-left: 0; width: 100%; }
+  #lu-crit { margin-left: 0; width: 100%; order: 2; }
+  #lu-hide { order: 1; } /* 手机上暴击行单独占一行：放弃、收起按钮留在第一行最右边 */
+  #lu-reroll { order: 2; } /* 手机上和暴击那一行并排，靠右 */
+  #levelup.rr #lu-crit { width: auto; flex: 1 1 0; }
+  #lu-skip { order: 1; margin-left: auto; }
+  #lu-skip[hidden] + #lu-hide { margin-left: auto; }
+  #levelup.folded { left: 6px; transform: none; animation: none; } /* 收起后靠左，别碰到右上角的声音 / 暂停按钮 */
   #lu-cards { gap: 5px; }
   #levelup.legend #lu-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 4 张卡时手机上排两行 */
   #levelup .card { flex-basis: auto; padding: 7px 6px; gap: 3px; }
@@ -508,6 +612,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <p id="best" hidden></p>
     <p id="cloud-note" hidden></p>
     <p id="crash-note" hidden></p>
+    <p id="fix-note" hidden></p>
     <div id="continue-box" hidden>
       <button class="btn primary" id="btn-continue">继续征战</button>
       <div class="cont-note" id="continue-note"></div>
@@ -516,13 +621,16 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="cards" id="origins"></div>
     <div class="btns">
       <button class="btn" id="btn-shop">军需 · 装备<span id="title-gold"></span></button>
-      <button class="btn" id="btn-camp">封神 · 入魔</button>
+      <button class="btn" id="btn-gear-reset" hidden>看广告重置军需</button>
+      <button class="btn" id="btn-ups">名将升级 · 封神入魔</button>
       <button class="btn" id="btn-codex">武将图鉴</button>
       <button class="btn" id="btn-rank" hidden>排行榜</button>
+      <button class="btn" id="btn-rank-shura" hidden>修罗榜</button>
       <button class="btn" id="btn-ach" hidden>成就</button>
       <button class="btn" id="btn-save">存档码</button>
     </div>
-    <div class="howto"><b>WASD / 方向键</b> 移动 · 手机上 <b>按住拖动</b> 移动 · 攻击全自动 · <b>Esc</b> 暂停<br>击败武将可夺取其兵器或技能 · 武器满级后还能继续突破 · 黄巾 → 讨董 → 群雄 → 赤壁 → 三分，之后征途无尽</div>
+    <div class="howto"><b>WASD / 方向键</b> 移动 · 手机上 <b>按住拖动</b> 移动 · 攻击全自动 · <b>Esc</b> 暂停<br>击败武将可夺取其兵器或技能 · 武器满级后还能继续突破 · 黄巾 → 讨董 → 群雄 → 赤壁 → 三分 → 南征，之后征途无尽</div>
+    <p class="ai-note"><b>AI 合成内容</b>游戏中的美术与配音含 AI 生成内容</p>
   </div>
 
   <!-- 军需：用金币给三个出身买专属装备（局外成长） -->
@@ -531,14 +639,6 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="sub" id="shop-gold"></div>
     <div class="shop" id="shop-list"></div>
     <button class="btn primary" id="btn-shop-close">返回</button>
-  </div>
-
-  <!-- 封神 · 入魔：用魔血、神魂（或金币换）升级，只对神魔将生效（局外成长） -->
-  <div id="camp" class="overlay" hidden>
-    <h2>封神 · 入魔</h2>
-    <div class="sub" id="camp-sub"></div>
-    <div class="shop camp2" id="camp-list"></div>
-    <button class="btn primary" id="btn-camp-close">返回</button>
   </div>
 
   <!-- 存档码：把金币、装备、图鉴和当前这一局打包成一段文字，换设备时粘贴进来 -->
@@ -554,6 +654,19 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     </div>
   </div>
 
+  <!-- 名将升级：每位名将的魂单独算（只在修罗里斩他才掉），升他的兵器、技能、神兵和破盾，升了在哪儿都生效；
+       神魔页里还有每位神魔将单独的封神 / 入魔（花魔血、神魂）和他的神魔技（2026-11-14 原来的「封神 · 入魔」页并进来） -->
+  <div id="ups" class="overlay" hidden>
+    <h2>名将升级</h2>
+    <div class="sub" id="ups-sub"></div>
+    <div class="ups-tabs" id="ups-tabs"></div>
+    <div class="ups-wrap">
+      <div class="ups-list" id="ups-list"></div>
+      <div class="ups-detail" id="ups-detail"></div>
+    </div>
+    <button class="btn primary" id="btn-ups-close">返回</button>
+  </div>
+
   <div id="codex" class="overlay" hidden>
     <h2>武将图鉴</h2>
     <div class="sub" id="codex-sub"></div>
@@ -567,6 +680,9 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <div id="lu-portrait" hidden></div>
       <b id="lu-title">升级</b><span id="lu-sub">选择一项</span>
       <span id="lu-crit"></span>
+      <button id="lu-reroll" type="button" title="看一条广告，这次的三张卡重抽" hidden>看广告换一批</button>
+      <button id="lu-skip" type="button" title="这一次什么都不要（点两下：防误触）" hidden>放弃</button>
+      <button id="lu-hide" type="button" title="先收起选项看战场，点「展开」再选">收起</button>
     </div>
     <div id="lu-cards"></div>
   </div>
@@ -575,6 +691,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <h2>暂停</h2>
     <div class="build" id="pause-build"></div>
     <div class="stats" id="pause-stats" hidden></div>
+    <div class="report" id="pause-report" hidden></div>
     <div class="btns">
       <button class="btn primary" id="btn-resume">继续</button>
       <button class="btn" id="btn-quit">回到标题</button>
@@ -588,6 +705,8 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
       <button class="btn" id="btn-fx">特效：自动</button>
       <button class="btn" id="btn-glow">光效：完整</button>
       <button class="btn" id="btn-stats">查看属性</button>
+      <button class="btn" id="btn-report">查看战报</button>
+      <button class="btn" id="btn-forget">遗忘兵器技能</button>
     </div>
   </div>
 
@@ -598,6 +717,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <div class="lb" id="end-lb" hidden></div>
     <div class="build" id="end-build"></div>
     <div class="btns" id="end-btns"></div>
+    <div class="report" id="end-report"></div>
   </div>
 </div>
 

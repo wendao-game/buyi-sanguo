@@ -455,6 +455,25 @@ window.Sprites = (() => {
         shape(g, '#ffd36a', s => { s.moveTo(60, 26); s.quadraticCurveTo(70, 48, 60, 62); s.quadraticCurveTo(50, 48, 60, 26); s.closePath(); }, 1);
         g.fillStyle = '#fff6d8'; g.beginPath(); g.ellipse(60, 52, 3.5, 6, 0, 0, Math.PI * 2); g.fill();
         break;
+      case 'bailang': // 白狼山：雪山脚下一座营帐，山间飘着幽蓝的鬼火
+        g.fillStyle = 'rgba(120,200,255,.18)'; g.beginPath(); g.ellipse(60, 66, 56, 40, 0, 0, Math.PI * 2); g.fill();
+        shape(g, '#5a6470', s => { s.moveTo(4, 104); s.lineTo(44, 30); s.lineTo(62, 52); s.lineTo(80, 22); s.lineTo(116, 104); s.closePath(); });
+        shape(g, '#eef4f8', s => { s.moveTo(36, 45); s.lineTo(44, 30); s.lineTo(52, 42); s.lineTo(46, 46); s.closePath(); }, 1);
+        shape(g, '#eef4f8', s => { s.moveTo(72, 36); s.lineTo(80, 22); s.lineTo(90, 38); s.lineTo(82, 42); s.closePath(); }, 1);
+        shape(g, '#c8b88a', s => { s.moveTo(34, 104); s.lineTo(54, 70); s.lineTo(74, 104); s.closePath(); });
+        shape(g, '#2a1e14', s => { s.moveTo(50, 104); s.lineTo(54, 86); s.lineTo(58, 104); s.closePath(); }, 1.2);
+        line(g, 54, 70, 54, 56, '#4a3a2a', 2);
+        shape(g, '#2a4a6a', s => rr(s, 54, 56, 14, 8, 1), 1);
+        g.fillStyle = 'rgba(140,210,255,.55)'; for (const [x, y, r] of [[26, 58, 6], [96, 50, 7], [86, 74, 5]]) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+        break;
+      case 'jinnang': // 锦囊：一只扎口的红锦袋，袋口系金绳，罩着一层幽蓝的光
+        g.fillStyle = 'rgba(140,210,255,.35)'; g.beginPath(); g.arc(60, 72, 26, 0, Math.PI * 2); g.fill();
+        shape(g, '#6a6458', s => s.ellipse(60, 100, 20, 5, 0, 0, Math.PI * 2), 1.2);
+        shape(g, '#b8302a', s => { s.moveTo(46, 98); s.quadraticCurveTo(38, 70, 52, 56); s.lineTo(68, 56); s.quadraticCurveTo(82, 70, 74, 98); s.closePath(); }, 1.4);
+        shape(g, '#d8b040', s => rr(s, 50, 52, 20, 6, 2), 1);
+        shape(g, '#b8302a', s => { s.moveTo(52, 52); s.lineTo(48, 40); s.lineTo(60, 46); s.lineTo(72, 40); s.lineTo(68, 52); s.closePath(); }, 1.2);
+        g.strokeStyle = '#e8c860'; g.lineWidth = 1.5; g.beginPath(); g.arc(60, 78, 8, 0, Math.PI * 2); g.stroke();
+        break;
       case 'yuquan': // 玉泉山：山坡上一座红墙绿瓦的关帝庙，庙前立着青龙偃月刀，四周青光
         g.fillStyle = 'rgba(90,240,170,.18)'; g.beginPath(); g.ellipse(60, 70, 56, 40, 0, 0, Math.PI * 2); g.fill();
         shape(g, '#4a5a44', s => { s.moveTo(2, 104); s.quadraticCurveTo(60, 50, 118, 104); s.closePath(); });    // 山坡
@@ -465,6 +484,49 @@ window.Sprites = (() => {
         line(g, 96, 92, 96, 30, '#5a3a20', 2.6);                                                                  // 青龙偃月刀
         shape(g, '#bfeedd', s => { s.moveTo(96, 30); s.quadraticCurveTo(110, 26, 108, 44); s.quadraticCurveTo(102, 38, 96, 40); s.closePath(); }, 1);
         g.fillStyle = 'rgba(150,255,210,.45)'; g.beginPath(); g.ellipse(102, 36, 12, 14, 0, 0, Math.PI * 2); g.fill();
+        break;
+      case 'tushan': // 袁绍的高橹：一座黄土堆起的土山，山顶一座木橹，挂袁字旗
+        shape(g, '#8a7048', s => { s.moveTo(14, 104); s.quadraticCurveTo(60, 56, 106, 104); s.closePath(); });
+        g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.moveTo(60, 70); g.quadraticCurveTo(92, 82, 106, 104); g.lineTo(66, 104); g.closePath(); g.fill();
+        line(g, 46, 80, 50, 30, '#5a3e26', 4); line(g, 74, 80, 70, 30, '#5a3e26', 4);
+        line(g, 48, 66, 72, 50, '#6b4a2e', 2.2); line(g, 72, 66, 48, 50, '#6b4a2e', 2.2);
+        wallBlock(g, 42, 20, 36, 14, '#7a5a3a');
+        for (const x of [48, 58, 68]) shape(g, '#15110c', s => rr(s, x, 24, 4, 6, 1), 0.8);
+        line(g, 76, 20, 76, 2, '#4a3a2a', 1.6);
+        shape(g, '#c9a046', s => { s.moveTo(77, 3); s.lineTo(96, 6); s.lineTo(92, 11); s.lineTo(96, 16); s.lineTo(77, 15); s.closePath(); }, 1);
+        break;
+      case 'wuchao': // 乌巢粮囤：两座草顶圆仓、堆成小山的粮袋，插着袁字旗
+        for (const [x, w, c] of [[16, 40, '#b89a6a'], [62, 44, '#c4a676']]) {
+          wallBlock(g, x, 58, w, 44, c);
+          shape(g, '#c9a862', s => { s.moveTo(x - 6, 62); s.quadraticCurveTo(x + w / 2, 20, x + w + 6, 62); s.closePath(); });
+        }
+        for (const [x, y] of [[30, 98], [46, 98], [62, 98], [78, 98], [38, 90], [54, 90], [70, 90], [46, 82], [62, 82]]) shape(g, '#e8d8a8', s => s.ellipse(x, y, 9, 6, 0, 0, Math.PI * 2), 1.1);
+        line(g, 104, 100, 104, 30, '#4a3a2a', 2);
+        shape(g, '#a8322a', s => { s.moveTo(105, 31); s.lineTo(118, 34); s.lineTo(114, 40); s.lineTo(118, 46); s.lineTo(105, 45); s.closePath(); }, 1);
+        break;
+      case 'xuetongying': // 血瞳营：黑木栅栏围着的营门，门楼上悬一只血红的独眼，两边插血红大旗
+        g.fillStyle = 'rgba(235,40,40,.16)'; g.beginPath(); g.ellipse(60, 66, 56, 40, 0, 0, Math.PI * 2); g.fill();
+        for (let x = 6; x <= 110; x += 9) { if (x > 40 && x < 80) continue; shape(g, '#2a1a16', s => { s.moveTo(x, 104); s.lineTo(x, 66); s.lineTo(x + 3.5, 58); s.lineTo(x + 7, 66); s.lineTo(x + 7, 104); s.closePath(); }, 1); } // 削尖的木栅
+        wallBlock(g, 40, 50, 40, 54, '#3a1e1a');                                                                 // 营门楼
+        roof(g, 32, 34, 56, 18, '#1a1012');
+        shape(g, '#120a0a', s => rr(s, 50, 78, 20, 26, 2), 1.2);                                                // 门洞
+        g.fillStyle = 'rgba(255,60,60,.45)'; g.beginPath(); g.arc(60, 60, 12, 0, Math.PI * 2); g.fill();         // 门楼上的血瞳
+        shape(g, '#f0e2d8', s => s.ellipse(60, 60, 10, 6, 0, 0, Math.PI * 2), 1);
+        shape(g, '#c01818', s => s.arc(60, 60, 4.5, 0, Math.PI * 2), 0.8);
+        g.fillStyle = '#1a0204'; g.beginPath(); g.ellipse(60, 60, 1.3, 4, 0, 0, Math.PI * 2); g.fill();
+        for (const x of [24, 96]) { line(g, x, 100, x, 26, '#2a1a12', 2); shape(g, '#a81818', s => { s.moveTo(x + 1, 27); s.lineTo(x + 16, 30); s.lineTo(x + 12, 36); s.lineTo(x + 16, 42); s.lineTo(x + 1, 41); s.closePath(); }, 1); } // 血红大旗
+        break;
+      case 'luoshuiyuan': // 洛水魔渊：一汪黑水，岸边乱石，一条黑鳞水蛇从水里探出 S 形的身子，岸上插两面暗紫幡
+        g.fillStyle = 'rgba(80,200,170,.14)'; g.beginPath(); g.ellipse(60, 70, 56, 38, 0, 0, Math.PI * 2); g.fill();
+        shape(g, '#0c1a1c', s => s.ellipse(60, 82, 44, 20, 0, 0, Math.PI * 2), 1.4);                                                   // 黑水
+        g.strokeStyle = 'rgba(120,220,190,.5)'; g.lineWidth = 1.2;
+        for (const r of [14, 26, 36]) { g.beginPath(); g.ellipse(60, 82, r, r * 0.45, 0, 0, Math.PI * 2); g.stroke(); }                 // 水纹
+        for (const [x, y, s] of [[18, 88, 9], [100, 86, 10], [30, 98, 7], [92, 98, 8], [14, 76, 6]]) shape(g, '#4a5258', q => q.ellipse(x, y, s, s * 0.7, 0, 0, Math.PI * 2), 1); // 乱石
+        g.lineCap = 'round';
+        for (const [c, w] of [['#0e2a26', 10], ['#2a6a5a', 4]]) { g.strokeStyle = c; g.lineWidth = w; g.beginPath(); g.moveTo(52, 84); g.bezierCurveTo(40, 64, 74, 56, 62, 36); g.stroke(); } // 水蛇的身子
+        shape(g, '#0e2a26', s => s.ellipse(63, 32, 9, 6, -0.3, 0, Math.PI * 2), 1);                                                    // 蛇头
+        g.fillStyle = '#7ae0c0'; g.beginPath(); g.arc(66, 30, 1.6, 0, Math.PI * 2); g.fill();                                             // 蛇眼
+        for (const x of [22, 98]) { line(g, x, 96, x, 30, '#2a2030', 2); shape(g, '#4a2a5a', s => { s.moveTo(x + 1, 31); s.lineTo(x + 15, 34); s.lineTo(x + 11, 40); s.lineTo(x + 15, 46); s.lineTo(x + 1, 45); s.closePath(); }, 1); } // 暗紫幡
         break;
       case 'shrine': // 神祠：台基 + 双层檐
         shape(g, '#8a8070', s => rr(s, 16, 88, 88, 16, 2));
