@@ -16,9 +16,9 @@ window.GAME_DATA = {
   // TapTap 广告和排行榜：在 TapTap 里打开时才有（网页版自动隐藏）。ID 在 TapTap 开发者后台拿到后填进来，空着就不显示。
   // rewardedAdUnitId：激励视频广告位 ID；leaderboardId：排行榜 ID（按这一局达到的等级排名，降序、保留历史最高）
   // 看广告复活每局只有一次：满血、短暂无敌、震开身边的敌人；结算时看广告，本局金币再加 adGoldBonus
-  // shuraLeaderboardId：修罗无尽的榜，后台建好再填（空着就只报总榜）
+  // shuraLeaderboardId：修罗无尽的榜（2026-11-11 建好并发布，后台名称「修罗最高等级」，也是按等级、降序、保留历史最高；空着就只报总榜）
   // （这句说明原来插在下面那一行中间，把后面的 reviveKnockR、adGoldBonus 注释掉了：看广告加的金币成了 NaN，军需随便买。说明一律单独写一行）
-  taptap: { rewardedAdUnitId: '1054324', leaderboardId: 'gwy1u779jhgau3z3er', shuraLeaderboardId: '', reviveIframes: 3, reviveKnockR: 320, adGoldBonus: 0.4,
+  taptap: { rewardedAdUnitId: '1054324', leaderboardId: 'gwy1u779jhgau3z3er', shuraLeaderboardId: '7hys9nuhnh3pauetiw', reviveIframes: 3, reviveKnockR: 320, adGoldBonus: 0.4,
     // 云存档：局外进度（金币、装备）、最佳纪录、图鉴存到玩家的 TapTap 账号里，换手机、清缓存都不丢（没打完的那一局只存在本机）。
     // TapTap 限制每分钟最多上传一次，所以有变化后至少隔 every 秒才传；name 是云端存档名（不能有空格和中文）
     cloudSave: { name: 'buyi_save', every: 65 },
@@ -498,6 +498,31 @@ window.GAME_DATA = {
         { dmg: 66, cd: 1.2, reach: 460, tele: 0.35, stones: 5, radius: 76, root: 0.8, tianyuan: true, note: '一轮五枚，正中再落「天元」' },
       ],
     },
+    // —— 魏延、神曹操的兵器（2026-11-10）：同样不带冷却缩减、自己的出手间隔不随等级变 ——
+    // 狂骨刀（魏延）：大幅挥砍；每砍中一个敌人回 leech 生命上限，一刀最多回 leechCap
+    kuanggudao: {
+      name: '狂骨刀', icon: '狂', type: 'arc', general: '魏延',
+      desc: '魏延的长刀。大幅挥砍，每砍中一个敌人就回一点血。',
+      levels: [
+        { dmg: 40, cd: 1.15, range: 140, angle: 170, kb: 180, leech: 0.002, leechCap: 0.01 },
+        { dmg: 50, cd: 1.15, range: 146, angle: 180, kb: 190, leech: 0.002, leechCap: 0.01, note: '伤害 +10，范围扩大' },
+        { dmg: 60, cd: 1.15, range: 152, angle: 190, kb: 200, leech: 0.0025, leechCap: 0.0125, note: '伤害 +10，回血更多' },
+        { dmg: 72, cd: 1.15, range: 158, angle: 200, kb: 210, leech: 0.0025, leechCap: 0.0125, note: '伤害 +12，范围扩大' },
+        { dmg: 90, cd: 1.15, range: 170, angle: 215, kb: 230, leech: 0.003, leechCap: 0.015, note: '伤害 +18：狂骨，一刀最多回 1.5% 生命' },
+      ],
+    },
+    // 七星宝刀（神曹操）：出手很快的短刀；每第 seven 刀必定暴击、伤害 ×sevenK
+    qixingdao: {
+      name: '七星宝刀', icon: '七', type: 'arc', general: '神曹操',
+      desc: '献刀刺董的那把七星宝刀。出手很快，每第七刀必定暴击、伤害翻倍。',
+      levels: [
+        { dmg: 16, cd: 0.5, range: 105, angle: 110, kb: 90, seven: 7, sevenK: 2 },
+        { dmg: 19, cd: 0.5, range: 108, angle: 115, kb: 95, seven: 7, sevenK: 2, note: '伤害 +3' },
+        { dmg: 23, cd: 0.5, range: 112, angle: 120, kb: 100, seven: 7, sevenK: 2.2, note: '伤害 +4，第七刀更狠' },
+        { dmg: 27, cd: 0.5, range: 116, angle: 125, kb: 105, seven: 7, sevenK: 2.2, note: '伤害 +4，范围扩大' },
+        { dmg: 34, cd: 0.5, range: 124, angle: 135, kb: 115, seven: 7, sevenK: 2.5, note: '伤害 +7：第七刀伤害 ×2.5' },
+      ],
+    },
     guding: {
       name: '古锭刀', icon: '锭', type: 'arc', general: '孙权',
       desc: '孙权的古锭刀。朝最近的敌人宽幅劈砍，刀光带着江上的寒气，被砍中的敌人走不快。',
@@ -959,6 +984,30 @@ window.GAME_DATA = {
         { cd: 9, lag: 1.5, dur: 5, r: 50, tick: 0.3, dmg: 40, radius: 170, boom: 3, ghosts: 2, note: '两个鬼影：算无遗策' },
       ],
     },
+    // 反骨（魏延）：每 cd 秒让 reach 以内最近的 turn 个小兵倒戈（还是原来的样子，替你打 life 秒后倒下；同神魔技「魅惑」）。数量叫 turn：突破不加人
+    fangu: {
+      name: '反骨', icon: '反', type: 'turncoat', general: '魏延',
+      desc: '“谁敢杀我！”定时让身边的几个小兵倒戈，替你打一阵再倒下（名将和精英不吃这一套）。',
+      levels: [
+        { cd: 11, reach: 300, turn: 3, life: 10 },
+        { cd: 11, reach: 310, turn: 3, life: 11, note: '倒戈得更久' },
+        { cd: 11, reach: 320, turn: 4, life: 11, note: '多倒戈一个' },
+        { cd: 11, reach: 330, turn: 5, life: 12, note: '多倒戈一个，更久' },
+        { cd: 11, reach: 350, turn: 6, life: 12, note: '一次倒戈六个' },
+      ],
+    },
+    // 奉诏（神曹操）：每 cd 秒下一道诏令，radius 以内的小兵定住 stun 秒并受伤，精英和名将 vuln 秒内多受伤害（同破甲后的易伤）
+    fengzhao: {
+      name: '奉诏', icon: '诏', type: 'edictCast', general: '神曹操', tags: ['spell'],
+      desc: '挟天子以令诸侯：定时下一道诏令，身边的小兵定在原地并受伤，精英和名将片刻内受到的伤害增加。',
+      levels: [
+        { cd: 10, radius: 230, dmg: 60, stun: 1.5, vuln: 3 },
+        { cd: 10, radius: 240, dmg: 76, stun: 1.6, vuln: 3, note: '伤害 +16，范围更大' },
+        { cd: 10, radius: 250, dmg: 92, stun: 1.8, vuln: 3.5, note: '定得更久' },
+        { cd: 10, radius: 265, dmg: 110, stun: 1.8, vuln: 3.5, note: '伤害 +18，范围更大' },
+        { cd: 10, radius: 290, dmg: 135, stun: 2, vuln: 4, note: '诏令一出，莫敢不从' },
+      ],
+    },
     shehu: {
       name: '射虎', icon: '虎', type: 'tigerAlly', general: '孙权',
       desc: '孙权亲射猛虎的胆气：定时唤来猛虎替你作战，扑咬身边的敌人，到时散去（不占随从名额）。',
@@ -1121,6 +1170,10 @@ window.GAME_DATA = {
     qianli: { name: '千里走单骑', icon: '骑', max: 1, unique: true, general: '神关羽', desc: '过五关、斩六将：生命上限 +60，移动速度 +15%；一直在跑时伤害慢慢提高，跑满 3 秒 +30%，停下 1 秒后清零', effects: { maxHp: 60, speedMul: 0.15 }, ride: { full: 3, dmg: 0.3, stop: 1 } },
     // 十胜十败（神郭嘉）：每暴击 ten.n 次，下一击打出「十胜」：伤害 × ten.k，并在目标身上炸开一圈鬼火（半径 ten.r，伤害是这一击基础伤害的 ten.boom 倍）
     shisheng: { name: '十胜十败', icon: '胜', max: 1, unique: true, general: '神郭嘉', desc: '“绍有十败，公有十胜”：伤害 +10%，暴击率 +6%；每暴击 10 次，下一击打出「十胜」——伤害 ×3，并在目标身上炸开一圈鬼火', effects: { dmgMul: 0.1, crit: 0.06 }, ten: { n: 10, k: 3, r: 100, boom: 1 } },
+    // 镇北将军印（魏延）：对精英、名将伤害 +elite
+    zhenbeiyin: { name: '镇北将军印', icon: '镇', max: 1, unique: true, general: '魏延', desc: '“偏将十万之众至，请为大王吞之”：生命上限 +50，对精英和名将的伤害 +15%', effects: { maxHp: 50 }, elite: 0.15 },
+    // 观沧海（神曹操）：站着不动 stand.after 秒后伤害 +stand.dmg，一走动就没了（和千里走单骑正好相反）
+    guancanghai: { name: '观沧海', icon: '海', max: 1, unique: true, general: '神曹操', desc: '“东临碣石，以观沧海”：生命上限 +40；站定 1 秒后伤害 +25%，一走动就没了', effects: { maxHp: 40 }, stand: { after: 1, dmg: 0.25 } },
     jianxiong: { name: '奸雄', icon: '雄', max: 1, unique: true, general: '曹操', desc: '“宁教我负天下人”：本局每斩一员名将，伤害 +5%（最多 +50%）', effects: {}, perKill: 0.05, cap: 0.5 },
     bowen: { name: '博闻强识', icon: '博', max: 5, unique: true, general: '蔡文姬', desc: '凭记忆默写出父亲四百余篇藏书：经验获取 +5%/级（每次击败蔡文姬都能再升一级，最多 5 级）', effects: {}, xp: 0.05 },
     jiangdong: { name: '江东基业', icon: '吴', max: 1, unique: true, general: '孙权', desc: '“坐断东南战未休”：金币 +15%，对据点伤害 +30%', effects: { goldMul: 0.15, bldDmg: 0.3 } },
@@ -1392,6 +1445,11 @@ window.GAME_DATA = {
       wake: ['白狼山 · 鬼才', '北风卷雪，满山鬼火……'], reward: { type: 'shen', gid: 'shenguojia', msg: '山风骤起……鬼才郭奉孝现身！' },
       rocks: { every: 1.5, count: 4, r: 72, delay: 0.9, spread: 170, dmg: 40, rgb: '120,200,255' }, spawn: { type: 'archer', every: 4, max: 6 },
       desc: '白狼山 · 北征乌桓，兵贵神速……' },
+    // 铜雀台：玩家 175 级时出现在地图东南方的高台（210 年曹操在邺城筑铜雀台），打掉后神曹操现身（见 game.js 的「铜雀台：神曹操」）
+    tongquetai: { name: '铜雀台', icon: '雀', seal: '台门紧闭', hp: 15500, r: 66, xp: 110, special: true, noSeal: true, aggroR: 620, unlockLv: 175, again: 480, roundHp: 0.5, roundDmg: 0.25,
+      wake: ['铜雀台 · 魏武', '高台上铜雀振翼，鼓角齐鸣……'], reward: { type: 'shen', gid: 'shencaocao', msg: '台门大开……魏武帝曹孟德亲临！' },
+      rocks: { every: 1.5, count: 4, r: 72, delay: 0.9, spread: 170, dmg: 40, rgb: '200,170,255' }, spawn: { type: 'shield', every: 4, max: 6 },
+      desc: '铜雀台 · 挟天子以令诸侯……' },
     // 锦囊：神郭嘉的「遗计」（大招）和「遗计定辽东」（第一次打空血）放出来的，打碎它（不算杀敌、不掉东西）
     jinnang: { name: '锦囊', icon: '囊', hp: 300, r: 20, xp: 0, special: true, bag: true, desc: '遗计锦囊 · 打碎它' },
     // 广宗魔坛：玩家 80 级时正东升起（张角病死广宗、被开棺戮尸的地方）；走近了黄符引雷劈在你身边（rocks 带 bolt），坛边疫气缭绕、你的回血只剩 plague
@@ -1944,6 +2002,28 @@ window.GAME_DATA = {
       banner: '逍遥津 · 张文远', line: '“八百虎贲，随我踏破江东！”', rage: '“张文远在此，谁敢一战！”',
       look: { skin: '#e2c09a', skinShade: '#bc9a76', robe: '#1e2a36', trim: '#8aa0b8', armor: true, armorColor: '#3a4656', beard: 'short', beardColor: '#1a1410', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#2a3442', plume: '#c8d8e8', weapon: 'guandao', aura: '#8cc8f0', artFace: [0.59, 0.26, 0.3] },
     },
+    // —— 魏延：魏文长，第六章陆逊之后、孟获之前登场（北伐：子午谷奇谋、踢翻七星灯、临死连喊三声「谁敢杀我」被马岱从背后斩了）。蜀将，无属性。
+    //   赤面短髯、暗红铁甲、长柄大刀；平时劈砍、冲锋、跳劈。「脑后反骨」（下面的 weiyan.fangu）：你站在他背后打，伤害更高。大招见 game.js 的「魏延 · 脑后反骨」 ——
+    weiyan: {
+      name: '魏延', title: '脑后反骨 · 魏文长', icon: '延', hp: 12000, speed: 106, dmg: 28, r: 33, color: '#5a1e1a', fangu: true,
+      attacks: ['cleave', 'charge', 'cleave', 'slam'], interval: 2.3, cleaveR: 230, cleaveHalf: 1.0, chargeSpeed: 780, slamR: 120,
+      rewards: ['kuanggudao', 'fangu', 'zhenbeiyin'],
+      ultRgb: '255,120,70', ultEvery: 10,
+      ults: [
+        // （尺寸叫 valleyL、valleyW、nookW、nookD、span、oilR、reach，不叫 R / r / w / len：名将强化会把那几个放大）
+        // 子午谷奇谋：以你为中心铺开一条山谷（长 valleyL、宽 valleyW，方向随机），两边石壁走不出去（闪现也出不去），石壁上有 nooks 个凹洞（宽 nookW、深 nookD）；
+        //   tele 秒后他从谷口冲到谷尾（每秒 speed），谷道里全挨打，躲进凹洞才安全；一共 runs 趟（暴怒多一趟），每趟隔 gap 秒、凹洞换位置
+        { id: 'ziwu', name: '子午谷奇谋', type: 'valleyRush', valleyL: 900, valleyW: 210, nooks: 4, nookW: 130, nookD: 90, tele: 1.2, speed: 1500, runs: 2, gap: 0.7, dmg: 1.4 },
+        // 踢翻七星灯：你身边按北斗摆七盏灯（勺口到勺柄长 span），先亮 tele 秒；他从天枢到摇光一盏盏踢翻（隔 step 秒一盏），
+        //   每盏炸开一片火油（半径 oilR）并留火 burn 秒；最后一盏半径和伤害 ×lastK
+        { id: 'tideng', name: '踢翻七星灯', type: 'lampKick', span: 620, tele: 0.9, step: 0.42, oilR: 95, lastK: 1.5, burn: 2.5, dmg: 1.2 },
+        // 谁敢杀我（血过半）：他横刀立定、不再转身，连喊 shouts 声（隔 every 秒），每声朝正面震出一道扇形气浪（半径 reach、半角 half，先亮 warn 秒）；
+        //   这期间只有站在他背后打才掉血；背后打掉他最大血量的 need，就被「马岱」从背后一刀打断：再掉 lose、晕 daze 秒；喊完还没打断就狂暴 frenzy 秒
+        { id: 'shuigan', name: '谁敢杀我', type: 'whoDares', hpBelow: 0.5, shouts: 3, every: 1.9, warn: 0.8, reach: 430, half: 1.05, need: 0.05, lose: 0.06, daze: 3, frenzy: 10, dmg: 1.3 },
+      ],
+      banner: '汉中 · 镇北将军 魏文长', line: '“丞相不用我的子午谷之计——那便由我自己来取！”', rage: '“谁敢杀我！”',
+      look: { skin: '#b85a48', skinShade: '#8e3e30', robe: '#5a1e1a', trim: '#c9a046', armor: true, armorColor: '#4a2a26', beard: 'short', beardColor: '#1a1210', eyes: 'fierce', brows: 'sharp', head: 'helmet', headColor: '#4a2a26', plume: '#c83a2a', weapon: 'guandao', aura: '#e0704a' },
+    },
     // —— 陆逊：陆伯言，第六章的第一位名将（222 年夷陵之战：火烧连营七百里）。吴将，书生拜大都督，火属性。
     //   白袍青甲、手执羽扇；平时离你远远地射一扇火箭、落几团火，隔一阵召一队弓手。大招见 game.js 的「陆逊 · 火烧连营」 ——
     luxun: {
@@ -2122,6 +2202,31 @@ window.GAME_DATA = {
       banner: '玉泉山 · 武圣 神关羽', line: '“关某在此，谁敢放肆！”', rage: '“青龙偃月，斩尽不臣！”',
       look: { skin: '#b8433a', skinShade: '#8e2e26', robe: '#1f5a40', trim: '#e0b850', armor: true, armorColor: '#c9a046', beard: 'long', eyes: 'phoenix', brows: 'silkworm', head: 'hood', headColor: '#1f5a40', weapon: 'guandao', aura: '#5af0aa', artFace: [0.53, 0.29, 0.3] },
     },
+    // —— 神曹操：175 级东南方的铜雀台放出（神将，入魔线第五个目标）。魏武帝：紫黑帝袍、金冕、长髯，手按倚天剑；身后是巨大的传国玉玺和铜雀。
+    //   平时劈砍、冲锋、召曹兵。规则见下面的 weiwu（奸雄越打越硬、说曹操曹操到、第一次打空血「割发代首」）和 game.js 的「铜雀台：神曹操」 ——
+    shencaocao: {
+      name: '神曹操', el: 'thunder', title: '魏武 · 挟天子以令诸侯', icon: '魏', hp: 72000, speed: 102, dmg: 36, r: 36, color: '#3a2a5a', weiwu: true, camp: 'shen',
+      attacks: ['cleave', 'charge', 'cleave', 'summon'], interval: 2.3, cleaveR: 250, cleaveHalf: 1.1, chargeSpeed: 760, summon: 5, summonType: 'foot',
+      rewards: ['qixingdao', 'fengzhao', 'guancanghai'],
+      ultRgb: '200,170,255', ultEvery: 10,
+      ults: [
+        // （尺寸叫 nearR、farR、shoreR0、dropR、ringR、laneW、laneLen、rockR、boltR、gazeR，不叫 R / r / w / len：名将强化会把那几个放大）
+        // 挟天子以令诸侯（登场第一招，之后反复用）：天上落下传国玉玺，连下 count 道诏令（暴怒多一道），每道先亮 lead 秒、再管 each 秒，四种随机不连着重复：
+        //   近前（要待在他身边 nearR 以内）、退避（要待在 farR 以外）、止步（不许动）、疾行（不许停）；抗旨每 tick 秒挨一下（保底 pct）。下诏期间他不出别的招，
+        //   天子在侧、投鼠忌器：他受到的伤害 -guard
+        { id: 'zhaoling', name: '挟天子以令诸侯', type: 'edicts', opener: true, count: 3, each: 2.5, lead: 1.2, nearR: 230, farR: 330, tick: 0.5, guard: 0.5, dmg: 0.5, pct: 0.06 },
+        // 虎豹骑：riders 骑虎豹骑从你背后 behind 远的两翼（左右各偏 spread 弧度）包抄过来，各自亮红线冲锋（用现成的虎豹骑，冲完留在场上）
+        { id: 'hubao', name: '虎豹骑', type: 'hubaoWings', riders: 6, behind: 430, spread: 0.9 },
+        // 观沧海（血量 70% 以下）：以你为中心，海潮从 shoreR0 往里涨到 shoreR1（rise 秒涨完，再留 hold 秒），岸外是海：走不快（只剩 1 - slow）、每 tick 秒挨一下；
+        //   一轮红日、一轮明月每隔 dropEvery 秒轮流朝你砸下来（半径 dropR，先亮 dropTele 秒，伤害 drop 倍；日是火、月是冰）
+        { id: 'canghai', name: '观沧海', type: 'seaTide', hpBelow: 0.7, shoreR0: 520, shoreR1: 210, rise: 6, hold: 2, tick: 0.5, slow: 0.4, dropEvery: 1.5, dropR: 110, dropTele: 1.0, drop: 1.3, dmg: 0.5, pct: 0.05 },
+        // 唯才是举（血量 45% 以下）：张辽、夏侯惇、典韦、郭嘉、司马懿的将魂在你身边 ringR 处围成一圈，隔 gap 秒一位依次出招（各先亮 tele 秒）：
+        //   张辽突骑（一条直线，宽 laneW、长 laneLen）、夏侯惇一箭（细线）、典韦落石（三块，半径 rockR）、郭嘉落雷（沿你的走向四道，半径 boltR）、司马懿鹰视（扇形，半径 gazeR、半角 gazeHalf）
+        { id: 'weicai', name: '唯才是举', type: 'talents', hpBelow: 0.45, ringR: 300, gap: 0.9, tele: 0.85, laneW: 90, laneLen: 760, rockR: 95, boltR: 72, gazeR: 520, gazeHalf: 0.5, dmg: 1.3, pct: 0.15 },
+      ],
+      banner: '铜雀台 · 魏武帝 神曹操', line: '“设使天下无有孤，不知当几人称帝、几人称王！”', rage: '“宁教我负天下人，休教天下人负我！”',
+      look: { skin: '#e8c9a0', skinShade: '#c4a47c', robe: '#2a1c44', trim: '#e0b850', armor: true, armorColor: '#3a2a5a', beard: 'long', beardColor: '#1a1410', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#e0b850', plume: '#6a4ab0', weapon: 'sword', aura: '#b090f0' },
+    },
     // —— 神郭嘉：145 级正北的白狼山放出（神将，入魔线第四个目标）。病容清瘦、眼神锐利，墨青长衫外罩幽蓝鹤氅，羽扇周围飘着鬼火。
     //   平时离你远远地飞鬼火、落雷，隔一阵召弓手；天妒英才（data.js 的 guojia.tiandu）：自己一直掉血、血越少出招越快。
     //   第一次打空血「遗计定辽东」见 guojia.dingliao；奖励是自己的三件（星罗棋子、算无遗策、十胜十败）。规则见 game.js 的「白狼山：神郭嘉」 ——
@@ -2165,6 +2270,16 @@ window.GAME_DATA = {
   // 神关羽的规则 · 千里走单骑：第一次被打空血不会死，ride 秒里骑上赤兔绕着你冲出重围（打不到，冲撞到你会受伤），然后以 revive 的血复生；
   //   之后一直骑着赤兔：移速 ×speed，大招间隔 ×ultK（只有一次）
   wusheng: { qianli: { ride: 3, revive: 0.45, speed: 1.35, ultK: 0.8, rideR: 380, rideDmg: 1.0 } },
+  // 神曹操的规则
+  //   奸雄：血每掉 per（最大血量的比例）叠一层，每层受到的伤害 -dr、他的伤害 +dmg，最多 max 层（越打越硬，神将不能太脆）
+  //   说曹操曹操到：你每次闪现落地，tele 秒后他瞬移到你身边横扫一刀（半径 reach、伤害 dmg 倍），cd 秒内最多一次；他放大招、割发时不来
+  //   割发代首：第一次打空血不死、打不到；n 个曹兵从 ringR 远处朝他走过来护驾（每秒 speed，每个的血是他最大血量的 hp，
+  //     和锦囊一样有护体：走近才打得动、一秒最多掉一半，见 guojia.guard），每走到一个他回 per 的血；
+  //     time 秒后（或曹兵都没了）带着回到的血复生，最少 min、最多 max（入魔「禁疗」打折）
+  weiwu: { jianxiong: { per: 0.1, dr: 0.04, dmg: 0.04, max: 8 }, dao: { cd: 6, tele: 0.7, reach: 150, dmg: 1.2 }, gefa: { n: 12, ringR: 520, speed: 66, hp: 0.02, time: 8, per: 0.05, min: 0.15, max: 0.6 } },
+  // 魏延的规则 · 脑后反骨：他有朝向，平时每秒最多转 turn 弧度对着你（冲锋时朝冲的方向，收招、「谁敢杀我」时不转）；
+  //   你站在他背后（背向两侧各 half 弧度以内）打，伤害 +back
+  weiyan: { fangu: { back: 0.5, half: 1.1, turn: 1.4 } },
   // 神郭嘉的规则
   //   天妒英才：每秒自己掉 drain 最大血量（被擒、化鬼时不掉）；血越少出招越快——出招和大招的计时快到最多 fastMax 倍（满血 1 倍，空血 fastMax 倍）
   //   遗计定辽东：第一次打空血不死，化作鬼魂（打不到）；你身边 ringR 处留下 bags 个锦囊（每个的血是他最大血量的 bagHp），time 秒内打碎；
@@ -2227,6 +2342,8 @@ window.GAME_DATA = {
     mozhangjiao: { death: '苍天……到底……没死……', ult: { fuzhao: '天公符诏——雷！', fushui: '饮我符水，入我黄天。', futi: '天公附体，力士何在！', cangtian: '苍天已死，黄天当立！岁在甲子，天下大吉！' } },
     zhangliao: { death: '文远……无愧于主公……', ult: { hubei: '八百足矣——随我冲阵！', liaolai: '辽来——辽来——！', xiaoyao: '逍遥津上，看谁敢挡！' } },
     luxun: { death: '书生……终究……只会放火……', ult: { lianying: '连营七百里——烧！', shunfeng: '东南风起，火借风势！', yiyi: '以逸待劳，静候你来。' } },
+    shencaocao: { death: '孤……纵横一世……终负了天下人……', ult: { zhaoling: '奉天子以令不臣——接诏！', hubao: '虎豹骑，天下骁锐——踏过去！', canghai: '东临碣石，以观沧海！', weicai: '唯才是举——诸将听令！', gefa: '军法在此，孤亦不免——割发代首！' } },
+    weiyan: { death: '背后……是谁……', ult: { ziwu: '子午谷——直取长安！', tideng: '什么七星灯——给我灭！', shuigan: '谁敢杀我！谁敢杀我！' } },
     menghuo: { death: '丞相天威……南人……不复反矣……', ult: { xiangbing: '象兵——给我踏平他！', duquan: '南中四泉，喝一口就别想走！', nanman: '藤甲在身，刀枪不入！' }, capture: '不服！放我回去，再战一场！' },
     modongzhuo: { death: '奉先……奉先何在……', ult: { fenshao: '烧！给我烧个干净！', suolian: '天子的锁链，谁也挣不脱！', jiuchi: '酒池肉林，与孤同醉！', mowang: '魔王临世，天下皆奴！' } },
     shenzhuge: { death: '悠悠苍天，曷此其极……', ult: { bamen: '八门已闭，生门只有一扇。', bamen2: '八阵随天转，生门亦无常。', tianfu: '八阵随天转，生门亦无常。', guanxing: '夜观天象，星落如雨。', kongcheng: '城门大开，请君入城。', rangxing: '七星灯明，吾命未绝！', pozhen: '好！竟能识破生门……' } },
@@ -2305,6 +2422,8 @@ window.GAME_DATA = {
       pangtong: { ults: { lianhuan:'铁索把你和身边几个小兵连在一起，拖着它们走不快；片刻后火从小兵那头顺着铁索烧过来。', fenghuo: '一只火凤沿预警线横穿画面，身后留下一道火路；连飞两趟，第二趟换个方向。', luofeng: '血过半后把你困进一条山道，两侧是峭壁；箭雨从身后一路往前压，前面还不断落下乱箭。' } },
       mozhangjiao: { note: '80 级时在正东的广宗魔坛里；信众护体：身边的黄巾兵越多，他受到的伤害越少（最多少四成）；回血有上限。', ults: { fuzhao: '你脚下展开一张巨大的黄符，符上的笔画按笔顺一笔笔亮起，雷电沿着亮起的笔画劈下，笔画之间是空的。', fushui: '泼下几碗符水化成疫池，踩进去掉血、回血减半；小兵走过疫池会染疫，跑得更快，死后留下一小片疫池。', futi: '附到你身边几个小兵身上，变成发光的黄天力士追着你跑，碰到你或时间一到就自爆；提前打死不会炸，还会掉一碗符水。', cangtian: '血过半后天色变成死黄，「苍天已死 黄天当立 岁在甲子 天下大吉」十六个大字分四轮砸下，落地的字在地上带电一阵；之后小兵走得更快。' } },
       luxun: { note: '第六章「南征北伐」的第一位名将。', ults: { lianying: '一串营寨沿预警线摆开，火从一头起，一座接一座烧过去，营寨和中间的路都变成火地；暴怒时两串交叉。', shunfeng: '起风后，一排排火从上风处往下风烧过来，每排都留一个口子，口子一排只挪一点。', yiyi: '血过半后退到远处坐下，身边燃起一圈火，一边回血一边朝你射火箭；冲进火圈贴到他身边就能打断他。' } },
+      shencaocao: { note: '175 级时在东南方的铜雀台里。奸雄：血每掉一成，他受到的伤害就少 4%、打人更痛，最多叠八层。下诏令时天子在侧，他受到的伤害减半。说曹操曹操到：你每次闪现落地，他会瞬移过来横扫一刀。第一次打空血「割发代首」不会死，曹兵从四面赶来护驾，每走到他身边一个就回一截血——要在半路砍掉。', ults: { zhaoling: '天上落下传国玉玺，连下三道诏令：近前（待在他身边的圈里）、退避（待在圈外）、止步（不许动）、疾行（不许停）。照做没事，抗旨不停掉血。', hubao: '六骑虎豹骑从你背后的两翼包抄冲过来，先亮红线。', canghai: '血量七成以下：四周变成夜海，海潮往里涨，能站的岸越来越小，海里走不快、不停掉血；一轮红日、一轮明月轮流朝你砸下来。', weicai: '血量四成半以下：张辽、夏侯惇、典韦、郭嘉、司马懿的将魂围着你依次出招——直线突骑、一箭、落石、落雷、扇形的鹰视，一招接一招。' } },
+      weiyan: { note: '第六章「南征北伐」里陆逊之后登场。脑后反骨：站在他背后打，伤害 +50%——他冲过头、放完招收招时会背对你。', ults: { ziwu: '以你为中心铺开一条山谷，两边石壁走不出去；他从谷口一路冲到谷尾，整条谷道都挨打，躲进石壁上的凹洞才安全。每趟凹洞换位置。', tideng: '你身边按北斗摆出七盏灯，他从勺口到勺柄一盏盏踢翻，每盏炸开一片火油并留火，最后一盏最大。', shuigan: '血过半后横刀立定连喊三声，每声朝正面震出一道气浪；这时从正面打他不掉血，绕到背后打够伤害，马岱会从背后给他一刀。' } },
       menghuo: { note: '第六章「南征北伐」的章末名将，祝融夫人随行。七擒七纵：前六次打空血都不死，被擒走几秒后放回来，一次比一次强，第七次才真倒下。', ults: { xiangbing: '画面一侧亮出几条冲锋道，战象一波波冲过来，每波都有空道，每波换一边。', duquan: '你身边冒出四眼毒泉，慢慢往外漫，踩进去会中毒、走不快。', nanman: '血过半后一圈藤甲兵围上来，刀枪不入，只怕火。' } },
       zhangliao: { ults: { hubei: '领着一队骑兵排成箭头形冲过你，冲过去以后两翼的骑兵在两侧掉头冲回来，中间那条路是空的。', liaolai: '四下变暗，他隐去身形，几次从画面外横冲过你，画面边上会先亮红箭头，最后一次两个方向一起冲。', xiaoyao: '血过半后一圈魏军盾兵把你围住，他在圈里冲进冲出几趟，最后一趟冲向你；冲完盾兵一起往里压。' } },
       modongzhuo: { note: '130 级时在西南方的郿坞里；黑血护盾，回血有上限。', ults: { fenshao: '四面火墙往里推，只留一条安全走廊，每一轮走廊换个地方。', suolian: '锁链从画面外的天上依次射向你，锁中就被拖到他跟前，落点烧起一片火。', jiuchi: '在你身边泼下几个毒酒池，踩进去走不快、掉血；他会泡在池里回血，池心的酒瓮打碎池子就干了。', mowang: '体型变大、从此狂暴，每掉一成血就召一队西凉铁骑冲阵。' } },
@@ -2449,6 +2568,7 @@ window.GAME_DATA = {
       events: [
         { t: 20, type: 'ambush', enemy: 'archer', count: 16, text: '夷陵伏兵 · 东吴弓手' },
         { t: 40, type: 'boss', id: 'luxun' }, // 222 年夷陵之战：火烧连营七百里
+        { t: 75, type: 'boss', id: 'weiyan' }, // 北伐：魏延请兵出子午谷
         { t: 95, type: 'ambush', enemy: 'shield', count: 30, text: '南中蛮兵' },
         { t: 110, type: 'boss', id: 'menghuo', final: true }, // 225 年诸葛亮南征：七擒七纵
       ],
@@ -2475,7 +2595,7 @@ window.GAME_DATA = {
   //     list：id、名字、说明，数值：speed 敌人移速倍率、taken 敌人受到的伤害倍率、dealt 敌人对你的伤害倍率、heal 回血倍率、smite 天罚间隔（秒）、
   //     arrows 箭雨 { every 隔几秒一阵, n 几个落点, R 落点半径, spread 离你多远以内, warn 预警秒数, pct 扣生命上限多少（再乘难度倍数）}、ambush 伏兵 { n 小兵, elites 精英 }、hurry 名将马上登场
   shura: {
-    name: '修罗无尽', sub: '按局外军需定强度、越来越难；名将更密，随机军令，站着不动会挨天罚',
+    name: '修罗无尽', sub: '按局外军需定强度、越来越难；名将更密，随机军令，站着不动会挨天罚，敌人活得太久会狂暴',
     dpsWin: 30,
     hpSec: { boss: 60, camp: 90, elite: 5, minion: 0.06 },
     bossEvery: 45, duoAfter: 600, duoChance: 0.35,
@@ -2483,6 +2603,18 @@ window.GAME_DATA = {
     lethalCap: 0.9,
     gear: { perLv: 0.08, start: 9, perMin: 1 },
     smite: { every: 30, count: 3, gap: 0.7, warn: 1.0, R: 120, pct: 0.3 },
+    // 狂暴（2026-11-11）：修罗里活得太久的敌人越来越凶——输出不够、只靠走位拖着的这一局会被追上（见 game.js 的 shuraFury）。
+    // 小兵、精英：活过 after 秒后，ramp 秒内移速涨到 speed 倍，并且至少是你移速的 chase 倍（追得上你，减速也拖不住）；
+    // 小兵狂暴后被击退的距离减少 kbCut；精英出招间隔除以 atk
+    // 名将：活过 after 秒（神魔将 camp 秒）后开始狂暴，每 ramp 秒涨 1 层，最多 kMax 层（越拖越凶）。
+    //   第 1 层移速涨到 speed 倍（至少是你的 chase 倍）；每层出手再快 (atk − 1) 倍：预警、收招、出招间隔都除以它，大招冷却也按它走
+    //   floor：狂暴的名将每一下（包括贴身撞你）至少按 lethal.contact 的下限扣血；爱拉开距离的名将（诸葛亮这类）狂暴后不再躲
+    //   reach：狂暴后离你超过这么远就先追、不出普通招（大招照放），免得老站在原地放空招
+    fury: {
+      minion: { after: 60, ramp: 15, speed: 1.6, chase: 1.35, kbCut: 0.7 },
+      elite: { after: 75, ramp: 15, speed: 1.5, chase: 1.2, atk: 1.4 },
+      boss: { after: 120, camp: 180, ramp: 20, speed: 1.5, chase: 1.3, atk: 1.5, kMax: 3, floor: true, reach: 300 },
+    },
     orders: {
       first: 120, every: 90, dur: 45, duoAfter: 1200, reward: 100,
       list: [
@@ -2555,7 +2687,7 @@ window.GAME_DATA = {
   campUp: {
     lines: [
       { id: 'feng', camp: 'mo', name: '封神', cur: 'moxue', curName: '魔血', vs: '魔将', who: '魔张角、魔董卓、魔吕布、魔貂蝉', rgb: '255,90,100' },
-      { id: 'ru', camp: 'shen', name: '入魔', cur: 'shenhun', curName: '神魂', vs: '神将', who: '神赵云、神诸葛、神关羽、神郭嘉', rgb: '170,215,255' },
+      { id: 'ru', camp: 'shen', name: '入魔', cur: 'shenhun', curName: '神魂', vs: '神将', who: '神赵云、神诸葛、神关羽、神郭嘉、神曹操', rgb: '170,215,255' },
     ],
     win: 3, lose: 2, gold: 500,
     cost: [3, 5, 8, 12, 17, 23, 30, 38, 48],
@@ -2604,6 +2736,9 @@ window.GAME_DATA = {
         levels: [{ cd: 40, n: 10, r: 90, dmg: 160, vuln: 4 }, { cd: 37, n: 10, r: 95, dmg: 175, vuln: 4 }, { cd: 34, n: 10, r: 100, dmg: 190, vuln: 4.5 }, { cd: 31, n: 10, r: 105, dmg: 210, vuln: 5 }, { cd: 28, n: 10, r: 110, dmg: 230, vuln: 5.5 }] },
       xianling: { name: '武圣显灵', icon: '圣', gid: 'shenguanyu', cur: 'shenhun', rgb: '90,240,170', desc: '武圣法相在你身后显灵，朝敌人最密处劈出一道巨大的扇形刀光；劈中的名将和精英破甲，片刻内受到的伤害增加。',
         levels: [{ cd: 40, R: 460, half: 0.8, dmg: 200, dur: 5 }, { cd: 37, R: 490, half: 0.82, dmg: 220, dur: 5 }, { cd: 34, R: 520, half: 0.85, dmg: 240, dur: 5.5 }, { cd: 31, R: 560, half: 0.88, dmg: 260, dur: 6 }, { cd: 28, R: 600, half: 0.9, dmg: 290, dur: 6.5 }] },
+      // 天下归心：把身边 r 以内的小兵吸到你跟前并定住 stun 秒；名将、精英定住 root 秒（不吸过来）
+      guixin: { name: '天下归心', icon: '归', gid: 'shencaocao', cur: 'shenhun', rgb: '255,224,130', desc: '周公吐哺，天下归心：把身边一大圈小兵吸到你跟前并定住；名将和精英也定住片刻。',
+        levels: [{ cd: 40, r: 420, stun: 2, root: 1.2 }, { cd: 37, r: 450, stun: 2.2, root: 1.3 }, { cd: 34, r: 480, stun: 2.4, root: 1.4 }, { cd: 31, r: 520, stun: 2.7, root: 1.5 }, { cd: 28, r: 560, stun: 3, root: 1.6 }] },
     },
   },
 
@@ -2703,6 +2838,9 @@ window.GAME_DATA = {
     // 遗计锦囊：打倒神郭嘉直接到手（再打一次就升级）。朝身边最强的 n 个敌人各贴一个锦囊，delay 秒后炸开（半径 radius）
     shenguojia: { name: '遗计锦囊', icon: '囊', iconFrom: 'yiji', rgb: '120,200,255', cd: 6, type: 'legacyBags', dmg: 110, n: 4, delay: 1.2, radius: 150,
       desc: '一叠锦囊悬在身边：定时朝身边最强的几个敌人各贴一个锦囊，片刻后一起炸开。' },
+    // 传国玉玺：打倒神曹操直接到手（再打一次就升级）。化作一方巨印砸进敌人最密处（同开山神斧的砸法），印下的小兵震晕
+    shencaocao: { name: '传国玉玺', icon: '玺', iconFrom: 'fengzhao', rgb: '255,224,130', cd: 6, type: 'slam', dmg: 125, radius: 190, stun: 1.5,
+      desc: '传国玉玺悬在身边：定时化作一方巨印砸进敌人最密处，印下的敌人受重伤，小兵被震晕。' },
     // —— 融合神兵（见上面的 fusion；fusion 是哪一组）。伤害照样按 sbDmg 算，等级是并进来的几件相加 ——
     // 五虎齐出：五位上将的英魂从五个方向冲过敌人最密处（五条线交在那里，每条长 len、宽 w），沿途的敌人每条挨一下；各人各色，前后差 gap 秒
     fuse_wuhu: { name: '五虎神兵', icon: '虎', iconFrom: 'qinglong', rgb: '255,215,110', cd: 7, type: 'fiveTigers', dmg: 105, len: 900, w: 100, speed: 1500, gap: 0.1, fusion: 'wuhu',
