@@ -1730,10 +1730,18 @@ const tapApi = () => window.tap || null;
 // 文档说组件创建后会自己拉广告，看完或关掉后也会自动拉下一条，所以只在 show 失败时才手动 load：多余的 load 会被当成高频请求限流，反而更容易“没有广告”
 // adShowing：上一次 show / load 还没回音；adTry：第几次去拉广告（作废的那次晚到的回音不算数）；adTryAt：这一次是什么时候开始的
 let rewardAd = null, adDone = null, adOn = false, adShown = false, adTimer = 0, adLate = null, adErr = '', adShowing = false, adTry = 0, adTryAt = 0;
+let adPeekT = 0, adHid = false, adLateT = 0; // adHid：说放出来以后，页面真的切到过后台（广告盖住了游戏）
 const adWait = 20, adLateFor = 180000, adPlayMax = 150, adBackWait = 3000, adStale = 60000; // adStale：一次拉广告最多等这么久（毫秒），过了就当丢了
+// 玩家反馈（2026-11-21，小米 14）「点了没反应，也没说调取失败」：平台说放出来了，画面上却什么都没有，以前要等 adPlayMax 秒才提示。
+// 现在说放出来 adSeenWait 秒后游戏还没切到后台，就把按钮改成「没看到广告？点这里重试」（why = 'stuck'），这一条先不作废：
+// 广告真盖在上面时玩家点不到按钮，看完照样给；真没出来，玩家再点一下就作废这条、重新拉
+const adSeenWait = 8;
 // 玩家反馈过按钮一直停在“广告加载中”：show() 说放出来了，之后既没有 onClose 也没有 onError。两道保险：
 // 切回前台 adBackWait 后还没回调，或者放了 adPlayMax 秒还没回调，就当这条广告丢了，按钮恢复可重试；之后真有 onClose 看完，adLate 照样补奖励
-function adBackCheck() { if (adOn && adShown) setTimeout(() => { if (adOn && adShown) adEnd(false, 'lost'); }, adBackWait); }
+function adBackCheck() {
+  if (adOn && adShown) setTimeout(() => { if (adOn && adShown) adEnd(false, 'lost'); }, adBackWait);
+  else if (!adOn && adLate && adLate.shown) { const L = adLate; setTimeout(() => adLateLost(L), adBackWait); } // 超时以后才播出来的那条：回来了还没关掉的回音，也放开按钮
+}
 function adErrStr(e) { if (!e || typeof e !== 'object') return e ? String(e).slice(0, 30) : ''; const c = e.errCode !== undefined ? e.errCode : e.code, m = e.errMsg || e.message || ''; return [c, String(m).slice(0, 24)].filter(x => x !== undefined && x !== '').join(' '); }
 function adOK() { const t = tapApi(); return !!(t && t.createRewardedVideoAd && TT.rewardedAdUnitId); }
 function getRewardAd() {
@@ -1750,7 +1758,7 @@ function getRewardAd() {
   rewardAd.onClose(res => { // 只有完整看完（isEnded）才给奖励；关掉后它自己会拉下一条
     const ended = !!(res && res.isEnded);
     if (adOn) adEnd(ended, ended ? 'ok' : 'closed');
-    else if (adLate && performance.now() < adLate.until) { const cb = adLate.cb; adLate = null; rebuildAudioSoon(); cb(ended, ended ? 'ok' : 'closed', adErr); } // 超时之后才播出来的
+    else if (adLate && performance.now() < adLate.until) { const cb = adLate.cb; adLate = null; clearTimeout(adLateT); rebuildAudioSoon(); cb(ended, ended ? 'ok' : 'closed', adErr); } // 超时之后才播出来的
   });
   return rewardAd;
 }
@@ -1758,18 +1766,42 @@ function getRewardAd() {
 // why：'ok' 看完、'closed' 没看完就关了、'noad' 这次拉不到广告（出错或超时）、'lost' 说放出来了却一直没回音
 function adEnd(ok, why) {
   if (!adOn) return; // onClose、出错、超时可能都来，只处理一次
-  adOn = false; clearTimeout(adTimer);
+  adOn = false; clearTimeout(adTimer); clearTimeout(adPeekT);
   rebuildAudioSoon();
   const cb = adDone; adDone = null;
   adLate = ok ? null : { cb, until: performance.now() + adLateFor }; // 放弃之后广告才播出来并看完：照样给
   if (cb) cb(ok, why, adErr);
+}
+// 这一条作废、不通知按钮（玩家又点了重试、或者已经选完卡）：这次拉广告的回音不再算数，真看完了照样走 adLate 给奖励
+function adAbandon() {
+  if (!adOn) return;
+  adOn = false; adShown = false; clearTimeout(adTimer); clearTimeout(adPeekT);
+  adShowing = false; adTry++;
+  const cb = adDone; adDone = null;
+  adLate = cb ? { cb, until: performance.now() + adLateFor } : null;
+  rebuildAudioSoon();
+}
+// 超时以后才播出来的那条一直没有关掉的回音：当它丢了，按钮恢复（以前这条路没有超时，「换一批」会让这局一直停着）
+function adLateLost(L) {
+  if (!L || adLate !== L) return;
+  adLate = null; clearTimeout(adLateT); rebuildAudioSoon();
+  L.cb(false, 'lost', '');
 }
 // 播一条激励视频：看完 cb(true, 'ok')，没看完 cb(false, 'closed')，没有广告 cb(false, 'noad')。
 // 同时只放一条：上一条还没结束时再点不理会（结算页的两个广告按钮在此期间都是灰的）
 function watchAd(cb) {
   const ad = getRewardAd();
   if (!ad) { cb(false, 'noad', ''); return; }
-  if (adOn) return;
+  if (adOn) {
+    if (adShown) adAbandon(); // 说放出来了、玩家却又点了按钮：画面上其实没有广告，这一条作废，下面重新拉
+    else { // 上一条还在加载（结算页点了复活马上再来一局、标题页点了重置军需马上开局……）：以前直接不理，这次点的按钮一直停在「广告加载中」，
+      // 「换一批」还会让这局一直停着。现在结果改交给这一次点的，上一个按钮当作没拉到广告
+      const old = adDone; adDone = cb;
+      if (old && old !== cb) try { old(false, 'noad', adErr); } catch (e) { /* 旧界面出错不影响这次 */ }
+      return;
+    }
+  }
+  if (adLate && adLate.shown) adLateLost(adLate); // 超时以后才播出来、还没关掉回音的那条：它的按钮先放开
   adDone = cb; adOn = true; adShown = false; adLate = null; adErr = '';
   if (actx && actx.state === 'running') actx.suspend().catch(() => {}); // 放广告时游戏静音
   clearTimeout(adTimer);
@@ -1779,9 +1811,14 @@ function watchAd(cb) {
   // 但最多等 adStale：过了还没回音就当那一次丢了，下面重新拉一次（以前是一直等下去）
   if (adShowing && performance.now() - adTryAt < adStale) return;
   const shown = () => { // 放出来了：等 onClose；放了太久没回音就当丢了。超时放弃之后才播出来的：按钮改回“广告播放中”
-    adShown = true; clearTimeout(adTimer);
-    if (adOn) adTimer = setTimeout(() => { if (adOn) adEnd(false, 'lost'); }, adPlayMax * 1000);
-    else if (adLate) adLate.cb(false, 'late', '');
+    adShown = true; adHid = false; clearTimeout(adTimer); clearTimeout(adPeekT);
+    if (adOn) {
+      adTimer = setTimeout(() => { if (adOn) adEnd(false, 'lost'); }, adPlayMax * 1000);
+      adPeekT = setTimeout(() => { if (adOn && adShown && !adHid && !document.hidden && adDone) { dbg('广告没盖住画面'); adDone(false, 'stuck', ''); } }, adSeenWait * 1000);
+    } else if (adLate) {
+      const L = adLate; L.shown = true; L.cb(false, 'late', '');
+      clearTimeout(adLateT); adLateT = setTimeout(() => adLateLost(L), adPlayMax * 1000);
+    }
   };
   // 这一次拉广告的编号：中途作废了（平台报错、等过了 adStale 又重新拉了一次），它晚到的回音就不再动「还在加载」的标记，也不再接着 show
   const id = ++adTry, mine = () => id === adTry;
@@ -2207,7 +2244,7 @@ function gameOver() {
   // 倒下时正开着的选项放回队里：看广告复活后还能接着选（以前直接丢掉，复活后少一次升级 / 奖励）
   const ch = S.choice;
   if (ch) { if (ch.mode === 'level') S.pendingLevels++; else if (ch.mode === 'forge') S.forgeReady++; else if (ch.mode === 'reward') S.rewards.unshift({ gid: ch.gid, t: 0, legend: !!ch.legend }); }
-  S.choice = null;
+  S.choice = null; rerollDrop(); // 「换一批」的广告正在等：作废，结算页的复活广告才放得出来，复活后也不会一直停着
   clearRun(); saveMeta(true); // 战死：这一局的存档作废，金币已经存好
   backupWrite(); // 本机文件也去掉这一局（不然闪退后会把打完的局找回来）
   $('levelup').hidden = true;
@@ -2393,7 +2430,7 @@ function dropXp(x, y, v) {
   if (S.pickups.length > (L ? L.cap : fxLite() ? 150 : 320)) { // 地上的东西太多就并进离这里最近的经验（精简模式并得更早，少画几百颗）；
     let best = null, bd = Infinity;                                // 并进最近的而不是随便一颗，经验才不会跑到你走不到的地方
     for (const g of S.pickups) if (g.kind === 'xp') { const d = dist2(g.x, g.y, x, y); if (d < bd) { bd = d; best = g; } }
-    if (best) { best.v += v; best.big = best.big || !!L; return; }
+    if (best) { best.v += v; best.big = best.big || !!L; best.t0 = S.t; return; } // 并进了新经验：从现在重新算 10 分钟
   }
   S.pickups.push({ kind: 'xp', x: x + rand(-5, 5), y: y + rand(-5, 5), v, mag: false, vel: 0, big: !!L });
 }
@@ -2424,9 +2461,14 @@ function addXp(v) {
   }
   submitScore(false); // TapTap 排行榜：升级了就提交一次
 }
+// 掉落 PICK_LIFE 秒（按局内时间，暂停不算）没捡就消失（2026-11-22 用户定：玩家晚上挂机睡觉，地上没捡的元宝、肉包越堆越多，卡死了）。
+// 最后 PICK_BLINK 秒闪烁提醒；已经在往你身上飞的照常捡到。出现的时间在第一次更新时记下（g.t0），读档回来的局也一样
+const PICK_LIFE = 600, PICK_BLINK = 10;
 function updatePickups(dt) {
   const p = S.player, pr2 = p.pickup * p.pickup;
   for (const g of S.pickups) {
+    if (g.t0 === undefined) g.t0 = S.t;
+    if (!g.mag && S.t - g.t0 > PICK_LIFE) { g.dead = true; continue; }
     const d2 = dist2(g.x, g.y, p.x, p.y);
     if (!g.mag && d2 < pr2) g.mag = true;
     if (!g.mag) continue;
@@ -15626,10 +15668,13 @@ function rerollChoice() {
   if (!ch || ch.mode !== 'level' || !adOK() || (S.adRerolls || 0) >= TT.adRerolls || b.disabled) return;
   b.disabled = true; b.textContent = '广告加载中…'; S.adHold = true;
   watchAd((ok, why) => {
-    if (why === 'late') { S.adHold = true; b.disabled = true; b.textContent = '广告播放中…'; return; } // 超时放弃之后广告才播出来：接着等它看完
+    const mine = S.choice === ch; // 还是这一次选卡（没选完、没倒下）
+    if (why === 'stuck') { if (mine) { b.disabled = false; b.textContent = '没看到广告？点这里重试'; } return; } // 游戏照样停着，等玩家重试或选卡
+    if (why === 'late') { if (!mine) return; S.adHold = true; b.disabled = true; b.textContent = '广告播放中…'; return; } // 超时放弃之后广告才播出来：接着等它看完（卡已经选了就不再停住游戏）
+    // 不是这一次的了：别的按钮接手了这条广告（adOn 还在）就什么都不动，免得把别人的「停住游戏」放开
+    if (!mine) { if (!adOn) { S.adHold = false; b.disabled = false; } rerollLabel(); return; }
     S.adHold = false; b.disabled = false;
-    if (S.choice !== ch) { rerollLabel(); return; }
-    if (!ok) { b.textContent = why === 'noad' ? '暂时没有广告 · 再试' : '没看完 · 再试'; return; }
+    if (!ok) { b.textContent = why === 'noad' ? '暂时没有广告 · 再试' : why === 'lost' ? '广告没有播出来 · 再试' : '没看完 · 再试'; return; }
     S.adRerolls = (S.adRerolls || 0) + 1;
     const old = ch.opts.map(o => o.kind + o.id).join();
     let opts = levelOptions();
@@ -15638,6 +15683,8 @@ function rerollChoice() {
     addNumber(S.player.x, S.player.y - 40, '换了一批', '#ffd98a', 15);
   });
 }
+// 「换一批」的广告还没结束就选了卡、放弃了、倒下了：这条广告作废（真看完照样走 adLate，只是不再换卡），游戏不再停着
+function rerollDrop() { if (S && S.adHold) { adAbandon(); S.adHold = false; $('lu-reroll').disabled = false; } }
 // 看广告重置军需（2026-11-20 用户定）：主页按钮，四个出身的军需全部清空，花在军需上的金币全部返还；点一下变红「再点一次」，3 秒内再点才放广告
 let gearResetArm = 0;
 function gearResetLabel(text) {
@@ -15657,9 +15704,10 @@ function gearReset() {
   }
   gearResetArm = 0; b.classList.remove('armed'); b.disabled = true; b.textContent = '广告加载中…';
   watchAd((ok, why) => {
+    if (why === 'stuck') { b.disabled = false; b.textContent = '没看到广告？点两下重试'; return; }
     if (why === 'late') { b.disabled = true; b.textContent = '广告播放中…'; return; }
     b.disabled = false;
-    if (!ok) { b.textContent = why === 'noad' ? '暂时没有广告 · 点击重试' : '没看完广告 · 点击重试'; return; }
+    if (!ok) { b.textContent = why === 'noad' ? '暂时没有广告 · 点击重试' : why === 'lost' ? '广告没有播出来 · 点击重试' : '没看完广告 · 点击重试'; return; }
     const m = loadMeta(), back = gearSpent(m.gear);
     m.gold += back; m.gear = {}; m._dirty = true; saveMeta(true); // 累计金币不动（云存档合并看它）；军需清空后「累计少于花掉的」补偿判断也不会误触发
     refreshTitle(); renderOrigins();
@@ -15672,7 +15720,7 @@ function gearReset() {
 function applyChoice(o) {
   gainChoice(o);
   $('levelup').hidden = true;
-  S.choice = null;
+  S.choice = null; rerollDrop();
   nextModal();
 }
 // 放弃（2026-11-12，玩家反馈「三个没学过的技能只能强迫学」；11-01 定过升级选项要有放弃）：这一次什么都不要、也不补偿，接着弹排队的下一个
@@ -15689,7 +15737,7 @@ function skipChoice() {
   armSkip(false);
   addNumber(S.player.x, S.player.y - 40, ch.mode === 'reward' ? `放弃 · ${D.generals[ch.gid].name}的遗物` : '放弃这次升级', '#c8bfa8', 15);
   $('levelup').hidden = true;
-  S.choice = null;
+  S.choice = null; rerollDrop();
   nextModal();
 }
 // 只让这张卡生效，不碰选择栏。神魔将倒下时直接发神兵用这个：以前用 applyChoice，会把那一刻正开着的升级 / 奖励选项关掉、白白丢一次
@@ -16536,6 +16584,7 @@ function showEnd() {
     adBusy(true); rv.textContent = '广告加载中…';
     watchAd((ok, why, err) => {
       if (S !== run || !S.over || rv.done) return;
+      if (why === 'stuck') { rv.disabled = false; rv.textContent = '没看到广告？点这里重试'; return; }
       if (ok) { rv.done = true; revive(); return; }
       if (late(why, rv)) return;
       adBusy(false); rv.textContent = failText(why, err);
@@ -16550,6 +16599,7 @@ function showEnd() {
     adBusy(true); gb.textContent = '广告加载中…';
     watchAd((ok, why, err) => {
       if (S !== run || run.adGold) return;
+      if (why === 'stuck') { gb.disabled = false; gb.textContent = `没看到广告？点这里重试 · +${bonus}`; return; }
       if (ok) { gb.done = true; S.adGold = true; addGold(bonus); saveMeta(true); fill(); adBusy(false); gb.disabled = true; gb.textContent = `已领取 +${bonus} 金币`; return; }
       if (late(why, gb)) return;
       adBusy(false); gb.textContent = `${failText(why, err)} · +${bonus}`;
@@ -16887,7 +16937,7 @@ document.addEventListener('visibilitychange', () => {
 });
 // 真的去过后台（切出去、锁屏）才重建音频；没先收到「切到后台」的 onShow 不重建，只是确认一下声音在走（以前每次 onShow 都重建，音乐要从头解码，会断好几秒）
 let hiddenAt = 0;
-document.addEventListener('visibilitychange', () => { dbg(document.hidden ? '页面隐藏' : '页面显示'); if (document.hidden) hiddenAt = hiddenAt || performance.now(); });
+document.addEventListener('visibilitychange', () => { dbg(document.hidden ? '页面隐藏' : '页面显示'); if (document.hidden) { hiddenAt = hiddenAt || performance.now(); adHid = true; } });
 const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function backToFront() {
   const away = hiddenAt && performance.now() - hiddenAt > 800; dbg('回前台', hiddenAt ? Math.round(performance.now() - hiddenAt) + 'ms' : '没先切后台'); hiddenAt = 0;
@@ -16902,7 +16952,7 @@ function backToFront() {
 }
 try {
   const tap = tapApi();
-  if (tap && tap.onHide) tap.onHide(() => { dbg('onHide'); hiddenAt = hiddenAt || performance.now(); });
+  if (tap && tap.onHide) tap.onHide(() => { dbg('onHide'); hiddenAt = hiddenAt || performance.now(); adHid = true; });
   if (tap && tap.onShow) tap.onShow(() => { dbg('onShow'); if (!tap.onHide) hiddenAt = hiddenAt || 1; backToFront(); }); // 没有 onHide 的老容器：照旧每次都重建
 } catch (e) { /* TapTap 容器里切回前台可能只发这个 */ }
 addEventListener('pagehide', () => { saveRun(); saveMeta(true); backupWrite(); cloudUpload(); });
@@ -17442,6 +17492,7 @@ function drawTelegraphs() {
 
 function drawPickups() {
   for (const g of S.pickups) {
+    if (!g.mag && g.t0 !== undefined && S.t - g.t0 > PICK_LIFE - PICK_BLINK && Math.sin(S.t * 14) < 0) continue; // 快消失了：一闪一闪
     if (g.kind === 'heal') { // 肉包（后期的大肉包大一圈）
       const s = g.big ? 1.4 : 1;
       ctx.fillStyle = '#f3ead6'; ctx.strokeStyle = '#6b5a3a'; ctx.lineWidth = 1.5;
