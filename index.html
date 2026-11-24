@@ -62,6 +62,7 @@ button:focus-visible, .card:focus-visible { outline: 2px solid var(--gold); outl
 #best { margin: 0; color: var(--gold); font-size: 14px; letter-spacing: .05em; text-align: center; }
 #cloud-note { margin: 0; color: var(--muted); font-size: 11px; text-align: center; } /* 云存档同步到哪了（只在 TapTap 里显示） */
 #crash-note { margin: 0; max-width: 34em; color: var(--muted); font-size: 11px; line-height: 1.45; text-align: center; white-space: pre-line; } /* 上次闪退时的情况：给玩家截图 */
+#fix-note { margin: 0; max-width: 34em; color: var(--gold); font-size: 12px; line-height: 1.45; text-align: center; } /* 广告金币出错的补偿说明（补到的那一次进游戏才显示） */
 .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-shadow: 0 1px 2px #000; }
 #time { font-family: var(--display); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
 #kills { font-size: 13px; color: var(--muted); }
@@ -516,6 +517,7 @@ img.art-face { position: absolute; display: block; max-width: none; height: auto
     <p id="best" hidden></p>
     <p id="cloud-note" hidden></p>
     <p id="crash-note" hidden></p>
+    <p id="fix-note" hidden></p>
     <div id="continue-box" hidden>
       <button class="btn primary" id="btn-continue">继续征战</button>
       <div class="cont-note" id="continue-note"></div>

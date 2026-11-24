@@ -11565,11 +11565,28 @@ $('slots').addEventListener('click', e => { if (S && e.target.closest('.more')) 
 addEventListener('resize', () => { if (S) S.buildDirty = true; }); // 屏幕转向、窗口变宽：一行放得下的格数变了，重新排
 
 // ---------- 局外成长：金币与装备（存在本机浏览器里） ----------
-let META = null;
+let META = null, goldFixed = false; // goldFixed：这次进游戏补过金币（标题页显示一行说明）
+const GOLD_FIX = 3000; // V-20261105 广告金币出错的补偿（见 loadMeta）
+// 花在军需上的金币：每件从 0 级买到现在的等级（价格和 gearCost 一样，这里直接按 data.js 算：读档可能早于 gearCost 那一行）
+function gearSpent(gear) {
+  const M = D.meta, F = M.formLv; let sum = 0;
+  for (const id in gear || {}) for (let l = 0; l < gear[id] && l < 2000; l++) sum += Math.ceil(M.costBase * Math.pow(M.costGrowth, Math.min(l, F)) * Math.pow(M.lateGrowth, Math.max(0, l - F)) / 5) * 5;
+  return sum;
+}
 function loadMeta() {
   if (META) return META;
   try { META = JSON.parse(localStorage.getItem('buyi-meta')) || null; } catch (e) { META = null; }
   META = Object.assign({ gold: 0, total: 0, gear: {} }, META || {});
+  // V-20261105 里看过「广告加金币」的存档：金币、累计金币成了 NaN，存盘后是 null（显示「金 null」，原来的余额已经找不回来）。不是正常数字的归 0
+  let bad = false;
+  for (const k of ['gold', 'total']) if (!Number.isFinite(META[k])) { META[k] = 0; META._dirty = bad = true; }
+  // 补偿：坏过的存档补 GOLD_FIX 金币，每份存档只补一次（fix1110 记在存档里，跟着云存档、本机备份走）。
+  // 坏过 = 金币或累计不是数字（坏了之后还没重进过）；或者累计金币比花在军需上的还少（重进后又打过：累计是从 0 重新记的。
+  // 累计金币和军需是同一天加的、价格表上线后没变过，正常存档的累计一定不少于花掉的）
+  if (!META.fix1110 && (bad || META.total < gearSpent(META.gear))) {
+    META.fix1110 = 1; META.gold += GOLD_FIX; META.total += GOLD_FIX; META._dirty = true;
+    goldFixed = true; // 标题页写一行说明（见 refreshTitle；提示框 #toast 在战斗界面里，标题页上看不到）
+  }
   return META;
 }
 let metaSaveT = 0;
@@ -11600,6 +11617,7 @@ function gearLook(originId) {
 }
 const gearCost = lv => Math.ceil(D.meta.costBase * Math.pow(D.meta.costGrowth, Math.min(lv, FORM_LV)) * Math.pow(D.meta.lateGrowth, Math.max(0, lv - FORM_LV)) / 5) * 5;
 function addGold(v, x, y) {
+  if (!Number.isFinite(v)) return; // 只收正常的数：V-20261105 里看广告加的金币算成了 NaN，一加进去金币、累计金币全坏了
   const m = loadMeta();
   m.gold += v; m.total += v; S.goldRun += v; m._dirty = true;
   if (x !== undefined) addNumber(x, y - 26, `+金 ${v}`, '#ffd75a', 15);
@@ -11659,13 +11677,13 @@ function renderShop() {
       const nx = `<br>下一级：<b>${gearTierName(g, lv + 1)}</b> · ${gearEffectText(g, lv + 1)}`;
       return `<div class="gear${st ? ' r' + st : ''}"><div class="seal" ${R ? `style="box-shadow: 0 0 0 2px ${R.color}, 0 0 8px ${R.color}"` : ''}>${gearIconHtml(g, lv)}</div>
         <div class="gn">${gearTierName(g, lv)}<small>${g.slot}${R ? ` · <span style="color:${R.color}">${R.name}</span>` : ''} · Lv ${lv}</small></div>
-        <button class="buy" data-g="${g.id}" ${m.gold < cost ? 'disabled' : ''}>${lv ? '升级' : '购买'} · 金 ${cost}</button>
+        <button class="buy" data-g="${g.id}" ${m.gold >= cost ? '' : 'disabled'}>${lv ? '升级' : '购买'} · 金 ${cost}</button>
         <div class="gd">${g.desc}<br>当前：<b>${gearEffectText(g, lv)}</b>${nx}</div></div>`;
     }).join('') + '</div>').join('');  $('shop-list').querySelectorAll('.buy').forEach(b => b.addEventListener('click', () => buyGear(b.dataset.g)));
 }
 function buyGear(id) {
   const m = loadMeta(), lv = gearLv(id), cost = gearCost(lv);
-  if (m.gold < cost) return;
+  if (!(m.gold >= cost)) return; // 「够才买」：金币不是正常数字（NaN）时也买不了。以前写的是「不够就返回」，NaN 比什么都不成立，结果随便买
   m.gold -= cost; m.gear[id] = lv + 1; m._dirty = true; saveMeta(true);
   sfx('level');
   renderShop();
@@ -11728,7 +11746,7 @@ function renderCamp() {
     return `<div class="shop-col camp-${L.id}"><h3>${campImg(`camp_${L.id}`, 'camp-emb')}${L.name}<small>对${L.vs} · ${L.who}</small></h3>
       <div class="camp-cur">${campImg(L.cur, 'camp-coin')}${L.curName} <b>${have}</b> · ${L.name} ${lv} 级</div>
       <div class="camp-btns"><button class="buy" data-up="${L.id}" ${have < cost ? 'disabled' : ''}>升到 ${lv + 1} 级 · ${L.curName} ${cost}</button>` +
-      `<button class="buy alt" data-x="${L.id}" ${m.gold < CU.gold ? 'disabled' : ''}>金 ${CU.gold} 换 1 ${L.curName}</button></div>${rows}${late}</div>`;
+      `<button class="buy alt" data-x="${L.id}" ${m.gold >= CU.gold ? '' : 'disabled'}>金 ${CU.gold} 换 1 ${L.curName}</button></div>${rows}${late}</div>`;
   }).join('') + smjPanel(m);
   $('camp-list').querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => campBuy(b.dataset.up)));
   $('camp-list').querySelectorAll('[data-x]').forEach(b => b.addEventListener('click', () => campExchange(b.dataset.x)));
@@ -11774,7 +11792,7 @@ function campBuy(id) {
 }
 function campExchange(id) { // 金币换魔血 / 神魂（只能这个方向换）
   const L = CU.lines.find(l => l.id === id), m = loadMeta();
-  if (m.gold < CU.gold) return;
+  if (!(m.gold >= CU.gold)) return; // 同军需：够才换
   m.gold -= CU.gold; m[L.cur] = (m[L.cur] || 0) + 1; m._dirty = true; saveMeta(true);
   sfx('pick'); renderCamp();
   const b = $('camp-list').querySelector(`[data-x="${id}"]`); if (b) b.focus();
@@ -11874,6 +11892,8 @@ function refreshTitle() {
   $('btn-ach').hidden = !achOK(); achInit(); // TapTap 成就：只在 TapTap 里显示
   showBestOnTitle();
   $('title-gold').textContent = `金 ${loadMeta().gold}`;
+  $('fix-note').hidden = !goldFixed; // 要放在上面读过存档之后
+  if (goldFixed) $('fix-note').textContent = `上一版「看广告加金币」出了错，金币被清空了。已补偿 ${GOLD_FIX} 金币，抱歉`;
   const r = loadRun();
   $('continue-box').hidden = !r;
   if (r) {
@@ -11992,7 +12012,8 @@ function showEnd() {
   mk('回到标题', false, toTitle); // 标题界面可以换出身、逛军需、看图鉴
   // TapTap 激励视频：看完广告，本局金币再加 adGoldBonus（每局一次）
   const bonus = Math.max(1, Math.round(S.goldRun * TT.adGoldBonus));
-  const gb = adOK() && S.goldRun > 0 && !S.adGold && mk(`看广告 金币 +${Math.round(TT.adGoldBonus * 100)}%（+${bonus}）`, false, () => {
+  // bonus > 0：算不出数（NaN）就不给这个按钮
+  const gb = adOK() && S.goldRun > 0 && bonus > 0 && !S.adGold && mk(`看广告 金币 +${Math.round(TT.adGoldBonus * 100)}%（+${bonus}）`, false, () => {
     adBusy(true); gb.textContent = '广告加载中…';
     watchAd((ok, why, err) => {
       if (S !== run || run.adGold) return;
