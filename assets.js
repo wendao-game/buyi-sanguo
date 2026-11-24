@@ -90,6 +90,7 @@ window.Assets = (() => {
     load('sprite:tiger', `${ASSET_BASE}sprites/tiger${IMG}`); // 猛虎（孙权的合肥射虎、射虎技能、紫髯古锭刀的冰虎；没有图时代码画）
     load('sprite:elephant', `${ASSET_BASE}sprites/elephant${IMG}`); // 战象（孟获的象兵冲阵、驯象技能；没有图时代码画，见 game.js 的 drawElephant）
     load('sprite:zhangzhao', `${ASSET_BASE}sprites/zhangzhao${IMG}`); // 张昭（孙权「制衡」的虚影；不是名将，不在上面的清单里）
+    load('sprite:yuji', `${ASSET_BASE}sprites/yuji${IMG}`); // 于吉的鬼魂（孙策「于吉镜咒」飘在铜镜中间；不是名将；没有图时代码画）
     // 特效贴图：龙首（白龙 = 赵云七进七出，青龙 = 关羽刀气）、坐骑
     for (const id of ['dragon_white', 'dragon_azure', 'dragon_shen']) load('fx:' + id, `${ASSET_BASE}fx/${id}${IMG}`); // dragon_shen：神赵云龙魂·四象的龙首（没画好时借白龙）
     load('fx:phoenix', `${ASSET_BASE}fx/phoenix${IMG}`); // 火凤（庞统的凤火燎原、涅槃凤翎；朝右、透明底；没有图时代码画）

@@ -536,6 +536,30 @@ window.GAME_DATA = {
         { dmg: 54, cd: 0.55, len: 275, width: 36, count: 3, kb: 160, nine: 9, nineK: 4, nineLen: 2.2, nineW: 2.2, note: '一次刺三枪：九伐中原，大刺伤害 ×4' },
       ],
     },
+    // 虎痴刀（许褚，2026-11-17）：大幅劈砍、击退很远；每第 spin 刀抡一整圈（范围 ×spinR）。出手间隔不随等级变
+    huchidao: {
+      name: '虎痴刀', icon: '痴', type: 'arc', general: '许褚',
+      desc: '许褚的厚背大刀。大幅劈砍，把敌人远远击退；每隔几刀抡一整圈。',
+      levels: [
+        { dmg: 42, cd: 1.2, range: 140, angle: 160, kb: 300, spin: 5, spinR: 1.15 },
+        { dmg: 52, cd: 1.2, range: 146, angle: 170, kb: 320, spin: 5, spinR: 1.15, note: '伤害 +10，范围扩大' },
+        { dmg: 62, cd: 1.2, range: 152, angle: 180, kb: 340, spin: 4, spinR: 1.15, note: '每第四刀抡一整圈' },
+        { dmg: 74, cd: 1.2, range: 158, angle: 190, kb: 360, spin: 4, spinR: 1.2, note: '伤害 +12，范围扩大' },
+        { dmg: 92, cd: 1.2, range: 170, angle: 200, kb: 400, spin: 3, spinR: 1.25, note: '虎痴：每第三刀抡一整圈' },
+      ],
+    },
+    // 霸王枪（孙策，2026-11-17）：直刺（同丈八蛇矛），枪尖再炸开一小圈（半径 tipR、伤害 ×tipK）。出手间隔不随等级变
+    bawangqiang: {
+      name: '霸王枪', icon: '霸', type: 'thrust', general: '孙策', rgb: '255,180,130',
+      desc: '小霸王的长枪。朝最近的敌人突刺，枪尖再炸开一小圈，打中一片。',
+      levels: [
+        { dmg: 30, cd: 0.75, len: 230, width: 32, count: 1, kb: 160, tipR: 60, tipK: 0.6 },
+        { dmg: 37, cd: 0.75, len: 240, width: 32, count: 1, kb: 170, tipR: 62, tipK: 0.6, note: '伤害 +7，刺得更远' },
+        { dmg: 41, cd: 0.75, len: 250, width: 34, count: 2, kb: 170, tipR: 64, tipK: 0.6, note: '一次刺两枪' },
+        { dmg: 50, cd: 0.75, len: 265, width: 36, count: 2, kb: 180, tipR: 72, tipK: 0.7, note: '伤害 +9，枪尖炸得更大' },
+        { dmg: 62, cd: 0.75, len: 285, width: 38, count: 3, kb: 200, tipR: 82, tipK: 0.8, note: '一次刺三枪：小霸王，枪尖炸开一大圈' },
+      ],
+    },
     guding: {
       name: '古锭刀', icon: '锭', type: 'arc', general: '孙权',
       desc: '孙权的古锭刀。朝最近的敌人宽幅劈砍，刀光带着江上的寒气，被砍中的敌人走不快。',
@@ -1157,6 +1181,30 @@ window.GAME_DATA = {
         { cd: 7, dmg: 88, radius: 156, len: 560, boom: 2, note: '二虎相争：相撞时伤害 ×2' },
       ],
     },
+    // 虎卫护驾（许褚，2026-11-17）：每 cd 秒召 n 名虎卫（随从「虎卫」：挨打少四成、身边的小兵都冲他去），留 life 秒散去（不占随从名额）。冷却不随等级变
+    huweihujia: {
+      name: '虎卫护驾', icon: '卫', type: 'guardAlly', general: '许褚',
+      desc: '许褚统领的虎卫军。定时召来几名重甲虎卫，替你挡刀、把身边的小兵都引过去，一会儿后散去。',
+      levels: [
+        { cd: 16, n: 2, life: 9, dmg: 18 },
+        { cd: 16, n: 2, life: 10, dmg: 22, note: '护得更久' },
+        { cd: 16, n: 3, life: 10, dmg: 24, note: '多来一名' },
+        { cd: 16, n: 3, life: 12, dmg: 28, note: '护得更久，下手更重' },
+        { cd: 16, n: 4, life: 12, dmg: 34, note: '虎卫军：一次四名' },
+      ],
+    },
+    // 神亭酣战（孙策，2026-11-17）：每 cd 秒太史慈的英魂来助战 life 秒（随从「太史慈」：远远放箭，一箭穿几个；不占随从名额）。冷却不随等级变
+    shenting: {
+      name: '神亭酣战', icon: '亭', type: 'heroAlly', general: '孙策',
+      desc: '神亭岭上和孙策酣战的太史慈。定时来助战一阵，远远拉弓放箭，一箭能穿好几个敌人。',
+      levels: [
+        { cd: 18, life: 8, dmg: 26 },
+        { cd: 18, life: 9, dmg: 32, note: '留得更久，伤害 +6' },
+        { cd: 18, life: 10, dmg: 38, note: '留得更久，伤害 +6' },
+        { cd: 18, life: 11, dmg: 46, note: '留得更久，伤害 +8' },
+        { cd: 18, life: 12, dmg: 56, note: '太史慈拉满弓：伤害 +10，留得更久' },
+      ],
+    },
     // 铁笼（姜维，2026-11-14）：每 cd 秒罩住 range 以内最强的 n 个敌人（名将 > 精英 > 血最厚的），罩 dur 秒：笼子半径 cageR，它走不出笼子、受到的伤害 +vuln；
     //   铁栏每 tick 秒扎笼里的敌人一下（dmg）。名将只罩 bossK 那么久。冷却不随等级变（新掉落不碰冷却）
     tielong: {
@@ -1281,6 +1329,10 @@ window.GAME_DATA = {
     manwang: { name: '南蛮王', icon: '蛮', max: 1, unique: true, general: '孟获', desc: '七擒七纵也不服的蛮王之躯：生命上限 +120，护甲 +3，每秒回复 +1', effects: { maxHp: 120, armor: 3, regen: 1 } },
     sigong: { name: '四世三公', icon: '袁', max: 1, unique: true, general: '袁绍', desc: '“袁氏树恩四世，门生故吏遍于天下”：金币 +12%，随从伤害 +15%', effects: { goldMul: 0.12, allyDmg: 0.15 } },
     wangzuo: { name: '王佐之才', icon: '佐', max: 1, unique: true, general: '荀彧', desc: '“吾之子房也”：技能和带「计策」的兵器伤害 +20%，随从伤害 +10%', effects: { spellDmg: 0.2, allyDmg: 0.1 } },
+    // 裸衣（许褚，2026-11-17）：伤害、移速提高，护甲 -2（护甲最低算 0）
+    luoyi: { name: '裸衣', icon: '裸', max: 1, unique: true, general: '许褚', desc: '“谁敢与我裸衣一战！”：伤害 +20%，移动速度 +10%；但护甲 -2', effects: { dmgMul: 0.2, speedMul: 0.1, armor: -2 } },
+    // 小霸王（孙策，2026-11-17）：每斩一个敌人伤害 +streak.per（最多 streak.max），streak.keep 秒没斩敌就清零
+    xiaobawang: { name: '小霸王', icon: '霸', max: 1, unique: true, general: '孙策', desc: '越杀越勇：每斩一个敌人伤害 +1%（最多 +25%），3 秒没斩敌就清零', effects: {}, streak: { per: 0.01, max: 0.25, keep: 3 } },
     // 胆大如卵（姜维，2026-11-14）：一下挨的伤害超过生命上限 big.at，超出的部分只吃 big.keep（原定「身边敌人越多越痛」，和魔董卓的暴政魔印重了，改成这个）
     danda: { name: '胆大如卵', icon: '胆', max: 1, unique: true, general: '姜维', desc: '剖腹见胆，胆大如卵：生命上限 +50，伤害 +8%；一下挨的伤害超过生命上限 15% 时，超出的部分减半', effects: { maxHp: 50, dmgMul: 0.08 }, big: { at: 0.15, keep: 0.5 } },
     // 血瞳（魔夏侯惇）：你面朝方向（走动的方向）两侧各 gaze.half 弧度以内的敌人，受到的伤害 +gaze.dmg
@@ -1463,6 +1515,9 @@ window.GAME_DATA = {
       look: { skin: '#b8b0c4', robe: '#2a2234', trim: '#7a5aa8', armor: true, armorColor: '#34303e', beard: 'none', eyes: 'normal', brows: 'sharp', head: 'helmet', headColor: '#26222e', plume: '#6a3a9a', weapon: 'dao' } },
     // 猛虎：孙权的「射虎」技能唤来的临时随从（有 sprites/tiger.png 用图，没有时代码画一头虎）
     ally_tiger: { name: '猛虎', kind: 'melee', hp: 320, speed: 250, dmg: 30, range: 52, cd: 0.6, h: 56, r: 16, art: 'tiger', temp: true, look: { beast: 'tiger' } },
+    // 太史慈：孙策的「神亭酣战」技能唤来的英魂（有 sprites/ally_taishici.png 用图；孙策大招「神亭酣战」里冲锋的也是他），远远放箭、一箭穿几个；不占随从名额
+    ally_taishici: { name: '太史慈', kind: 'ranged', hp: 400, speed: 185, dmg: 24, range: 420, cd: 0.6, pierce: 3, h: 50, r: 15, temp: true,
+      look: { skin: '#e8c49a', skinShade: '#c4a07a', robe: '#2a5a6a', trim: '#c9a046', armor: true, armorColor: '#3a5a6a', beard: 'short', beardColor: '#1a1410', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#2a4a5a', plume: '#e8e8e8', weapon: 'bow' } },
     // 倒戈的小兵：神魔技「魅惑」迷住的敌兵，替你打一会儿就散去（还是原来那个兵的样子，身上一层粉光，见 drawAlly）
     ally_charm: { name: '倒戈', kind: 'melee', hp: 140, speed: 160, dmg: 14, range: 42, cd: 0.7, h: 40, r: 12, temp: true, charm: true,
       look: { skin: '#d9a878', robe: '#c86a9a', trim: '#7a2a5a', armor: false, beard: 'none', eyes: 'normal', brows: 'sharp', head: 'cap', headColor: '#c86a9a', weapon: 'spear' } },
@@ -2156,6 +2211,48 @@ window.GAME_DATA = {
       banner: '天水 · 幼麟 姜伯约', line: '“丞相以国士待我——维当以此枪相报！”', rage: '“九伐中原，至死方休！”',
       look: { skin: '#efd2ae', skinShade: '#cfae88', robe: '#2f6a4a', trim: '#e8ecef', armor: true, armorColor: '#c8d0d8', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#d8dee4', plume: '#3a8a5a', weapon: 'spear', aura: '#a0ecd0', artFace: [0.47, 0.29, 0.3] },
     },
+    // —— 许褚：许仲康「虎痴」，第三章抽签池（郭嘉之后；211 年潼关裸衣斗马超、渭水护曹操）。魏将，无属性。
+    //   魁梧壮汉，重甲、虎皮护腰、大刀；平时劈砍、冲撞、召曹军盾兵。大招见 game.js 的「许褚 · 虎痴」 ——
+    xuchu: {
+      name: '许褚', title: '虎痴 · 许仲康', icon: '褚', hp: 8800, speed: 96, dmg: 30, r: 37, color: '#4a3a24',
+      attacks: ['cleave', 'charge', 'cleave', 'summon'], interval: 2.4, cleaveR: 220, cleaveHalf: 1.05, chargeSpeed: 700, summon: 4, summonType: 'shield',
+      rewards: ['huchidao', 'huweihujia', 'luoyi'],
+      ultRgb: '255,170,90', ultEvery: 10,
+      ults: [
+        // （尺寸叫 ropeLen、shadeR、shadeHalf、swingR、grabR、throwD、boomR，不叫 R / r / w / len / radius：名将强化会把那几个放大）
+        // 倒拽九牛：甩出绳索（先亮 tele 秒）套住你，拔河最多 dur 秒：头顶拉条从一半开始，你往远离他的方向走每秒涨 gain，否则每秒退 lose；绳子每秒把你往他那边拽 pull 远（最长 ropeLen）。
+        //   拉条满了你赢：他摔倒晕 stun 秒，vulnT 秒内受伤增加（同破甲后易伤）；拉条空了或时间到：把你拽到跟前摔一下（伤害 slam 倍）
+        { id: 'tuoniu', name: '倒拽九牛', type: 'tugRope', tele: 0.6, dur: 6, gain: 0.32, lose: 0.2, pull: 70, ropeLen: 520, stun: 2, vulnT: 4, slam: 1.5, dmg: 1 },
+        // 渭水护主：他站定、朝一侧举起马鞍，箭雨从那一侧一排接一排射过整个画面（共 rows 排）；只有他身后马鞍挡住的扇形影子（半角 shadeHalf、离他 shadeR 以内）不挨箭。
+        //   每 per 排换一边（转 turn0～turn1 弧度），换边那排先亮 newTele 秒，同一边接着的那排先亮 tele 秒，排与排之间隔 gap 秒；每 swing 秒他朝身边回身一刀（半径 swingR，先亮 0.6 秒）
+        { id: 'weishui', name: '渭水护主', type: 'saddleShade', rows: 6, per: 2, newTele: 1.1, tele: 0.6, gap: 0.3, turn0: 0.6, turn1: 1.0, shadeHalf: 0.55, shadeR: 320, swing: 2.4, swingR: 170, dmg: 0.8 },
+        // 裸衣斗将（血过半，只一次）：脱甲——护盾清空、不再长，之后受到的伤害 +luoyiHurt、移速 ×luoyiSpeed、出手间隔 ×luoyiAtk；
+        //   接着连扑 grabs 次「虎痴扑抓」：每次在你脚下亮圈（半径 grabR，先亮 tele 秒），他跃起扑过去；扑中把你举起来扔出 throwD 远（伤害 dmg 倍），扔出时落点亮圈、boomAt 秒后炸一圈（半径 boomR、boom 倍）
+        { id: 'luoyi', name: '裸衣斗将', type: 'stripGrab', hpBelow: 0.5, once: true, grabs: 3, tele: 0.8, gap: 0.6, grabR: 100, throwD: 380, boomR: 110, boomAt: 1.0, boom: 0.6, luoyiHurt: 0.25, luoyiSpeed: 1.3, luoyiAtk: 0.7, dmg: 1.3 },
+      ],
+      banner: '潼关 · 虎痴 许仲康', line: '“虎痴在此！谁敢近主公一步？”', rage: '“脱了这身甲——痛快厮杀！”',
+      look: { skin: '#c8956a', skinShade: '#a07450', robe: '#4a3a24', trim: '#c9a046', armor: true, armorColor: '#5a5048', beard: 'short', beardColor: '#1a1410', eyes: 'round', brows: 'bushy', head: 'helmet', headColor: '#4a4038', plume: '#a8322a', weapon: 'guandao', aura: '#e0a050', artFace: [0.56, 0.215, 0.3] },
+    },
+    // —— 孙策：孙伯符「小霸王」，第三章抽签池（夏侯惇之后；195 年神亭岭酣战太史慈，194–199 年平定江东，200 年遇刺）。吴将，无属性。
+    //   年轻英武，赤红战袍、金甲、长枪；平时突刺冲锋、横扫、召江东弓手。大招见 game.js 的「孙策 · 小霸王」 ——
+    sunce: {
+      name: '孙策', title: '小霸王 · 孙伯符', icon: '策', hp: 7800, speed: 110, dmg: 26, r: 32, color: '#6a1e1a',
+      attacks: ['charge', 'cleave', 'summon', 'charge', 'cleave'], interval: 2.3, cleaveR: 210, cleaveHalf: 1.0, chargeSpeed: 820, summon: 4, summonType: 'archer',
+      rewards: ['bawangqiang', 'shenting', 'xiaobawang'],
+      ultRgb: '255,130,90', ultEvery: 10,
+      ults: [
+        // （尺寸叫 standD、laneW、over、armL、armW、hubR、ringD、mirrorR，不叫 R / r / w / len / radius）
+        // 神亭酣战：太史慈的身影杀来，两人分站你两侧（离你 standD），各亮一道过你的线（宽 laneW，先亮 tele 秒），同时冲过你再冲 over 远（每秒 speed）——两条路线在你身上交叉成 X；共 rounds 轮，每轮隔 gap 秒
+        { id: 'shenting', name: '神亭酣战', type: 'crossDuel', rounds: 3, standD: 420, tele: 0.8, speed: 1500, laneW: 90, over: 240, gap: 0.5, dmg: 1.1 },
+        // 横扫江东：原地抡枪，arms 道枪影（长 armL、宽 armW）绕他转 dur 秒（先亮 tele 秒），角速度从 spin0 加到 spin1；贴到他脚下 hubR 以内、或跑出 armL 外不挨打；被扫到隔 hitCd 秒才会再挨；你离他远时他边转边往你那边挪（每秒 drift）
+        { id: 'hengsao', name: '横扫江东', type: 'windmill', arms: 2, armL: 460, armW: 46, hubR: 100, dur: 5, spin0: 1.1, spin1: 2.4, tele: 1.0, hitCd: 0.6, drift: 50, dmg: 1.0 },
+        // 于吉镜咒（血过半，只一次）：于吉的鬼魂在你周围 ringD 处立起 mirrors 面铜镜（半径 mirrorR），孙策连冲 charges 次扑你（每次先亮 tele 秒，宽 laneW，冲过你再冲 over）；
+        //   冲锋路线撞上铜镜：镜子碎、他在镜中看见于吉——晕 stun 秒、vulnT 秒内受伤 +vuln（伤口迸裂），这一招就结束；一面都没撞，冲完铜镜散去
+        { id: 'yuji', name: '于吉镜咒', type: 'mirrorCurse', hpBelow: 0.5, once: true, mirrors: 3, ringD: 260, mirrorR: 36, charges: 5, tele: 0.8, speed: 1450, laneW: 90, over: 240, gap: 0.55, stun: 2.5, vuln: 0.35, vulnT: 6, dmg: 1.2 },
+      ],
+      banner: '江东 · 小霸王 孙伯符', line: '“江东子弟，随我横扫天下！”', rage: '“小霸王之名，岂是虚传！”',
+      look: { skin: '#f0d2ae', skinShade: '#cfae88', robe: '#a8221c', trim: '#e0b850', armor: true, armorColor: '#c9a046', beard: 'none', eyes: 'phoenix', brows: 'sharp', head: 'helmet', headColor: '#c9a046', plume: '#d02a2a', weapon: 'spear', aura: '#ff8a5a', artFace: [0.56, 0.275, 0.3] },
+    },
     // —— 陆逊：陆伯言，第六章的第一位名将（222 年夷陵之战：火烧连营七百里）。吴将，书生拜大都督，火属性。
     //   白袍青甲、手执羽扇；平时离你远远地射一扇火箭、落几团火，隔一阵召一队弓手。大招见 game.js 的「陆逊 · 火烧连营」 ——
     luxun: {
@@ -2556,6 +2653,8 @@ window.GAME_DATA = {
     yuanshao: { death: '悔不听田丰之言……', ult: { xiandeng: '先登死士，弩箭齐发！', gaolu: '筑土山，立高橹——射！', wuchao: '乌巢屯粮在此，看你如何破我！' } },
     xunyu: { death: '空食盒……文若……明白了……', ult: { quhu: '驱虎吞狼——去吧。', erhu: '二虎竞食，必有一伤。', juzhong: '居中持重，以待天时。' } },
     weiyan: { death: '背后……是谁……', ult: { ziwu: '子午谷——直取长安！', tideng: '什么七星灯——给我灭！', shuigan: '谁敢杀我！谁敢杀我！' } },
+    xuchu: { death: '主公……末将……护不住了……', ult: { tuoniu: '九头牛也拽得动——何况是你！', weishui: '主公莫慌——有许褚在！', luoyi: '裸衣上阵——来斗！' } },
+    sunce: { death: '仲谋……江东……交给你了……', ult: { shenting: '子义，再来斗一场！', hengsao: '横扫江东，谁敢挡我！', yuji: '于吉妖道——滚出我的镜子！' } },
     jiangwei: { death: '吾计不成……乃天命也……', ult: { jiufa: '九伐中原——丞相，看着！', tielong: '铁笼山中，插翅难飞！', jiange: '剑阁一夫当关——你过不去！' } },
     menghuo: { death: '丞相天威……南人……不复反矣……', ult: { xiangbing: '象兵——给我踏平他！', duquan: '南中四泉，喝一口就别想走！', nanman: '藤甲在身，刀枪不入！' }, capture: '不服！放我回去，再战一场！' },
     moxiahoudun: { death: '这只眼……终究……还给天了……', ult: { bashi: '箭来——箭回！', mangdou: '黑暗里，我看得比你清楚！', tunjing: '父精母血——吞了它，化作魔！' } },
@@ -2639,6 +2738,8 @@ window.GAME_DATA = {
       shencaocao: { note: '175 级时在东南方的铜雀台里。奸雄：血每掉一成，他受到的伤害就少 4%、打人更痛，最多叠八层。下诏令时天子在侧，他受到的伤害减半。说曹操曹操到：你每次闪现落地，他会瞬移过来横扫一刀。第一次打空血「割发代首」不会死，曹兵从四面赶来护驾，每走到他身边一个就回一截血——要在半路砍掉。', ults: { zhaoling: '天上落下传国玉玺，连下三道诏令：近前（待在他身边的圈里）、退避（待在圈外）、止步（不许动）、疾行（不许停）。照做没事，抗旨不停掉血。', hubao: '六骑虎豹骑从你背后的两翼包抄冲过来，先亮红线。', canghai: '血量七成以下：四周变成夜海，海潮往里涨，能站的岸越来越小，海里走不快、不停掉血；一轮红日、一轮明月轮流朝你砸下来。', weicai: '血量四成半以下：张辽、夏侯惇、典韦、郭嘉、司马懿的将魂围着你依次出招——直线突骑、一箭、落石、落雷、扇形的鹰视，一招接一招。' } },
       yuanshao: { note: '第三章「群雄逐鹿」里河北铁骑之后、关羽之前登场。优柔寡断：每次放大招前先犹豫一下（头顶冒「……」），这时打掉他一截血，他就举棋不定、愣在原地，这一招也作废。', ults: { xiandeng: '在你和他之间列出一排先登弩手，连射三轮平行弩箭，每轮留一两道空当，先亮预警。', gaolu: '你四周升起四座高橹，一齐朝你放箭，一阵子后自己倒塌；高橹打得掉。', wuchao: '血过半后远处立起乌巢粮囤（画面边上有箭头）：粮囤在时他慢慢回血、身边不断来大戟士；打掉粮囤就乌巢火起，他晕住一阵、受到的伤害增加，大戟士溃散。不去打的话，粮囤过一阵自己撤走。' } },
       xunyu: { note: '第五章「三分天下」里张辽之后、曹操之前登场。留香：他走过的地方留下淡紫色香雾，雾里的敌人受到的伤害减少。', ults: { quhu: '放一头猛虎追你一阵；猛虎撞上别的敌人会停下撕咬，往敌群里跑能甩开它。', erhu: '你脚下放一块肉，左右两头猛虎一起扑向那块肉；两虎撞在一起会互咬，他也跟着掉血；还站在肉旁边就会被两只一起扑。暴怒时连放两轮。', juzhong: '血过半后退到前方坐镇，筑起一圈城墙，城门轮流开合；在城外打他伤害大减，从开着的城门进去才打得满。' } },
+      xuchu: { note: '第三章「群雄逐鹿」抽签池里的名将（郭嘉之后）。虎痴：血厚、劈得狠，平时会召一队盾兵。', ults: { tuoniu: '甩绳索套住你拔河：往远离他的方向走，头顶的拉条就往你这边涨；拉赢了他摔个跟头、晕两秒，拉输了被他一把拽过去摔在地上。', weishui: '朝一侧举起马鞍，箭雨从那边一排排射过整个画面，只有他身后马鞍的影子里不挨箭；他还会时不时回身砍一刀，别贴得太近。', luoyi: '血过半后脱掉重甲：护盾没了、更好打，但跑得更快、出手更勤；接着连扑三次，扑中就把你举起来扔出去，落地处还会炸一圈。' } },
+      sunce: { note: '第三章「群雄逐鹿」抽签池里的名将（夏侯惇之后）。小霸王：冲得快，平时会召一队弓手。', ults: { shenting: '太史慈的身影杀来，两人从两侧同时朝你冲锋，路线在你身上交叉成 X，一共三轮；往两条线中间的空当躲。', hengsao: '原地抡起长枪，两道枪影像风车一样绕着他转、越转越快；贴到他脚下或跑出枪影外才躲得开。', yuji: '血过半后于吉的鬼魂立起三面铜镜，孙策连冲五次扑你；站到铜镜后面，引他冲过来撞上镜子，他就在镜中看见于吉，晕住好一阵、还更好打。' } },
       jiangwei: { note: '第六章「南征北伐」里魏延之后、孟获之前登场。幼麟：冲得快、枪长，平时会召一队弩手。', ults: { jiufa: '朝你连冲八次，每次先在地上亮一道枪线，一次比一次快；第九下站定，朝你刺出一道贯穿全屏的大枪芒。', tielong: '你脚下落一圈铁笼，走不出去，笼外弩箭往里射；笼上有一根锈红的栏杆，打断它就开个口子，八秒后笼子自己散。', jiange: '血过半后退到一道横贯画面的关墙后面，墙头一排排放箭；只有关门能过去，门里的拒马枪阵会定时刺出。在墙这边打他伤害大减，十秒后关墙倒塌。' } },
       weiyan: { note: '第六章「南征北伐」里陆逊之后登场。脑后反骨：站在他背后打，伤害 +50%——他冲过头、放完招收招时会背对你。', ults: { ziwu: '以你为中心铺开一条山谷，两边石壁走不出去；他从谷口一路冲到谷尾，整条谷道都挨打，躲进石壁上的凹洞才安全。每趟凹洞换位置。', tideng: '你身边按北斗摆出七盏灯，他从勺口到勺柄一盏盏踢翻，每盏炸开一片火油并留火，最后一盏最大。', shuigan: '血过半后横刀立定连喊三声，每声朝正面震出一道气浪；这时从正面打他不掉血，绕到背后打够伤害，马岱会从背后给他一刀。' } },
       menghuo: { note: '第六章「南征北伐」的章末名将，祝融夫人随行。七擒七纵：前六次打空血都不死，被擒走几秒后放回来，一次比一次强，第七次才真倒下。', ults: { xiangbing: '画面一侧亮出几条冲锋道，战象一波波冲过来，每波都有空道，每波换一边。', duquan: '你身边冒出四眼毒泉，慢慢往外漫，踩进去会中毒、走不快。', nanman: '血过半后一圈藤甲兵围上来，刀枪不入，只怕火。' } },
@@ -2717,19 +2818,21 @@ window.GAME_DATA = {
         { t: 160, rates: { foot: 4.2, shield: 0.7, archer: 0.7, cavalry: 1.1 } },
       ],
       // 武将多了（2026-11-03）：pool 的名将每局抽 n 位，按下面的先后放进 slots 的时间（彼此隔 40 秒，上一位倒下后仍至少隔 bossGap）；没抽到的进无尽先出
-      draw: { n: 3, slots: [45, 85, 125] },
+      draw: { n: 4, slots: [45, 85, 125, 165] }, // 2026-11-17 孙策、许褚进池，抽 3 → 4（池子 6 → 8，每位出场的机会还是一半）
       events: [
         { t: 20, type: 'special', bid: 'xiliangying', dx: -820, dy: -560 }, // 西凉营地出现在左上方，什么时候去打都行
         { t: 30, type: 'special', bid: 'zuoxian', dx: 820, dy: 560 }, // 左贤王帐出现在右下方（207 年文姬归汉），什么时候去打都行
         { t: 45, type: 'boss', id: 'dianwei', pool: true },
         { t: 75, type: 'boss', id: 'xiahoudun', pool: true }, // 下邳征吕布时被流矢射中左眼（198 年）
+        { t: 90, type: 'boss', id: 'sunce', pool: true }, // 194–199 年平定江东（2026-11-17 加入）
         { t: 105, type: 'boss', id: 'yanliang', pool: true },
         { t: 140, type: 'ambush', enemy: 'cavalry', count: 24, text: '河北铁骑' },
         { t: 150, type: 'boss', id: 'yuanshao' }, // 200 年官渡（2026-11-12 加入，不进抽签；关羽往后挪）
         { t: 170, type: 'boss', id: 'wenchou', pool: true },
         { t: 210, type: 'boss', id: 'zhenji', pool: true },
         { t: 245, type: 'boss', id: 'guojia', pool: true },
-        { t: 185, type: 'boss', id: 'guanyu', final: true },
+        { t: 255, type: 'boss', id: 'xuchu', pool: true }, // 211 年潼关裸衣斗马超（2026-11-17 加入）
+        { t: 205, type: 'boss', id: 'guanyu', final: true }, // 2026-11-17 抽签多一位，往后挪
       ],
     },
     {
@@ -2855,15 +2958,16 @@ window.GAME_DATA = {
     //   在武将图鉴里给这位名将掉的兵器、技能（宝物不算）和他的专属神兵升级，最高 max 级，第 n 级的价钱是 cost[n-1]，神兵 ×sbCostK。
     //   第三版（11-14 群友：每位名将的魂单独算、不通用；升级的在什么地方都生效，只是魂只在修罗掉）：斩谁掉谁的魂（META.souls[名将]），
     //   在标题页「名将升级」里花这位名将的魂升他掉的兵器、技能（每级伤害 +dmg）、专属神兵（每级 +sbDmg，价钱 ×sbCostK，融合神兵按组员平均级）
-    //   和「破盾」（对这位名将的护盾伤害每级 +po），升了在哪儿都生效。
+    //   和「破盾」（对这位名将的护盾伤害每级 +po；还会「碎盾」：打中他的护盾时每秒最多一次，额外削掉他最大生命的 poPct × 级，最多 poPctMax，只扣护盾、不溢到血上），升了在哪儿都生效。
     //   （试过「修罗斩」按百分比扣名将血量，用户觉得时间到了就死、太简单，没用）
+    //   （11-17 玩家反映修罗太难主要是盾太厚：po 0.1 → 0.2，加碎盾；用户先说每两级 0.5%、最多 2%，嫌快，定成每级 0.25%、最多 1%）
     soul: { general: 2, camp: 10 },
-    up: { max: 10, cost: [4, 6, 8, 10, 13, 16, 20, 24, 29, 35], sbCostK: 2, dmg: 0.15, sbDmg: 0.15, po: 0.1 },
+    up: { max: 10, cost: [4, 6, 8, 10, 13, 16, 20, 24, 29, 35], sbCostK: 2, dmg: 0.15, sbDmg: 0.15, po: 0.2, poPct: 0.0025, poPctMax: 0.01 },
     // 名将升级界面的分页（11-14 用户：按魏蜀吴群雄归类）；带 camp 的神魔将单独一页；新名将记得加进来，没写的普通名将算群雄
     upsTabs: [
-      { id: 'wei', name: '魏', ids: ['dianwei', 'xiahoudun', 'zhenji', 'guojia', 'zhangliao', 'caocao', 'simayi', 'caiwenji', 'xunyu'] },
+      { id: 'wei', name: '魏', ids: ['dianwei', 'xiahoudun', 'zhenji', 'guojia', 'zhangliao', 'caocao', 'simayi', 'caiwenji', 'xunyu', 'xuchu'] },
       { id: 'shu', name: '蜀', ids: ['guanyu', 'zhangfei', 'zhaoyun', 'zhugeliang', 'huangzhong', 'pangtong', 'liubei', 'machao', 'weiyan', 'jiangwei'] },
-      { id: 'wu', name: '吴', ids: ['sunshangxiang', 'zhouyu', 'sunquan', 'daqiao', 'xiaoqiao', 'luxun'] },
+      { id: 'wu', name: '吴', ids: ['sunshangxiang', 'zhouyu', 'sunquan', 'daqiao', 'xiaoqiao', 'luxun', 'sunce'] },
       { id: 'qun', name: '群雄', ids: ['chengyuanzhi', 'zhangbao', 'zhangjiao', 'huaxiong', 'lubu', 'diaochan', 'dongzhuo', 'yanliang', 'wenchou', 'yuanshao', 'huatuo', 'menghuo'] },
       { id: 'camp', name: '神魔', camp: true },
     ],
