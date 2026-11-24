@@ -403,6 +403,7 @@ img.ico.sb { object-fit: contain; background: radial-gradient(circle, #3a2a10, #
 #origins { max-width: 1320px; } /* 五个出身（2026-11-23 加了侠客）：宽屏一行五张；不够宽就三张一行（3 + 2）；手机上一张一行 */
 #origins .card.origin { flex-basis: 196px; }
 @media (max-width: 1080px) { #origins { max-width: 780px; } }
+@media (max-width: 560px) { #origins .card.origin { flex-basis: 100%; } } /* 上面那条比下面手机的 .card 规则优先，手机上要再写一遍，不然宽一点的手机会挤成两列（11-23 上线后玩家截图） */
 .card.origin.locked { filter: grayscale(.85); opacity: .72; }
 .card.origin.locked:hover { transform: none; }
 .card.origin .lock-tip { color: var(--seal); font-weight: 700; }
