@@ -160,7 +160,7 @@ const Battle = (function () {
   /* q: { type, x }；召出来的援兵另外带 y（出现的位置）、hpK（血量打几折）、haste（狂奔几秒） */
   function spawn(q) {
     const T = S.mods || {};                                      // 试炼规则 / 无尽词缀：敌军血量、攻击、移速，敌将血量、技能冷却
-    const d = ENEMIES[q.type], isBoss = d.id === 'boss', hk = d.horde ? 1 / CFG.HORDE : 1, hp = Math.round(d.hp * stageHpMul(S.stage, S.rush ? CFG.WAVES : S.wave) * (q.hpK || 1) * hk * (isBoss ? S.boss.hpK * (T.bossHp || 1) * (S.rush ? CFG.RUSH.hpK : 1) : 1) * (T.eHp || 1));   // 过关斩将：按那一关最后一波的强度，敌将血量再乘 hpK   // 小兵：人多、单个脆
+    const d = ENEMIES[q.type], isBoss = d.id === 'boss', hk = d.horde ? 1 / CFG.HORDE : 1, hp = Math.round(d.hp * stageHpMul(S.stage, hpWave()) * (q.hpK || 1) * hk * (isBoss ? S.boss.hpK * (T.bossHp || 1) * (S.rush ? CFG.RUSH.hpK : 1) : 1) * (T.eHp || 1));   // 过关斩将：按那一关最后一波的强度，敌将血量再乘 hpK   // 小兵：人多、单个脆
     if (q.y == null) S.spawned++;
     S.enemies.push({
       def: d, name: isBoss ? S.boss.name : d.name, x: q.x, y: q.y == null ? -d.r - rand() * 16 : q.y,
@@ -1099,13 +1099,16 @@ const Battle = (function () {
   /* 彩色缘分的合击大招（左边单独一个按钮「合」；v2.23 起礌石照留，不再是拿礌石换的）。只能自己点着放（和礌石一样，开着「自动」也不会自己放）。
    * 威力：基数 a = 场上活着的武将的平均攻击（吃全军攻击和大招伤害的加成），但不低于「当前关卡黄巾兵血量 × CFG.BOND_BASE」——
    * 和礌石一个口径、跟着关卡走，这样 ×2 的全场招式能把小兵打掉八成血，×3 以上的直接清掉小兵 */
+  // 敌人血量按第几波算。过关斩将里 S.wave 是「第几将」，不是波数——敌将一律按那一关最后一波的强度，
+  // 礌石、合击保底这些「跟着敌人血量走」的数也得用同一个口径，不然斩得越多它们越强（每将 +7%，斩到两百多将时三块礌石就砸死敌将）
+  function hpWave() { return S.rush ? CFG.WAVES : S.wave; }
   function castBond() {
     const b = S && S.bond;
     if (!b || S.over || S.choosing || S.paused || b.t < b.cd) return false;
     if (!S.live.some(e => !e.dead)) return false;
     const L = S.heroes.filter(h => !h.dead); if (!L.length) return false;
     b.t = 0;
-    const a = Math.max(L.reduce((s, h) => s + h.atk / (h.boostK || 1), 0) / L.length * S.buffs.atk * S.buffs.ult, ENEMIES.grunt.hp * stageHpMul(S.stage, S.wave) * CFG.BOND_BASE);
+    const a = Math.max(L.reduce((s, h) => s + h.atk / (h.boostK || 1), 0) / L.length * S.buffs.atk * S.buffs.ult, ENEMIES.grunt.hp * stageHpMul(S.stage, hpWave()) * CFG.BOND_BASE);
     Sfx.play('ult'); Sfx.play('awake');
     S.dim = { t: 0.6, max: 0.6 }; S.flash = { color: '255,235,180', a: 0.22, t: 0.5, max: 0.5 }; S.shake = Math.max(S.shake, 0.3);
     S.banner = { text: b.def.name, sub: '缘分 · ' + b.bond, t: 1.6, max: 1.6 };
@@ -1126,7 +1129,7 @@ const Battle = (function () {
     if (S.rock.n <= 0) { text(x, y, '礌石未备好', '#d8c8a8', 14, 0.7, true); return; }
     S.rock.n--; Sfx.play('rock_throw');
     // 伤害跟着关卡走（黄巾兵当前血量的 CFG.ROCK_DMG 倍）：操作的价值不随战力变化，专门对付扎堆的小兵，对敌将只是刮痧
-    const dmg = ENEMIES.grunt.hp * stageHpMul(S.stage, S.wave) * CFG.ROCK_DMG * S.rock.dmg;
+    const dmg = ENEMIES.grunt.hp * stageHpMul(S.stage, hpWave()) * CFG.ROCK_DMG * S.rock.dmg;
     shotLob(null, 'rock', x + 40, -30, clampX(x), Math.min(WY - 20, y), { dur: 0.35, r: CFG.ROCK_R, dmg });
   }
 
