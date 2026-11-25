@@ -71,6 +71,7 @@ const CFG = {
   ROCK_MAX: 3,             // 滚木礌石最多存几块
   ROCK_CD: 6,              // 每块恢复秒数
   ROCK_R: 60,              // 落点半径
+  ROCK_BOSS_CAP: 0.08,     // 一块礌石最多打掉敌将（和奇遇）最大生命的这么多（v2.29）：礌石是砸小兵用的，对敌将只是刮痧——不封顶的话，过关斩将里军令叠多了能一石秒杀
   ROCK_DMG: 1.0,           // 每块伤害 = 当前关卡黄巾兵血量 × 此倍率（并眩晕 1 秒）
   AIM_SLOW: 0.25,          // 手动瞄准大招时的慢动作倍率
   SWAP_DELAY: 1.5,         // 局中换上场的武将过多少秒才第一次出手（怒气从 0 开始）
@@ -1021,7 +1022,9 @@ function comboScore(e) { let v = (e.atk || 0) + (e.spd || 0) + (e.crit || 0) * 1
 COMBOS.forEach(c => { const v = comboScore(c.eff); c.q = c.skill ? 7 : v >= 0.2 - 1e-9 ? 5 : v >= 0.15 - 1e-9 ? 4 : v >= 0.11 - 1e-9 ? 3 : v >= 0.08 - 1e-9 ? 2 : 1; });
 
 
-/* 局内三选一军令 */
+/* 局内三选一军令。once：效果当场生效、不记进已选列表（换将重算加成时不会再来一遍）——不是「只能拿一次」；
+ * max：一局里最多拿几次，拿满了不再出现（v2.29）。普通关一局只选 3 次，这个上限碰不到；过关斩将每 3 将选一次、能选几十次，
+ * 不设上限的话「搜刮战利」叠出几千万倍的铜钱（一局几亿）、「多备礌石」叠到一石秒杀敌将 */
 const BUFFS = [
   { id: 'atk',  name: '擂鼓助威', desc: '全体攻击 +20%',       apply: b => { b.atk *= 1.2; } },
   { id: 'spd',  name: '急行军令', desc: '全体攻速 +15%',       apply: b => { b.spd *= 1.15; } },
@@ -1029,8 +1032,8 @@ const BUFFS = [
   { id: 'rage', name: '士气高昂', desc: '怒气获取 +35%',       apply: b => { b.rage *= 1.35; } },
   { id: 'ult',  name: '奇谋妙计', desc: '大招伤害 +30%',       apply: b => { b.ult *= 1.3; } },
   { id: 'heal', once: true, name: '修缮城墙', desc: '立即回复 35% 城防',   apply: (b, S) => { S.wall = Math.min(S.wallMax, S.wall + S.wallMax * 0.35); } },
-  { id: 'coin', name: '搜刮战利', desc: '本局铜钱掉落 +50%',   apply: b => { b.coin *= 1.5; } },
-  { id: 'rock', once: true, name: '多备礌石', desc: '投石上限 +2，伤害 +50%', apply: (b, S) => { S.rock.max += 2; S.rock.n += 2; S.rock.dmg *= 1.5; } },
+  { id: 'coin', max: 3, name: '搜刮战利', desc: '本局铜钱掉落 +50%',   apply: b => { b.coin *= 1.5; } },
+  { id: 'rock', once: true, max: 3, name: '多备礌石', desc: '投石上限 +2，伤害 +50%', apply: (b, S) => { S.rock.max += 2; S.rock.n += 2; S.rock.dmg *= 1.5; } },
   { id: 'boss', name: '擒贼擒王', desc: '对校尉、敌将伤害 +35%', apply: b => { b.boss *= 1.35; } },
   // 带 el 的只在阵上有该系武将时出现
   { id: 'e_fire',   el: 'fire',    name: '火上浇油', desc: '火系伤害 +40%',   apply: b => { b.el.fire = (b.el.fire || 1) * 1.4; } },

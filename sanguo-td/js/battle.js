@@ -42,7 +42,7 @@ const Battle = (function () {
       teles: [], bcut: null, lastBcut: -99, intro: null, vig: null,   // v2.19 敌将演出：放招前的地面预警、大招横幅、登场名牌、重击后屏幕四周泛一圈招式色
       t: 0, coins: 0, kills: 0,
       buffs: null, bonus: null, wallBonus: 0, psnVuln: 0, windT: 0, haste: { t: 0, mul: 1 }, guard: { t: 0, k: 1 }, combo: 0, comboT: 0, comboPop: 0, comboMax: 0,
-      picks: [], dmgLog: {}, teamVer: 0,                     // 已选的军令（换将后要重新算一遍）、下场武将的伤害记录、阵容版本号（界面据此重建大招按钮）
+      picks: [], taken: {}, dmgLog: {}, teamVer: 0,                     // 已选的军令（换将后要重新算一遍）、下场武将的伤害记录、阵容版本号（界面据此重建大招按钮）
       rock: { n: CFG.ROCK_MAX, max: CFG.ROCK_MAX, t: 0, dmg: 1 }, aim: null, aimT: 0,
       over: false, win: false, paused: false, choosing: false, wall: 0, wallMax: 0, shake: 0, wallFlash: 0, wallHitX: W / 2, wallLag: 0, wallAcc: 0, wallAccX: 0, wallAccT: 0, wallFxT: 0, hurt: 0, alarm: false, healK: 1, banner: null, flash: null,
     };
@@ -203,9 +203,9 @@ const Battle = (function () {
     if (!S.rush) heroHeal(CFG.HERO_WAVE_HEAL);                 // 打完一波，活着的武将喘口气（过关斩将不回血：要回血自己带会回血的武将）
     if (S.rush ? S.wave % CFG.RUSH.buffEvery === 0 : S.wave % CFG.BUFF_EVERY === 0 && S.wave < CFG.WAVES) {
       S.choosing = true; S.aim = null;
-      const pool = BUFFS.filter(b => !b.el || S.heroes.some(h => h.def.el === b.el)), opts = [];
+      const pool = BUFFS.filter(b => (!b.el || S.heroes.some(h => h.def.el === b.el)) && (S.taken[b.id] || 0) < (b.max || Infinity)), opts = [];   // 拿满次数的不再出现
       while (opts.length < 3 && pool.length) opts.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
-      UI.showBuffs(opts, i => { opts[i].apply(S.buffs, S); if (!opts[i].once) S.picks.push(opts[i]); S.choosing = false; nextWave(); });
+      UI.showBuffs(opts, i => { opts[i].apply(S.buffs, S); S.taken[opts[i].id] = (S.taken[opts[i].id] || 0) + 1; if (!opts[i].once) S.picks.push(opts[i]); S.choosing = false; nextWave(); });
     } else nextWave();
   }
   /* 城池失守时看广告复活（每局一次）：只修城，倒下的武将不回来。没有广告可看、已经用过、或者人全倒了，就直接算输 */
@@ -384,6 +384,7 @@ const Battle = (function () {
     dmg = Math.max(1, Math.round(dmg * m * (0.9 + rand() * 0.2) * (crit ? 2 + (src ? src.critDmg : 0) + (cu ? cu.dmg : 0) : 1)));
     if (src && !o.basic && !o.dot) Sfx.play('hit_' + el);         // 大招、技能打中人：这个攻击类型命中的声音（普攻和持续伤害不响，太密）
     if (src && S.leech && S.leech.t > 0 && S.leech.got < S.leech.cap) { const v = Math.min(dmg * S.leech.k, S.leech.cap - S.leech.got, e.hp * S.leech.k); S.leech.got += v; S.wall = Math.min(S.wallMax, S.wall + v); }   // 鲁肃「缔盟」：全军打出的伤害有一小部分补回城防（有上限）
+    if (o.cap && (e.def.id === 'boss' || e.def.id === 'rare')) dmg = Math.min(dmg, Math.max(1, Math.ceil(e.max * o.cap)));   // 礌石打敌将、奇遇：一块最多打掉这么多血（军令、暴击怎么叠都一样）
     if (o.execute) dmg = Math.max(dmg, Math.ceil(e.hp));         // 斩杀：不管有没有盾，这一下一定打死
     if (src) src.dmg += Math.min(dmg, Math.max(0, e.hp));
     e.hp -= dmg; e.flash = 0.1;
@@ -864,7 +865,7 @@ const Battle = (function () {
       tex('burst', x, y, { w: r * 1.8, life: 0.2, rgb: '255,225,160', rot: rand() * TAU });
       burst(x, y, 2, '#ffe9a8', 70, 2.5, 0.25);
     } else if (el === 'rock') {
-      inRadius(x, y, r, e => { hit(e, dmg, 'rock', null); stun(e, 1); });
+      inRadius(x, y, r, e => { hit(e, dmg, 'rock', null, { cap: CFG.ROCK_BOSS_CAP }); stun(e, 1); });
       ring(x, y, 8, r, 0.35, '#c8a878', 5); burst(x, y, 14, '#8a6a48', 180, 5, 0.5); burst(x, y, 6, '#d8c8a8', 120, 3, 0.4);
       tex('burst', x, y - 6, { w: r * 2.2, life: 0.35, grow: 1.3, rgb: '220,180,130', rot: rand() * TAU });
       S.shake = Math.max(S.shake, 0.15);

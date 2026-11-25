@@ -227,9 +227,13 @@ function rushRecordReward(from, to) {
   return r;
 }
 /* 结算：kills = 斩了几将。破纪录给纪录奖励；今天第一局按斩将数给将魂；金币按掉落给一半 */
+/* 过关斩将一局最多能掉多少铜钱：每斩一将（外加没打完的那一将）掉一份敌将的铜钱，「搜刮战利」最多叠 max 次。
+ * 正常打法到不了这个数；v2.28 之前军令能无限叠，一局能掉几亿 */
+function rushCoinCap(kills) { const b = BUFFS.find(x => x.id === 'coin'); return (kills + 1) * ENEMIES.boss.coin * Math.pow(1.5, b && b.max || 3) * 2; }   // ×2：敌将召来的小兵也掉一点
 function settleRush(kills, dropped) {
-  const S = Save.data, Rd = rushRec(), dv = Number(dropped), coins = isFinite(dv) && dv > 0 ? Math.round(dv * CFG.RUSH.coinK) : 0;
+  const S = Save.data, Rd = rushRec(), dv = Number(dropped);
   kills = Math.max(0, Math.min(300, Number(kills) | 0));        // 300 将：实际打不到，只是给乱填的数封个顶
+  const coins = isFinite(dv) && dv > 0 ? Math.round(Math.min(dv, rushCoinCap(kills)) * CFG.RUSH.coinK) : 0;
   let rec = null, day = 0;
   if (!rushOpen()) return { coins: 0, dropped: 0, tickets: 0, iron: 0, soul: 0, daySoul: 0, enc: null, rush: true, slain: kills, best: Rd.best, record: false, first: false };   // 没开放（正常进不来）：什么也不给
   if (kills > Rd.best) { rec = rushRecordReward(Rd.best, kills); Rd.best = kills; S.soul = (S.soul || 0) + rec.soul; S.iron = (S.iron || 0) + rec.iron; }

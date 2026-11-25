@@ -2,7 +2,7 @@
 // 新加任何发奖励的入口时，在这里加一条对应的检查。
 // 用法：node tools/sim/econ.js        全部通过时最后一行是「资源检查：N 项全部通过」，有不通过的退出码是 1
 const fs = require('fs'), vm = require('vm'), path = require('path');
-const { load, fight } = require('./harness.js');
+const { load, fight, account, levelTo, planAt } = require('./harness.js');
 const JS = path.join(__dirname, '..', '..', 'js');
 const out = []; let fails = 0;
 const ok = (name, cond, detail) => { if (!cond) fails++; out.push((cond ? 'PASS ' : 'FAIL ') + name + (cond || !detail ? '' : '：' + detail)); };
@@ -339,6 +339,57 @@ function fresh(patch) { const G = load(patch), D = G.Save.data; return { G, D, c
   const src = fs.readFileSync(path.join(JS, 'battle.js'), 'utf8');
   ok('过关斩将：不能看广告复活（排行榜公平）', /if \(S\.rush \|\| S\.revived/.test(src));
   ok('过关斩将：打掉神魔不解锁（神魔还是要在无尽里打）', /S\.boss\.myth && !S\.rush/.test(src) && un0 === JSON.stringify(D2.unlocked || {}));
+}
+
+/* ---------- 8e. 过关斩将里的军令和礌石（v2.29）：军令每 3 将选一次、一局能选几十次，任何「每拿一次 ×1.5」的东西都得有上限 ----------
+ * 出过的事（11-25 论坛攻略、排行榜）：「搜刮战利」无限叠，一局掉几亿铜钱；「多备礌石」无限叠 + 礌石伤害跟着关卡走，一石秒杀敌将，32 万战力斩 240 将 */
+{
+  const { G, c } = fresh(), BU = G.BUFFS, coin = BU.find(b => b.id === 'coin'), rock = BU.find(b => b.id === 'rock');
+  ok('军令：「搜刮战利」「多备礌石」一局最多拿 3 次', coin && rock && coin.max >= 1 && coin.max <= 3 && rock.max >= 1 && rock.max <= 3, JSON.stringify([coin && coin.max, rock && rock.max]));
+  // 军令里凡是往「资源」上加成的（现在只有铜钱）都必须带 max：拿一份空的加成表试每一条，看它动没动 coin
+  const noCap = BU.filter(b => { const t = { atk: 1, spd: 1, crit: 0, rage: 1, ult: 1, coin: 1, boss: 1, el: {} }; try { b.apply(t, { wall: 0, wallMax: 1, rock: { max: 0, n: 0, dmg: 1 } }); } catch (e) { } return t.coin !== 1 && !(b.max <= 3); }).map(b => b.id);
+  ok('军令：加铜钱的军令都有次数上限', !noCap.length, noCap.join('、'));
+  const cap = c.rushCoinCap(50), R = G.CFG.RUSH;
+  ok('过关斩将：结算的铜钱有上限（本局掉落填一千万亿也只给上限）', fin(cap) && cap > 0 && cap < 50 * 2000 && (() => { const D = G.Save.data; D.stage = 81; const c0 = D.coins; const r = c.settleRush(50, 1e15); return r.coins <= Math.round(cap * R.coinK) && D.coins - c0 === r.coins; })(), String(cap));
+
+  // 真打：每次军令都选到想要的那条（运气最好的情况），礌石全砸敌将
+  const play = (pref, stage) => {
+    const p = planAt(80), A = account(p.draws, p.lv, null, p.iron, 80), cx = A.ctx, B = A.Battle; A.Save.data.stage = 200; levelTo(A, A.stagePower(stage));
+    let rot = 0;
+    cx.__pickBuff = opts => { const S = B.state; for (let n = 0; n < pref.length; n++) { const id = pref[rot++ % pref.length], bf = A.BUFFS.find(x => x.id === id); if ((S.taken[id] || 0) < (bf.max || Infinity)) { opts[0] = bf; return 0; } } return 0; };
+    vm.runInContext('RUSH_SEQ = null; dayNo = () => 20400', cx);
+    B.start(cx.rushStage(1), { rush: true, name: '过关斩将' });
+    let f = 0, worst = 0;
+    while (!B.state.over && B.state.wave <= 150) {
+      const S = B.state, b = S.enemies.find(e => e.def.id === 'boss' && !e.dead);
+      if (f % 4 === 0 && S.rock.n > 0 && b) B.tapAt(b.x, b.y);
+      B.tick(0.05); f++;
+    }
+    const S = B.state, r = { kills: S.wave - 1, coins: S.coins, coinMul: S.buffs.coin, rockDmg: S.rock.dmg, rockMax: S.rock.max, taken: Object.assign({}, S.taken), capK: cx.rushCoinCap(S.wave - 1) };
+    B.stop(); return r;
+  };
+  const a = play(['rock', 'boss', 'crit'], 150);
+  ok('过关斩将：照「礌石流」打（只拿多备礌石、擒贼擒王、破绽洞察，礌石全砸敌将），第 150 关的战力斩不到 100 将', a.kills < 100 && a.rockDmg <= Math.pow(1.5, 3) + 1e-9 && a.taken.rock <= 3, JSON.stringify(a));
+  const b2 = play(['coin', 'rock', 'boss', 'crit'], 150);
+  ok('过关斩将：每次都抢「搜刮战利」，铜钱倍率最多 ×' + Math.pow(1.5, 3) + '，一局掉的铜钱不超过上限', b2.coinMul <= Math.pow(1.5, 3) + 1e-9 && b2.taken.coin <= 3 && b2.coins <= b2.capK && b2.coins < 20000, JSON.stringify(b2));
+
+  // 一块礌石打敌将：礌石倍率调到一万亿也最多打掉 ROCK_BOSS_CAP 的血；斩将数改成 1 和 200，礌石伤害一样
+  const { G: G3, c: c3 } = fresh(); G3.Save.data.stage = 81;
+  G3.Battle.start(c3.rushStage(1), { rush: true, name: '过关斩将' });
+  const B3 = G3.Battle; let S3 = B3.state;
+  for (let i = 0; i < 200 && !S3.enemies.some(e => e.def.id === 'boss'); i++) B3.tick(0.05);
+  const boss = S3.enemies.find(e => e.def.id === 'boss');
+  const lob = wave => { S3.wave = wave; S3.rock.n = 3; const seen = new Set(S3.shots); B3.tapAt(270, 300); const sh = S3.shots.find(x => !seen.has(x)); return sh ? (sh.dmg != null ? sh.dmg : sh.o && sh.o.dmg) : NaN; };
+  const w0 = S3.wave, d1 = lob(1), d200 = lob(200); S3.wave = w0;
+  ok('过关斩将：礌石伤害不随斩将数变（第 1 将和第 200 将一样）', fin(d1) && d1 > 0 && d1 === d200, d1 + ' / ' + d200);
+  for (let i = 0; i < 900 && boss.y < 320 && !S3.over; i++) { S3.wall = S3.wallMax; S3.heroes.forEach(h => { if (!h.dead) h.hp = h.maxHp; }); B3.tick(0.05); }   // 等敌将走进投石够得着的地方（新号打不过它：城防、武将一直补满，别让这一局先输了）
+  S3.heroes.forEach(h => { h.stunT = 99; h.rage = 0; });      // 武将都晕着：只看礌石
+  S3.zones.length = 0; S3.shots.length = 0; boss.burn = 0; boss.psn = 0;   // 场上残留的技能、飞在半路的箭、身上的灼烧中毒都清掉：只看这一块礌石
+  S3.rock.dmg = 1e12; S3.buffs.crit = 5; S3.rock.n = 1; boss.hp = boss.max;
+  const h0 = boss.hp; B3.tapAt(boss.x, boss.y); for (let i = 0; i < 12; i++) B3.tick(0.05);
+  const lost = h0 - boss.hp, lim = Math.ceil(boss.max * G3.CFG.ROCK_BOSS_CAP);
+  ok('礌石：一块最多打掉敌将 ' + Math.round(G3.CFG.ROCK_BOSS_CAP * 100) + '% 的血（礌石倍率、擒王、暴击叠到天上也一样）', G3.CFG.ROCK_BOSS_CAP > 0 && G3.CFG.ROCK_BOSS_CAP <= 0.1 && lost > 0 && lost <= lim && !boss.dead, lost + ' / ' + boss.max + '（上限 ' + lim + '）');
+  B3.stop();
 }
 
 /* ---------- 8.5 神魔兵器（v2.24）：每位神魔一件，没打赢那位神魔之前抽不到；打赢谁只放出谁的那一件 ---------- */
